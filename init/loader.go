@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
-	"github.com/sirupsen/logrus"
 )
 
 // Scheme is the default instance of runtime.Scheme to which types in the Kubernetes API are already registered.
@@ -65,10 +64,6 @@ type APIKey struct {
 type DirectoryLoader struct {
 	store           Load
 	directory       string
-	bundleInsert    *sql.Stmt
-	findCSVByName   *sql.Stmt
-	getReplacesName *sql.Stmt
-	addReplacesRef  *sql.Stmt
 }
 
 var _ SQLPopulator = &DirectoryLoader{}
@@ -265,13 +260,10 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return fmt.Errorf("could not decode contents of file %s into package: %v", path, err)
 	}
 
-	if err := d.LoadPackageChannels(&manifest); err != nil {
+	if err := d.store.AddPackageChannels(manifest); err!=nil {
 		return fmt.Errorf("error loading package into db: %s", err.Error())
 	}
 
 	return nil
 }
 
-func (d *DirectoryLoader) LoadPackageChannels(p *registry.PackageManifest) error {
-	return nil
-}

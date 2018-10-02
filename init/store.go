@@ -42,17 +42,21 @@ func NewSQLLiteStore(outFilename string) (*SQLStore, error) {
 		bundle TEXT
 	);
 	CREATE TABLE package (
-		name TEXT PRIMARY KEY 
+		name TEXT PRIMARY KEY,
+		default_channel TEXT,
+		FOREIGN KEY(default_channel) REFERENCES channel(name)
 	);
 	CREATE TABLE channel (
-		name TEXT PRIMARY KEY, 
+		name TEXT, 
 		package_name TEXT, 
 		operatorbundle_name TEXT,
+		PRIMARY KEY(name, package_name),
 		FOREIGN KEY(package_name) REFERENCES package(name),
 		FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
 	);
 	CREATE INDEX replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
 	`
+	
 	// what csv does this one replace?
 	//	sqlquery := `
 	//  SELECT DISTINCT json_extract(operatorbundle.csv, '$.spec.replaces')
@@ -118,14 +122,38 @@ func (s *SQLStore) AddPackageChannels(manifest registry.PackageManifest) error {
 		return err
 	}
 
-	addPackage, err := tx.Prepare("insert into operatorbundle(name, csv, bundle) values(?, ?, ?)")
+	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
 		return err
 	}
 	defer addPackage.Close()
 
+	addDefaultChannel, err := tx.Prepare("update package set default_channel = ? where name = ?")
+	if err != nil {
+		return err
+	}
+	defer addPackage.Close()
 
+	if _, err := addPackage.Exec(manifest.PackageName); err!=nil {
+		return err
+	}
 
+	addChannel, err := tx.Prepare("insert into channel(name, package_name, operatorbundle_name) values(?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addChannel.Close()
+
+	for _, c := range manifest.Channels {
+		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err!=nil {
+			return err
+		}
+		if c.IsDefaultChannel(manifest) {
+			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err!=nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit()
 }
 
