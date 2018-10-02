@@ -8,11 +8,11 @@ import (
 
 func TestLoader(t *testing.T) {
 	os.Remove("test.db")
-	db, err := NewSQLLiteDB("test.db")
+	store, err := NewSQLLiteStore("test.db")
 	defer os.Remove("test.db")
 	require.NoError(t, err)
 
-	loader := NewSQLLoaderForDirectory(db, "../manifests")
+	loader := NewSQLLoaderForDirectory(store, "../manifests")
 	require.NoError(t, loader.Populate())
 
 
