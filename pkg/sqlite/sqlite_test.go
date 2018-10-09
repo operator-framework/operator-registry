@@ -1,4 +1,4 @@
-package store
+package sqlite
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestLoader(t *testing.T) {
 	store, err := NewSQLLiteLoader("test.db")
 	require.NoError(t, err)
 
-	loader := NewSQLLoaderForDirectory(store, "../manifests")
+	loader := NewSQLLoaderForDirectory(store, "../../manifests")
 	require.NoError(t, loader.Populate())
 }
 
@@ -50,21 +50,21 @@ func TestQuerier(t *testing.T) {
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntries)
+	require.ElementsMatch(t, []registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntries)
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
 	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
-	require.ElementsMatch(t, []ChannelEntry{
+	require.ElementsMatch(t, []registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
+	require.ElementsMatch(t, []registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)

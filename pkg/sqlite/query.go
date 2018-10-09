@@ -1,4 +1,4 @@
-package store
+package sqlite
 
 import (
 	"context"
@@ -6,38 +6,15 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-type ChannelEntry struct {
-	packageName string
-	channelName string
-	bundleName string
-	replaces string
-}
-
-type Query interface {
-	ListPackages(context context.Context) ([]string, error)
-	GetPackage(context context.Context, name string) (*registry.PackageManifest, error)
-	GetBundleForChannel(context context.Context, pkgName string, channelName string) (string, error)
-	GetBundleForName(context context.Context, name string) (string, error)
-	// Get all channel entries that say they replace this one
-	GetChannelEntriesThatReplace(context context.Context, name string) (entries []ChannelEntry, err error)
-	// Get the bundle in a package/channel that replace this one
-	GetBundleThatReplaces(context context.Context, name, pkgName, channelName string) (string, error)
-	// Get all channel entries that provide an api
-	GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []ChannelEntry, err error)
-	// Get latest channel entries that provide an api
-	GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []ChannelEntry, err error)
-	// Get the the latest bundle that provides the API in a default channel
-	GetBundleThatProvides(context context.Context, groupOrName, version, kind string) (string, error)
-}
 
 type SQLQuerier struct {
 	db *sql.DB
 }
 
-var _ Query = &SQLQuerier{}
+var _ registry.Query = &SQLQuerier{}
 
 func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
 	db, err := sql.Open("sqlite3", "file:" + dbFilename + "?immutable=true")
@@ -145,7 +122,7 @@ func (s *SQLQuerier) GetBundleForName(context context.Context, name string) (str
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name string) (entries []ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name string) (entries []registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name
 			  FROM channel_entry
 			  LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
@@ -155,7 +132,7 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name 
 		return
 	}
 
-	entries = []ChannelEntry{}
+	entries = []registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -165,12 +142,11 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name 
 		if err = rows.Scan(&pkgNameSQL, &channelNameSQL, &bundleNameSQL); err != nil {
 			return
 		}
-
-		entries = append(entries, ChannelEntry{
-			packageName: pkgNameSQL.String,
-			channelName: channelNameSQL.String,
-			bundleName:  bundleNameSQL.String,
-			replaces:    name,
+		entries = append(entries, registry.ChannelEntry{
+			PackageName: pkgNameSQL.String,
+			ChannelName: channelNameSQL.String,
+			BundleName:  bundleNameSQL.String,
+			Replaces:    name,
 		})
 	}
 	if len(entries) == 0 {
@@ -201,7 +177,7 @@ func (s *SQLQuerier) GetBundleThatReplaces(context context.Context, name, pkgNam
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -213,7 +189,7 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 		return
 	}
 
-	entries = []ChannelEntry{}
+	entries = []registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -224,11 +200,11 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 			return
 		}
 
-		entries = append(entries, ChannelEntry{
-			packageName: pkgNameSQL.String,
-			channelName: channelNameSQL.String,
-			bundleName:  bundleNameSQL.String,
-			replaces:    replacesSQL.String,
+		entries = append(entries, registry.ChannelEntry{
+			PackageName: pkgNameSQL.String,
+			ChannelName: channelNameSQL.String,
+			BundleName:  bundleNameSQL.String,
+			Replaces:    replacesSQL.String,
 		})
 	}
 	if len(entries) == 0 {
@@ -239,7 +215,7 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 }
 
 // Get latest channel entries that provide an api
-func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []ChannelEntry, err error) {
+func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name, MIN(channel_entry.depth)
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -251,7 +227,7 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context,
 		return nil, err
 	}
 
-	entries = []ChannelEntry{}
+	entries = []registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -263,11 +239,11 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context,
 			return nil, err
 		}
 
-		entries = append(entries, ChannelEntry{
-			packageName: pkgNameSQL.String,
-			channelName: channelNameSQL.String,
-			bundleName:  bundleNameSQL.String,
-			replaces:    replacesSQL.String,
+		entries = append(entries, registry.ChannelEntry{
+			PackageName: pkgNameSQL.String,
+			ChannelName: channelNameSQL.String,
+			BundleName:  bundleNameSQL.String,
+			Replaces:    replacesSQL.String,
 		})
 	}
 	if len(entries) == 0 {

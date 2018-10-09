@@ -1,4 +1,4 @@
-package store
+package sqlite
 
 import (
 	"database/sql"
@@ -6,22 +6,17 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type Load interface {
-	AddOperatorBundle(bundleObjs []*unstructured.Unstructured) error
-	AddPackageChannels(manifest registry.PackageManifest) error
-	AddProvidedApis() error
-}
 
 type SQLLoader struct {
 	db *sql.DB
 }
 
-var _ Load = &SQLLoader{}
+var _ registry.Load = &SQLLoader{}
 
 func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	db, err := sql.Open("sqlite3", outFilename) // TODO: ?immutable=true
