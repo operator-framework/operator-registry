@@ -1,7 +1,7 @@
-package main
+package init
 
 import (
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/operator-framework/operator-registry/store"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -43,13 +43,13 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	store, err := NewSQLLiteStore(outFilename)
-	if err!= nil {
+	dbLoader, err := store.NewSQLLiteLoader(outFilename)
+	if err != nil {
 		logrus.Fatal(err)
 	}
-	defer store.Close()
+	defer dbLoader.Close()
 
-	loader := NewSQLLoaderForDirectory(store, manifestDir)
+	loader := store.NewSQLLoaderForDirectory(dbLoader, manifestDir)
 	if err := loader.Populate(); err != nil {
 		logrus.Fatal(err)
 	}

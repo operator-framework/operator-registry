@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"fmt"
@@ -24,14 +24,6 @@ var Scheme = runtime.NewScheme()
 
 // Codecs provides access to encoding and decoding for the scheme
 var Codecs = serializer.NewCodecFactory(Scheme)
-
-// ParameterCodec handles versioning of objects that are converted to query parameters.
-var ParameterCodec = runtime.NewParameterCodec(Scheme)
-
-// DefaultJSONEncoder returns a default encoder for our scheme
-func DefaultJSONEncoder() runtime.Encoder {
-	return unstructured.JSONFallbackEncoder{Encoder: Codecs.LegacyCodec(Scheme.PrioritizedVersionsAllGroups()...)}
-}
 
 func DefaultYAMLDecoder() runtime.Decoder {
 	return Codecs.UniversalDeserializer()
@@ -62,8 +54,8 @@ type APIKey struct {
 // files ending in `.clusterserviceversion.yaml` will be parsed as CSVs
 // files ending in `.package.yaml` will be parsed as Packages
 type DirectoryLoader struct {
-	store           Load
-	directory       string
+	store     Load
+	directory string
 }
 
 var _ SQLPopulator = &DirectoryLoader{}
@@ -84,6 +76,11 @@ func (d *DirectoryLoader) Populate() error {
 
 	log.Info("loading Packages")
 	if err := filepath.Walk(d.directory, d.LoadPackagesWalkFunc); err != nil {
+		return err
+	}
+
+	log.Info("extracting provided API information")
+	if err := d.store.AddProvidedApis(); err!= nil {
 		return err
 	}
 	return nil
@@ -260,10 +257,9 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return fmt.Errorf("could not decode contents of file %s into package: %v", path, err)
 	}
 
-	if err := d.store.AddPackageChannels(manifest); err!=nil {
+	if err := d.store.AddPackageChannels(manifest); err != nil {
 		return fmt.Errorf("error loading package into db: %s", err.Error())
 	}
 
 	return nil
 }
-
