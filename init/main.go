@@ -1,4 +1,4 @@
-package init
+package main
 
 import (
 	"github.com/operator-framework/operator-registry/store"

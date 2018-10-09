@@ -5,7 +5,8 @@ WORKDIR /go/src/github.com/operator-framework/operator-registry
 
 COPY vendor vendor
 COPY init init
-RUN go build -o ./initializer ./init/...
+COPY store store
+RUN go build --tags json1 -o ./initializer ./init/...
 
 COPY manifests manifests
 RUN ./initializer

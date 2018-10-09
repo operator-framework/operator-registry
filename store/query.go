@@ -39,8 +39,8 @@ type SQLQuerier struct {
 
 var _ Query = &SQLQuerier{}
 
-func NewSQLLiteQuerier(outFilename string) (*SQLQuerier, error) {
-	db, err := sql.Open("sqlite3", outFilename) // TODO: ?immutable=true
+func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
+	db, err := sql.Open("sqlite3", "file:" + dbFilename + "?immutable=true")
 	if err != nil {
 		return nil, err
 	}
