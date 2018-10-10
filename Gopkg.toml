@@ -30,10 +30,6 @@
   version = "1.9.0"
 
 [[constraint]]
-  name = "github.com/operator-framework/operator-lifecycle-manager"
-  version = "0.7.1"
-
-[[constraint]]
   name = "github.com/sirupsen/logrus"
   version = "1.0.6"
 
