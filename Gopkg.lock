@@ -68,13 +68,13 @@
   version = "1.0.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/operator-framework/operator-lifecycle-manager"
   packages = [
     "pkg/api/apis/operators",
     "pkg/api/apis/operators/v1alpha1"
   ]
-  revision = "8799f39ef342dc1ff7430eba7a88c1c3c70cbdcc"
-  version = "0.7.1"
+  revision = "585750559262a1afeccfc83706979eb946bd6aee"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -209,8 +209,7 @@
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
-    "pkg/apis/apiextensions/v1beta1",
-    "pkg/client/clientset/clientset/scheme"
+    "pkg/apis/apiextensions/v1beta1"
   ]
   revision = "16750353bf974758fbed9f44c39b81dfe6decb71"
 
@@ -259,6 +258,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0cf6c3b3beaa5146f11120f873833e5f5282ebad3dcc412168bee3899c6673a5"
+  inputs-digest = "f8ad0b6660b48c3acc39f7a9e6c66e224ebc35aa5d43c9f3d63cf832cdf23eb4"
   solver-name = "gps-cdcl"
   solver-version = 1
