@@ -1,5 +1,12 @@
 package registry
 
+// APIKey stores GroupVersionKind for use as map keys
+type APIKey struct {
+	Group   string
+	Version string
+	Kind    string
+}
+
 // PackageManifest holds information about a package, which is a reference to one (or more)
 // channels under a single package.
 type PackageManifest struct {

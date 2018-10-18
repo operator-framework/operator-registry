@@ -8,46 +8,21 @@ import (
 	"strings"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-// Scheme is the default instance of runtime.Scheme to which types in the Kubernetes API are already registered.
-var Scheme = runtime.NewScheme()
 
-// Codecs provides access to encoding and decoding for the scheme
-var Codecs = serializer.NewCodecFactory(Scheme)
-
-func DefaultYAMLDecoder() runtime.Decoder {
-	return Codecs.UniversalDeserializer()
-}
-
-func init() {
-	if err := v1alpha1.AddToScheme(Scheme); err != nil {
-		panic(err)
-	}
-
-	if err := v1beta1.AddToScheme(Scheme); err != nil {
-		panic(err)
-	}
-}
 
 type SQLPopulator interface {
 	Populate() error
 }
 
-type APIKey struct {
-	group   string
-	version string
-	kind    string
-}
 
 // DirectoryLoader loads a directory of resources into the database
 // files ending in `.crd.yaml` will be parsed as CRDs
@@ -135,11 +110,11 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return nil
 	}
 
-	providedAPIsInBundle, err := d.ProvidedAPIs(bundleObjs)
+	providedAPIsInBundle, err := registry.ProvidedAPIs(bundleObjs)
 	if err != nil {
 		return err
 	}
-	if err := d.AllProvidedAPIsInBundle(&csv, providedAPIsInBundle); err != nil {
+	if err := registry.AllProvidedAPIsInBundle(&csv, providedAPIsInBundle); err != nil {
 		return err
 	}
 
@@ -175,7 +150,7 @@ func (d *DirectoryLoader) LoadBundle(dir string) ([]*unstructured.Unstructured, 
 		}
 
 		obj := &unstructured.Unstructured{}
-		if _, _, err = DefaultYAMLDecoder().Decode(data, nil, obj); err != nil {
+		if _, _, err = registry.DefaultYAMLDecoder().Decode(data, nil, obj); err != nil {
 			return nil, fmt.Errorf("could not decode contents of file %s into object: %v", f.Name(), err)
 		}
 		if obj != nil {
@@ -184,42 +159,6 @@ func (d *DirectoryLoader) LoadBundle(dir string) ([]*unstructured.Unstructured, 
 
 	}
 	return objs, nil
-}
-
-func (d *DirectoryLoader) ProvidedAPIs(objs []*unstructured.Unstructured) (map[APIKey]struct{}, error) {
-	provided := map[APIKey]struct{}{}
-	for _, o := range objs {
-		if o.GetObjectKind().GroupVersionKind().Kind == "CustomResourceDefinition" {
-			crd := &apiextensions.CustomResourceDefinition{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), crd); err != nil {
-				return nil, err
-			}
-			for _, v := range crd.Spec.Versions {
-				provided[APIKey{group: crd.Spec.Group, version: v.Name, kind: crd.Spec.Names.Kind}] = struct{}{}
-			}
-			if crd.Spec.Version != "" {
-				provided[APIKey{group: crd.Spec.Group, version: crd.Spec.Version, kind: crd.Spec.Names.Kind}] = struct{}{}
-			}
-		}
-
-		//TODO: APIServiceDefinitions
-	}
-	return provided, nil
-}
-
-func (d *DirectoryLoader) AllProvidedAPIsInBundle(csv *v1alpha1.ClusterServiceVersion, bundleAPIs map[APIKey]struct{}) error {
-	shouldExist := make(map[APIKey]struct{}, len(csv.Spec.CustomResourceDefinitions.Owned)+len(csv.Spec.APIServiceDefinitions.Owned))
-	for _, crdDef := range csv.Spec.CustomResourceDefinitions.Owned {
-		parts := strings.SplitAfterN(crdDef.Name, ".", 2)
-		shouldExist[APIKey{parts[1], crdDef.Version, crdDef.Kind}] = struct{}{}
-	}
-	//TODO: APIServiceDefinitions
-	for key, _ := range shouldExist {
-		if _, ok := bundleAPIs[key]; !ok {
-			return fmt.Errorf("couldn't find %v in bundle", key)
-		}
-	}
-	return nil
 }
 
 func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err error) error {

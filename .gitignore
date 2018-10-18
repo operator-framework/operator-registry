@@ -10,3 +10,9 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Ignore binaries
+bin
+
+# Ignore sqlite
+*.db
