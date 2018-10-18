@@ -39,12 +39,12 @@ func TestQuerierForDirectory(t *testing.T) {
 	etcdPackage, err := store.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
 	require.EqualValues(t, &registry.PackageManifest{
-		PackageName: "etcd",
-		DefaultChannelName:"alpha",
+		PackageName:        "etcd",
+		DefaultChannelName: "alpha",
 		Channels: []registry.PackageChannel{
 			{
-				Name:"alpha",
-				CurrentCSVName:"etcdoperator.v0.9.2",
+				Name:           "alpha",
+				CurrentCSVName: "etcdoperator.v0.9.2",
 			},
 		},
 	}, etcdPackage)

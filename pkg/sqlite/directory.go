@@ -17,12 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-
-
 type SQLPopulator interface {
 	Populate() error
 }
-
 
 // DirectoryLoader loads a directory of resources into the database
 // files ending in `.crd.yaml` will be parsed as CRDs
@@ -55,7 +52,7 @@ func (d *DirectoryLoader) Populate() error {
 	}
 
 	log.Info("extracting provided API information")
-	if err := d.store.AddProvidedApis(); err!= nil {
+	if err := d.store.AddProvidedApis(); err != nil {
 		return err
 	}
 	return nil
@@ -100,37 +97,33 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return fmt.Errorf("could not decode contents of file %s into CSV: %v", path, err)
 	}
 
-	bundleObjs, err := d.LoadBundle(filepath.Dir(path))
+	bundle, err := d.LoadBundle(filepath.Dir(path))
 	if err != nil {
 		return fmt.Errorf("error loading objs in dir: %s", err.Error())
 	}
 
-	if len(bundleObjs) == 0 {
+	if bundle.Size() == 0 {
 		log.Warnf("no bundle objects found")
 		return nil
 	}
 
-	providedAPIsInBundle, err := registry.ProvidedAPIs(bundleObjs)
-	if err != nil {
-		return err
-	}
-	if err := registry.AllProvidedAPIsInBundle(&csv, providedAPIsInBundle); err != nil {
+	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
 		return err
 	}
 
-	return d.store.AddOperatorBundle(bundleObjs)
+	return d.store.AddOperatorBundle(bundle)
 }
 
 // LoadBundle takes the directory that a CSV is in and assumes the rest of the objects in that directory
 // are part of the bundle.
-func (d *DirectoryLoader) LoadBundle(dir string) ([]*unstructured.Unstructured, error) {
+func (d *DirectoryLoader) LoadBundle(dir string) (*registry.Bundle, error) {
+	bundle := &registry.Bundle{}
 	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "load": "bundle"})
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	objs := []*unstructured.Unstructured{}
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
@@ -154,11 +147,11 @@ func (d *DirectoryLoader) LoadBundle(dir string) ([]*unstructured.Unstructured, 
 			return nil, fmt.Errorf("could not decode contents of file %s into object: %v", f.Name(), err)
 		}
 		if obj != nil {
-			objs = append(objs, obj)
+			bundle.Add(obj)
 		}
 
 	}
-	return objs, nil
+	return bundle, nil
 }
 
 func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err error) error {

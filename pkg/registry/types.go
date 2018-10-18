@@ -54,6 +54,6 @@ func (pc PackageChannel) IsDefaultChannel(pm PackageManifest) bool {
 type ChannelEntry struct {
 	PackageName string
 	ChannelName string
-	BundleName string
-	Replaces string
+	BundleName  string
+	Replaces    string
 }

@@ -37,7 +37,7 @@ func NewSQLLoaderForConfigMap(store registry.Load, configMap v1.ConfigMap) *Conf
 	return &ConfigMapLoader{
 		store:     store,
 		configMap: configMap,
-		crds: map[registry.APIKey]*unstructured.Unstructured{},
+		crds:      map[registry.APIKey]*unstructured.Unstructured{},
 	}
 }
 
@@ -58,7 +58,7 @@ func (c *ConfigMapLoader) Populate() error {
 	}
 
 	var parsedCRDList []v1beta1.CustomResourceDefinition
-	if err := json.Unmarshal(crdListJson, &parsedCRDList); err!=nil {
+	if err := json.Unmarshal(crdListJson, &parsedCRDList); err != nil {
 		log.WithError(err).Debug("error parsing CRD list")
 		return err
 	}
@@ -109,7 +109,7 @@ func (c *ConfigMapLoader) Populate() error {
 			return err
 		}
 
-		bundle := []*unstructured.Unstructured{{Object: csvUnst}}
+		bundle := registry.NewBundle(&unstructured.Unstructured{Object: csvUnst})
 		for _, owned := range csv.Spec.CustomResourceDefinitions.Owned {
 			split := strings.SplitAfterN(owned.Name, ".", 2)
 			if len(split) < 2 {
@@ -120,7 +120,7 @@ func (c *ConfigMapLoader) Populate() error {
 			if crdUnst, ok := c.crds[gvk]; !ok {
 				log.WithField("gvk", gvk).WithError(err).Debug("couldn't find owned CRD in crd list")
 			} else {
-				bundle = append(bundle, crdUnst)
+				bundle.Add(crdUnst)
 			}
 		}
 

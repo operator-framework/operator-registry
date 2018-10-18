@@ -6040,6 +6040,16 @@ data:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.name
+
+        apiservicedefinitions:
+          owned:
+          - group: etcd.database.coreos.com
+            version: v1beta2
+            kind: FakeEtcdObject
+            displayName: Fake Object
+            description: Fake object for testing apiservices
+            deploymentName: svcat-catalog-apiserver
+
         customresourcedefinitions:
           owned:
           - name: etcdclusters.etcd.database.coreos.com
