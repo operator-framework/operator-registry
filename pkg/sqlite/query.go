@@ -9,7 +9,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-
 type SQLQuerier struct {
 	db *sql.DB
 }
@@ -17,7 +16,7 @@ type SQLQuerier struct {
 var _ registry.Query = &SQLQuerier{}
 
 func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
-	db, err := sql.Open("sqlite3", "file:" + dbFilename + "?immutable=true")
+	db, err := sql.Open("sqlite3", "file:"+dbFilename+"?immutable=true")
 	if err != nil {
 		return nil, err
 	}

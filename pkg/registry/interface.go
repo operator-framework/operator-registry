@@ -2,12 +2,10 @@ package registry
 
 import (
 	"context"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Load interface {
-	AddOperatorBundle(bundleObjs []*unstructured.Unstructured) error
+	AddOperatorBundle(bundle *Bundle) error
 	AddPackageChannels(manifest PackageManifest) error
 	AddProvidedApis() error
 }

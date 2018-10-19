@@ -4,6 +4,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/coreos/go-semver/semver"
@@ -65,9 +66,11 @@ type CRDDescription struct {
 
 // APIServiceDescription provides details to OLM about apis provided via aggregation
 type APIServiceDescription struct {
-	Name              string                 `json:"name"`
+	Group             string                 `json:"group"`
 	Version           string                 `json:"version"`
 	Kind              string                 `json:"kind"`
+	DeploymentName    string                 `json:"deploymentName,omitempty"`
+	ContainerPort     int32                  `json:"containerPort,omitempty"`
 	DisplayName       string                 `json:"displayName,omitempty"`
 	Description       string                 `json:"description,omitempty"`
 	Resources         []APIResourceReference `json:"resources,omitempty"`
@@ -222,13 +225,35 @@ func (csv ClusterServiceVersion) OwnsCRD(name string) bool {
 	return false
 }
 
+// ConditionReason is a camelcased reason for the status of a RequirementStatus or DependentStatus
+type StatusReason string
+
+const (
+	RequirementStatusReasonPresent             StatusReason = "Present"
+	RequirementStatusReasonNotPresent          StatusReason = "NotPresent"
+	RequirementStatusReasonPresentNotSatisfied StatusReason = "PresentNotSatisfied"
+	DependentStatusReasonSatisfied             StatusReason = "Satisfied"
+	DependentStatusReasonNotSatisfied          StatusReason = "NotSatisfied"
+)
+
+// DependentStatus is the status for a dependent requirement (to prevent infinite nesting)
+type DependentStatus struct {
+	Group   string       `json:"group"`
+	Version string       `json:"version"`
+	Kind    string       `json:"kind"`
+	Status  StatusReason `json:"status"`
+	UUID    string       `json:"uuid,omitempty"`
+	Message string       `json:"message,omitempty"`
+}
+
 type RequirementStatus struct {
-	Group   string `json:"group"`
-	Version string `json:"version"`
-	Kind    string `json:"kind"`
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	UUID    string `json:"uuid,omitempty"`
+	Group      string            `json:"group"`
+	Version    string            `json:"version"`
+	Kind       string            `json:"kind"`
+	Name       string            `json:"name"`
+	Status     StatusReason      `json:"status"`
+	UUID       string            `json:"uuid,omitempty"`
+	Dependents []DependentStatus `json:"dependents,omitempty"`
 }
 
 // ClusterServiceVersionStatus represents information about the status of a pod. Status may trail the actual
@@ -312,11 +337,71 @@ func (csv ClusterServiceVersion) GetAllCRDDescriptions() []CRDDescription {
 func (csv ClusterServiceVersion) GetAllAPIServiceDescriptions() []APIServiceDescription {
 	set := make(map[string]APIServiceDescription)
 	for _, required := range csv.Spec.APIServiceDefinitions.Required {
-		set[required.Name] = required
+		name := fmt.Sprintf("%s.%s", required.Version, required.Group)
+		set[name] = required
 	}
 
 	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
-		set[owned.Name] = owned
+		name := fmt.Sprintf("%s.%s", owned.Version, owned.Group)
+		set[name] = owned
+	}
+
+	keys := make([]string, 0)
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.StringSlice(keys).Sort()
+
+	descs := make([]APIServiceDescription, 0)
+	for _, key := range keys {
+		descs = append(descs, set[key])
+	}
+
+	return descs
+}
+
+// GetRequiredAPIServiceDescriptions returns a deduplicated set of required APIServiceDescriptions
+// with the intersection of required and owned removed
+// Equivalent to the set subtraction required - owned
+//
+// Descriptions are returned in alphabetical order.
+func (csv ClusterServiceVersion) GetRequiredAPIServiceDescriptions() []APIServiceDescription {
+	set := make(map[string]APIServiceDescription)
+	for _, required := range csv.Spec.APIServiceDefinitions.Required {
+		name := fmt.Sprintf("%s.%s", required.Version, required.Group)
+		set[name] = required
+	}
+
+	// Remove any shared owned from the set
+	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
+		name := fmt.Sprintf("%s.%s", owned.Version, owned.Group)
+		if _, ok := set[name]; ok {
+			delete(set, name)
+		}
+	}
+
+	keys := make([]string, 0)
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.StringSlice(keys).Sort()
+
+	descs := make([]APIServiceDescription, 0)
+	for _, key := range keys {
+		descs = append(descs, set[key])
+	}
+
+	return descs
+}
+
+// GetOwnedAPIServiceDescriptions returns a deduplicated set of owned APIServiceDescriptions
+//
+// Descriptions are returned in alphabetical order.
+func (csv ClusterServiceVersion) GetOwnedAPIServiceDescriptions() []APIServiceDescription {
+	set := make(map[string]APIServiceDescription)
+	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
+		name := fmt.Sprintf("%s.%s", owned.Version, owned.Group)
+		set[name] = owned
 	}
 
 	keys := make([]string, 0)

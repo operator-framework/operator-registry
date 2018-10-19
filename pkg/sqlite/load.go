@@ -3,14 +3,10 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
-
 
 type SQLLoader struct {
 	db *sql.DB
@@ -78,7 +74,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	return &SQLLoader{db}, nil
 }
 
-func (s *SQLLoader) AddOperatorBundle(bundleObjs []*unstructured.Unstructured) error {
+func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -90,7 +86,7 @@ func (s *SQLLoader) AddOperatorBundle(bundleObjs []*unstructured.Unstructured) e
 	}
 	defer stmt.Close()
 
-	csvName, csvBytes, bundleBytes, err := s.serializeBundle(bundleObjs)
+	csvName, csvBytes, bundleBytes, err := bundle.Serialize()
 	if err != nil {
 		return err
 	}
@@ -161,12 +157,12 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	defer addReplaces.Close()
 
 	for _, c := range manifest.Channels {
-		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0);
+		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
 			return err
 		}
 		currentID, err := res.LastInsertId()
-		if err!=nil {
+		if err != nil {
 			return err
 		}
 
@@ -193,7 +189,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					return err
 				}
 				replacedID, err := replacedChannelEntry.LastInsertId()
-				if err!=nil {
+				if err != nil {
 					return err
 				}
 				addReplaces.Exec(replacedID, currentID)
@@ -212,18 +208,20 @@ func (s *SQLLoader) AddProvidedApis() error {
 		return err
 	}
 	addApi, err := tx.Prepare("insert or replace into api(groupOrName,version,kind) values(?,?,?)")
-	if err!=nil{
+	if err != nil {
 		return err
 	}
 	defer addApi.Close()
 
 	addApiProvider, err := tx.Prepare("insert into api_provider(groupOrName,version,kind,channel_entry_id) values(?,?,?,?)")
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 	defer addApiProvider.Close()
 
-	getChannelEntryProvidedAPIs,err  := tx.Prepare(`
+
+	// get CRD provided APIs
+	getChannelEntryProvidedAPIs, err := tx.Prepare(`
 	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.name', '$.version', '$.kind')
 	FROM channel_entry INNER JOIN operatorbundle,json_each(operatorbundle.csv, '$.spec.customresourcedefinitions.owned')
 	ON channel_entry.operatorbundle_name = operatorbundle.name`)
@@ -233,26 +231,58 @@ func (s *SQLLoader) AddProvidedApis() error {
 	defer getChannelEntryProvidedAPIs.Close()
 
 	rows, err := getChannelEntryProvidedAPIs.Query()
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var channelId sql.NullInt64
 		var gvkSQL sql.NullString
 
-		if err := rows.Scan(&channelId, &gvkSQL); err!=nil {
+		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
 			return err
 		}
 		apigvk := []string{}
-		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err!= nil {
+		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
 			return err
 		}
-			if _, err := addApi.Exec(apigvk[0], apigvk[1], apigvk[2]); err != nil {
-				return err
-			}
-			if _, err := addApiProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
-				return err
-			}
+		if _, err := addApi.Exec(apigvk[0], apigvk[1], apigvk[2]); err != nil {
+			return err
+		}
+		if _, err := addApiProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
+			return err
+		}
+	}
+
+	getChannelEntryProvidedAPIsAPIservice, err := tx.Prepare(`
+	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.group', '$.version', '$.kind')
+	FROM channel_entry INNER JOIN operatorbundle,json_each(operatorbundle.csv, '$.spec.apiservicedefinitions.owned')
+	ON channel_entry.operatorbundle_name = operatorbundle.name`)
+	if err != nil {
+		return err
+	}
+	defer getChannelEntryProvidedAPIsAPIservice.Close()
+
+	rows, err = getChannelEntryProvidedAPIsAPIservice.Query()
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var channelId sql.NullInt64
+		var gvkSQL sql.NullString
+
+		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
+			return err
+		}
+		apigvk := []string{}
+		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
+			return err
+		}
+		if _, err := addApi.Exec(apigvk[0], apigvk[1], apigvk[2]); err != nil {
+			return err
+		}
+		if _, err := addApiProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -261,30 +291,3 @@ func (s *SQLLoader) AddProvidedApis() error {
 func (s *SQLLoader) Close() {
 	s.db.Close()
 }
-
-func (s *SQLLoader) serializeBundle(bundleObjs []*unstructured.Unstructured) (csvName string, csvBytes []byte, bundleBytes []byte, err error) {
-	csvCount := 0
-	for _, obj := range bundleObjs {
-		objBytes, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
-		if err != nil {
-			return "", nil, nil, err
-		}
-		bundleBytes = append(bundleBytes, objBytes...)
-
-		if obj.GetObjectKind().GroupVersionKind().Kind == "ClusterServiceVersion" {
-			csvName = obj.GetName()
-			csvBytes, err = runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
-			if err != nil {
-				return "", nil, nil, err
-			}
-			csvCount += 1
-			if csvCount > 1 {
-				return "", nil, nil, fmt.Errorf("two csvs found in one bundle")
-			}
-		}
-	}
-
-	return csvName, csvBytes, bundleBytes, nil
-}
-
-
