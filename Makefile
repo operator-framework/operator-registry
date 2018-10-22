@@ -13,3 +13,6 @@ image:
 
 vendor:
 	dep ensure -v
+
+codegen:
+	protoc -I pkg/api/ -I${GOPATH}/src --go_out=plugins=grpc:pkg/api pkg/api/registry.proto

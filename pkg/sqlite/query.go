@@ -121,7 +121,7 @@ func (s *SQLQuerier) GetBundleForName(context context.Context, name string) (str
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name string) (entries []registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name
 			  FROM channel_entry
 			  LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
@@ -131,7 +131,7 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name 
 		return
 	}
 
-	entries = []registry.ChannelEntry{}
+	entries = []*registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -141,7 +141,7 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name 
 		if err = rows.Scan(&pkgNameSQL, &channelNameSQL, &bundleNameSQL); err != nil {
 			return
 		}
-		entries = append(entries, registry.ChannelEntry{
+		entries = append(entries, &registry.ChannelEntry{
 			PackageName: pkgNameSQL.String,
 			ChannelName: channelNameSQL.String,
 			BundleName:  bundleNameSQL.String,
@@ -176,7 +176,7 @@ func (s *SQLQuerier) GetBundleThatReplaces(context context.Context, name, pkgNam
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -188,7 +188,7 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 		return
 	}
 
-	entries = []registry.ChannelEntry{}
+	entries = []*registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -199,7 +199,7 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 			return
 		}
 
-		entries = append(entries, registry.ChannelEntry{
+		entries = append(entries, &registry.ChannelEntry{
 			PackageName: pkgNameSQL.String,
 			ChannelName: channelNameSQL.String,
 			BundleName:  bundleNameSQL.String,
@@ -214,7 +214,7 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 }
 
 // Get latest channel entries that provide an api
-func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name, MIN(channel_entry.depth)
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -226,7 +226,7 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context,
 		return nil, err
 	}
 
-	entries = []registry.ChannelEntry{}
+	entries = []*registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -238,7 +238,7 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context,
 			return nil, err
 		}
 
-		entries = append(entries, registry.ChannelEntry{
+		entries = append(entries, &registry.ChannelEntry{
 			PackageName: pkgNameSQL.String,
 			ChannelName: channelNameSQL.String,
 			BundleName:  bundleNameSQL.String,
