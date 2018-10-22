@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -24,10 +23,29 @@ func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
 	return &SQLQuerier{db}, nil
 }
 
+func (s *SQLQuerier) ListTables(ctx context.Context) ([]string, error) {
+	query := "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	tables := []string{}
+	for rows.Next() {
+		var tableName sql.NullString
+		if err := rows.Scan(&tableName); err != nil {
+			return nil, err
+		}
+		if tableName.Valid {
+			tables = append(tables, tableName.String)
+		}
+	}
+	return tables, nil
+}
+
 // ListPackages returns a list of package names as strings
-func (s *SQLQuerier) ListPackages(context context.Context) ([]string, error) {
+func (s *SQLQuerier) ListPackages(ctx context.Context) ([]string, error) {
 	query := "SELECT DISTINCT name FROM package"
-	rows, err := s.db.QueryContext(context, query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +62,11 @@ func (s *SQLQuerier) ListPackages(context context.Context) ([]string, error) {
 	return packages, nil
 }
 
-func (s *SQLQuerier) GetPackage(context context.Context, name string) (*registry.PackageManifest, error) {
+func (s *SQLQuerier) GetPackage(ctx context.Context, name string) (*registry.PackageManifest, error) {
 	query := `SELECT DISTINCT package.name, default_channel, channel.name, channel.head_operatorbundle_name
               FROM package INNER JOIN channel ON channel.package_name=package.name
               WHERE package.name=?`
-	rows, err := s.db.QueryContext(context, query, name)
+	rows, err := s.db.QueryContext(ctx, query, name)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +101,11 @@ func (s *SQLQuerier) GetPackage(context context.Context, name string) (*registry
 	return pkg, nil
 }
 
-func (s *SQLQuerier) GetBundleForChannel(context context.Context, pkgName string, channelName string) (string, error) {
+func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error) {
 	query := `SELECT DISTINCT operatorbundle.bundle
               FROM channel INNER JOIN operatorbundle ON channel.head_operatorbundle_name=operatorbundle.name
               WHERE channel.package_name=? AND channel.name=? LIMIT 1`
-	rows, err := s.db.QueryContext(context, query, pkgName, channelName)
+	rows, err := s.db.QueryContext(ctx, query, pkgName, channelName)
 	if err != nil {
 		return "", err
 	}
@@ -102,11 +120,11 @@ func (s *SQLQuerier) GetBundleForChannel(context context.Context, pkgName string
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetBundleForName(context context.Context, name string) (string, error) {
+func (s *SQLQuerier) GetBundleForName(ctx context.Context, name string) (string, error) {
 	query := `SELECT DISTINCT operatorbundle.bundle
 			  FROM operatorbundle
               WHERE operatorbundle.name=? LIMIT 1`
-	rows, err := s.db.QueryContext(context, query, name)
+	rows, err := s.db.QueryContext(ctx, query, name)
 	if err != nil {
 		return "", err
 	}
@@ -121,12 +139,12 @@ func (s *SQLQuerier) GetBundleForName(context context.Context, name string) (str
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name string) (entries []*registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatReplace(ctx context.Context, name string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name
 			  FROM channel_entry
 			  LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
               WHERE replaces.operatorbundle_name = ?`
-	rows, err := s.db.QueryContext(context, query, name)
+	rows, err := s.db.QueryContext(ctx, query, name)
 	if err != nil {
 		return
 	}
@@ -155,13 +173,13 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(context context.Context, name 
 	return
 }
 
-func (s *SQLQuerier) GetBundleThatReplaces(context context.Context, name, pkgName, channelName string) (string, error) {
+func (s *SQLQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (string, error) {
 	query := `SELECT DISTINCT operatorbundle.bundle
               FROM channel_entry
 			  LEFT  OUTER JOIN channel_entry replaces ON replaces.replaces = channel_entry.entry_id
 			  INNER JOIN operatorbundle ON replaces.operatorbundle_name = operatorbundle.name
 			  WHERE channel_entry.operatorbundle_name = ? AND channel_entry.package_name = ? AND channel_entry.channel_name = ? LIMIT 1`
-	rows, err := s.db.QueryContext(context, query, name, pkgName, channelName)
+	rows, err := s.db.QueryContext(ctx, query, name, pkgName, channelName)
 	if err != nil {
 		return "", err
 	}
@@ -176,14 +194,14 @@ func (s *SQLQuerier) GetBundleThatReplaces(context context.Context, name, pkgNam
 	return bundle.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetChannelEntriesThatProvide(ctx context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
           LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
 		  WHERE api_provider.groupOrName = ? AND api_provider.version = ? AND api_provider.kind = ?`
 
-	rows, err := s.db.QueryContext(context, query, groupOrName, version, kind)
+	rows, err := s.db.QueryContext(ctx, query, groupOrName, version, kind)
 	if err != nil {
 		return
 	}
@@ -214,14 +232,14 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(context context.Context, group
 }
 
 // Get latest channel entries that provide an api
-func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
+func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, groupOrName, version, kind string) (entries []*registry.ChannelEntry, err error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name, MIN(channel_entry.depth)
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
 		  LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
 		  WHERE api_provider.groupOrName = ? AND api_provider.version = ? AND api_provider.kind = ?
 		  GROUP BY channel_entry.package_name, channel_entry.channel_name`
-	rows, err := s.db.QueryContext(context, query, groupOrName, version, kind)
+	rows, err := s.db.QueryContext(ctx, query, groupOrName, version, kind)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +271,7 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(context context.Context,
 }
 
 // Get the the latest bundle that provides the API in a default channel, error unless there is ONLY one
-func (s *SQLQuerier) GetBundleThatProvides(context context.Context, groupOrName, version, kind string) (string, error) {
+func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, groupOrName, version, kind string) (string, error) {
 	query := `SELECT DISTINCT operatorbundle.bundle, MIN(channel_entry.depth)
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -262,7 +280,7 @@ func (s *SQLQuerier) GetBundleThatProvides(context context.Context, groupOrName,
 		  WHERE api_provider.groupOrName = ? AND api_provider.version = ? AND api_provider.kind = ? AND package.default_channel = channel_entry.channel_name
 		  GROUP BY channel_entry.package_name, channel_entry.channel_name`
 
-	rows, err := s.db.QueryContext(context, query, groupOrName, version, kind)
+	rows, err := s.db.QueryContext(ctx, query, groupOrName, version, kind)
 	if err != nil {
 		return "", err
 	}

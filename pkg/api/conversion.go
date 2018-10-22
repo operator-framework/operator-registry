@@ -3,10 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"strings"
 )
 
 func PackageManifestToApiPackage(manifest *registry.PackageManifest) *Package {

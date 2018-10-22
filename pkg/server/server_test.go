@@ -1,17 +1,18 @@
 package server
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"io"
 	"net"
 	"os"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 const (

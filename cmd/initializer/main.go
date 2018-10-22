@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func main() {
