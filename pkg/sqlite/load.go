@@ -219,7 +219,6 @@ func (s *SQLLoader) AddProvidedApis() error {
 	}
 	defer addApiProvider.Close()
 
-
 	// get CRD provided APIs
 	getChannelEntryProvidedAPIs, err := tx.Prepare(`
 	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.name', '$.version', '$.kind')

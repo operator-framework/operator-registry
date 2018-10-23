@@ -40,7 +40,7 @@ type Bundle struct {
 }
 
 func NewBundle(objs ...*unstructured.Unstructured) *Bundle {
-	bundle := &Bundle{cacheStale:false}
+	bundle := &Bundle{cacheStale: false}
 	for _, o := range objs {
 		bundle.Add(o)
 	}
@@ -57,14 +57,14 @@ func (b *Bundle) Add(obj *unstructured.Unstructured) {
 }
 
 func (b *Bundle) ClusterServiceVersion() (*v1alpha1.ClusterServiceVersion, error) {
-	if err := b.cache(); err!=nil {
+	if err := b.cache(); err != nil {
 		return nil, err
 	}
 	return b.csv, nil
 }
 
 func (b *Bundle) CustomResourceDefinitions() ([]*apiextensions.CustomResourceDefinition, error) {
-	if err := b.cache(); err!=nil {
+	if err := b.cache(); err != nil {
 		return nil, err
 	}
 	return b.crds, nil
