@@ -1,6 +1,6 @@
 # Gopkg.toml example
 #
-# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
 # for detailed Gopkg.toml documentation.
 #
 # required = ["github.com/user/thing/cmd/thing"]
@@ -24,22 +24,60 @@
 #   go-tests = true
 #   unused-packages = true
 
+
 [[constraint]]
-  name = "github.com/operator-framework/operator-lifecycle-manager"
-  branch = "master"
+  name = "github.com/ghodss/yaml"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "1.2.0"
 
 [[constraint]]
   name = "github.com/mattn/go-sqlite3"
   version = "1.9.0"
 
 [[constraint]]
+  name = "github.com/operator-framework/operator-lifecycle-manager"
+  branch = "master"
+
+[[constraint]]
   name = "github.com/sirupsen/logrus"
-  version = "1.0.6"
+  version = "1.1.1"
 
 [[constraint]]
   name = "github.com/spf13/cobra"
   version = "0.0.3"
 
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "1.2.2"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/net"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.16.0"
+
+[[constraint]]
+  branch = "release-1.11"
+  name = "k8s.io/api"
+
+[[constraint]]
+  branch = "release-1.11"
+  name = "k8s.io/apiextensions-apiserver"
+
+[[constraint]]
+  branch = "release-1.11"
+  name = "k8s.io/apimachinery"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.11.1"
+
 [prune]
-  go-tests = true
   unused-packages = true
+  go-tests = true
+  non-go = true
