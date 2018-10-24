@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/server"
@@ -74,7 +75,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
-
+	reflection.Register(s)
 	log.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

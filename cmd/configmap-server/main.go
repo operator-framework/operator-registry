@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -107,6 +108,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
+	reflection.Register(s)
 
 	log.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
