@@ -90,7 +90,7 @@ docker run -p 50051:50051 example-registry:latest
 [grpcurl](https://github.com/fullstorydev/grpcurl) is a useful for interacting with the example server.
 
 ```sh
-$ grpcurl -plaintext -proto ./pkg/api/registry.proto  localhost:50051 list api.Registry
+$ grpcurl -plaintext  localhost:50051 list api.Registry
 GetBundle
 GetBundleForChannel
 GetBundleThatReplaces
@@ -103,7 +103,7 @@ ListPackages
 ```
 
 ```sh
-$ grpcurl -plaintext -proto ./pkg/api/registry.proto  localhost:50051 api.Registry/ListPackages
+$ grpcurl -plaintext  localhost:50051 api.Registry/ListPackages
 ```
 ```json
 {
@@ -115,7 +115,7 @@ $ grpcurl -plaintext -proto ./pkg/api/registry.proto  localhost:50051 api.Regist
 ```
 
 ```sh
-$ grpcurl -plaintext -proto ./pkg/api/registry.proto -d '{"name":"etcd"}' localhost:50051 api.Registry/GetPackage
+$ grpcurl -plaintext -d '{"name":"etcd"}' localhost:50051 api.Registry/GetPackage
 ```
 ```json
 {
@@ -131,7 +131,7 @@ $ grpcurl -plaintext -proto ./pkg/api/registry.proto -d '{"name":"etcd"}' localh
 ```
 
 ```sh
-$ grpcurl -proto ./pkg/api/registry.proto localhost:50051 describe api.Registry.GetBundleForChannel
+$ grpcurl localhost:50051 describe api.Registry.GetBundleForChannel
 api.Registry.GetBundleForChannel is a method:
 ```
 ```json
@@ -145,7 +145,7 @@ api.Registry.GetBundleForChannel is a method:
 ```
 
 ```sh
-$ grpcurl -proto ./pkg/api/registry.proto localhost:50051 describe api.GetBundleInChannelRequest
+$ grpcurl localhost:50051 describe api.GetBundleInChannelRequest
 api.GetBundleInChannelRequest is a message:
 ```
 ```json
@@ -180,7 +180,7 @@ api.GetBundleInChannelRequest is a message:
 ```
 
 ```sh
-$ grpcurl -plaintext -proto ./pkg/api/registry.proto -d '{"pkgName":"etcd","channelName":"alpha"}' localhost:50051 api.Registry/GetBundleForChannel
+$ grpcurl -plaintext -d '{"pkgName":"etcd","channelName":"alpha"}' localhost:50051 api.Registry/GetBundleForChannel
 ```
 ```json
 {
