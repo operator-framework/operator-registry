@@ -20,8 +20,8 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Short: "registry-server",
-		Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+		Short: "configmap-server",
+		Long:  `configmap-server reads a configmap and builds a sqlite database containing operator manifests and serves a grpc API to query it`,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
@@ -108,6 +108,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
+	api.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
 
 	log.Info("serving registry")

@@ -75,6 +75,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
+	api.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
 	log.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
