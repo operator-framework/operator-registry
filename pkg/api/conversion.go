@@ -55,7 +55,7 @@ func BundleStringToObjectStrings(bundleString string) ([]string, error) {
 	return objs, nil
 }
 
-func BundleStringToApiBundle(bundleString string) (*Bundle, error) {
+func BundleStringToApiBundle(bundleString string, entry *registry.ChannelEntry) (*Bundle, error) {
 	objs, err := BundleStringToObjectStrings(bundleString)
 	if err != nil {
 		return nil, err
@@ -78,5 +78,7 @@ func BundleStringToApiBundle(bundleString string) (*Bundle, error) {
 	if out.CsvName == "" {
 		return nil, fmt.Errorf("no csv in bundle")
 	}
+	out.ChannelName = entry.ChannelName
+	out.PackageName = entry.PackageName
 	return out, nil
 }

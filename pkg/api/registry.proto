@@ -5,7 +5,6 @@ package api;
 service Registry {
     rpc ListPackages(ListPackageRequest) returns (stream PackageName) {}
     rpc GetPackage(GetPackageRequest) returns (Package) {}
-	rpc GetBundle(GetBundleRequest) returns (Bundle) {}
 	rpc GetBundleForChannel(GetBundleInChannelRequest) returns (Bundle) {}
 	rpc GetChannelEntriesThatReplace(GetAllReplacementsRequest) returns (stream ChannelEntry) {}
 	rpc GetBundleThatReplaces(GetReplacementRequest) returns (Bundle) {}
@@ -32,8 +31,10 @@ message Package{
 
 message Bundle{
 	string csvName = 1;
-	string csvJson = 2;
-	repeated string object = 3;
+	string packageName = 2;
+	string channelName = 3;
+	string csvJson = 4;
+	repeated string object = 5;
 }
 
 message ChannelEntry{

@@ -15,7 +15,6 @@ type Query interface {
 	ListPackages(ctx context.Context) ([]string, error)
 	GetPackage(ctx context.Context, name string) (*PackageManifest, error)
 	GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error)
-	GetBundleForName(ctx context.Context, name string) (string, error)
 	// Get all channel entries that say they replace this one
 	GetChannelEntriesThatReplace(ctx context.Context, name string) (entries []*ChannelEntry, err error)
 	// Get the bundle in a package/channel that replace this one
@@ -25,5 +24,5 @@ type Query interface {
 	// Get latest channel entries that provide an api
 	GetLatestChannelEntriesThatProvide(ctx context.Context, groupOrName, version, kind string) (entries []*ChannelEntry, err error)
 	// Get the the latest bundle that provides the API in a default channel
-	GetBundleThatProvides(ctx context.Context, groupOrName, version, kind string) (string, error)
+	GetBundleThatProvides(ctx context.Context, groupOrName, version, kind string) (string, *ChannelEntry, error)
 }

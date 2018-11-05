@@ -1,10 +1,17 @@
 package registry
 
+import "fmt"
+
 // APIKey stores GroupVersionKind for use as map keys
 type APIKey struct {
 	Group   string
 	Version string
 	Kind    string
+	Plural  string
+}
+
+func (k APIKey) String() string {
+	return fmt.Sprintf("%s/%s/%s (%s)", k.Group, k.Version, k.Kind, k.Plural)
 }
 
 // PackageManifest holds information about a package, which is a reference to one (or more)

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"strings"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
@@ -33,26 +34,42 @@ func init() {
 }
 
 type Bundle struct {
-	objs       []*unstructured.Unstructured
+	Name       string
+	Objects    []*unstructured.Unstructured
+	Package    string
+	Channel    string
 	csv        *v1alpha1.ClusterServiceVersion
 	crds       []*apiextensions.CustomResourceDefinition
 	cacheStale bool
 }
 
-func NewBundle(objs ...*unstructured.Unstructured) *Bundle {
-	bundle := &Bundle{cacheStale: false}
+func NewBundle(name, pkgName, channelName string, objs ...*unstructured.Unstructured) *Bundle {
+	bundle := &Bundle{Name: name, Package:pkgName, Channel:channelName, cacheStale: false}
 	for _, o := range objs {
 		bundle.Add(o)
 	}
 	return bundle
 }
 
+func NewBundleFromStrings(name, pkgName, channelName string, objs []string) (*Bundle, error) {
+	unstObjs := []*unstructured.Unstructured{}
+	for _, o := range objs {
+		dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(o), 10)
+		unst := &unstructured.Unstructured{}
+		if err := dec.Decode(unst); err != nil {
+			return nil, err
+		}
+		unstObjs = append(unstObjs, unst)
+	}
+	return NewBundle(name, pkgName, channelName, unstObjs...), nil
+}
+
 func (b *Bundle) Size() int {
-	return len(b.objs)
+	return len(b.Objects)
 }
 
 func (b *Bundle) Add(obj *unstructured.Unstructured) {
-	b.objs = append(b.objs, obj)
+	b.Objects = append(b.Objects, obj)
 	b.cacheStale = true
 }
 
@@ -78,10 +95,10 @@ func (b *Bundle) ProvidedAPIs() (map[APIKey]struct{}, error) {
 	}
 	for _, crd := range crds {
 		for _, v := range crd.Spec.Versions {
-			provided[APIKey{Group: crd.Spec.Group, Version: v.Name, Kind: crd.Spec.Names.Kind}] = struct{}{}
+			provided[APIKey{Group: crd.Spec.Group, Version: v.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}] = struct{}{}
 		}
 		if crd.Spec.Version != "" {
-			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind}] = struct{}{}
+			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind, Plural:crd.Spec.Names.Plural}] = struct{}{}
 		}
 	}
 
@@ -89,10 +106,28 @@ func (b *Bundle) ProvidedAPIs() (map[APIKey]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, api := range csv.Spec.APIServiceDefinitions.Owned {
-		provided[APIKey{Group: api.Group, Version: api.Version, Kind: api.Kind}] = struct{}{}
+		provided[APIKey{Group: api.Group, Version: api.Version, Kind: api.Kind, Plural: api.Name}] = struct{}{}
 	}
 	return provided, nil
+}
+
+func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
+	required := map[APIKey]struct{}{}
+	csv, err := b.ClusterServiceVersion()
+	if err != nil {
+		return nil, err
+	}
+	for _, api := range csv.Spec.CustomResourceDefinitions.Required {
+		parts := strings.SplitAfterN(api.Name, ".", 2)
+		required[APIKey{parts[1], api.Version, api.Kind, parts[0]}] = struct{}{}
+
+	}
+	for _, api := range csv.Spec.APIServiceDefinitions.Required {
+		required[APIKey{Group: api.Group, Version: api.Version, Kind: api.Kind, Plural: api.Name}] = struct{}{}
+	}
+	return required, nil
 }
 
 func (b *Bundle) AllProvidedAPIsInBundle() error {
@@ -107,7 +142,8 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 	shouldExist := make(map[APIKey]struct{}, len(csv.Spec.CustomResourceDefinitions.Owned))
 	for _, crdDef := range csv.Spec.CustomResourceDefinitions.Owned {
 		parts := strings.SplitAfterN(crdDef.Name, ".", 2)
-		shouldExist[APIKey{parts[1], crdDef.Version, crdDef.Kind}] = struct{}{}
+		plural := strings.Trim(parts[0], ".")
+		shouldExist[APIKey{parts[1], crdDef.Version, crdDef.Kind, plural}] = struct{}{}
 	}
 	for key := range shouldExist {
 		if _, ok := bundleAPIs[key]; !ok {
@@ -120,7 +156,7 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 
 func (b *Bundle) Serialize() (csvName string, csvBytes []byte, bundleBytes []byte, err error) {
 	csvCount := 0
-	for _, obj := range b.objs {
+	for _, obj := range b.Objects {
 		objBytes, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
 		if err != nil {
 			return "", nil, nil, err
@@ -147,7 +183,7 @@ func (b *Bundle) cache() error {
 	if !b.cacheStale {
 		return nil
 	}
-	for _, o := range b.objs {
+	for _, o := range b.Objects {
 		if o.GetObjectKind().GroupVersionKind().Kind == "ClusterServiceVersion" {
 			csv := &v1alpha1.ClusterServiceVersion{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), csv); err != nil {
@@ -161,7 +197,7 @@ func (b *Bundle) cache() error {
 	if b.crds == nil {
 		b.crds = []*apiextensions.CustomResourceDefinition{}
 	}
-	for _, o := range b.objs {
+	for _, o := range b.Objects {
 		if o.GetObjectKind().GroupVersionKind().Kind == "CustomResourceDefinition" {
 			crd := &apiextensions.CustomResourceDefinition{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), crd); err != nil {

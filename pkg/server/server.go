@@ -38,20 +38,16 @@ func (s *RegistryServer) GetPackage(ctx context.Context, req *api.GetPackageRequ
 	return api.PackageManifestToApiPackage(packageManifest), nil
 }
 
-func (s *RegistryServer) GetBundle(ctx context.Context, req *api.GetBundleRequest) (*api.Bundle, error) {
-	bundleString, err := s.store.GetBundleForName(ctx, req.GetCsvName())
-	if err != nil {
-		return nil, err
-	}
-	return api.BundleStringToApiBundle(bundleString)
-}
-
 func (s *RegistryServer) GetBundleForChannel(ctx context.Context, req *api.GetBundleInChannelRequest) (*api.Bundle, error) {
 	bundleString, err := s.store.GetBundleForChannel(ctx, req.GetPkgName(), req.GetChannelName())
 	if err != nil {
 		return nil, err
 	}
-	return api.BundleStringToApiBundle(bundleString)
+	entry := &registry.ChannelEntry{
+		PackageName: req.GetPkgName(),
+		ChannelName: req.GetChannelName(),
+	}
+	return api.BundleStringToApiBundle(bundleString, entry)
 }
 
 func (s *RegistryServer) GetChannelEntriesThatReplace(req *api.GetAllReplacementsRequest, stream api.Registry_GetChannelEntriesThatReplaceServer) error {
@@ -72,7 +68,12 @@ func (s *RegistryServer) GetBundleThatReplaces(ctx context.Context, req *api.Get
 	if err != nil {
 		return nil, err
 	}
-	return api.BundleStringToApiBundle(bundleString)
+	entry := &registry.ChannelEntry{
+		PackageName: req.GetPkgName(),
+		ChannelName: req.GetChannelName(),
+		Replaces: req.GetCsvName(),
+	}
+	return api.BundleStringToApiBundle(bundleString, entry)
 }
 
 func (s *RegistryServer) GetChannelEntriesThatProvide(req *api.GetAllProvidersRequest, stream api.Registry_GetChannelEntriesThatProvideServer) error {
@@ -102,9 +103,9 @@ func (s *RegistryServer) GetLatestChannelEntriesThatProvide(req *api.GetLatestPr
 }
 
 func (s *RegistryServer) GetDefaultBundleThatProvides(ctx context.Context, req *api.GetDefaultProviderRequest) (*api.Bundle, error) {
-	bundleString, err := s.store.GetBundleThatProvides(ctx, req.GetGroupOrName(), req.GetVersion(), req.GetKind())
+	bundleString, channelEntry, err := s.store.GetBundleThatProvides(ctx, req.GetGroupOrName(), req.GetVersion(), req.GetKind())
 	if err != nil {
 		return nil, err
 	}
-	return api.BundleStringToApiBundle(bundleString)
+	return api.BundleStringToApiBundle(bundleString, channelEntry)
 }
