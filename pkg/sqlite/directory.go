@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/schema"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,6 +42,12 @@ func NewSQLLoaderForDirectory(store registry.Load, directory string) *DirectoryL
 
 func (d *DirectoryLoader) Populate() error {
 	log := logrus.WithField("dir", d.directory)
+
+	log.Info("validating manifests")
+	if err := schema.CheckCatalogResources(d.directory); err != nil {
+		return err
+	}
+
 	log.Info("loading Bundles")
 	if err := filepath.Walk(d.directory, d.LoadBundleWalkFunc); err != nil {
 		return err
