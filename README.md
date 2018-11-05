@@ -8,10 +8,12 @@ This project provides the following binaries:
 
  * `initializer`, which takes as an input a directory of operator manifests and outputs a sqlite database containing the same data for querying.
  * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it
+ * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing via the same interface as `registry-server`.
  
 And libraries:
  
- * `pkg/api` - providing client libraries for the gRPC interface exposed by `registry-server`
+ * `pkg/client` - providing a high-level client interface for the gRPC api.
+ * `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`
  * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles
  * `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
 
