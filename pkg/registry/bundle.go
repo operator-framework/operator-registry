@@ -120,7 +120,10 @@ func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
 		return nil, err
 	}
 	for _, api := range csv.Spec.CustomResourceDefinitions.Required {
-		parts := strings.SplitAfterN(api.Name, ".", 2)
+		parts := strings.SplitN(api.Name, ".", 2)
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("couldn't parse plural.group from crd name: %s", api.Name)
+		}
 		required[APIKey{parts[1], api.Version, api.Kind, parts[0]}] = struct{}{}
 
 	}
@@ -141,9 +144,11 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 	}
 	shouldExist := make(map[APIKey]struct{}, len(csv.Spec.CustomResourceDefinitions.Owned))
 	for _, crdDef := range csv.Spec.CustomResourceDefinitions.Owned {
-		parts := strings.SplitAfterN(crdDef.Name, ".", 2)
-		plural := strings.Trim(parts[0], ".")
-		shouldExist[APIKey{parts[1], crdDef.Version, crdDef.Kind, plural}] = struct{}{}
+		parts := strings.SplitN(crdDef.Name, ".", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("couldn't parse plural.group from crd name: %s", crdDef.Name)
+		}
+		shouldExist[APIKey{parts[1], crdDef.Version, crdDef.Kind, parts[0]}] = struct{}{}
 	}
 	for key := range shouldExist {
 		if _, ok := bundleAPIs[key]; !ok {
