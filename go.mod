@@ -1,7 +1,11 @@
 module github.com/operator-framework/operator-registry
 
 require (
+	github.com/coreos/go-semver v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-openapi/spec v0.17.2 // indirect
+	github.com/go-openapi/strfmt v0.17.2 // indirect
+	github.com/go-openapi/validate v0.17.2 // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4 // indirect
 	github.com/golang/protobuf v1.2.0
@@ -30,9 +34,13 @@ require (
 	google.golang.org/genproto v0.0.0-20181016170114-94acd270e44e // indirect
 	google.golang.org/grpc v1.16.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/yaml.v2 v2.2.2 // indirect
 	k8s.io/api v0.0.0-20180904230853-4e7be11eab3f
 	k8s.io/apiextensions-apiserver v0.0.0-20180905004947-16750353bf97
 	k8s.io/apimachinery v0.0.0-20180904193909-def12e63c512
+	k8s.io/apiserver v0.0.0-20181211031017-bbe3b7124d2b // indirect
 	k8s.io/client-go v0.0.0-20180718001006-59698c7d9724
+	k8s.io/klog v0.1.0 // indirect
+	k8s.io/kube-aggregator v0.0.0-20181207191758-06e74d190feb // indirect
+	k8s.io/kube-openapi v0.0.0-20181114233023-0317810137be // indirect
 )
-

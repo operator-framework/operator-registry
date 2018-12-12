@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"net"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -12,8 +10,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -39,16 +39,26 @@ func main() {
 	rootCmd.Flags().StringP("configMapName", "c", "", "name of a configmap")
 	rootCmd.Flags().StringP("configMapNamespace", "n", "", "namespace of a configmap")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
+	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
-		panic(err)
+		logrus.Panic(err.Error())
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		panic(err)
+		logrus.Panic(err.Error())
 	}
 }
 
 func runCmdFunc(cmd *cobra.Command, args []string) error {
+	// Immediately set up termination log
+	terminationLogPath, err := cmd.Flags().GetString("termination-log")
+	if err != nil {
+		return err
+	}
+	err = log.AddDefaultWriterHooks(terminationLogPath)
+	if err != nil {
+		return err
+	}
 	kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 	if err != nil {
 		return err
@@ -69,12 +79,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	log := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
+	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 
-	client := NewClientFromConfig(kubeconfig, log.Logger)
+	client := NewClientFromConfig(kubeconfig, logger.Logger)
 	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
-		log.Fatalf("error getting configmap: %v", err)
+		logger.Fatalf("error getting configmap: %v", err)
 	}
 
 	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
@@ -89,21 +99,21 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	store, err := sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {
-		log.Fatalf("failed to load db: %v", err)
+		logger.Fatalf("failed to load db: %v", err)
 	}
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
 	if err != nil {
-		log.Fatalf("couldn't list tables in db, incorrect config: %v", err)
+		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
 	}
 	if len(tables) == 0 {
-		log.Fatal("no tables found in db")
+		logger.Fatal("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 
@@ -111,9 +121,9 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	api.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
 
-	log.Info("serving registry")
+	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %v", err)
 	}
 	return nil
 }
