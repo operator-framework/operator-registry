@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"net"
-	"os"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -13,6 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
@@ -57,33 +55,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	terminationLogFile, err := os.OpenFile(terminationLogPath, os.O_WRONLY|os.O_CREATE, 0755)
+	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
 		return err
 	}
-	log.AddHooks(
-		&log.WriterHook{
-			Writer: terminationLogFile,
-			LogLevels: []logrus.Level{
-				logrus.PanicLevel,
-				logrus.FatalLevel,
-			},
-		},
-		&log.WriterHook{
-			Writer: os.Stderr,
-			LogLevels: []logrus.Level{
-				logrus.ErrorLevel,
-				logrus.WarnLevel,
-			},
-		},
-		&log.WriterHook{
-			Writer: os.Stdout,
-			LogLevels: []logrus.Level{
-				logrus.InfoLevel,
-				logrus.DebugLevel,
-			},
-		})
-
 	kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 	if err != nil {
 		return err

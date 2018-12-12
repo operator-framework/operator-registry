@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
-	"net"
-	"os"
-
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"net"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -50,33 +48,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	terminationLogFile, err := os.OpenFile(terminationLogPath, os.O_WRONLY|os.O_CREATE, 0755)
+	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
 		return err
 	}
-	log.AddHooks(
-		&log.WriterHook{
-			Writer: terminationLogFile,
-			LogLevels: []logrus.Level{
-				logrus.PanicLevel,
-				logrus.FatalLevel,
-			},
-		},
-		&log.WriterHook{
-			Writer: os.Stderr,
-			LogLevels: []logrus.Level{
-				logrus.ErrorLevel,
-				logrus.WarnLevel,
-			},
-		},
-		&log.WriterHook{
-			Writer: os.Stdout,
-			LogLevels: []logrus.Level{
-				logrus.InfoLevel,
-				logrus.DebugLevel,
-			},
-		})
-
 	dbName, err := cmd.Flags().GetString("database")
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package log
 import (
 	"io"
 	"io/ioutil"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
@@ -40,4 +41,37 @@ func AddHooks(hooks ...*WriterHook) {
 	for _, hook := range hooks {
 		logrus.AddHook(hook)
 	}
+}
+
+func AddDefaultWriterHooks(terminationLogPath string) error {
+	terminationLogFile, err := os.OpenFile(terminationLogPath, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+	AddHooks(
+		&WriterHook{
+			Writer: terminationLogFile,
+			LogLevels: []logrus.Level{
+				logrus.PanicLevel,
+				logrus.FatalLevel,
+			},
+		},
+		&WriterHook{
+			Writer: os.Stderr,
+			LogLevels: []logrus.Level{
+				logrus.PanicLevel,
+				logrus.FatalLevel,
+				logrus.ErrorLevel,
+				logrus.WarnLevel,
+			},
+		},
+		&WriterHook{
+			Writer: os.Stdout,
+			LogLevels: []logrus.Level{
+				logrus.InfoLevel,
+				logrus.DebugLevel,
+			},
+		})
+
+	return nil
 }
