@@ -2,7 +2,7 @@
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/asaskevich/govalidator v0.0.0-20180315120708-ccb8e960c48f
+# github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 github.com/asaskevich/govalidator
 # github.com/coreos/go-semver v0.2.0
 github.com/coreos/go-semver/semver
@@ -10,33 +10,36 @@ github.com/coreos/go-semver/semver
 github.com/davecgh/go-spew/spew
 # github.com/ghodss/yaml v1.0.0
 github.com/ghodss/yaml
-# github.com/go-openapi/analysis v0.0.0-20180801175213-7c1bef8f6d9f
+# github.com/globalsign/mgo v0.0.0-20180905125535-1ca0a4f7cbcb
+github.com/globalsign/mgo/bson
+github.com/globalsign/mgo/internal/json
+# github.com/go-openapi/analysis v0.17.0
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
-# github.com/go-openapi/errors v0.0.0-20180515155515-b2b2befaf267
+# github.com/go-openapi/errors v0.17.0
 github.com/go-openapi/errors
-# github.com/go-openapi/jsonpointer v0.0.0-20180322222829-3a0015ad55fa
+# github.com/go-openapi/jsonpointer v0.17.0
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.0.0-20180322222742-3fb327e6747d
+# github.com/go-openapi/jsonreference v0.17.0
 github.com/go-openapi/jsonreference
-# github.com/go-openapi/loads v0.0.0-20171207192234-2a2b323bab96
+# github.com/go-openapi/loads v0.17.0
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.0.0-20180628220156-9a3091f566c0
+# github.com/go-openapi/runtime v0.0.0-20180920151709-4f900dc2ade9
 github.com/go-openapi/runtime
-# github.com/go-openapi/spec v0.0.0-20180801175345-384415f06ee2
+# github.com/go-openapi/spec v0.17.2
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.0.0-20180703152050-913ee058e387
+# github.com/go-openapi/strfmt v0.17.2
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.0.0-20180715190254-becd2f08beaf
+# github.com/go-openapi/swag v0.17.0
 github.com/go-openapi/swag
-# github.com/go-openapi/validate v0.0.0-20180809073206-7c1911976134
+# github.com/go-openapi/validate v0.17.2
 github.com/go-openapi/validate
 # github.com/gogo/protobuf v1.1.1
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/golang/groupcache v0.0.0-20180924190550-6f2cf27854a4
+# github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
@@ -58,9 +61,8 @@ github.com/googleapis/gnostic/extensions
 # github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
 github.com/gregjones/httpcache
 github.com/gregjones/httpcache/diskcache
-# github.com/hashicorp/golang-lru v0.5.0
-github.com/hashicorp/golang-lru
-github.com/hashicorp/golang-lru/simplelru
+# github.com/grpc-ecosystem/grpc-health-probe v0.2.0
+github.com/grpc-ecosystem/grpc-health-probe
 # github.com/imdario/mergo v0.3.6
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
@@ -73,15 +75,15 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 github.com/mailru/easyjson/buffer
-# github.com/mattn/go-sqlite3 v1.9.0
+# github.com/mattn/go-sqlite3 v1.10.0
 github.com/mattn/go-sqlite3
-# github.com/mitchellh/mapstructure v1.0.0
+# github.com/mitchellh/mapstructure v1.1.2
 github.com/mitchellh/mapstructure
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
-# github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
+# github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20181023032605-e838f7fb2186 => ../operator-lifecycle-manager
+# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20181213010841-efcc72ce88c9
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
@@ -125,11 +127,13 @@ google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.16.0
 google.golang.org/grpc
 google.golang.org/grpc/reflection
+google.golang.org/grpc/codes
+google.golang.org/grpc/credentials
+google.golang.org/grpc/health/grpc_health_v1
+google.golang.org/grpc/status
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/roundrobin
-google.golang.org/grpc/codes
 google.golang.org/grpc/connectivity
-google.golang.org/grpc/credentials
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
@@ -147,20 +151,15 @@ google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
-google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
 google.golang.org/grpc/balancer/base
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
-# gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce
-gopkg.in/mgo.v2/bson
-gopkg.in/mgo.v2/internal/json
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2
-# k8s.io/api v0.0.0-20180904230853-4e7be11eab3f
+# k8s.io/api v0.0.0-20181203235848-2dd39edadc55
 k8s.io/api/core/v1
-k8s.io/api/rbac/v1
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -180,6 +179,7 @@ k8s.io/api/events/v1beta1
 k8s.io/api/extensions/v1beta1
 k8s.io/api/networking/v1
 k8s.io/api/policy/v1beta1
+k8s.io/api/rbac/v1
 k8s.io/api/rbac/v1alpha1
 k8s.io/api/rbac/v1beta1
 k8s.io/api/scheduling/v1alpha1
@@ -188,7 +188,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.0.0-20180905004947-16750353bf97
+# k8s.io/apiextensions-apiserver v0.0.0-20181204003618-e419c5771cdc
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation
@@ -197,7 +197,7 @@ k8s.io/apiextensions-apiserver/pkg/features
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
-# k8s.io/apimachinery v0.0.0-20180904193909-def12e63c512
+# k8s.io/apimachinery v0.0.0-20181203235515-3d8ee2261517
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
 k8s.io/apimachinery/pkg/util/yaml
@@ -239,12 +239,9 @@ k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/pkg/apis/meta/v1beta1
 k8s.io/apimachinery/pkg/util/mergepatch
 k8s.io/apimachinery/third_party/forked/golang/json
-k8s.io/apimachinery/pkg/util/cache
-k8s.io/apimachinery/pkg/util/diff
-k8s.io/apimachinery/pkg/apis/meta/internalversion
-# k8s.io/apiserver v0.0.0-20180904235525-d296c96c12b7
+# k8s.io/apiserver v0.0.0-20181026151315-13cfe3978170
 k8s.io/apiserver/pkg/util/feature
-# k8s.io/client-go v0.0.0-20180718001006-59698c7d9724
+# k8s.io/client-go v8.0.0+incompatible
 k8s.io/client-go/kubernetes
 k8s.io/client-go/rest
 k8s.io/client-go/tools/clientcmd
@@ -291,8 +288,6 @@ k8s.io/client-go/tools/auth
 k8s.io/client-go/tools/clientcmd/api/latest
 k8s.io/client-go/util/homedir
 k8s.io/client-go/tools/record
-k8s.io/client-go/listers/core/v1
-k8s.io/client-go/listers/rbac/v1
 k8s.io/client-go/tools/reference
 k8s.io/client-go/util/integer
 k8s.io/client-go/pkg/apis/clientauthentication
@@ -300,11 +295,7 @@ k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1
 k8s.io/client-go/pkg/apis/clientauthentication/v1beta1
 k8s.io/client-go/util/connrotation
 k8s.io/client-go/tools/clientcmd/api/v1
-k8s.io/client-go/tools/cache
-k8s.io/client-go/tools/pager
-k8s.io/client-go/util/buffer
-k8s.io/client-go/util/retry
-# k8s.io/kube-aggregator v0.0.0-20180905000155-efa32eb095fe
+# k8s.io/kube-aggregator v0.0.0-20181204002017-122bac39d429
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset
 k8s.io/kube-aggregator/pkg/apis/apiregistration
@@ -312,7 +303,5 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistr
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
-# k8s.io/kube-openapi v0.0.0-20181024003938-96e8bb74ecdd
+# k8s.io/kube-openapi v0.0.0-20181031203759-72693cb1fadd
 k8s.io/kube-openapi/pkg/util/proto
-# k8s.io/kubernetes v0.0.0-20180925111645-ae6d625c3a1c
-k8s.io/kubernetes/pkg/api/legacyscheme

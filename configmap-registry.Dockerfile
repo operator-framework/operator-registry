@@ -1,6 +1,6 @@
 FROM golang:1.11-alpine as builder
 
-RUN apk update && apk add sqlite build-base git
+RUN apk update && apk add sqlite build-base git mercurial
 WORKDIR /build
 
 COPY vendor vendor
@@ -11,7 +11,21 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 RUN make static
 
+FROM golang:1.10-alpine as probe-builder
+
+RUN apk update && apk add build-base git
+RUN go get -u github.com/golang/dep/cmd/dep
+ENV ORG github.com/grpc-ecosystem
+ENV PROJECT $ORG/grpc_health_probe
+WORKDIR /go/src/$PROJECT
+
+COPY --from=builder /build/vendor/$ORG/grpc-health-probe .
+RUN dep ensure -vendor-only -v && \
+    go install -a -tags netgo -ldflags "-linkmode external -extldflags -static"
+
+
 FROM scratch
 COPY --from=builder /build/bin/configmap-server /configmap-server
+COPY --from=probe-builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051
 ENTRYPOINT ["/configmap-server"]

@@ -103,14 +103,15 @@ type APIServiceDefinitions struct {
 	Required []APIServiceDescription `json:"required,omitempty"`
 }
 
-// ClusterServiceVersionSpec declarations tell the OLM how to install an operator
-// that can manage apps for given version and AppType.
+// ClusterServiceVersionSpec declarations tell OLM how to install an operator
+// that can manage apps for a given version.
 type ClusterServiceVersionSpec struct {
 	InstallStrategy           NamedInstallStrategy      `json:"install"`
 	Version                   semver.Version            `json:"version,omitempty"`
 	Maturity                  string                    `json:"maturity,omitempty"`
 	CustomResourceDefinitions CustomResourceDefinitions `json:"customresourcedefinitions,omitempty"`
 	APIServiceDefinitions     APIServiceDefinitions     `json:"apiservicedefinitions,omitempty"`
+	NativeAPIs                []metav1.GroupVersionKind `json:"nativeAPIs,omitempty"`
 	DisplayName               string                    `json:"displayName"`
 	Description               string                    `json:"description,omitempty"`
 	Keywords                  []string                  `json:"keywords,omitempty"`
@@ -176,24 +177,32 @@ const (
 	CSVPhaseReplacing ClusterServiceVersionPhase = "Replacing"
 	// CSVPhaseDeleting means that a CSV has been replaced by a new one and will be checked for safety before being deleted
 	CSVPhaseDeleting ClusterServiceVersionPhase = "Deleting"
+	// CSVPhaseAny matches all other phases in CSV queries
+	CSVPhaseAny ClusterServiceVersionPhase = ""
 )
 
 // ConditionReason is a camelcased reason for the state transition
 type ConditionReason string
 
 const (
-	CSVReasonRequirementsUnknown ConditionReason = "RequirementsUnknown"
-	CSVReasonRequirementsNotMet  ConditionReason = "RequirementsNotMet"
-	CSVReasonRequirementsMet     ConditionReason = "AllRequirementsMet"
-	CSVReasonOwnerConflict       ConditionReason = "OwnerConflict"
-	CSVReasonComponentFailed     ConditionReason = "InstallComponentFailed"
-	CSVReasonInvalidStrategy     ConditionReason = "InvalidInstallStrategy"
-	CSVReasonWaiting             ConditionReason = "InstallWaiting"
-	CSVReasonInstallSuccessful   ConditionReason = "InstallSucceeded"
-	CSVReasonInstallCheckFailed  ConditionReason = "InstallCheckFailed"
-	CSVReasonComponentUnhealthy  ConditionReason = "ComponentUnhealthy"
-	CSVReasonBeingReplaced       ConditionReason = "BeingReplaced"
-	CSVReasonReplaced            ConditionReason = "Replaced"
+	CSVReasonRequirementsUnknown              ConditionReason = "RequirementsUnknown"
+	CSVReasonRequirementsNotMet               ConditionReason = "RequirementsNotMet"
+	CSVReasonRequirementsMet                  ConditionReason = "AllRequirementsMet"
+	CSVReasonOwnerConflict                    ConditionReason = "OwnerConflict"
+	CSVReasonComponentFailed                  ConditionReason = "InstallComponentFailed"
+	CSVReasonInvalidStrategy                  ConditionReason = "InvalidInstallStrategy"
+	CSVReasonWaiting                          ConditionReason = "InstallWaiting"
+	CSVReasonInstallSuccessful                ConditionReason = "InstallSucceeded"
+	CSVReasonInstallCheckFailed               ConditionReason = "InstallCheckFailed"
+	CSVReasonComponentUnhealthy               ConditionReason = "ComponentUnhealthy"
+	CSVReasonBeingReplaced                    ConditionReason = "BeingReplaced"
+	CSVReasonReplaced                         ConditionReason = "Replaced"
+	CSVReasonNeedsReinstall                   ConditionReason = "NeedsReinstall"
+	CSVReasonNeedsCertRotation                ConditionReason = "NeedsCertRotation"
+	CSVReasonAPIServiceResourceIssue          ConditionReason = "APIServiceResourceIssue"
+	CSVReasonAPIServiceResourcesNeedReinstall ConditionReason = "APIServiceResourcesNeedReinstall"
+	CSVReasonAPIServiceInstallFailed          ConditionReason = "APIServiceInstallFailed"
+	CSVReasonCopied                           ConditionReason = "Copied"
 )
 
 // Conditions appear in the status as a record of state transitions on the ClusterServiceVersion
@@ -217,8 +226,8 @@ type ClusterServiceVersionCondition struct {
 
 // OwnsCRD determines whether the current CSV owns a paritcular CRD.
 func (csv ClusterServiceVersion) OwnsCRD(name string) bool {
-	for _, crdDescription := range csv.Spec.CustomResourceDefinitions.Owned {
-		if crdDescription.Name == name {
+	for _, desc := range csv.Spec.CustomResourceDefinitions.Owned {
+		if desc.Name == name {
 			return true
 		}
 	}
@@ -226,7 +235,19 @@ func (csv ClusterServiceVersion) OwnsCRD(name string) bool {
 	return false
 }
 
-// ConditionReason is a camelcased reason for the status of a RequirementStatus or DependentStatus
+// OwnsAPIService determines whether the current CSV owns a paritcular APIService.
+func (csv ClusterServiceVersion) OwnsAPIService(name string) bool {
+	for _, desc := range csv.Spec.APIServiceDefinitions.Owned {
+		apiServiceName := fmt.Sprintf("%s.%s", desc.Version, desc.Group)
+		if apiServiceName == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// StatusReason is a camelcased reason for the status of a RequirementStatus or DependentStatus
 type StatusReason string
 
 const (
@@ -279,11 +300,17 @@ type ClusterServiceVersionStatus struct {
 	Conditions []ClusterServiceVersionCondition `json:"conditions,omitempty"`
 	// The status of each requirement for this CSV
 	RequirementStatus []RequirementStatus `json:"requirementStatus,omitempty"`
+	// Last time the owned APIService certs were updated
+	// +optional
+	CertsLastUpdated metav1.Time `json:"certsLastUpdated,omitempty"`
+	// Time the owned APIService certs will rotate next
+	// +optional
+	CertsRotateAt metav1.Time `json:"certsRotateAt,omitempty"`
 }
 
+// ClusterServiceVersion is a Custom Resource of type `ClusterServiceVersionSpec`.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
-// ClusterServiceVersion is a Custom Resource of type `ClusterServiceVersionSpec`.
 type ClusterServiceVersion struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

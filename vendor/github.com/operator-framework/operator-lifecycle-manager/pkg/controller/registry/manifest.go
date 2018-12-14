@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	scheme "k8s.io/kubernetes/pkg/api/legacyscheme"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"encoding/json"
 
