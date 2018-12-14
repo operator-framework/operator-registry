@@ -1,4 +1,4 @@
-//go:generate counterfeiter -o ../../fakes/fake_registry_source.go types.go SourceClient
+//go:generate counterfeiter -o ../../fakes/fake_registry_source.go types.go Source
 
 package registry
 
@@ -6,12 +6,11 @@ import (
 	"fmt"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"github.com/operator-framework/operator-registry/pkg/client"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 )
 
-// Catalog SourceClient
+// Catalog Source
 //    - Map name to ClusterServiceVersion
 //    - Map CRD to CRD definition
 //    - Map CRD to ClusterServiceVersion that manages it
@@ -39,10 +38,10 @@ type ResourceKey struct {
 	Namespace string
 }
 
-// SourceRef associates a SourceClient with it's SourceKey
+// SourceRef associates a Source with it's SourceKey
 type SourceRef struct {
-	SourceKey    ResourceKey
-	SourceClient client.Interface
+	SourceKey ResourceKey
+	Source    Source
 }
 
 // CRDKey contains metadata needed to uniquely identify a CRD
@@ -83,7 +82,7 @@ type PackageManifest struct {
 	// Channels are the declared channels for the package, ala `stable` or `alpha`.
 	Channels []PackageChannel `json:"channels"`
 
-	// DefaultChannelName is, if specified, the name of the default channel for the package. The
+	// DefaultChannel is, if specified, the name of the default channel for the package. The
 	// default channel will be installed if no other channel is explicitly given. If the package
 	// has a single channel, then that channel is implicitly the default.
 	DefaultChannelName string `json:"defaultChannel"`
@@ -107,7 +106,7 @@ type PackageChannel struct {
 	// Name is the name of the channel, e.g. `alpha` or `stable`
 	Name string `json:"name"`
 
-	// CurrentCSVName defines a reference to the CSV holding the version of this package currently
+	// CurrentCSV defines a reference to the CSV holding the version of this package currently
 	// for the channel.
 	CurrentCSVName string `json:"currentCSV"`
 }
