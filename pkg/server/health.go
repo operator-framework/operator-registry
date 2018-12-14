@@ -2,18 +2,19 @@ package server
 
 import (
 	"context"
-	"github.com/operator-framework/operator-registry/pkg/api"
+
+	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 )
 
 type HealthServer struct {
 }
 
-var _ api.HealthServer= &HealthServer{}
+var _ health.HealthServer= &HealthServer{}
 
 func NewHealthServer() *HealthServer {
 	return &HealthServer{}
 }
 
-func (s *HealthServer) Check(ctx context.Context, req *api.HealthCheckRequest) (*api.HealthCheckResponse, error) {
-	return &api.HealthCheckResponse{Status: api.HealthCheckResponse_SERVING}, nil
+func (s *HealthServer) Check(ctx context.Context, req *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
+	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
 }

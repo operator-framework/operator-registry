@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -10,9 +12,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
+	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -118,7 +120,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
-	api.RegisterHealthServer(s, server.NewHealthServer())
+	health.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
 
 	logger.Info("serving registry")

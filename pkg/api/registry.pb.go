@@ -2,6 +2,28 @@
 // source: registry.proto
 // DO NOT EDIT!
 
+/*
+Package api is a generated protocol buffer package.
+
+It is generated from these files:
+	registry.proto
+
+It has these top-level messages:
+	Channel
+	PackageName
+	Package
+	Bundle
+	ChannelEntry
+	ListPackageRequest
+	GetPackageRequest
+	GetBundleRequest
+	GetBundleInChannelRequest
+	GetAllReplacementsRequest
+	GetReplacementRequest
+	GetAllProvidersRequest
+	GetLatestProvidersRequest
+	GetDefaultProviderRequest
+*/
 package api
 
 import proto "github.com/golang/protobuf/proto"
@@ -18,6 +40,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type Channel struct {
 	Name    string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	CsvName string `protobuf:"bytes,2,opt,name=csvName" json:"csvName,omitempty"`
@@ -26,7 +54,7 @@ type Channel struct {
 func (m *Channel) Reset()                    { *m = Channel{} }
 func (m *Channel) String() string            { return proto.CompactTextString(m) }
 func (*Channel) ProtoMessage()               {}
-func (*Channel) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (*Channel) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 func (m *Channel) GetName() string {
 	if m != nil {
@@ -49,7 +77,7 @@ type PackageName struct {
 func (m *PackageName) Reset()                    { *m = PackageName{} }
 func (m *PackageName) String() string            { return proto.CompactTextString(m) }
 func (*PackageName) ProtoMessage()               {}
-func (*PackageName) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (*PackageName) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 func (m *PackageName) GetName() string {
 	if m != nil {
@@ -67,7 +95,7 @@ type Package struct {
 func (m *Package) Reset()                    { *m = Package{} }
 func (m *Package) String() string            { return proto.CompactTextString(m) }
 func (*Package) ProtoMessage()               {}
-func (*Package) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (*Package) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *Package) GetName() string {
 	if m != nil {
@@ -101,7 +129,7 @@ type Bundle struct {
 func (m *Bundle) Reset()                    { *m = Bundle{} }
 func (m *Bundle) String() string            { return proto.CompactTextString(m) }
 func (*Bundle) ProtoMessage()               {}
-func (*Bundle) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
+func (*Bundle) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *Bundle) GetCsvName() string {
 	if m != nil {
@@ -148,7 +176,7 @@ type ChannelEntry struct {
 func (m *ChannelEntry) Reset()                    { *m = ChannelEntry{} }
 func (m *ChannelEntry) String() string            { return proto.CompactTextString(m) }
 func (*ChannelEntry) ProtoMessage()               {}
-func (*ChannelEntry) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
+func (*ChannelEntry) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 func (m *ChannelEntry) GetPackageName() string {
 	if m != nil {
@@ -184,7 +212,7 @@ type ListPackageRequest struct {
 func (m *ListPackageRequest) Reset()                    { *m = ListPackageRequest{} }
 func (m *ListPackageRequest) String() string            { return proto.CompactTextString(m) }
 func (*ListPackageRequest) ProtoMessage()               {}
-func (*ListPackageRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
+func (*ListPackageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 type GetPackageRequest struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
@@ -193,7 +221,7 @@ type GetPackageRequest struct {
 func (m *GetPackageRequest) Reset()                    { *m = GetPackageRequest{} }
 func (m *GetPackageRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetPackageRequest) ProtoMessage()               {}
-func (*GetPackageRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{6} }
+func (*GetPackageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 func (m *GetPackageRequest) GetName() string {
 	if m != nil {
@@ -209,7 +237,7 @@ type GetBundleRequest struct {
 func (m *GetBundleRequest) Reset()                    { *m = GetBundleRequest{} }
 func (m *GetBundleRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetBundleRequest) ProtoMessage()               {}
-func (*GetBundleRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{7} }
+func (*GetBundleRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *GetBundleRequest) GetCsvName() string {
 	if m != nil {
@@ -226,7 +254,7 @@ type GetBundleInChannelRequest struct {
 func (m *GetBundleInChannelRequest) Reset()                    { *m = GetBundleInChannelRequest{} }
 func (m *GetBundleInChannelRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetBundleInChannelRequest) ProtoMessage()               {}
-func (*GetBundleInChannelRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{8} }
+func (*GetBundleInChannelRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 func (m *GetBundleInChannelRequest) GetPkgName() string {
 	if m != nil {
@@ -249,7 +277,7 @@ type GetAllReplacementsRequest struct {
 func (m *GetAllReplacementsRequest) Reset()                    { *m = GetAllReplacementsRequest{} }
 func (m *GetAllReplacementsRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetAllReplacementsRequest) ProtoMessage()               {}
-func (*GetAllReplacementsRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{9} }
+func (*GetAllReplacementsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *GetAllReplacementsRequest) GetCsvName() string {
 	if m != nil {
@@ -267,7 +295,7 @@ type GetReplacementRequest struct {
 func (m *GetReplacementRequest) Reset()                    { *m = GetReplacementRequest{} }
 func (m *GetReplacementRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetReplacementRequest) ProtoMessage()               {}
-func (*GetReplacementRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{10} }
+func (*GetReplacementRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *GetReplacementRequest) GetCsvName() string {
 	if m != nil {
@@ -299,7 +327,7 @@ type GetAllProvidersRequest struct {
 func (m *GetAllProvidersRequest) Reset()                    { *m = GetAllProvidersRequest{} }
 func (m *GetAllProvidersRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetAllProvidersRequest) ProtoMessage()               {}
-func (*GetAllProvidersRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{11} }
+func (*GetAllProvidersRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *GetAllProvidersRequest) GetGroupOrName() string {
 	if m != nil {
@@ -331,7 +359,7 @@ type GetLatestProvidersRequest struct {
 func (m *GetLatestProvidersRequest) Reset()                    { *m = GetLatestProvidersRequest{} }
 func (m *GetLatestProvidersRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetLatestProvidersRequest) ProtoMessage()               {}
-func (*GetLatestProvidersRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{12} }
+func (*GetLatestProvidersRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func (m *GetLatestProvidersRequest) GetGroupOrName() string {
 	if m != nil {
@@ -363,7 +391,7 @@ type GetDefaultProviderRequest struct {
 func (m *GetDefaultProviderRequest) Reset()                    { *m = GetDefaultProviderRequest{} }
 func (m *GetDefaultProviderRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetDefaultProviderRequest) ProtoMessage()               {}
-func (*GetDefaultProviderRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{13} }
+func (*GetDefaultProviderRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *GetDefaultProviderRequest) GetGroupOrName() string {
 	if m != nil {
@@ -815,9 +843,9 @@ var _Registry_serviceDesc = grpc.ServiceDesc{
 	Metadata: "registry.proto",
 }
 
-func init() { proto.RegisterFile("registry.proto", fileDescriptor1) }
+func init() { proto.RegisterFile("registry.proto", fileDescriptor0) }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor0 = []byte{
 	// 584 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xbc, 0x55, 0x4d, 0x8f, 0xd3, 0x30,
 	0x10, 0x6d, 0xda, 0xd2, 0x76, 0xa7, 0x15, 0xda, 0x35, 0x50, 0x42, 0x40, 0xab, 0xe0, 0x0b, 0x3d,

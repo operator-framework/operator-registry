@@ -8,7 +8,6 @@ COPY cmd cmd
 COPY pkg pkg
 COPY Makefile Makefile
 COPY go.mod go.mod
-COPY go.sum go.sum
 RUN make static
 
 COPY manifests manifests
