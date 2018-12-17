@@ -23,6 +23,7 @@ vendor:
 
 codegen:
 	protoc -I pkg/api/ -I${GOPATH}/src --go_out=plugins=grpc:pkg/api pkg/api/*.proto
+	protoc -I pkg/api/grpc_health_v1 -I${GOPATH}/src --go_out=plugins=grpc:pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
 
 clean:
 	@rm -rf ./bin
