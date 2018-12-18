@@ -1,22 +1,26 @@
 CMDS  := $(addprefix bin/, $(shell go list ./cmd/... | xargs -I{} basename {}))
+MOD_FLAGS := $(shell (go version | grep -q 1.11) && echo -mod=vendor)
 
 .PHONY: build test vendor clean
 
 all: clean test build
 
 $(CMDS):
-	go build -mod=vendor -tags json1 $(extra_flags) -o $@ ./cmd/$(shell basename $@)
+	go build $(MOD_FLAGS) -tags json1 $(extra_flags) -o $@ ./cmd/$(shell basename $@)
 
 build: clean $(CMDS)
 
-static: extra_flags=-ldflags '-w -extldflags "-static"'
+static: extra_flags=-ldflags '-w -extldflags "-static"' 
 static: build
 
-test:
-	go test -mod=vendor --tags json1 -v -race ./pkg/...
+unit:
+	go test $(MOD_FLAGS) -count=1 --tags json1 -v -race ./pkg/...
 
 image:
 	docker build .
+
+image-upstream:
+	docker build -f upstream.Dockerfile .
 
 vendor:
 	go mod vendor
