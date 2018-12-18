@@ -1,7 +1,8 @@
 FROM openshift/origin-release:golang-1.10 as builder
 
 RUN yum update -y && \
-    yum install -y make git sqlite
+    yum install -y make git sqlite && \
+    yum groupinstall -y "Development Tools" "Development Libraries"
 
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
@@ -13,7 +14,6 @@ COPY cmd cmd
 COPY pkg pkg
 COPY Makefile Makefile
 RUN make static
-RUN echo $(ls -la bin)
 
 # copy and build vendored grpc_health_probe
 RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
