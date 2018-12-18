@@ -15,7 +15,7 @@ static: extra_flags=-ldflags '-w -extldflags "-static"'
 static: build
 
 test:
-	go test $(MOD_FLAGS) --tags json1 -v -race ./pkg/...
+	go test $(MOD_FLAGS) -count=1 --tags json1 -v -race ./pkg/...
 
 image:
 	docker build .
