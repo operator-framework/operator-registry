@@ -6,11 +6,10 @@ MOD_FLAGS := $(shell (go version | grep -q 1.11) && echo -mod=vendor)
 all: clean test build
 
 $(CMDS):
-	CGO_ENABLE=0 go build $(MOD_FLAGS) -tags json1 $(extra_flags) -o $@ ./cmd/$(shell basename $@)
+	go build $(MOD_FLAGS) -tags json1 $(extra_flags) -o $@ ./cmd/$(shell basename $@)
 
 build: clean $(CMDS)
 
-static: envs=CGO_ENABLE=0
 static: extra_flags=-ldflags '-w -extldflags "-static"' 
 static: build
 
