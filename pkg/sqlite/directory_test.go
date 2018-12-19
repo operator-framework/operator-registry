@@ -2,12 +2,13 @@ package sqlite
 
 import (
 	"context"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"os"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestDirectoryLoader(t *testing.T) {
@@ -62,18 +63,18 @@ func TestQuerierForDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
 
-	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
 
-	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
-	etcdBundleByProvides, entry, err := store.GetBundleThatProvides(context.TODO(), "etcdclusters.etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdBundleByProvides, entry, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.Equal(t, expectedBundle, etcdBundleByProvides)
-	require.Equal(t, &registry.ChannelEntry{"etcd", "alpha","etcdoperator.v0.9.2", ""}, entry)
+	require.Equal(t, &registry.ChannelEntry{"etcd", "alpha", "etcdoperator.v0.9.2", ""}, entry)
 }

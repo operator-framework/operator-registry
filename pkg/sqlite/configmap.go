@@ -68,7 +68,7 @@ func (c *ConfigMapLoader) Populate() error {
 			crd.Spec.Versions = []v1beta1.CustomResourceDefinitionVersion{{Name: crd.Spec.Version, Served: true, Storage: true}}
 		}
 		for _, version := range crd.Spec.Versions {
-			gvk := registry.APIKey{crd.Spec.Group, version.Name, crd.Spec.Names.Kind, crd.Spec.Names.Plural}
+			gvk := registry.APIKey{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}
 			log.WithField("gvk", gvk).Debug("loading CRD")
 			if _, ok := c.crds[gvk]; ok {
 				log.WithField("gvk", gvk).Debug("crd added twice")
@@ -116,7 +116,7 @@ func (c *ConfigMapLoader) Populate() error {
 				log.WithError(err).Debug("error parsing owned name")
 				return fmt.Errorf("error parsing owned name")
 			}
-			gvk := registry.APIKey{split[1], owned.Version, owned.Kind, split[0]}
+			gvk := registry.APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
 			if crdUnst, ok := c.crds[gvk]; !ok {
 				log.WithField("gvk", gvk).WithError(err).Debug("couldn't find owned CRD in crd list")
 			} else {
@@ -155,7 +155,7 @@ func (c *ConfigMapLoader) Populate() error {
 	}
 
 	log.Info("extracting provided API information")
-	if err := c.store.AddProvidedApis(); err != nil {
+	if err := c.store.AddProvidedAPIs(); err != nil {
 		return err
 	}
 	return nil

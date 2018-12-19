@@ -2,20 +2,19 @@ package sqlite
 
 import (
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/schema"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/schema"
 )
 
 type SQLPopulator interface {
@@ -59,7 +58,7 @@ func (d *DirectoryLoader) Populate() error {
 	}
 
 	log.Info("extracting provided API information")
-	if err := d.store.AddProvidedApis(); err != nil {
+	if err := d.store.AddProvidedAPIs(); err != nil {
 		return err
 	}
 	return nil
