@@ -21,17 +21,17 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	}
 
 	createTable := `
-	CREATE TABLE operatorbundle (
+	CREATE TABLE IF NOT EXISTS operatorbundle (
 		name TEXT PRIMARY KEY,  
 		csv TEXT UNIQUE, 
 		bundle TEXT
 	);
-	CREATE TABLE package (
+	CREATE TABLE IF NOT EXISTS package (
 		name TEXT PRIMARY KEY,
 		default_channel TEXT,
 		FOREIGN KEY(default_channel) REFERENCES channel(name)
 	);
-	CREATE TABLE channel (
+	CREATE TABLE IF NOT EXISTS channel (
 		name TEXT, 
 		package_name TEXT, 
 		head_operatorbundle_name TEXT,
@@ -39,7 +39,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(package_name) REFERENCES package(name),
 		FOREIGN KEY(head_operatorbundle_name) REFERENCES operatorbundle(name)
 	);
-	CREATE TABLE channel_entry (
+	CREATE TABLE IF NOT EXISTS channel_entry (
 		entry_id INTEGER PRIMARY KEY,
 		channel_name TEXT,
 		package_name TEXT,
@@ -51,13 +51,13 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(package_name) REFERENCES channel(package_name),
 		FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
 	);
-	CREATE TABLE api (
+	CREATE TABLE IF NOT EXISTS api (
 		groupOrName TEXT,
 		version TEXT,
 		kind TEXT,
 		PRIMARY KEY(groupOrName,version,kind)
 	);
-	CREATE TABLE api_provider (
+	CREATE TABLE IF NOT EXISTS api_provider (
 		groupOrName TEXT,
 		version TEXT,
 		kind TEXT,
@@ -65,7 +65,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
 		FOREIGN KEY(groupOrName,version,kind) REFERENCES api(groupOrName, version, kind) 
 	);
-	CREATE INDEX replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
+	CREATE INDEX IF NOT EXISTS replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
 	`
 
 	if _, err = db.Exec(createTable); err != nil {
