@@ -34,7 +34,7 @@ github.com/go-openapi/strfmt
 github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.17.2
 github.com/go-openapi/validate
-# github.com/gogo/protobuf v1.1.1
+# github.com/gogo/protobuf v1.2.0
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -44,8 +44,13 @@ github.com/golang/groupcache/lru
 # github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.2.0
+github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/proto
+github.com/golang/protobuf/protoc-gen-go/generator
+github.com/golang/protobuf/protoc-gen-go/grpc
 github.com/golang/protobuf/protoc-gen-go/descriptor
+github.com/golang/protobuf/protoc-gen-go/generator/internal/remap
+github.com/golang/protobuf/protoc-gen-go/plugin
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
@@ -58,11 +63,14 @@ github.com/google/gofuzz
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
-# github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
+# github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
 github.com/gregjones/httpcache
 github.com/gregjones/httpcache/diskcache
 # github.com/grpc-ecosystem/grpc-health-probe v0.2.0
 github.com/grpc-ecosystem/grpc-health-probe
+# github.com/hashicorp/golang-lru v0.5.0
+github.com/hashicorp/golang-lru
+github.com/hashicorp/golang-lru/simplelru
 # github.com/imdario/mergo v0.3.6
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
@@ -83,11 +91,16 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20181213010841-efcc72ce88c9
+# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20181218235825-c53c51a3572b
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
 github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient
+github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister
+github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil
+github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha2
+github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1
+github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha2
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
 # github.com/pmezard/go-difflib v1.0.0
@@ -120,7 +133,7 @@ golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/transform
 golang.org/x/text/width
-# golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
+# golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 golang.org/x/time/rate
 # google.golang.org/genproto v0.0.0-20181016170114-94acd270e44e
 google.golang.org/genproto/googleapis/rpc/status
@@ -160,6 +173,7 @@ gopkg.in/inf.v0
 gopkg.in/yaml.v2
 # k8s.io/api v0.0.0-20181203235848-2dd39edadc55
 k8s.io/api/core/v1
+k8s.io/api/rbac/v1
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -179,7 +193,6 @@ k8s.io/api/events/v1beta1
 k8s.io/api/extensions/v1beta1
 k8s.io/api/networking/v1
 k8s.io/api/policy/v1beta1
-k8s.io/api/rbac/v1
 k8s.io/api/rbac/v1alpha1
 k8s.io/api/rbac/v1beta1
 k8s.io/api/scheduling/v1alpha1
@@ -195,6 +208,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation
 k8s.io/apiextensions-apiserver/pkg/apiserver/validation
 k8s.io/apiextensions-apiserver/pkg/features
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
+k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 # k8s.io/apimachinery v0.0.0-20181203235515-3d8ee2261517
@@ -239,6 +253,9 @@ k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/pkg/apis/meta/v1beta1
 k8s.io/apimachinery/pkg/util/mergepatch
 k8s.io/apimachinery/third_party/forked/golang/json
+k8s.io/apimachinery/pkg/util/cache
+k8s.io/apimachinery/pkg/util/diff
+k8s.io/apimachinery/pkg/apis/meta/internalversion
 # k8s.io/apiserver v0.0.0-20181026151315-13cfe3978170
 k8s.io/apiserver/pkg/util/feature
 # k8s.io/client-go v8.0.0+incompatible
@@ -295,9 +312,17 @@ k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1
 k8s.io/client-go/pkg/apis/clientauthentication/v1beta1
 k8s.io/client-go/util/connrotation
 k8s.io/client-go/tools/clientcmd/api/v1
+k8s.io/client-go/listers/apps/v1
+k8s.io/client-go/listers/core/v1
+k8s.io/client-go/listers/rbac/v1
+k8s.io/client-go/tools/cache
+k8s.io/client-go/tools/pager
+k8s.io/client-go/util/buffer
+k8s.io/client-go/util/retry
 # k8s.io/kube-aggregator v0.0.0-20181204002017-122bac39d429
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset
+k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
