@@ -26,8 +26,14 @@ vendor:
 	go mod vendor
 
 codegen:
-	protoc -I pkg/api/ -I${GOPATH}/src --go_out=plugins=grpc:pkg/api pkg/api/*.proto
-	protoc -I pkg/api/grpc_health_v1 -I${GOPATH}/src --go_out=plugins=grpc:pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
+	protoc -I pkg/api/ --go_out=plugins=grpc:pkg/api pkg/api/*.proto
+	protoc -I pkg/api/grpc_health_v1 --go_out=plugins=grpc:pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
+
+container-codegen:
+	docker build -t operator-registry:codegen -f codegen.Dockerfile .
+	docker run --name temp-codegen operator-registry:codegen /bin/true
+	docker cp temp-codegen:/codegen/pkg/api/. ./pkg/api
+	docker rm temp-codegen
 
 clean:
 	@rm -rf ./bin
