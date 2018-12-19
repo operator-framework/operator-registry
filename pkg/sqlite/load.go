@@ -3,8 +3,11 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -52,18 +55,19 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
 	);
 	CREATE TABLE IF NOT EXISTS api (
-		groupOrName TEXT,
+		group_name TEXT,
 		version TEXT,
 		kind TEXT,
-		PRIMARY KEY(groupOrName,version,kind)
+		plural TEXT NOT NULL,
+		PRIMARY KEY(group_name, version, kind)
 	);
 	CREATE TABLE IF NOT EXISTS api_provider (
-		groupOrName TEXT,
+		group_name TEXT,
 		version TEXT,
 		kind TEXT,
 		channel_entry_id INTEGER,
 		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
-		FOREIGN KEY(groupOrName,version,kind) REFERENCES api(groupOrName, version, kind) 
+		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
 	);
 	CREATE INDEX IF NOT EXISTS replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
 	`
@@ -137,7 +141,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		}
 	}
 
-	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name,package_name,operatorbundle_name,depth) values(?,?,?,?)")
+	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -202,22 +206,22 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	return tx.Commit()
 }
 
-func (s *SQLLoader) AddProvidedApis() error {
+func (s *SQLLoader) AddProvidedAPIs() error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
-	addApi, err := tx.Prepare("insert or replace into api(groupOrName,version,kind) values(?,?,?)")
+	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer addApi.Close()
+	defer addAPI.Close()
 
-	addApiProvider, err := tx.Prepare("insert into api_provider(groupOrName,version,kind,channel_entry_id) values(?,?,?,?)")
+	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer addApiProvider.Close()
+	defer addAPIProvider.Close()
 
 	// get CRD provided APIs
 	getChannelEntryProvidedAPIs, err := tx.Prepare(`
@@ -244,24 +248,28 @@ func (s *SQLLoader) AddProvidedApis() error {
 		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
 			return err
 		}
-		if _, err := addApi.Exec(apigvk[0], apigvk[1], apigvk[2]); err != nil {
+		plural, group, err := SplitCRDName(apigvk[0])
+		if err != nil {
 			return err
 		}
-		if _, err := addApiProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
+		if _, err := addAPI.Exec(group, apigvk[1], apigvk[2], plural); err != nil {
+			return err
+		}
+		if _, err := addAPIProvider.Exec(group, apigvk[1], apigvk[2], channelId.Int64); err != nil {
 			return err
 		}
 	}
 
-	getChannelEntryProvidedAPIsAPIservice, err := tx.Prepare(`
-	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.group', '$.version', '$.kind')
+	getChannelEntryProvidedAPIsAPIService, err := tx.Prepare(`
+	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.group', '$.version', '$.kind', '$.name')
 	FROM channel_entry INNER JOIN operatorbundle,json_each(operatorbundle.csv, '$.spec.apiservicedefinitions.owned')
 	ON channel_entry.operatorbundle_name = operatorbundle.name`)
 	if err != nil {
 		return err
 	}
-	defer getChannelEntryProvidedAPIsAPIservice.Close()
+	defer getChannelEntryProvidedAPIsAPIService.Close()
 
-	rows, err = getChannelEntryProvidedAPIsAPIservice.Query()
+	rows, err = getChannelEntryProvidedAPIsAPIService.Query()
 	if err != nil {
 		return err
 	}
@@ -276,10 +284,10 @@ func (s *SQLLoader) AddProvidedApis() error {
 		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
 			return err
 		}
-		if _, err := addApi.Exec(apigvk[0], apigvk[1], apigvk[2]); err != nil {
+		if _, err := addAPI.Exec(apigvk[0], apigvk[1], apigvk[2], apigvk[3]); err != nil {
 			return err
 		}
-		if _, err := addApiProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
+		if _, err := addAPIProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
 			return err
 		}
 	}
@@ -289,4 +297,16 @@ func (s *SQLLoader) AddProvidedApis() error {
 
 func (s *SQLLoader) Close() {
 	s.db.Close()
+}
+
+func SplitCRDName(crdName string) (plural, group string, err error) {
+	pluralGroup := strings.SplitN(crdName, ".", 2)
+	if len(pluralGroup) != 2 {
+		err = fmt.Errorf("can't split bad CRD name %s", crdName)
+		return
+	}
+
+	plural = pluralGroup[0]
+	group = pluralGroup[1]
+	return
 }

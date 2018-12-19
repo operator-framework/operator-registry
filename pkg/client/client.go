@@ -13,7 +13,7 @@ import (
 type Interface interface {
 	GetBundleInPackageChannel(ctx context.Context, packageName, channelName string) (*registry.Bundle, error)
 	GetReplacementBundleInPackageChannel(ctx context.Context, currentName, packageName, channelName string) (*registry.Bundle, error)
-	GetBundleThatProvides(ctx context.Context, groupOrName, version, kind string) (*registry.Bundle, error)
+	GetBundleThatProvides(ctx context.Context, group, version, kind string) (*registry.Bundle, error)
 }
 
 type Client struct {
@@ -40,8 +40,8 @@ func (c *Client) GetReplacementBundleInPackageChannel(ctx context.Context, curre
 	return registry.NewBundleFromStrings(bundle.CsvName, packageName, channelName, bundle.Object)
 }
 
-func (c *Client) GetBundleThatProvides(ctx context.Context, groupOrName, version, kind string) (*registry.Bundle, error) {
-	bundle, err := c.client.GetDefaultBundleThatProvides(ctx, &api.GetDefaultProviderRequest{GroupOrName: groupOrName, Version: version, Kind: kind})
+func (c *Client) GetBundleThatProvides(ctx context.Context, group, version, kind string) (*registry.Bundle, error) {
+	bundle, err := c.client.GetDefaultBundleThatProvides(ctx, &api.GetDefaultProviderRequest{Group: group, Version: version, Kind: kind})
 	if err != nil {
 		return nil, err
 	}

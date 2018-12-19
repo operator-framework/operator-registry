@@ -35,7 +35,7 @@ func (s *RegistryServer) GetPackage(ctx context.Context, req *api.GetPackageRequ
 	if err != nil {
 		return nil, err
 	}
-	return api.PackageManifestToApiPackage(packageManifest), nil
+	return api.PackageManifestToAPIPackage(packageManifest), nil
 }
 
 func (s *RegistryServer) GetBundleForChannel(ctx context.Context, req *api.GetBundleInChannelRequest) (*api.Bundle, error) {
@@ -47,7 +47,7 @@ func (s *RegistryServer) GetBundleForChannel(ctx context.Context, req *api.GetBu
 		PackageName: req.GetPkgName(),
 		ChannelName: req.GetChannelName(),
 	}
-	return api.BundleStringToApiBundle(bundleString, entry)
+	return api.BundleStringToAPIBundle(bundleString, entry)
 }
 
 func (s *RegistryServer) GetChannelEntriesThatReplace(req *api.GetAllReplacementsRequest, stream api.Registry_GetChannelEntriesThatReplaceServer) error {
@@ -56,7 +56,7 @@ func (s *RegistryServer) GetChannelEntriesThatReplace(req *api.GetAllReplacement
 		return err
 	}
 	for _, e := range channelEntries {
-		if err := stream.Send(api.ChannelEntryToApiChannelEntry(e)); err != nil {
+		if err := stream.Send(api.ChannelEntryToAPIChannelEntry(e)); err != nil {
 			return err
 		}
 	}
@@ -71,18 +71,18 @@ func (s *RegistryServer) GetBundleThatReplaces(ctx context.Context, req *api.Get
 	entry := &registry.ChannelEntry{
 		PackageName: req.GetPkgName(),
 		ChannelName: req.GetChannelName(),
-		Replaces: req.GetCsvName(),
+		Replaces:    req.GetCsvName(),
 	}
-	return api.BundleStringToApiBundle(bundleString, entry)
+	return api.BundleStringToAPIBundle(bundleString, entry)
 }
 
 func (s *RegistryServer) GetChannelEntriesThatProvide(req *api.GetAllProvidersRequest, stream api.Registry_GetChannelEntriesThatProvideServer) error {
-	channelEntries, err := s.store.GetChannelEntriesThatProvide(stream.Context(), req.GetGroupOrName(), req.GetVersion(), req.GetKind())
+	channelEntries, err := s.store.GetChannelEntriesThatProvide(stream.Context(), req.GetGroup(), req.GetVersion(), req.GetKind())
 	if err != nil {
 		return err
 	}
 	for _, e := range channelEntries {
-		if err := stream.Send(api.ChannelEntryToApiChannelEntry(e)); err != nil {
+		if err := stream.Send(api.ChannelEntryToAPIChannelEntry(e)); err != nil {
 			return err
 		}
 	}
@@ -90,12 +90,12 @@ func (s *RegistryServer) GetChannelEntriesThatProvide(req *api.GetAllProvidersRe
 }
 
 func (s *RegistryServer) GetLatestChannelEntriesThatProvide(req *api.GetLatestProvidersRequest, stream api.Registry_GetLatestChannelEntriesThatProvideServer) error {
-	channelEntries, err := s.store.GetLatestChannelEntriesThatProvide(stream.Context(), req.GetGroupOrName(), req.GetVersion(), req.GetKind())
+	channelEntries, err := s.store.GetLatestChannelEntriesThatProvide(stream.Context(), req.GetGroup(), req.GetVersion(), req.GetKind())
 	if err != nil {
 		return err
 	}
 	for _, e := range channelEntries {
-		if err := stream.Send(api.ChannelEntryToApiChannelEntry(e)); err != nil {
+		if err := stream.Send(api.ChannelEntryToAPIChannelEntry(e)); err != nil {
 			return err
 		}
 	}
@@ -103,9 +103,9 @@ func (s *RegistryServer) GetLatestChannelEntriesThatProvide(req *api.GetLatestPr
 }
 
 func (s *RegistryServer) GetDefaultBundleThatProvides(ctx context.Context, req *api.GetDefaultProviderRequest) (*api.Bundle, error) {
-	bundleString, channelEntry, err := s.store.GetBundleThatProvides(ctx, req.GetGroupOrName(), req.GetVersion(), req.GetKind())
+	bundleString, channelEntry, err := s.store.GetBundleThatProvides(ctx, req.GetGroup(), req.GetVersion(), req.GetKind())
 	if err != nil {
 		return nil, err
 	}
-	return api.BundleStringToApiBundle(bundleString, channelEntry)
+	return api.BundleStringToAPIBundle(bundleString, channelEntry)
 }

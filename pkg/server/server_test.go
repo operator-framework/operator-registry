@@ -197,7 +197,7 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 	c, conn := client(t)
 	defer conn.Close()
 
-	stream, err := c.GetChannelEntriesThatProvide(context.TODO(), &api.GetAllProvidersRequest{GroupOrName: "etcdclusters.etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
+	stream, err := c.GetChannelEntriesThatProvide(context.TODO(), &api.GetAllProvidersRequest{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
 	require.NoError(t, err)
 
 	channelEntries := []*api.ChannelEntry{}
@@ -248,7 +248,7 @@ func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 	c, conn := client(t)
 	defer conn.Close()
 
-	stream, err := c.GetLatestChannelEntriesThatProvide(context.TODO(), &api.GetLatestProvidersRequest{GroupOrName: "etcdclusters.etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
+	stream, err := c.GetLatestChannelEntriesThatProvide(context.TODO(), &api.GetLatestProvidersRequest{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
 	require.NoError(t, err)
 
 	channelEntries := []*api.ChannelEntry{}
@@ -287,7 +287,7 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 	c, conn := client(t)
 	defer conn.Close()
 
-	bundle, err := c.GetDefaultBundleThatProvides(context.TODO(), &api.GetDefaultProviderRequest{GroupOrName: "etcdclusters.etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
+	bundle, err := c.GetDefaultBundleThatProvides(context.TODO(), &api.GetDefaultProviderRequest{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
 	require.NoError(t, err)
 	expected := &api.Bundle{
 		CsvName:     "etcdoperator.v0.9.2",
