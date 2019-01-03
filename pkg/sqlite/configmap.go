@@ -111,19 +111,18 @@ func (c *ConfigMapLoader) Populate() error {
 
 		bundle := registry.NewBundle(csv.GetName(), "","", &unstructured.Unstructured{Object: csvUnst})
 		for _, owned := range csv.Spec.CustomResourceDefinitions.Owned {
-			split := strings.SplitAfterN(owned.Name, ".", 2)
+			split := strings.SplitN(owned.Name, ".", 2)
 			if len(split) < 2 {
 				log.WithError(err).Debug("error parsing owned name")
 				return fmt.Errorf("error parsing owned name")
 			}
 			gvk := registry.APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
 			if crdUnst, ok := c.crds[gvk]; !ok {
-				log.WithField("gvk", gvk).WithError(err).Debug("couldn't find owned CRD in crd list")
+				log.WithField("gvk", gvk).WithError(err).Warn("couldn't find owned CRD in crd list")
 			} else {
 				bundle.Add(crdUnst)
 			}
 		}
-
 		if err := c.store.AddOperatorBundle(bundle); err != nil {
 			return err
 		}
