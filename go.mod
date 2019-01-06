@@ -7,7 +7,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f // indirect
 	github.com/grpc-ecosystem/grpc-health-probe v0.2.0
 	github.com/mattn/go-sqlite3 v1.10.0
-	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20181218235825-c53c51a3572b
+	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190105193533-81104ffdc4fb
 	github.com/sirupsen/logrus v1.1.1
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.2.2
