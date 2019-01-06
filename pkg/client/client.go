@@ -17,15 +17,15 @@ type Interface interface {
 }
 
 type Client struct {
-	client api.RegistryClient
-	health grpc_health_v1.HealthClient
-	conn   *grpc.ClientConn
+	Registry api.RegistryClient
+	Health   grpc_health_v1.HealthClient
+	Conn     *grpc.ClientConn
 }
 
 var _ Interface = &Client{}
 
 func (c *Client) GetBundleInPackageChannel(ctx context.Context, packageName, channelName string) (*registry.Bundle, error) {
-	bundle, err := c.client.GetBundleForChannel(ctx, &api.GetBundleInChannelRequest{PkgName: packageName, ChannelName: channelName})
+	bundle, err := c.Registry.GetBundleForChannel(ctx, &api.GetBundleInChannelRequest{PkgName: packageName, ChannelName: channelName})
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (c *Client) GetBundleInPackageChannel(ctx context.Context, packageName, cha
 }
 
 func (c *Client) GetReplacementBundleInPackageChannel(ctx context.Context, currentName, packageName, channelName string) (*registry.Bundle, error) {
-	bundle, err := c.client.GetBundleThatReplaces(ctx, &api.GetReplacementRequest{CsvName: currentName, PkgName: packageName, ChannelName: channelName})
+	bundle, err := c.Registry.GetBundleThatReplaces(ctx, &api.GetReplacementRequest{CsvName: currentName, PkgName: packageName, ChannelName: channelName})
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (c *Client) GetReplacementBundleInPackageChannel(ctx context.Context, curre
 }
 
 func (c *Client) GetBundleThatProvides(ctx context.Context, group, version, kind string) (*registry.Bundle, error) {
-	bundle, err := c.client.GetDefaultBundleThatProvides(ctx, &api.GetDefaultProviderRequest{Group: group, Version: version, Kind: kind})
+	bundle, err := c.Registry.GetDefaultBundleThatProvides(ctx, &api.GetDefaultProviderRequest{Group: group, Version: version, Kind: kind})
 	if err != nil {
 		return nil, err
 	}
@@ -58,8 +58,8 @@ func NewClient(address string) (*Client, error) {
 		return nil, err
 	}
 	return &Client{
-		client: api.NewRegistryClient(conn),
-		health: grpc_health_v1.NewHealthClient(conn),
-		conn:   conn,
+		Registry: api.NewRegistryClient(conn),
+		Health:   grpc_health_v1.NewHealthClient(conn),
+		Conn:     conn,
 	}, nil
 }
