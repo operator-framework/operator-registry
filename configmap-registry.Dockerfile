@@ -23,7 +23,7 @@ RUN dep ensure -vendor-only -v && \
 
 
 FROM scratch
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /configmap-server
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
 COPY --from=probe-builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051
-ENTRYPOINT ["/configmap-server"]
+ENTRYPOINT ["/bin/configmap-server"]

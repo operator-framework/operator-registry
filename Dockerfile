@@ -25,9 +25,9 @@ RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
 
 FROM openshift/origin-base
 
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/initializer /initializer
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/registry-server /registry-server
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /configmap-server
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/initializer /bin/initializer
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/registry-server /bin/registry-server
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 # This image doesn't need to run as root user
