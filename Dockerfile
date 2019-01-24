@@ -25,10 +25,18 @@ RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
 
 FROM openshift/origin-base
 
+RUN mkdir /registry
+WORKDIR /registry
+
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/initializer /bin/initializer
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/registry-server /bin/registry-server
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
+
+RUN chgrp -R 0 /registry && \
+    chgrp -R 0 /dev && \
+    chmod -R g+rwx /registry && \
+    chmod -R g+rwx /dev
 
 # This image doesn't need to run as root user
 USER 1001
@@ -36,5 +44,5 @@ USER 1001
 EXPOSE 50051
 
 LABEL io.k8s.display-name="OpenShift Operator Registry" \
-      io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
-      maintainer="Odin Team <aos-odin@redhat.com>"
+    io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
+    maintainer="Odin Team <aos-odin@redhat.com>"
