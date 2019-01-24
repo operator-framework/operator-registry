@@ -30,8 +30,7 @@ COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
-# This image doesn't need to run as root user
-USER 1001
+USER root
 
 EXPOSE 50051
 
