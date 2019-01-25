@@ -8,13 +8,15 @@ import (
 	"sort"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators"
 )
 
 const (
-	ClusterServiceVersionAPIVersion = operators.GroupName + "/" + GroupVersion
-	ClusterServiceVersionKind       = "ClusterServiceVersion"
+	ClusterServiceVersionAPIVersion     = operators.GroupName + "/" + GroupVersion
+	ClusterServiceVersionKind           = "ClusterServiceVersion"
+	OperatorGroupNamespaceAnnotationKey = "olm.operatorNamespace"
 )
 
 // InstallModeType is a supported type of install mode for CSV installation
@@ -131,6 +133,7 @@ type ClusterServiceVersionSpec struct {
 	CustomResourceDefinitions CustomResourceDefinitions `json:"customresourcedefinitions,omitempty"`
 	APIServiceDefinitions     APIServiceDefinitions     `json:"apiservicedefinitions,omitempty"`
 	NativeAPIs                []metav1.GroupVersionKind `json:"nativeAPIs,omitempty"`
+	MinKubeVersion            string                    `json:"minKubeVersion,omitempty"`
 	DisplayName               string                    `json:"displayName"`
 	Description               string                    `json:"description,omitempty"`
 	Keywords                  []string                  `json:"keywords,omitempty"`
@@ -226,7 +229,11 @@ const (
 	CSVReasonAPIServiceResourcesNeedReinstall ConditionReason = "APIServiceResourcesNeedReinstall"
 	CSVReasonAPIServiceInstallFailed          ConditionReason = "APIServiceInstallFailed"
 	CSVReasonCopied                           ConditionReason = "Copied"
-	CSVReasonInstallModeNotSupported          ConditionReason = "InstallModeNotSupported"
+	CSVReasonInvalidInstallModes              ConditionReason = "InvalidInstallModes"
+	CSVReasonNoTargetNamespaces               ConditionReason = "NoTargetNamespaces"
+	CSVReasonUnsupportedOperatorGroup         ConditionReason = "UnsupportedOperatorGroup"
+	CSVReasonNoOperatorGroup                  ConditionReason = "NoOperatorGroup"
+	CSVReasonTooManyOperatorGroups            ConditionReason = "TooManyOperatorGroups"
 )
 
 // Conditions appear in the status as a record of state transitions on the ClusterServiceVersion
