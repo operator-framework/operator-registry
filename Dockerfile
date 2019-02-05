@@ -1,7 +1,7 @@
 FROM openshift/origin-release:golang-1.10 as builder
 
 RUN yum update -y && \
-    yum install -y make git sqlite && \
+    yum install -y make git sqlite glibc-static openssl-static zlib-static && \
     yum groupinstall -y "Development Tools" "Development Libraries"
 
 ENV GOPATH /go
@@ -21,7 +21,7 @@ RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
     cd /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
     go get -u github.com/golang/dep/cmd/dep && \
     dep ensure -vendor-only -v && \
-    go install -a -tags netgo -ldflags "-linkmode external   -extldflags -static"
+    CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM openshift/origin-base
 

@@ -23,7 +23,7 @@ WORKDIR /go/src/$PROJECT
 
 COPY --from=builder /build/vendor/$ORG/grpc-health-probe .
 RUN dep ensure -vendor-only -v && \
-    go install -a -tags netgo -ldflags "-linkmode external -extldflags -static"
+    CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM scratch
 COPY --from=builder /build/bundles.db /bundles.db
