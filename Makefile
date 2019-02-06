@@ -10,7 +10,7 @@ $(CMDS):
 
 build: clean $(CMDS)
 
-static: extra_flags=-ldflags '-w -extldflags "-static"' 
+static: extra_flags=-ldflags '-w -extldflags "-Wl,-Bstatic -ldl -lc -lpthread -lcrypto -lz -static"'
 static: build
 
 unit:
