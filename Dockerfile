@@ -18,9 +18,8 @@ RUN make static
 # copy and build vendored grpc_health_probe
 RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
     cp -R vendor/github.com/grpc-ecosystem/grpc-health-probe /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
+    cp -R vendor/ /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
     cd /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
-    go get -u github.com/golang/dep/cmd/dep && \
-    dep ensure -vendor-only -v && \
     CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM openshift/origin-base
