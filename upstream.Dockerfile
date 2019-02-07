@@ -16,14 +16,13 @@ RUN ./bin/initializer -o ./bundles.db
 FROM golang:1.10-alpine as probe-builder
 
 RUN apk update && apk add build-base git
-RUN go get -u github.com/golang/dep/cmd/dep
 ENV ORG github.com/grpc-ecosystem
 ENV PROJECT $ORG/grpc_health_probe
 WORKDIR /go/src/$PROJECT
 
 COPY --from=builder /build/vendor/$ORG/grpc-health-probe .
-RUN dep ensure -vendor-only -v && \
-    CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
+COPY --from=builder /build/vendor .
+RUN CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM scratch
 COPY --from=builder /build/bundles.db /bundles.db
