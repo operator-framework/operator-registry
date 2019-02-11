@@ -26,6 +26,13 @@ github.com/go-openapi/jsonreference
 github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.0.0-20180920151709-4f900dc2ade9
 github.com/go-openapi/runtime
+github.com/go-openapi/runtime/client
+github.com/go-openapi/runtime/logger
+github.com/go-openapi/runtime/middleware
+github.com/go-openapi/runtime/middleware/denco
+github.com/go-openapi/runtime/middleware/header
+github.com/go-openapi/runtime/middleware/untyped
+github.com/go-openapi/runtime/security
 # github.com/go-openapi/spec v0.17.2
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.18.0
@@ -41,6 +48,8 @@ github.com/gogo/protobuf/sortkeys
 github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff
 github.com/golang/groupcache/lru
+# github.com/golang/mock v1.1.1
+github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/proto
@@ -86,6 +95,14 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
+# github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
+github.com/operator-framework/go-appr/appregistry
+github.com/operator-framework/go-appr/appregistry/blobs
+github.com/operator-framework/go-appr/appregistry/package_appr
+github.com/operator-framework/go-appr/models
+github.com/operator-framework/go-appr/appregistry/appr
+github.com/operator-framework/go-appr/appregistry/channel
+github.com/operator-framework/go-appr/appregistry/info
 # github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
@@ -101,8 +118,8 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.2.2
-github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
 # golang.org/x/crypto v0.0.0-20181015023909-0c41d7ab0a0e
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
