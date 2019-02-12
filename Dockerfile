@@ -30,6 +30,7 @@ WORKDIR /registry
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/initializer /bin/initializer
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/registry-server /bin/registry-server
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/appregistry-server /bin/appregistry-server
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
