@@ -26,6 +26,13 @@ github.com/go-openapi/jsonreference
 github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.0.0-20180920151709-4f900dc2ade9
 github.com/go-openapi/runtime
+github.com/go-openapi/runtime/client
+github.com/go-openapi/runtime/logger
+github.com/go-openapi/runtime/middleware
+github.com/go-openapi/runtime/middleware/denco
+github.com/go-openapi/runtime/middleware/header
+github.com/go-openapi/runtime/middleware/untyped
+github.com/go-openapi/runtime/security
 # github.com/go-openapi/spec v0.17.2
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.18.0
@@ -41,6 +48,8 @@ github.com/gogo/protobuf/sortkeys
 github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff
 github.com/golang/groupcache/lru
+# github.com/golang/mock v1.1.1
+github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/proto
@@ -86,10 +95,24 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
+# github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
+github.com/operator-framework/go-appr/appregistry
+github.com/operator-framework/go-appr/appregistry/blobs
+github.com/operator-framework/go-appr/appregistry/package_appr
+github.com/operator-framework/go-appr/models
+github.com/operator-framework/go-appr/appregistry/appr
+github.com/operator-framework/go-appr/appregistry/channel
+github.com/operator-framework/go-appr/appregistry/info
 # github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
+# github.com/operator-framework/operator-marketplace v0.0.0-20190212161948-a7ca81b96ad9
+github.com/operator-framework/operator-marketplace/pkg/apis/marketplace/v1alpha1
+github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned
+github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned/typed/marketplace/v1alpha1
+github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned/scheme
+github.com/operator-framework/operator-marketplace/pkg/apis
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
 # github.com/pmezard/go-difflib v1.0.0
@@ -101,8 +124,8 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
 # github.com/stretchr/testify v1.2.2
-github.com/stretchr/testify/require
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
 # golang.org/x/crypto v0.0.0-20181015023909-0c41d7ab0a0e
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
@@ -196,8 +219,8 @@ k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
 # k8s.io/apiextensions-apiserver v0.0.0-20181204003618-e419c5771cdc
-k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation
 k8s.io/apiextensions-apiserver/pkg/apiserver/validation
 k8s.io/apiextensions-apiserver/pkg/features
@@ -205,6 +228,8 @@ k8s.io/apiextensions-apiserver/pkg/features
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
 k8s.io/apimachinery/pkg/util/yaml
+k8s.io/apimachinery/pkg/types
+k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/runtime
 k8s.io/apimachinery/pkg/runtime/serializer
 k8s.io/apimachinery/pkg/api/validation
@@ -215,14 +240,12 @@ k8s.io/apimachinery/pkg/api/resource
 k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/labels
 k8s.io/apimachinery/pkg/selection
-k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/intstr
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/runtime/serializer/streaming
 k8s.io/apimachinery/pkg/util/net
 k8s.io/apimachinery/pkg/util/sets
-k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/util/validation
 k8s.io/apimachinery/pkg/util/json
 k8s.io/apimachinery/pkg/util/runtime
@@ -301,3 +324,5 @@ k8s.io/client-go/util/connrotation
 k8s.io/client-go/tools/clientcmd/api/v1
 # k8s.io/kube-openapi v0.0.0-20181031203759-72693cb1fadd
 k8s.io/kube-openapi/pkg/util/proto
+# sigs.k8s.io/controller-runtime v0.1.10
+sigs.k8s.io/controller-runtime/pkg/runtime/scheme
