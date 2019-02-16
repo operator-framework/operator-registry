@@ -107,7 +107,7 @@ github.com/operator-framework/go-appr/appregistry/info
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
-# github.com/operator-framework/operator-marketplace v0.0.0-20190212161948-a7ca81b96ad9
+# github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba
 github.com/operator-framework/operator-marketplace/pkg/apis/marketplace/v1alpha1
 github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned
 github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned/typed/marketplace/v1alpha1

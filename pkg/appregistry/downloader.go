@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 )
 
 // downloadItem encapsulates the data that is needed to download a specific repository.
@@ -20,6 +21,9 @@ type downloadItem struct {
 
 	// Spec refers to the remote appregistry URL and remote registry namespace.
 	Spec *v1alpha1.OperatorSourceSpec
+
+	// Namespace of the operatorsource that provided the information
+	OpsrcNamespace string
 }
 
 func (d *downloadItem) String() string {
@@ -27,8 +31,9 @@ func (d *downloadItem) String() string {
 }
 
 type downloader struct {
-	logger *logrus.Entry
-	client marketplace.Interface
+	logger            *logrus.Entry
+	marketplaceClient marketplace.Interface
+	kubeClient      kubernetes.Clientset
 }
 
 // Download downloads manifest(s) associated with the specified package(s) from
@@ -93,6 +98,7 @@ func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 				itemMap[key] = &downloadItem{
 					RepositoryMetadata: metadata,
 					Spec:               spec,
+					OpsrcNamespace:     source.Namespace,
 				}
 
 				// Remove the package specified since it has been resolved.
@@ -128,7 +134,15 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 
 		factory := apprclient.NewClientFactory()
 
-		client, err := factory.New("appregistry", endpoint)
+		options, err := d.SetupRegistryOptions(item.Spec, item.OpsrcNamespace)
+		if err != nil {
+			allErrors = append(allErrors, err)
+			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
+
+			continue
+		}
+
+		client, err := factory.New(*options)
 		if err != nil {
 			allErrors = append(allErrors, err)
 			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
@@ -159,13 +173,19 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 // in the cluster and the list of repositories in remote registry associated
 // with it.
 func (d *downloader) QuerySource(key *types.NamespacedName) (spec *v1alpha1.OperatorSourceSpec, repositories []*apprclient.RegistryMetadata, err error) {
-	opsrc, err := d.client.MarketplaceV1alpha1().OperatorSources(key.Namespace).Get(key.Name, metav1.GetOptions{})
+	opsrc, err := d.marketplaceClient.MarketplaceV1alpha1().OperatorSources(key.Namespace).Get(key.Name, metav1.GetOptions{})
 	if err != nil {
 		return
 	}
 
 	factory := apprclient.NewClientFactory()
-	client, err := factory.New("appregistry", opsrc.Spec.Endpoint)
+
+	options, err := d.SetupRegistryOptions(&opsrc.Spec, key.Namespace)
+	if err != nil {
+		return
+	}
+
+	client, err := factory.New(*options)
 	if err != nil {
 		return
 	}
@@ -177,4 +197,25 @@ func (d *downloader) QuerySource(key *types.NamespacedName) (spec *v1alpha1.Oper
 
 	spec = &opsrc.Spec
 	return
+}
+
+// SetupRegistryOptions generates an Options object based on the OperatorSource spec. It passes along
+// the opsrc endpoint and, if defined, retrieves the authorization token from the specified Secret
+// object.
+func (d *downloader) SetupRegistryOptions(spec *v1alpha1.OperatorSourceSpec, namespace string) (*apprclient.Options, error) {
+	options := &apprclient.Options{
+		Source: spec.Endpoint,
+	}
+
+	auth := spec.AuthorizationToken
+	if auth.SecretName != "" {
+		secret, err := d.kubeClient.CoreV1().Secrets(namespace).Get(auth.SecretName, metav1.GetOptions{})
+		if err != nil {
+			return options, err
+		}
+
+		options.AuthToken = string(secret.Data["token"])
+	}
+
+	return options, nil
 }

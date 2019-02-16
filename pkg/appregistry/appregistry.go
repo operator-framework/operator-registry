@@ -6,12 +6,18 @@ import (
 	marketplace "github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewLoader(kubeconfig string, logger *logrus.Entry) (*AppregistryLoader, error) {
-	client, err := NewClient(kubeconfig, logger)
+	marketplaceClient, err := NewClient(kubeconfig, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeClient, err := NewKubeClient(kubeconfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -20,8 +26,9 @@ func NewLoader(kubeconfig string, logger *logrus.Entry) (*AppregistryLoader, err
 		logger: logger,
 		input:  &inputParser{},
 		downloader: &downloader{
-			logger: logger,
-			client: client,
+			logger:            logger,
+			marketplaceClient: marketplaceClient,
+			kubeClient:      *kubeClient,
 		},
 		merger: &merger{
 			logger: logger,
@@ -98,5 +105,25 @@ func NewClient(kubeconfig string, logger *logrus.Entry) (clientset marketplace.I
 	}
 
 	clientset, err = marketplace.NewForConfig(config)
+	return
+}
+
+func NewKubeClient(kubeconfig string, logger *logrus.Entry) (clientset *kubernetes.Clientset, err error) {
+	var config *rest.Config
+
+	if kubeconfig != "" {
+		logger.Infof("Loading kube client config from path %q", kubeconfig)
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	} else {
+		logger.Infof("Using in-cluster kube client config")
+		config, err = rest.InClusterConfig()
+	}
+
+	if err != nil {
+		err = fmt.Errorf("Cannot load config for REST client: %v", err)
+		return
+	}
+
+	clientset, err = kubernetes.NewForConfig(config)
 	return
 }
