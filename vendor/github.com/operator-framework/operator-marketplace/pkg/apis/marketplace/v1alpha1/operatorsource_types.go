@@ -13,19 +13,6 @@ const (
 	OpSrcFinalizer = "finalizer.operatorsources.marketplace.redhat.com"
 )
 
-// +genclient
-// +genclient:noStatus
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// OperatorSource is the Schema for the operatorsources API
-// +k8s:openapi-gen=true
-type OperatorSource struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              OperatorSourceSpec   `json:"spec,omitempty"`
-	Status            OperatorSourceStatus `json:"status,omitempty"`
-}
-
 // Only type definitions go into this file.
 // All other constructs (constants, variables, receiver functions and such)
 // related to OperatorSource type should be added to operatorsource.go file.
@@ -37,6 +24,16 @@ type OperatorSourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OperatorSource `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// OperatorSource is the Schema for the operatorsources API
+// +k8s:openapi-gen=true
+type OperatorSource struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OperatorSourceSpec   `json:"spec,omitempty"`
+	Status            OperatorSourceStatus `json:"status,omitempty"`
 }
 
 // OperatorSourceSpec defines the desired state of OperatorSource
@@ -53,6 +50,10 @@ type OperatorSourceSpec struct {
 	// Please note that this is not a k8s namespace.
 	RegistryNamespace string `json:"registryNamespace,omitempty"`
 
+	// AuthorizationToken is the authorization token used to access private
+	// repositories in remote registry associated with the operator source.
+	AuthorizationToken OperatorSourceAuthorizationToken `json:"authorizationToken,omitempty"`
+
 	// DisplayName is passed along to the CatalogSourceConfig to be used
 	// by the resulting CatalogSource to be used as a pretty name.
 	DisplayName string `json:"displayName,omitempty"`
@@ -61,6 +62,13 @@ type OperatorSourceSpec struct {
 	// by the resulting CatalogSource that defines what entity published
 	// the artifacts from the OperatorSource.
 	Publisher string `json:"publisher,omitempty"`
+}
+
+// OperatorSourceAuthentication refers to a kubernetes Secret object that
+// contains authorization token required to access private repositories.
+type OperatorSourceAuthorizationToken struct {
+	// SecretName is the name of the kubernetes Secret object.
+	SecretName string `json:"secretName,omitempty"`
 }
 
 // OperatorSourceStatus defines the observed state of OperatorSource

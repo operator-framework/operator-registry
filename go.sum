@@ -141,6 +141,8 @@ github.com/operator-framework/operator-marketplace v0.0.0-20190208230340-d06f7b3
 github.com/operator-framework/operator-marketplace v0.0.0-20190208230340-d06f7b349013/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-marketplace v0.0.0-20190212161948-a7ca81b96ad9 h1:VjGYvB+9cqsf0vgO7npB1bwAIslvLFqqL1ydX9ogCRM=
 github.com/operator-framework/operator-marketplace v0.0.0-20190212161948-a7ca81b96ad9/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
+github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba h1:47MQUQRBZqwyTPLEHoFlbGRv63p0OvxpPp5g6FUQXQs=
+github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-registry v1.0.1/go.mod h1:1xEdZjjUg2hPEd52LG3YQ0jtwiwEGdm98S1TH5P4RAA=
 github.com/operator-framework/operator-registry v1.0.4/go.mod h1:hve6YwcjM2nGVlscLtNsp9sIIBkNZo6jlJgzWw7vP9s=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
