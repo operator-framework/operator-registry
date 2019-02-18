@@ -85,7 +85,7 @@ manifests
 The [Dockerfile](upstream.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides an API over the example manifsts in [manifests](manifests).
 
 ```sh
-docker build -f upstream.Dockerfile -t example-registry:latest .
+docker build -f upstream-example.Dockerfile -t example-registry:latest .
 docker run -p 50051:50051 example-registry:latest
 ```
 
