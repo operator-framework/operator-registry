@@ -161,6 +161,9 @@ func (d *DirectoryLoader) LoadBundle(dir string) (*registry.Bundle, error) {
 }
 
 func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
 	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "package"})
 	if f == nil {
 		return fmt.Errorf("Not a valid file")
