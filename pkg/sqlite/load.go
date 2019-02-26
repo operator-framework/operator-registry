@@ -172,35 +172,39 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 		channelEntryCSVName := c.CurrentCSVName
 		depth := 1
-		for {
-			rows, err := getReplaces.Query(channelEntryCSVName)
-			if err != nil {
+		rows, err := getReplaces.Query(channelEntryCSVName)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var replaced sql.NullString
+			if err := rows.Scan(&replaced); err != nil {
 				return err
 			}
 
-			if rows.Next() {
-				var replaced sql.NullString
-				if err := rows.Scan(&replaced); err != nil {
-					return err
-				}
-
-				if !replaced.Valid || replaced.String == "" {
-					break
-				}
-
-				replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.String, depth)
-				if err != nil {
-					return err
-				}
-				replacedID, err := replacedChannelEntry.LastInsertId()
-				if err != nil {
-					return err
-				}
-				addReplaces.Exec(replacedID, currentID)
-				currentID = replacedID
-				channelEntryCSVName = replaced.String
-				depth += 1
+			if !replaced.Valid || replaced.String == "" {
+				break
 			}
+
+			replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.String, depth)
+			if err != nil {
+				return err
+			}
+			replacedID, err := replacedChannelEntry.LastInsertId()
+			if err != nil {
+				return err
+			}
+			addReplaces.Exec(replacedID, currentID)
+			currentID = replacedID
+			channelEntryCSVName = replaced.String
+			depth += 1
+		}
+
+		err = rows.Err()
+		if err != nil {
+			return err
 		}
 	}
 	return tx.Commit()
