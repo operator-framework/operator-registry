@@ -29,6 +29,7 @@ require (
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
 	github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba
+	github.com/prometheus/common v0.0.0-20190104105734-b1c43a6df3ae
 	github.com/sirupsen/logrus v1.2.0
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spf13/cobra v0.0.3
