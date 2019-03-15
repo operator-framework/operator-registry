@@ -1,5 +1,5 @@
-CMDS  := $(addprefix bin/, $(shell go list ./cmd/... | xargs -I{} basename {}))
-MOD_FLAGS := $(shell (go version | grep -q 1.11) && echo -mod=vendor)
+MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12)") && echo -mod=vendor)
+CMDS  := $(addprefix bin/, $(shell go list $(MOD_FLAGS) ./cmd/... | xargs -I{} basename {}))
 
 .PHONY: build test vendor clean
 
@@ -10,8 +10,11 @@ $(CMDS):
 
 build: clean $(CMDS)
 
-static: extra_flags=-ldflags '-w -extldflags "-Wl,-Bstatic -ldl -lc -lpthread -lcrypto -lz -static"'
+static: extra_flags=-ldflags '-w -extldflags "-static"'
 static: build
+
+static-rh: extra_flags=-ldflags '-w -extldflags "-Wl,-Bstatic -ldl -lc -lpthread -lcrypto -lz -static"'
+static-rh: build
 
 unit:
 	go test $(MOD_FLAGS) -count=1 --tags json1 -v -race ./pkg/...
