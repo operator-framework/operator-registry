@@ -37,7 +37,7 @@ When loading manifests into the database, the following invariants are validated
  * If a ClusterServiceVersion `owns` a CRD, that CRD must exist in the bundle.
  * If a ClusterServiceVersion `replaces` another, both the old and the new must exist in the package.
 
-Bundle directories are identified soley by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout out manifests.
+Bundle directories are identified soley by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
 
 It's recommended to follow a layout that makes it clear which bundles are part of which package, as in [manifests](manifests):
 
@@ -82,14 +82,14 @@ manifests
 
 # Example
 
-The [Dockerfile](upstream.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides an API over the example manifsts in [manifests](manifests).
+The [Dockerfile](upstream.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides an API over the example manifests in [manifests](manifests).
 
 ```sh
 docker build -f upstream-example.Dockerfile -t example-registry:latest .
 docker run -p 50051:50051 example-registry:latest
 ```
 
-[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful for interacting with the example server.
+[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the example server.
 
 ```sh
 $ grpcurl -plaintext  localhost:50051 list api.Registry
