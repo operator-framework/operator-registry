@@ -13,7 +13,7 @@ COPY vendor vendor
 COPY cmd cmd
 COPY pkg pkg
 COPY Makefile Makefile
-RUN make static
+RUN make static-rh
 
 # copy and build vendored grpc_health_probe
 RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
