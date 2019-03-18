@@ -23,7 +23,7 @@ image:
 	docker build .
 
 image-upstream:
-	docker build -f upstream.Dockerfile .
+	docker build -f upstream-example.Dockerfile .
 
 vendor:
 	go mod vendor
