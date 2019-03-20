@@ -1,14 +1,13 @@
 package appregistry
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/operator-framework/operator-marketplace/pkg/apis/marketplace/v1alpha1"
 	marketplace "github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned"
 	"github.com/operator-framework/operator-registry/pkg/apprclient"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 )
@@ -19,11 +18,8 @@ type downloadItem struct {
 	// to be downloaded.
 	RepositoryMetadata *apprclient.RegistryMetadata
 
-	// Spec refers to the remote appregistry URL and remote registry namespace.
-	Spec *v1alpha1.OperatorSourceSpec
-
-	// Namespace of the operatorsource that provided the information
-	OpsrcNamespace string
+	// Source refers to the remote appregistry URL and remote registry namespace.
+	Source *Source
 }
 
 func (d *downloadItem) String() string {
@@ -33,7 +29,7 @@ func (d *downloadItem) String() string {
 type downloader struct {
 	logger            *logrus.Entry
 	marketplaceClient marketplace.Interface
-	kubeClient      kubernetes.Clientset
+	kubeClient        kubernetes.Clientset
 }
 
 // Download downloads manifest(s) associated with the specified package(s) from
@@ -79,7 +75,7 @@ func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 			break
 		}
 
-		spec, repositoryList, err := d.QuerySource(source)
+		repositoryList, err := d.QuerySource(source)
 		if err != nil {
 			allErrors = append(allErrors, err)
 			d.logger.Infof("skipping operator source due to error: %s", source)
@@ -97,8 +93,7 @@ func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 				// name in remote registry.
 				itemMap[key] = &downloadItem{
 					RepositoryMetadata: metadata,
-					Spec:               spec,
-					OpsrcNamespace:     source.Namespace,
+					Source:             source,
 				}
 
 				// Remove the package specified since it has been resolved.
@@ -128,13 +123,13 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 
 	manifests = make([]*apprclient.OperatorMetadata, 0)
 	for _, item := range items {
-		endpoint := item.Spec.Endpoint
+		endpoint := item.Source.Endpoint
 
 		d.logger.Infof("downloading repository: %s from %s", item.RepositoryMetadata, endpoint)
 
 		factory := apprclient.NewClientFactory()
 
-		options, err := d.SetupRegistryOptions(item.Spec, item.OpsrcNamespace)
+		options, err := d.SetupRegistryOptions(item.Source)
 		if err != nil {
 			allErrors = append(allErrors, err)
 			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
@@ -172,15 +167,14 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 // The function returns the spec ( associated with the OperatorSource object )
 // in the cluster and the list of repositories in remote registry associated
 // with it.
-func (d *downloader) QuerySource(key *types.NamespacedName) (spec *v1alpha1.OperatorSourceSpec, repositories []*apprclient.RegistryMetadata, err error) {
-	opsrc, err := d.marketplaceClient.MarketplaceV1alpha1().OperatorSources(key.Namespace).Get(key.Name, metav1.GetOptions{})
-	if err != nil {
-		return
+func (d *downloader) QuerySource(source *Source) (repositories []*apprclient.RegistryMetadata, err error) {
+	if source == nil {
+		return nil, errors.New("specified source is <nil>")
 	}
 
 	factory := apprclient.NewClientFactory()
 
-	options, err := d.SetupRegistryOptions(&opsrc.Spec, key.Namespace)
+	options, err := d.SetupRegistryOptions(source)
 	if err != nil {
 		return
 	}
@@ -190,31 +184,35 @@ func (d *downloader) QuerySource(key *types.NamespacedName) (spec *v1alpha1.Oper
 		return
 	}
 
-	repositories, err = client.ListPackages(opsrc.Spec.RegistryNamespace)
+	repositories, err = client.ListPackages(source.RegistryNamespace)
 	if err != nil {
 		return
 	}
 
-	spec = &opsrc.Spec
 	return
 }
 
 // SetupRegistryOptions generates an Options object based on the OperatorSource spec. It passes along
 // the opsrc endpoint and, if defined, retrieves the authorization token from the specified Secret
 // object.
-func (d *downloader) SetupRegistryOptions(spec *v1alpha1.OperatorSourceSpec, namespace string) (*apprclient.Options, error) {
-	options := &apprclient.Options{
-		Source: spec.Endpoint,
+func (d *downloader) SetupRegistryOptions(source *Source) (*apprclient.Options, error) {
+	if source == nil {
+		return nil, errors.New("specified source is <nil>")
 	}
 
-	auth := spec.AuthorizationToken
-	if auth.SecretName != "" {
-		secret, err := d.kubeClient.CoreV1().Secrets(namespace).Get(auth.SecretName, metav1.GetOptions{})
+	token := ""
+	if source.IsSecretSpecified() {
+		secret, err := d.kubeClient.CoreV1().Secrets(source.Secret.Namespace).Get(source.Secret.Name, metav1.GetOptions{})
 		if err != nil {
-			return options, err
+			return nil, err
 		}
 
-		options.AuthToken = string(secret.Data["token"])
+		token = string(secret.Data["token"])
+	}
+
+	options := &apprclient.Options{
+		Source:    source.Endpoint,
+		AuthToken: token,
 	}
 
 	return options, nil

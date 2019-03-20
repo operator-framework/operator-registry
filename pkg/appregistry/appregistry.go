@@ -3,7 +3,6 @@ package appregistry
 import (
 	"fmt"
 
-	marketplace "github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -11,24 +10,33 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewLoader(kubeconfig string, logger *logrus.Entry) (*AppregistryLoader, error) {
-	marketplaceClient, err := NewClient(kubeconfig, logger)
-	if err != nil {
-		return nil, err
-	}
-
+func NewLoader(kubeconfig string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
 	kubeClient, err := NewKubeClient(kubeconfig, logger)
 	if err != nil {
 		return nil, err
 	}
 
+	var specifier OperatorSourceSpecifier
+	if legacy {
+		logger.Info("operator source CR is being used.")
+		p, err := NewOperatorSourceCRSpecifier(kubeconfig, logger)
+		if err != nil {
+			return nil, err
+		}
+
+		specifier = p
+	} else {
+		specifier = &registrySpecifier{}
+	}
+
 	return &AppregistryLoader{
 		logger: logger,
-		input:  &inputParser{},
+		input: &inputParser{
+			sourceSpecifier: specifier,
+		},
 		downloader: &downloader{
-			logger:            logger,
-			marketplaceClient: marketplaceClient,
-			kubeClient:      *kubeClient,
+			logger:     logger,
+			kubeClient: *kubeClient,
 		},
 		merger: &merger{
 			logger: logger,
@@ -48,16 +56,23 @@ type AppregistryLoader struct {
 	loader     *dbLoader
 }
 
-func (a *AppregistryLoader) Load(dbName string, csvSources string, csvPackages string) (store *sqlite.SQLQuerier, err error) {
+func (a *AppregistryLoader) Load(dbName string, csvSources []string, csvPackages string) (store *sqlite.SQLQuerier, err error) {
 	a.logger.Infof("operator source(s) specified are - %s", csvSources)
 	a.logger.Infof("package(s) specified are - %s", csvPackages)
 
 	input, err := a.input.Parse(csvSources, csvPackages)
 	if err != nil {
-		return nil, err
+		a.logger.Errorf("the following error(s) occurred while parsing input - %v", err)
+
+		if input == nil || !input.IsGoodToProceed() {
+			a.logger.Info("can't proceed, bailing out")
+			return nil, err
+		}
 	}
 
-	a.logger.Infof("input sanitized - sources: %s, packages: %s", input.Sources, input.Packages)
+	a.logger.Info("input has been sanitized")
+	a.logger.Infof("sources: %s", input.Sources)
+	a.logger.Infof("packages: %s", input.Packages)
 
 	rawManifests, err := a.downloader.Download(input)
 	if err != nil {
@@ -85,26 +100,6 @@ func (a *AppregistryLoader) Load(dbName string, csvSources string, csvPackages s
 	a.logger.Info("loading into sqlite database")
 
 	store, err = a.loader.LoadToSQLite(dbName, data)
-	return
-}
-
-func NewClient(kubeconfig string, logger *logrus.Entry) (clientset marketplace.Interface, err error) {
-	var config *rest.Config
-
-	if kubeconfig != "" {
-		logger.Infof("Loading kube client config from path %q", kubeconfig)
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	} else {
-		logger.Infof("Using in-cluster kube client config")
-		config, err = rest.InClusterConfig()
-	}
-
-	if err != nil {
-		err = fmt.Errorf("Cannot load config for REST client: %v", err)
-		return
-	}
-
-	clientset, err = marketplace.NewForConfig(config)
 	return
 }
 

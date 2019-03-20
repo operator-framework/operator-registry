@@ -1,20 +1,27 @@
 package appregistry
 
 import (
-	"errors"
-	"fmt"
 	"strings"
-
-	"k8s.io/apimachinery/pkg/types"
 )
 
+// OperatorSourceSpecifier interface provides capability to have different ways
+// of specifying operator source via command line flags. This helps us
+// maintain backward compatability.
+type OperatorSourceSpecifier interface {
+	Parse(specifiers []string) ([]*Source, error)
+}
+
 type Input struct {
-	// Sources is the set of namespaced name(s) of OperatorSource objects from
-	// which we need to pull packages.
-	Sources []*types.NamespacedName
+	// Sources is the set of remote operator source(s) specified where operator
+	// manifest(s) are located.
+	Sources []*Source
 
 	// Packages is the set of package name(s) specified.
 	Packages []string
+}
+
+func (i *Input) IsGoodToProceed() bool {
+	return len(i.Sources) > 0 && len(i.Packages) > 0
 }
 
 func (i *Input) PackagesToMap() map[string]bool {
@@ -28,21 +35,24 @@ func (i *Input) PackagesToMap() map[string]bool {
 }
 
 type inputParser struct {
+	sourceSpecifier OperatorSourceSpecifier
 }
 
 // Parse parses the raw input provided, sanitizes it and returns an instance of
 // Input.
 //
-// csvSources is a comma separated list of namespaced name that specifies
-// the operator source(s), it is expected to comply to the following format -
-// {namespace}/{name},{namespace}/{name},
+// csvSources is a slice of operator source(s) specified. Each operator source
+// is expected to be specified as follows.
 //
-// csvPackages is a comma separated list of packages. It is expected to have
+// {base url with cnr prefix}|{quay registry namespace}|{secret namespace/secret name}
+//
+// csvPackages is a comma separated list of package(s). It is expected to have
 // the following format.
 // etcd,prometheus,descheduler
-func (p *inputParser) Parse(csvSources string, csvPackages string) (*Input, error) {
-	sources, err := parseSources(csvSources)
-	if err != nil {
+//
+func (p *inputParser) Parse(csvSources []string, csvPackages string) (*Input, error) {
+	sources, err := p.sourceSpecifier.Parse(csvSources)
+	if err != nil && len(sources) == 0 {
 		return nil, err
 	}
 
@@ -51,26 +61,7 @@ func (p *inputParser) Parse(csvSources string, csvPackages string) (*Input, erro
 	return &Input{
 		Sources:  sources,
 		Packages: packages,
-	}, nil
-}
-
-func parseSources(csvSources string) ([]*types.NamespacedName, error) {
-	values := strings.Split(csvSources, ",")
-	if len(values) == 0 {
-		return nil, errors.New(fmt.Sprintf("No OperatorSource(s) has been specified"))
-	}
-
-	names := make([]*types.NamespacedName, 0)
-	for _, v := range values {
-		name, err := split(v)
-		if err != nil {
-			return nil, err
-		}
-
-		names = append(names, name)
-	}
-
-	return names, nil
+	}, err
 }
 
 // sanitizePackageList sanitizes the set of package(s) specified. It removes
@@ -88,16 +79,4 @@ func sanitizePackageList(in []string) []string {
 	}
 
 	return out
-}
-
-func split(sourceName string) (*types.NamespacedName, error) {
-	split := strings.Split(sourceName, "/")
-	if len(split) != 2 {
-		return nil, errors.New(fmt.Sprintf("OperatorSource name should be specified in this format {namespace}/{name}"))
-	}
-
-	return &types.NamespacedName{
-		Namespace: split[0],
-		Name:      split[1],
-	}, nil
 }
