@@ -32,6 +32,7 @@ func main() {
 
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("kubeconfig", "k", "", "absolute path to kubeconfig file")
+	rootCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded nested operator bundle(s) will be stored to be processed further")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "name of db to output")
 	rootCmd.Flags().StringSliceP("sources", "s", []string{}, "comma separated list of OperatorSource object(s) {namespace}/{name}")
 	rootCmd.Flags().StringSliceP("registry", "r", []string{}, "pipe delimited operator source - {base url with cnr prefix}|{quay registry namespace}|{secret namespace/secret name}")
@@ -62,6 +63,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	downloadPath, err := cmd.Flags().GetString("download-folder")
+	if err != nil {
+		return err
+	}
 	port, err := cmd.Flags().GetString("port")
 	if err != nil {
 		return err
@@ -83,12 +88,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"type": "appregistry", "port": port})
 
-	loader, err := appregistry.NewLoader(kubeconfig, logger, legacy)
+	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger, legacy)
 	if err != nil {
 		logger.Fatalf("error initializing - %v", err)
 	}
 
-	store, err := loader.Load(dbName, sources, packages)
+	store, err := loader.Load(sources, packages)
 	if err != nil {
 		logger.Fatalf("error loading manifest from remote registry - %v", err)
 	}

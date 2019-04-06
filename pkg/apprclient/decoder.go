@@ -1,12 +1,9 @@
 package apprclient
 
 import (
-	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"errors"
-	"fmt"
-	"io"
+	"io/ioutil"
 )
 
 type blobDecoder interface {
@@ -17,41 +14,20 @@ type blobDecoder interface {
 type blobDecoderImpl struct {
 }
 
-func (*blobDecoderImpl) Decode(encoded []byte) ([]byte, error) {
+// Decode decompresses the downloaded content from appregistry server and
+// returns a byte array.
+func (*blobDecoderImpl) Decode(encoded []byte) (decoded []byte, err error) {
 	gzipReader, err := gzip.NewReader(bytes.NewBuffer(encoded))
 	if err != nil {
-		return nil, err
+		return
 	}
+
 	defer gzipReader.Close()
 
-	decoded, err := extractManifest(gzipReader)
+	decoded, err = ioutil.ReadAll(gzipReader)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return decoded, nil
-}
-
-func extractManifest(r io.Reader) ([]byte, error) {
-	reader := tar.NewReader(r)
-
-	writer := &bytes.Buffer{}
-	for true {
-		header, err := reader.Next()
-		if err != nil && err != io.EOF {
-			return nil, errors.New(fmt.Sprintf("extraction of tar ball failed - %s", err.Error()))
-		}
-
-		if err == io.EOF {
-			break
-		}
-
-		switch header.Typeflag {
-		case tar.TypeReg:
-			io.Copy(writer, reader)
-			break
-		}
-	}
-
-	return writer.Bytes(), nil
+	return
 }

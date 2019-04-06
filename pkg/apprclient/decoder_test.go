@@ -1,6 +1,8 @@
 package apprclient
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"testing"
 
@@ -10,14 +12,10 @@ import (
 
 func TestDecodeHappyPath(t *testing.T) {
 	expected := "message in a bottle"
-
-	// the tar ball content is base64 encoded
-	encoded := "H4sIAMu2mlsAA+3RQQrCMBCF4RxlTiCJk8bzjBC0tKli4v2tdKMLqZsiwv9tHsPM4sGUXKud8u46Wj+5bfhZSvGZ4dD511zs1QXVmDpVDer8PGh04jfq8+Zem91EnA1Wz7l8vFvb/6my/F/6SUyOl9bG/OtKAAAAAAAAAAAAAAAAAIAvPAB81gebACgAAA=="
-	content, err := base64Decode([]byte(encoded))
-	require.NoError(t, err)
+	content := compress(t, expected)
 
 	var d blobDecoder = &blobDecoderImpl{}
-	decoded, err := d.Decode([]byte(content))
+	decoded, err := d.Decode(content)
 
 	assert.Nil(t, err)
 	assert.Equal(t, string(expected), string(decoded))
@@ -33,4 +31,19 @@ func base64Decode(encoded []byte) ([]byte, error) {
 	}
 
 	return decoded[:n], nil
+}
+
+func compress(t *testing.T, message string) []byte {
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	defer w.Close()
+
+	_, err := w.Write([]byte(message))
+	require.NoError(t, err)
+
+	// Note: we need to call Close before we start using the gzip stream.
+	err = w.Close()
+	require.NoError(t, err)
+
+	return b.Bytes()
 }

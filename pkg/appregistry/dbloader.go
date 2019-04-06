@@ -3,18 +3,45 @@ package appregistry
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/sirupsen/logrus"
 )
 
+func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
+	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbLoader{
+		loader: sqlLoader,
+		logger: logger,
+		dbName: dbName,
+	}, nil
+}
+
 type dbLoader struct {
+	dbName string
+
+	loader *sqlite.SQLLoader
 	logger *logrus.Entry
 }
 
-// LoadToSQLite uses configMaploader to load the downloaded operator manifest(s)
-// into a sqllite database.
-func (l *dbLoader) LoadToSQLite(dbName string, manifest *RawOperatorManifestData) (store *sqlite.SQLQuerier, err error) {
+func (l *dbLoader) GetStore() (registry.Query, error) {
+	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load db: %v", err)
+	}
+
+	return s, nil
+}
+
+// LoadDataToSQLite uses configMaploader to load the downloaded operator
+// manifest(s) into a sqllite database.
+func (l *dbLoader) LoadFlattenedToSQLite(manifest *RawOperatorManifestData) error {
 	l.logger.Infof("using configmap loader to build sqlite database")
 
 	data := map[string]string{
@@ -23,34 +50,45 @@ func (l *dbLoader) LoadToSQLite(dbName string, manifest *RawOperatorManifestData
 		"packages":                  manifest.Packages,
 	}
 
-	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
-	if err != nil {
-		return
+	configMapPopulator := sqlite.NewSQLLoaderForConfigMapData(l.logger, l.loader, data)
+	if err := configMapPopulator.Populate(); err != nil {
+		return err
 	}
 
-	configMapPopulator := sqlite.NewSQLLoaderForConfigMapData(l.logger, sqlLoader, data)
-	if err = configMapPopulator.Populate(); err != nil {
-		return
-	}
-
-	s, err := sqlite.NewSQLLiteQuerier(dbName)
+	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
 	if err != nil {
-		err = fmt.Errorf("failed to load db: %v", err)
-		return
+		return fmt.Errorf("failed to load db: %v", err)
 	}
 
 	// sanity check that the db is available.
 	tables, err := s.ListTables(context.TODO())
 	if err != nil {
-		err = fmt.Errorf("couldn't list tables in db, incorrect config: %v", err)
-		return
+		return fmt.Errorf("couldn't list tables in db, incorrect config: %v", err)
 	}
 
 	if len(tables) == 0 {
-		err = fmt.Errorf("no tables found in db")
-		return
+		return fmt.Errorf("no tables found in db")
 	}
 
-	store = s
-	return
+	return nil
+}
+
+func (l *dbLoader) LoadBundleDirectoryToSQLite(directory string) error {
+	if _, err := os.Stat(directory); err != nil {
+		l.logger.Errorf("stat failed on target directory[%s] - %v", directory, err)
+		return err
+	}
+
+	loader := sqlite.NewSQLLoaderForDirectory(l.loader, directory)
+	if err := loader.Populate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *dbLoader) Close() {
+	if l.loader != nil {
+		l.loader.Close()
+	}
 }

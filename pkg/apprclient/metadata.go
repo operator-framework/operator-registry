@@ -16,7 +16,7 @@ type OperatorMetadata struct {
 
 	// Operator manifest(s) in raw YAML format that contains a set of CRD(s),
 	// CSV(s) and package(s).
-	RawYAML []byte
+	Blob []byte
 }
 
 // RegistryMetadata encapsulates metadata that uniquely describes the source of
