@@ -3,15 +3,26 @@ package appregistry
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewLoader(kubeconfig string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
+// NewLoader returns a new instance of AppregistryLoader.
+//
+// kubeconfig specifies the location of kube configuration file.
+// dbName specifies the database name to be used for sqlite.
+// downloadPath specifies the folder where the downloaded nested bundle(s) will
+// be stored.
+func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
 	kubeClient, err := NewKubeClient(kubeconfig, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	loader, err := NewDbLoader(dbName, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +40,11 @@ func NewLoader(kubeconfig string, logger *logrus.Entry, legacy bool) (*Appregist
 		specifier = &registrySpecifier{}
 	}
 
+	decoder, err := NewManifestDecoder(logger, downloadPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &AppregistryLoader{
 		logger: logger,
 		input: &inputParser{
@@ -38,13 +54,8 @@ func NewLoader(kubeconfig string, logger *logrus.Entry, legacy bool) (*Appregist
 			logger:     logger,
 			kubeClient: *kubeClient,
 		},
-		merger: &merger{
-			logger: logger,
-			parser: &manifestYAMLParser{},
-		},
-		loader: &dbLoader{
-			logger: logger,
-		},
+		decoder: decoder,
+		loader:  loader,
 	}, nil
 }
 
@@ -52,11 +63,11 @@ type AppregistryLoader struct {
 	logger     *logrus.Entry
 	input      *inputParser
 	downloader *downloader
-	merger     *merger
+	decoder    *manifestDecoder
 	loader     *dbLoader
 }
 
-func (a *AppregistryLoader) Load(dbName string, csvSources []string, csvPackages string) (store *sqlite.SQLQuerier, err error) {
+func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store registry.Query, err error) {
 	a.logger.Infof("operator source(s) specified are - %s", csvSources)
 	a.logger.Infof("package(s) specified are - %s", csvPackages)
 
@@ -66,7 +77,7 @@ func (a *AppregistryLoader) Load(dbName string, csvSources []string, csvPackages
 
 		if input == nil || !input.IsGoodToProceed() {
 			a.logger.Info("can't proceed, bailing out")
-			return nil, err
+			return
 		}
 	}
 
@@ -80,26 +91,41 @@ func (a *AppregistryLoader) Load(dbName string, csvSources []string, csvPackages
 
 		if len(rawManifests) == 0 {
 			a.logger.Info("No package manifest downloaded")
-			return nil, err
+			return
 		}
 	}
 
 	a.logger.Infof("download complete - %d repositories have been downloaded", len(rawManifests))
 
-	data, err := a.merger.Merge(rawManifests)
+	// The set of operator manifest(s) downloaded is a collection of both
+	// flattened single file yaml and nested operator bundle(s).
+	result, err := a.decoder.Decode(rawManifests)
 	if err != nil {
-		a.logger.Errorf("The following error occurred while processing manifest - %v", err)
+		a.logger.Errorf("The following error occurred while decoding manifest - %v", err)
 
-		if data == nil {
-			a.logger.Info("No operator manifest bundled")
-			return nil, err
+		if result.IsEmpty() {
+			a.logger.Info("No operator manifest decoded")
+			return
 		}
 	}
 
-	a.logger.Info("all manifest(s) have been merged into one")
-	a.logger.Info("loading into sqlite database")
+	a.logger.Infof("decoded %d flattened and %d nested operator manifest(s)", result.FlattenedCount, result.NestedCount)
 
-	store, err = a.loader.LoadToSQLite(dbName, data)
+	if result.Flattened != nil {
+		a.logger.Info("loading flattened operator manifest(s) into sqlite")
+		if err = a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
+			return
+		}
+	}
+
+	if result.NestedCount > 0 {
+		a.logger.Infof("loading nested operator bundle(s) from %s into sqlite", result.NestedDirectory)
+		if err = a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
+			return
+		}
+	}
+
+	store, err = a.loader.GetStore()
 	return
 }
 

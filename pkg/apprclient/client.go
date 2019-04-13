@@ -104,7 +104,7 @@ func (c *client) RetrieveOne(name, release string) (*OperatorMetadata, error) {
 			Release:   release,
 			Digest:    digest,
 		},
-		RawYAML: decoded,
+		Blob: decoded,
 	}
 
 	return om, nil
