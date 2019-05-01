@@ -26,8 +26,8 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 
 	createTable := `
 	CREATE TABLE IF NOT EXISTS operatorbundle (
-		name TEXT PRIMARY KEY,  
-		csv TEXT UNIQUE, 
+		name TEXT PRIMARY KEY,
+		csv TEXT UNIQUE,
 		bundle TEXT
 	);
 	CREATE TABLE IF NOT EXISTS package (
@@ -36,8 +36,8 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(default_channel) REFERENCES channel(name)
 	);
 	CREATE TABLE IF NOT EXISTS channel (
-		name TEXT, 
-		package_name TEXT, 
+		name TEXT,
+		package_name TEXT,
 		head_operatorbundle_name TEXT,
 		PRIMARY KEY(name, package_name),
 		FOREIGN KEY(package_name) REFERENCES package(name),
@@ -50,7 +50,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		operatorbundle_name TEXT,
 		replaces INTEGER,
 		depth INTEGER,
-		FOREIGN KEY(replaces) REFERENCES channel_entry(entry_id)  DEFERRABLE INITIALLY DEFERRED, 
+		FOREIGN KEY(replaces) REFERENCES channel_entry(entry_id)  DEFERRABLE INITIALLY DEFERRED,
 		FOREIGN KEY(channel_name) REFERENCES channel(name),
 		FOREIGN KEY(package_name) REFERENCES channel(package_name),
 		FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
@@ -68,7 +68,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		kind TEXT,
 		channel_entry_id INTEGER,
 		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
-		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
+		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind)
 	);
 	CREATE INDEX IF NOT EXISTS replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
 	`
@@ -136,6 +136,22 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		return err
 	}
 	defer addChannel.Close()
+
+	hasDefault := false
+	for _, c := range manifest.Channels {
+		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
+			return err
+		}
+		if c.IsDefaultChannel(manifest) {
+			hasDefault = true
+			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
+				return err
+			}
+		}
+	}
+	if !hasDefault {
+		return fmt.Errorf("no default channel specified for %s", manifest.PackageName)
+	}
 
 	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
 	if err != nil {
