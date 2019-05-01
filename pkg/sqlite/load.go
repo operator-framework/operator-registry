@@ -130,15 +130,20 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addChannel.Close()
 
+	hasDefault := false
 	for _, c := range manifest.Channels {
 		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
 			return err
 		}
 		if c.IsDefaultChannel(manifest) {
+			hasDefault = true
 			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
 				return err
 			}
 		}
+	}
+	if !hasDefault {
+		return fmt.Errorf("no default channel specified for %s", manifest.PackageName)
 	}
 
 	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
