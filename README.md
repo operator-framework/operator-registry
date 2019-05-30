@@ -7,14 +7,14 @@ Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator 
 This project provides the following binaries:
 
  * `initializer`, which takes as an input a directory of operator manifests and outputs a sqlite database containing the same data for querying.
- * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it
- * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing via the same interface as `registry-server`.
+ * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it.
+ * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing it via the same interface as `registry-server`.
  
 And libraries:
  
  * `pkg/client` - providing a high-level client interface for the gRPC api.
- * `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`
- * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles
+ * `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`.
+ * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles.
  * `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
 
 # Manifest format
@@ -82,7 +82,7 @@ manifests
 
 # Building a catalog of Operators using `operator-registry`
 
-The [Dockerfile](upstream-example.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides a `gRPC` API over the example manifsts in [manifests](manifests).
+The [Dockerfile](upstream-example.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides a `gRPC` API over the example manifests in [manifests](manifests).
 
 ```sh
 docker build -t example-registry:latest -f upstream-example.Dockerfile .
@@ -91,7 +91,7 @@ docker push example-registry:latest
 
 # Using the catalog with Operator Lifecycle Manager
 
-To add a catalog packaged with `operator-registry` to your cluster for use with [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) (OLM) create a `CatalogSource` referencing the image you created and pushed aboved:
+To add a catalog packaged with `operator-registry` to your cluster for use with [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) (OLM) create a `CatalogSource` referencing the image you created and pushed above:
 
 ```yaml
 apiVersion: operators.coreos.com/v1alpha1
@@ -104,7 +104,7 @@ spec:
   image: example-registry:latest
 ```
 
-This will download the referenced image and start a pod in the designated namespace (`default`). Watch the catalog pods to verify it's starting it's `gRPC` frontend correctly:
+This will download the referenced image and start a pod in the designated namespace (`default`). Watch the catalog pods to verify it's starting its `gRPC` frontend correctly:
 
 ```sh
 $ kubectl logs example-manifests-wfh5h -n default
@@ -124,7 +124,7 @@ prometheus               13m
 etcd                     27m
 ```
 
-Once loaded, you can query a particular package for it's Operators that it serves across multiple channels. To obtain the default channel run:
+Once loaded, you can query a particular package for its Operators that it serves across multiple channels. To obtain the default channel run:
 
 ```sh
 $ kubectl get packagemanifests etcd -o jsonpath='{.status.defaultChannel}'
