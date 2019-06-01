@@ -1,4 +1,3 @@
-#! validate-crd: ./deploy/chart/templates/03-clusterserviceversion.crd.yaml
 #! parse-kind: ClusterServiceVersion
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
@@ -226,28 +225,28 @@ spec:
         - description: Specifies the endpoints of an etcd cluster.
           displayName: etcd Endpoint(s)
           path: etcdEndpoints
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:etcd:endpoint'
         - description: The full AWS S3 path where the backup is saved.
           displayName: S3 Path
           path: s3.path
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:aws:s3:path'
         - description: The name of the secret object that stores the AWS credential and config files.
           displayName: AWS Secret
           path: s3.awsSecret
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:io.kubernetes:Secret'
       statusDescriptors:
         - description: Indicates if the backup was successful.
           displayName: Succeeded
           path: succeeded
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:text'
         - description: Indicates the reason for any backup related failures.
           displayName: Reason
           path: reason
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:io.kubernetes.phase:reason'
     - name: etcdrestores.etcd.database.coreos.com
       version: v1beta2
@@ -258,27 +257,27 @@ spec:
         - description: References the EtcdCluster which should be restored,
           displayName: etcd Cluster
           path: etcdCluster.name
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:io.kubernetes:EtcdCluster'
             - 'urn:alm:descriptor:text'
         - description: The full AWS S3 path where the backup is saved.
           displayName: S3 Path
           path: s3.path
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:aws:s3:path'
         - description: The name of the secret object that stores the AWS credential and config files.
           displayName: AWS Secret
           path: s3.awsSecret
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:io.kubernetes:Secret'
       statusDescriptors:
         - description: Indicates if the restore was successful.
           displayName: Succeeded
           path: succeeded
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:text'
         - description: Indicates the reason for any restore related failures.
           displayName: Reason
           path: reason
-          x-descriptors: 
+          x-descriptors:
             - 'urn:alm:descriptor:io.kubernetes.phase:reason'
