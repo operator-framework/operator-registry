@@ -51,7 +51,7 @@ func (d *downloader) Download(input *Input) (manifests []*apprclient.OperatorMet
 
 	d.logger.Infof("resolved the following packages: %s", items)
 
-	manifests, err = d.DownloadRepositories(items)
+	manifests, err = d.DownloadRepositories(items, input.Packages)
 
 	return
 }
@@ -118,7 +118,7 @@ func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 
 // DownloadRepositories iterates through each download item and downloads
 // operator manifest from the corresponding repository.
-func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*apprclient.OperatorMetadata, err error) {
+func (d *downloader) DownloadRepositories(items []*downloadItem, packages []*Package) (manifests []*apprclient.OperatorMetadata, err error) {
 	allErrors := []error{}
 
 	manifests = make([]*apprclient.OperatorMetadata, 0)
@@ -145,6 +145,11 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 			continue
 		}
 
+		for _, pkg := range packages {
+			if item.RepositoryMetadata.Name == pkg.Name && pkg.Release != "" {
+				item.RepositoryMetadata.Release = pkg.Release
+			}
+		}
 		manifest, err := client.RetrieveOne(item.RepositoryMetadata.ID(), item.RepositoryMetadata.Release)
 		if err != nil {
 			allErrors = append(allErrors, err)

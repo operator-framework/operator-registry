@@ -17,7 +17,7 @@ type Input struct {
 	Sources []*Source
 
 	// Packages is the set of package name(s) specified.
-	Packages []string
+	Packages []*Package
 }
 
 func (i *Input) IsGoodToProceed() bool {
@@ -28,7 +28,7 @@ func (i *Input) PackagesToMap() map[string]bool {
 	packages := map[string]bool{}
 
 	for _, pkg := range i.Packages {
-		packages[pkg] = false
+		packages[pkg.Name] = false
 	}
 
 	return packages
@@ -66,17 +66,19 @@ func (p *inputParser) Parse(csvSources []string, csvPackages string) (*Input, er
 
 // sanitizePackageList sanitizes the set of package(s) specified. It removes
 // duplicates and ignores empty string.
-func sanitizePackageList(in []string) []string {
-	out := make([]string, 0)
+func sanitizePackageList(in []string) []*Package {
+	out := make([]*Package, 0)
 
 	inMap := map[string]bool{}
 	for _, item := range in {
-		if _, ok := inMap[item]; ok || item == "" {
+		pkg := packageFromString(item)
+
+		if _, ok := inMap[pkg.Name]; ok || pkg.Name == "" {
 			continue
 		}
 
-		inMap[item] = true
-		out = append(out, item)
+		inMap[pkg.Name] = true
+		out = append(out, pkg)
 	}
 
 	return out
