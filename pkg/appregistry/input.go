@@ -75,6 +75,7 @@ func sanitizePackageList(in []string) []string {
 			continue
 		}
 
+		inMap[item] = true
 		out = append(out, item)
 	}
 
