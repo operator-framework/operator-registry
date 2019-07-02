@@ -51,6 +51,10 @@ func TestQuerierForDirectory(t *testing.T) {
 				Name:           "beta",
 				CurrentCSVName: "etcdoperator.v0.9.0",
 			},
+			{
+				Name:           "stable",
+				CurrentCSVName: "etcdoperator.v0.9.2",
+			},
 		},
 	}, etcdPackage)
 
@@ -65,7 +69,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntries)
+	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}, }, etcdChannelEntries)
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
@@ -78,12 +82,17 @@ func TestQuerierForDirectory(t *testing.T) {
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
 		{"etcd", "beta", "etcdoperator.v0.6.1", ""},
-		{"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"}}, etcdChannelEntriesThatProvide)
+		{"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
+		{"etcd", "stable", "etcdoperator.v0.6.1", ""},
+		{"etcd", "stable", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},}, etcdChannelEntriesThatProvide)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
-		                                              {"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"}}, etcdLatestChannelEntriesThatProvide)
+		                                              {"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
+		                                              {"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
 	etcdBundleByProvides, entry, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
