@@ -1,4 +1,4 @@
-FROM openshift/origin-release:golang-1.10 as builder
+FROM openshift/origin-release:golang-1.11 as builder
 
 RUN yum update -y && \
     yum install -y make git sqlite glibc-static openssl-static zlib-static && \
@@ -7,12 +7,12 @@ RUN yum update -y && \
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
-WORKDIR /go/src/github.com/operator-framework/operator-registry
+WORKDIR /src
 
 COPY vendor vendor
 COPY cmd cmd
 COPY pkg pkg
-COPY Makefile Makefile
+COPY Makefile go.mod go.sum ./
 RUN make static-rh
 
 # copy and build vendored grpc_health_probe
@@ -27,10 +27,10 @@ FROM openshift/origin-base
 RUN mkdir /registry
 WORKDIR /registry
 
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/initializer /bin/initializer
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/registry-server /bin/registry-server
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/configmap-server /bin/configmap-server
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/appregistry-server /bin/appregistry-server
+COPY --from=builder /src/bin/initializer /bin/initializer
+COPY --from=builder /src/bin/registry-server /bin/registry-server
+COPY --from=builder /src/bin/configmap-server /bin/configmap-server
+COPY --from=builder /src/bin/appregistry-server /bin/appregistry-server
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
