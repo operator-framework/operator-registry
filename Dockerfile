@@ -1,4 +1,4 @@
-FROM openshift/origin-release:golang-1.11 as builder
+FROM openshift/origin-release:golang-1.12 as builder
 
 RUN yum update -y && \
     yum install -y make git sqlite glibc-static openssl-static zlib-static && \
