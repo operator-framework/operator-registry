@@ -13,9 +13,6 @@ build: clean $(CMDS)
 static: extra_flags=-ldflags '-w -extldflags "-static"'
 static: build
 
-static-rh: extra_flags=-ldflags '-w -extldflags "-Wl,-Bstatic -ldl -lc -lpthread -lcrypto -lz -static"'
-static-rh: build
-
 unit:
 	go test $(MOD_FLAGS) -count=1 --tags json1 -v -race ./pkg/...
 
