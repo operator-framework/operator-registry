@@ -7,9 +7,52 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
+
+type MissingReplacees interface {
+	MissingReplacees() (missing map[string]string)
+}
+
+type missingReplaceesError struct {
+	builder strings.Builder
+	missing map[string]string
+}
+
+func (m missingReplaceesError) MissingReplacees() map[string]string {
+	return m.missing
+}
+
+func (m missingReplaceesError) Error() string {
+	return m.builder.String()
+}
+
+func addMissingReplacee(err *missingReplaceesError, channel, replacement, replacee string) *missingReplaceesError {
+	if err == nil || err.missing == nil {
+		err = &missingReplaceesError{
+			missing: map[string]string{},
+		}
+	}
+
+	err.missing[channel] = replacee
+	if err.builder.Len() == 0 {
+		fmt.Fprintf(&err.builder, "channel missing replacees (channel: replacement -> replacee): %s: %s -> %s", channel, replacement, replacee)
+	} else {
+		fmt.Fprintf(&err.builder, ", %s: %s -> %s", channel, replacement, replacee)
+	}
+
+	return err
+}
+
+// IsMissingReplacees checks if the given error indicates a Load call detected missing replacee bundles.
+//
+// If missing replacees were detected, this function returns true; otherwise it returns false.
+func IsMissingReplacees(err error) (MissingReplacees, bool) {
+	mr, ok := errors.Cause(err).(MissingReplacees)
+	return mr, ok && len(mr.MissingReplacees()) > 0
+}
 
 type SQLLoader struct {
 	db *sql.DB
@@ -75,7 +118,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	if _, err = db.Exec(createTable); err != nil {
 		return nil, err
 	}
-	return &SQLLoader{db}, nil
+	return &SQLLoader{db: db}, nil
 }
 
 func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
@@ -178,6 +221,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addReplaces.Close()
 
+	var replaceesErr *missingReplaceesError
 	for _, c := range manifest.Channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
@@ -188,6 +232,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			return err
 		}
 
+		var replacement string
 		channelEntryCSVName := c.CurrentCSVName
 		depth := 1
 		for {
@@ -225,7 +270,6 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					return err
 				}
 
-
 				synthesizedID, err := synthesizedChannelEntry.LastInsertId()
 				if err != nil {
 					return err
@@ -236,7 +280,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					return err
 				}
 
-				depth += 1
+				depth++
 			}
 
 			// create real replacement chain
@@ -268,14 +312,26 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					return err
 				}
 				currentID = replacedID
+				replacement = channelEntryCSVName
 				channelEntryCSVName = replaced.String
-				depth += 1
+
+				depth++
 			} else {
-				return fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName)
+				replaceesErr = addMissingReplacee(replaceesErr, c.Name, replacement, channelEntryCSVName)
+				break
 			}
 		}
 	}
-	return tx.Commit()
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if replaceesErr != nil {
+		return replaceesErr
+	}
+
+	return nil
 }
 
 func (s *SQLLoader) AddProvidedAPIs() error {
