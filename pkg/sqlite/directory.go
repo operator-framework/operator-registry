@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -27,6 +28,8 @@ type SQLPopulator interface {
 type DirectoryLoader struct {
 	store     registry.Load
 	directory string
+
+	pkgLoadErr error
 }
 
 var _ SQLPopulator = &DirectoryLoader{}
@@ -46,21 +49,23 @@ func (d *DirectoryLoader) Populate() error {
 		return err
 	}
 
-	log.Info("loading Bundles")
+	log.Info("loading bundles")
 	if err := filepath.Walk(d.directory, d.LoadBundleWalkFunc); err != nil {
 		return err
 	}
 
-	log.Info("loading Packages")
+	log.Info("loading packages")
 	if err := filepath.Walk(d.directory, d.LoadPackagesWalkFunc); err != nil {
 		return err
 	}
 
-	log.Info("extracting provided API information")
+	log.Info("extracting provided api information")
 	if err := d.store.AddProvidedAPIs(); err != nil {
 		return err
 	}
-	return nil
+
+	// Return observed package load errors
+	return d.pkgLoadErr
 }
 
 // LoadBundleWalkFunc walks the directory. When it sees a `.clusterserviceversion.yaml` file, it
@@ -194,16 +199,28 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 	manifest := registry.PackageManifest{}
 	if err = decoder.Decode(&manifest); err != nil {
-		 log.Infof("could not decode contents of file %s into package: %v", path, err)
-		 return nil
+		log.Infof("could not decode contents of file %s into package: %v", path, err)
+		return nil
 	}
 	if manifest.PackageName == "" {
 		return nil
 	}
 
-	if err := d.store.AddPackageChannels(manifest); err != nil {
-		return fmt.Errorf("error loading package into db: %s", err.Error())
-	}
+	// Add package channels for the manifest and collect any errors
+	d.addPkgLoadErr(d.store.AddPackageChannels(manifest))
 
 	return nil
+}
+
+func (d *DirectoryLoader) addPkgLoadErr(err error) {
+	if err == nil {
+		return
+	}
+
+	if d.pkgLoadErr == nil {
+		d.pkgLoadErr = err
+		return
+	}
+
+	d.pkgLoadErr = errors.Wrap(err, d.pkgLoadErr.Error())
 }

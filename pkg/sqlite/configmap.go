@@ -7,12 +7,14 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/pkg/errors"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 const (
@@ -160,10 +162,16 @@ func (c *ConfigMapLoader) Populate() error {
 		c.log.WithError(err).Debug("error parsing package list")
 		return err
 	}
+
+	var pkgLoadErr error
 	for _, packageManifest := range parsedPackageManifests {
 		c.log.WithField("package", packageManifest.PackageName).Debug("loading package")
 		if err := c.store.AddPackageChannels(packageManifest); err != nil {
-			return err
+			if pkgLoadErr == nil {
+				pkgLoadErr = err
+			} else {
+				pkgLoadErr = errors.Wrap(err, pkgLoadErr.Error())
+			}
 		}
 	}
 
@@ -171,5 +179,7 @@ func (c *ConfigMapLoader) Populate() error {
 	if err := c.store.AddProvidedAPIs(); err != nil {
 		return err
 	}
-	return nil
+
+	// Return observed package load errors
+	return pkgLoadErr
 }
