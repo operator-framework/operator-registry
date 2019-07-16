@@ -42,6 +42,7 @@ func main() {
 	rootCmd.Flags().StringP("configMapNamespace", "n", "", "namespace of a configmap")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("allow-missing-replacees", false, "allow replaces field to reference a csv that does not exist in the given configmap")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -81,8 +82,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
+	allowMissingReplacees, err := cmd.Flags().GetBool("allow-missing-replacees")
+	if err != nil {
+		return err
+	}
 
+	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 	client := NewClientFromConfig(kubeconfig, logger.Logger)
 	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
@@ -96,7 +101,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	configMapPopulator := sqlite.NewSQLLoaderForConfigMap(sqlLoader, *configMap)
 	if err := configMapPopulator.Populate(); err != nil {
-		return err
+		if _, ok := sqlite.IsMissingReplacees(err); ok && allowMissingReplacees {
+			logrus.Warnf("allowing %s", err.Error())
+			return nil
+		}
+
+		logrus.Fatal(err)
 	}
 
 	store, err := sqlite.NewSQLLiteQuerier(dbName)

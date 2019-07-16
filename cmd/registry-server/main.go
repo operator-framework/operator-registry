@@ -19,7 +19,7 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{
 		Short: "registry-server",
-		Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+		Long:  `registry loads a sqlite database containing operator manifests and serves a gRPC API to query it`,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

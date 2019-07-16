@@ -13,6 +13,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/appregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s)")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("allow-missing-replacees", false, "allow replaces field to reference a csv that does not exist in the given app-registry repo")
 
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
@@ -71,12 +73,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	sources, legacy, err := handleSourceFlag(cmd)
 	if err != nil {
 		return err
 	}
-
 	packages, err := cmd.Flags().GetString("packages")
 	if err != nil {
 		return err
@@ -85,17 +85,26 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	allowMissingReplacees, err := cmd.Flags().GetBool("allow-missing-replacees")
+	if err != nil {
+		return err
+	}
 
 	logger := logrus.WithFields(logrus.Fields{"type": "appregistry", "port": port})
 
 	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger, legacy)
 	if err != nil {
-		logger.Fatalf("error initializing - %v", err)
+		logger.Fatalf("error initializing: %v", err)
 	}
 
 	store, err := loader.Load(sources, packages)
 	if err != nil {
-		logger.Fatalf("error loading manifest from remote registry - %v", err)
+		if _, ok := sqlite.IsMissingReplacees(err); ok && allowMissingReplacees {
+			logrus.Warnf("allowing %v", err)
+			return nil
+		}
+
+		logger.Fatalf("error loading manifest from remote registry: %v", err)
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)

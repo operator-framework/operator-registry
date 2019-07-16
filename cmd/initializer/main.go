@@ -25,6 +25,7 @@ func main() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("manifests", "m", "manifests", "relative path to directory of manifests")
 	rootCmd.Flags().StringP("output", "o", "bundles.db", "relative path to a sqlite file to create or overwrite")
+	rootCmd.Flags().Bool("allow-missing-replacees", false, "allow replaces field to reference a csv that does not exist in the manifests directory")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		panic(err)
 	}
@@ -50,8 +51,18 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	defer dbLoader.Close()
 
+	allowMissingReplacees, err := cmd.Flags().GetBool("allow-missing-replacees")
+	if err != nil {
+		return err
+	}
+
 	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestDir)
 	if err := loader.Populate(); err != nil {
+		if _, ok := sqlite.IsMissingReplacees(err); ok && allowMissingReplacees {
+			logrus.Warnf("allowing %s", err.Error())
+			return nil
+		}
+
 		logrus.Fatal(err)
 	}
 
