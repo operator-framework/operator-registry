@@ -95,9 +95,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 	csv := v1alpha1.ClusterServiceVersion{}
 
-	log.Info("found csv, loading bundle")
 	if err = decoder.Decode(&csv); err != nil {
-		log.Infof("could not decode contents of file %s into package: %v", path, err)
 		return nil
 	}
 
@@ -105,7 +103,9 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return nil
 	}
 
-	bundle, err := d.LoadBundle(filepath.Dir(path))
+	log.Info("found csv, loading bundle")
+
+	bundle, err := d.LoadBundle(csv.GetName(), filepath.Dir(path))
 	if err != nil {
 		return fmt.Errorf("error loading objs in dir: %s", err.Error())
 	}
@@ -124,7 +124,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 
 // LoadBundle takes the directory that a CSV is in and assumes the rest of the objects in that directory
 // are part of the bundle.
-func (d *DirectoryLoader) LoadBundle(dir string) (*registry.Bundle, error) {
+func (d *DirectoryLoader) LoadBundle(csvName string, dir string) (*registry.Bundle, error) {
 	bundle := &registry.Bundle{}
 	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "load": "bundle"})
 	files, err := ioutil.ReadDir(dir)
@@ -153,10 +153,14 @@ func (d *DirectoryLoader) LoadBundle(dir string) (*registry.Bundle, error) {
 		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 		obj := &unstructured.Unstructured{}
 
-		log.Info("found csv, loading bundle")
 		if err = decoder.Decode(obj); err != nil {
 			log.Infof("could not decode contents of file %s into file: %v", path, err)
 			return nil, nil
+		}
+
+		// Don't include other CSVs in the bundle
+		if obj.GetKind() == "ClusterServiceVersion" && obj.GetName() != csvName {
+			continue
 		}
 
 		if obj != nil {
