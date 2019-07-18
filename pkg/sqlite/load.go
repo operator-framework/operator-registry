@@ -95,6 +95,10 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		return err
 	}
 
+	if csvName == "" {
+		return fmt.Errorf("csv name not found")
+	}
+
 	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
 		return err
 	}
