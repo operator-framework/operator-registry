@@ -2,11 +2,13 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -69,7 +71,6 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
 		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
 	);
-	CREATE INDEX IF NOT EXISTS replaces ON operatorbundle(json_extract(csv, '$.spec.replaces'));
 	`
 
 	if _, err = db.Exec(createTable); err != nil {
@@ -156,31 +157,23 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addChannelEntry.Close()
 
-	getReplaces, err := tx.Prepare(`
-	 SELECT DISTINCT json_extract(operatorbundle.csv, '$.spec.replaces')
-	 FROM operatorbundle,json_tree(operatorbundle.csv)
-	 WHERE operatorbundle.name IS ?
-	`)
-	if err != nil {
-		return err
-	}
-	defer getReplaces.Close()
-
-	getSkips, err := tx.Prepare(`
-	 SELECT DISTINCT value
-	 FROM operatorbundle,json_each(operatorbundle.csv, '$.spec.skips')
-	 WHERE operatorbundle.name IS ?
-	`)
-	if err != nil {
-		return err
-	}
-	defer getSkips.Close()
-
 	addReplaces, err := tx.Prepare("update channel_entry set replaces = ? where entry_id = ?")
 	if err != nil {
 		return err
 	}
 	defer addReplaces.Close()
+
+	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addAPI.Close()
+
+	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addAPIProvider.Close()
 
 	for _, c := range manifest.Channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
@@ -196,24 +189,24 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		depth := 1
 		for {
 
-			// create skip entries
-			skipRows, err := getSkips.Query(channelEntryCSVName)
+			// Get CSV for current entry
+			channelEntryCSV, err := s.getCSV(tx, channelEntryCSVName)
 			if err != nil {
 				return err
 			}
 
-			for skipRows.Next() {
-				var skips sql.NullString
-				if err := skipRows.Scan(&skips); err != nil {
-					return err
-				}
+			if err := s.addProvidedAPIs(tx, channelEntryCSV, currentID); err != nil {
+				return err
+			}
 
-				if !skips.Valid || skips.String == "" {
-					break
-				}
+			skips, err := channelEntryCSV.GetSkips()
+			if err != nil {
+				return err
+			}
 
+			for _, skip := range skips {
 				// add dummy channel entry for the skipped version
-				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skips.String, depth)
+				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
 				if err != nil {
 					return err
 				}
@@ -229,14 +222,16 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					return err
 				}
 
-
 				synthesizedID, err := synthesizedChannelEntry.LastInsertId()
 				if err != nil {
 					return err
 				}
 
-				_, err = addReplaces.Exec(skippedID, synthesizedID)
-				if err != nil {
+				if _, err = addReplaces.Exec(skippedID, synthesizedID); err != nil {
+					return err
+				}
+
+				if err := s.addProvidedAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
 					return err
 				}
 
@@ -244,135 +239,43 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			}
 
 			// create real replacement chain
-			replaceRows, err := getReplaces.Query(channelEntryCSVName)
+			replaces, err := channelEntryCSV.GetReplaces()
 			if err != nil {
 				return err
 			}
 
-			if replaceRows.Next() {
-				var replaced sql.NullString
-				if err := replaceRows.Scan(&replaced); err != nil {
-					return err
-				}
+			if replaces == "" {
+				// we've walked the channel until there was no replacement
+				break
+			}
 
-				if !replaced.Valid || replaced.String == "" {
-					break
-				}
-
-				replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.String, depth)
-				if err != nil {
-					return err
-				}
-				replacedID, err := replacedChannelEntry.LastInsertId()
-				if err != nil {
-					return err
-				}
-				_, err = addReplaces.Exec(replacedID, currentID)
-				if err != nil {
-					return err
-				}
-				currentID = replacedID
-				channelEntryCSVName = replaced.String
-				depth += 1
-			} else {
+			replaced, err := s.getCSV(tx, replaces)
+			if err != nil {
 				return fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName)
 			}
+
+			replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.GetName(), depth)
+			if err != nil {
+				return err
+			}
+			replacedID, err := replacedChannelEntry.LastInsertId()
+			if err != nil {
+				return err
+			}
+			_, err = addReplaces.Exec(replacedID, currentID)
+			if err != nil {
+				return err
+			}
+			currentID = replacedID
+			channelEntryCSVName = replaces
+			depth += 1
 		}
 	}
 	return tx.Commit()
 }
 
-func (s *SQLLoader) AddProvidedAPIs() error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer addAPI.Close()
-
-	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer addAPIProvider.Close()
-
-	// get CRD provided APIs
-	getChannelEntryProvidedAPIs, err := tx.Prepare(`
-	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.name', '$.version', '$.kind')
-	FROM channel_entry INNER JOIN operatorbundle,json_each(operatorbundle.csv, '$.spec.customresourcedefinitions.owned')
-	ON channel_entry.operatorbundle_name = operatorbundle.name`)
-	if err != nil {
-		return err
-	}
-	defer getChannelEntryProvidedAPIs.Close()
-
-	rows, err := getChannelEntryProvidedAPIs.Query()
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var channelId sql.NullInt64
-		var gvkSQL sql.NullString
-
-		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
-			return err
-		}
-		apigvk := []string{}
-		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
-			return err
-		}
-		plural, group, err := SplitCRDName(apigvk[0])
-		if err != nil {
-			return err
-		}
-		if _, err := addAPI.Exec(group, apigvk[1], apigvk[2], plural); err != nil {
-			return err
-		}
-		if _, err := addAPIProvider.Exec(group, apigvk[1], apigvk[2], channelId.Int64); err != nil {
-			return err
-		}
-	}
-
-	getChannelEntryProvidedAPIsAPIService, err := tx.Prepare(`
-	SELECT DISTINCT channel_entry.entry_id, json_extract(json_each.value, '$.group', '$.version', '$.kind', '$.name')
-	FROM channel_entry INNER JOIN operatorbundle,json_each(operatorbundle.csv, '$.spec.apiservicedefinitions.owned')
-	ON channel_entry.operatorbundle_name = operatorbundle.name`)
-	if err != nil {
-		return err
-	}
-	defer getChannelEntryProvidedAPIsAPIService.Close()
-
-	rows, err = getChannelEntryProvidedAPIsAPIService.Query()
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var channelId sql.NullInt64
-		var gvkSQL sql.NullString
-
-		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
-			return err
-		}
-		apigvk := []string{}
-		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
-			return err
-		}
-		if _, err := addAPI.Exec(apigvk[0], apigvk[1], apigvk[2], apigvk[3]); err != nil {
-			return err
-		}
-		if _, err := addAPIProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
-
-func (s *SQLLoader) Close() {
-	s.db.Close()
+func (s *SQLLoader) Close() error {
+	return s.db.Close()
 }
 
 func SplitCRDName(crdName string) (plural, group string, err error) {
@@ -385,4 +288,80 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 	plural = pluralGroup[0]
 	group = pluralGroup[1]
 	return
+}
+
+func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterServiceVersion, error) {
+	getCSV, err := tx.Prepare(`
+	  SELECT DISTINCT operatorbundle.csv 
+	  FROM operatorbundle
+	  WHERE operatorbundle.name=? LIMIT 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer getCSV.Close()
+
+	rows, err := getCSV.Query(csvName)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("no bundle found for csv %s", csvName)
+	}
+	var csvStringSQL sql.NullString
+	if err := rows.Scan(&csvStringSQL); err != nil {
+		return nil, err
+	}
+
+	dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(csvStringSQL.String), 10)
+	unst := &unstructured.Unstructured{}
+	if err := dec.Decode(unst); err != nil {
+		return nil, err
+	}
+
+	csv := &registry.ClusterServiceVersion{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unst.UnstructuredContent(), csv); err != nil {
+		return nil, err
+	}
+
+	return csv, nil
+}
+
+
+func (s *SQLLoader) addProvidedAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, channelEntryId int64) error {
+	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addAPI.Close()
+
+	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addAPIProvider.Close()
+
+	ownedCRDs, _, err := csv.GetCustomResourceDefintions()
+	for _, crd := range ownedCRDs {
+		plural, group, err := SplitCRDName(crd.Name)
+		if err != nil {
+			return err
+		}
+		if _, err := addAPI.Exec(group, crd.Version, crd.Kind, plural); err != nil {
+			return err
+		}
+		if _, err := addAPIProvider.Exec(group, crd.Version, crd.Kind, channelEntryId); err != nil {
+			return err
+		}
+	}
+
+	ownedAPIs, _, err := csv.GetApiServiceDefinitions()
+	for _, api := range ownedAPIs {
+		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Name); err != nil {
+			return err
+		}
+		if _, err := addAPIProvider.Exec(api.Group, api.Version, api.Kind, channelEntryId); err != nil {
+			return err
+		}
+	}
+	return nil
 }

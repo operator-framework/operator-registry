@@ -16,7 +16,11 @@ func TestDirectoryLoader(t *testing.T) {
 
 	store, err := NewSQLLiteLoader("test.db")
 	require.NoError(t, err)
-	defer os.Remove("test.db")
+	defer func() {
+		if err := os.Remove("test.db"); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	loader := NewSQLLoaderForDirectory(store, "../../manifests")
 	require.NoError(t, loader.Populate())
@@ -25,7 +29,11 @@ func TestDirectoryLoader(t *testing.T) {
 func TestQuerierForDirectory(t *testing.T) {
 	load, err := NewSQLLiteLoader("test.db")
 	require.NoError(t, err)
-	defer os.Remove("test.db")
+	defer func() {
+		if err := os.Remove("test.db"); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	loader := NewSQLLoaderForDirectory(load, "../../manifests")
 	require.NoError(t, loader.Populate())

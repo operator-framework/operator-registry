@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -108,15 +107,15 @@ func (c *ConfigMapLoader) Populate() error {
 		return err
 	}
 
-	var parsedCSVList []v1alpha1.ClusterServiceVersion
-	err = json.Unmarshal([]byte(csvListJson), &parsedCSVList)
+	var parsedCSVList []registry.ClusterServiceVersion
+	err = json.Unmarshal(csvListJson, &parsedCSVList)
 	if err != nil {
 		c.log.WithError(err).Debug("error parsing CSV list")
 		return err
 	}
 
 	for _, csv := range parsedCSVList {
-		c.log.WithField("csv", csv.Name).Debug("loading CSV")
+		c.log.WithField("csv", csv.GetName()).Debug("loading CSV")
 		csvUnst, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&csv)
 		if err != nil {
 			c.log.WithError(err).Debug("error remarshalling csv")
@@ -124,7 +123,11 @@ func (c *ConfigMapLoader) Populate() error {
 		}
 
 		bundle := registry.NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
-		for _, owned := range csv.Spec.CustomResourceDefinitions.Owned {
+		ownedCRDs, _, err := csv.GetCustomResourceDefintions()
+		if err != nil {
+			return err
+		}
+		for _, owned := range ownedCRDs {
 			split := strings.SplitN(owned.Name, ".", 2)
 			if len(split) < 2 {
 				c.log.WithError(err).Debug("error parsing owned name")
@@ -155,7 +158,7 @@ func (c *ConfigMapLoader) Populate() error {
 	}
 
 	var parsedPackageManifests []registry.PackageManifest
-	err = json.Unmarshal([]byte(packageListJson), &parsedPackageManifests)
+	err = json.Unmarshal(packageListJson, &parsedPackageManifests)
 	if err != nil {
 		c.log.WithError(err).Debug("error parsing package list")
 		return err
@@ -167,9 +170,5 @@ func (c *ConfigMapLoader) Populate() error {
 		}
 	}
 
-	c.log.Info("extracting provided API information")
-	if err := c.store.AddProvidedAPIs(); err != nil {
-		return err
-	}
 	return nil
 }
