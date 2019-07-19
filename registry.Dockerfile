@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine
+FROM golang:1.12-alpine as builder
 
 RUN apk update && apk add sqlite build-base git mercurial
 WORKDIR /build
