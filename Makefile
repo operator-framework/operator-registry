@@ -6,7 +6,7 @@ CMDS  := $(addprefix bin/, $(shell go list $(MOD_FLAGS) ./cmd/... | xargs -I{} b
 all: clean test build
 
 $(CMDS):
-	go build $(MOD_FLAGS) -tags json1 $(extra_flags) -o $@ ./cmd/$(shell basename $@)
+	go build $(MOD_FLAGS) $(extra_flags) -o $@ ./cmd/$(shell basename $@)
 
 build: clean $(CMDS)
 
@@ -14,7 +14,7 @@ static: extra_flags=-ldflags '-w -extldflags "-static"'
 static: build
 
 unit:
-	go test $(MOD_FLAGS) -count=1 --tags json1 -v -race ./pkg/...
+	go test $(MOD_FLAGS) -count=1 -v -race ./pkg/...
 
 image:
 	docker build .
