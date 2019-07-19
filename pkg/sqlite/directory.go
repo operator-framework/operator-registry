@@ -7,23 +7,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/schema"
 )
+
+const ClusterServiceVersionKind = "ClusterServiceVersion"
 
 type SQLPopulator interface {
 	Populate() error
 }
 
 // DirectoryLoader loads a directory of resources into the database
-// files ending in `.crd.yaml` will be parsed as CRDs
-// files ending in `.clusterserviceversion.yaml` will be parsed as CSVs
-// files ending in `.package.yaml` will be parsed as Packages
 type DirectoryLoader struct {
 	store     registry.Load
 	directory string
@@ -41,25 +38,16 @@ func NewSQLLoaderForDirectory(store registry.Load, directory string) *DirectoryL
 func (d *DirectoryLoader) Populate() error {
 	log := logrus.WithField("dir", d.directory)
 
-	log.Info("validating manifests")
-	if err := schema.CheckCatalogResources(d.directory); err != nil {
-		return err
-	}
-
 	log.Info("loading Bundles")
 	if err := filepath.Walk(d.directory, d.LoadBundleWalkFunc); err != nil {
 		return err
 	}
 
-	log.Info("loading Packages")
+	log.Info("loading Packages and Entries")
 	if err := filepath.Walk(d.directory, d.LoadPackagesWalkFunc); err != nil {
 		return err
 	}
 
-	log.Info("extracting provided API information")
-	if err := d.store.AddProvidedAPIs(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -93,13 +81,13 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-	csv := v1alpha1.ClusterServiceVersion{}
+	csv := unstructured.Unstructured{}
 
 	if err = decoder.Decode(&csv); err != nil {
 		return nil
 	}
 
-	if csv.Kind != v1alpha1.ClusterServiceVersionKind {
+	if csv.GetKind() != ClusterServiceVersionKind {
 		return nil
 	}
 
@@ -110,7 +98,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return fmt.Errorf("error loading objs in dir: %s", err.Error())
 	}
 
-	if bundle.Size() == 0 {
+	if bundle == nil || bundle.Size() == 0 {
 		log.Warnf("no bundle objects found")
 		return nil
 	}
@@ -155,7 +143,7 @@ func (d *DirectoryLoader) LoadBundle(csvName string, dir string) (*registry.Bund
 
 		if err = decoder.Decode(obj); err != nil {
 			log.Infof("could not decode contents of file %s into file: %v", path, err)
-			return nil, nil
+			continue
 		}
 
 		// Don't include other CSVs in the bundle
@@ -163,7 +151,7 @@ func (d *DirectoryLoader) LoadBundle(csvName string, dir string) (*registry.Bund
 			continue
 		}
 
-		if obj != nil {
+		if obj.Object != nil {
 			bundle.Add(obj)
 		}
 
@@ -198,8 +186,8 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 	manifest := registry.PackageManifest{}
 	if err = decoder.Decode(&manifest); err != nil {
-		 log.Infof("could not decode contents of file %s into package: %v", path, err)
-		 return nil
+		log.Infof("could not decode contents of file %s into package: %v", path, err)
+		return nil
 	}
 	if manifest.PackageName == "" {
 		return nil

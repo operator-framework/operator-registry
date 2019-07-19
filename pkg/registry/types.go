@@ -14,6 +14,14 @@ func (k APIKey) String() string {
 	return fmt.Sprintf("%s/%s/%s (%s)", k.Group, k.Version, k.Kind, k.Plural)
 }
 
+// DefinitionKey represents the metadata for either an APIservice or a CRD from a CSV spec
+type DefinitionKey struct {
+	Group   string `json:"group"`
+	Kind    string `json:"kind"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
 // PackageManifest holds information about a package, which is a reference to one (or more)
 // channels under a single package.
 type PackageManifest struct {
