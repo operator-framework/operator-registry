@@ -169,6 +169,15 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 	return nil
 }
 
+func (b *Bundle) Images() (map[string]struct{}, error) {
+	csv, err := b.ClusterServiceVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	return csv.GetOperatorImages()
+}
+
 func (b *Bundle) Serialize() (csvName string, csvBytes []byte, bundleBytes []byte, err error) {
 	csvCount := 0
 	for _, obj := range b.Objects {

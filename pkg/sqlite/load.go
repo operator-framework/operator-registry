@@ -71,6 +71,11 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
 		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
 	);
+	CREATE TABLE IF NOT EXISTS bundle_image (
+	    image TEXT,
+		operatorbundle_name TEXT,
+	    FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
+	);
 	`
 
 	if _, err = db.Exec(createTable); err != nil {
@@ -91,6 +96,12 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	}
 	defer stmt.Close()
 
+	addImage, err := tx.Prepare("insert into bundle_image(image, operatorbundle_name) values(?,?)")
+	if err != nil {
+		return err
+	}
+	defer addImage.Close()
+
 	csvName, csvBytes, bundleBytes, err := bundle.Serialize()
 	if err != nil {
 		return err
@@ -102,6 +113,16 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 
 	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
 		return err
+	}
+
+	imgs, err := bundle.Images()
+	if err != nil {
+		return err
+	}
+	for img := range imgs {
+		if _, err := addImage.Exec(img, csvName); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

@@ -12,6 +12,8 @@ type Load interface {
 type Query interface {
 	ListTables(ctx context.Context) ([]string, error)
 	ListPackages(ctx context.Context) ([]string, error)
+	ListImages(ctx context.Context) ([]string, error)
+	GetImagesForBundle(ctx context.Context, csvName string) ([]string, error)
 	GetPackage(ctx context.Context, name string) (*PackageManifest, error)
 	GetBundle(ctx context.Context, pkgName, channelName, csvName string) (string, error)
 	GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error)

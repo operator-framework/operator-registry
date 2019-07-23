@@ -64,6 +64,44 @@ func (s *SQLQuerier) ListPackages(ctx context.Context) ([]string, error) {
 	return packages, nil
 }
 
+func (s *SQLQuerier) ListImages(ctx context.Context) ([]string, error){
+	query := "SELECT DISTINCT image FROM bundle_image"
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	images := []string{}
+	for rows.Next() {
+		var pkgName sql.NullString
+		if err := rows.Scan(&pkgName); err != nil {
+			return nil, err
+		}
+		if pkgName.Valid {
+			images = append(images, pkgName.String)
+		}
+	}
+	return images, nil
+}
+
+func (s *SQLQuerier) GetImagesForBundle(ctx context.Context, csvName string) ([]string, error) {
+	query := "SELECT DISTINCT image FROM bundle_image WHERE operatorbundle_name=?"
+	rows, err := s.db.QueryContext(ctx, query, csvName)
+	if err != nil {
+		return nil, err
+	}
+	images := []string{}
+	for rows.Next() {
+		var pkgName sql.NullString
+		if err := rows.Scan(&pkgName); err != nil {
+			return nil, err
+		}
+		if pkgName.Valid {
+			images = append(images, pkgName.String)
+		}
+	}
+	return images, nil
+}
+
 func (s *SQLQuerier) GetPackage(ctx context.Context, name string) (*registry.PackageManifest, error) {
 	query := `SELECT DISTINCT package.name, default_channel, channel.name, channel.head_operatorbundle_name
               FROM package INNER JOIN channel ON channel.package_name=package.name

@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 
+	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -87,6 +88,44 @@ func (csv *ClusterServiceVersion) GetSkips() ([]string, error) {
 	}
 
 	return skips, nil
+}
+
+// GetOperatorImages returns a list of any images used to run the operator.
+// Currently this pulls any images in the pod specs of operator deployments.
+func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, error) {
+	type dep struct {
+		Name string
+		Spec v1.DeploymentSpec
+	}
+	type strategySpec struct {
+		Deployments []dep
+	}
+	type strategy struct {
+		Name string `json:"strategy"`
+		Spec strategySpec `json:"spec"`
+	}
+	type csvSpec struct {
+		Install strategy
+	}
+
+	var spec csvSpec
+	if err := json.Unmarshal(csv.Spec, &spec); err != nil {
+		return nil, err
+	}
+
+	// this is the only install strategy we know about
+	if spec.Install.Name != "deployment"  {
+		return nil, nil
+	}
+
+	images := map[string]struct{}{}
+	for _, d := range spec.Install.Spec.Deployments {
+		for _, c := range d.Spec.Template.Spec.Containers {
+			images[c.Image] = struct{}{}
+		}
+	}
+
+	return images, nil
 }
 
 // GetCustomResourceDefintions returns a list of owned and required
