@@ -111,9 +111,14 @@ func TestQuerierForDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2"}, etcdBundleImages)
 
+	etcdBundleImagesKustomized, err := store.GetImagesForBundle(context.TODO(), "etcdoperator.v0.6.1")
+	require.NoError(t, err)
+	require.Equal(t, []string{"quay.io/coreos/etcd-operator:latest", "quay.io/coreos/etcd:3.0.5"}, etcdBundleImagesKustomized)
+
 	registryImages, err := store.ListImages(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, []string{"quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943",
+	require.Equal(t, []string{"quay.io/coreos/etcd-operator:latest",
+		                      "quay.io/coreos/etcd:3.0.5",
 		                      "quay.io/coreos/etcd-operator@sha256:db563baa8194fcfe39d1df744ed70024b0f1f9e9b55b5923c2f3a413c44dc6b8",
 		                      "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
 		                      "quay.io/coreos/prometheus-operator@sha256:5037b4e90dbb03ebdefaa547ddf6a1f748c8eeebeedf6b9d9f0913ad662b5731",

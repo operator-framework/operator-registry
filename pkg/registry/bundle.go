@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	kustomize "sigs.k8s.io/kustomize/pkg/types"
 )
 
 // Scheme is the default instance of runtime.Scheme to which types in the Kubernetes API are already registered.
@@ -30,17 +31,18 @@ func init() {
 }
 
 type Bundle struct {
-	Name       string
-	Objects    []*unstructured.Unstructured
-	Package    string
-	Channel    string
-	csv        *ClusterServiceVersion
-	crds       []*apiextensions.CustomResourceDefinition
-	cacheStale bool
+	Name          string
+	Objects       []*unstructured.Unstructured
+	Package       string
+	Channel       string
+	csv           *ClusterServiceVersion
+	crds          []*apiextensions.CustomResourceDefinition
+	kustomization *kustomize.Kustomization
+	cacheStale    bool
 }
 
 func NewBundle(name, pkgName, channelName string, objs ...*unstructured.Unstructured) *Bundle {
-	bundle := &Bundle{Name: name, Package:pkgName, Channel:channelName, cacheStale: false}
+	bundle := &Bundle{Name: name, Package: pkgName, Channel: channelName, cacheStale: false}
 	for _, o := range objs {
 		bundle.Add(o)
 	}
@@ -83,6 +85,13 @@ func (b *Bundle) CustomResourceDefinitions() ([]*apiextensions.CustomResourceDef
 	return b.crds, nil
 }
 
+func (b *Bundle) Kustomization() (*kustomize.Kustomization, error) {
+	if err := b.cache(); err != nil {
+		return nil, err
+	}
+	return b.kustomization, nil
+}
+
 func (b *Bundle) ProvidedAPIs() (map[APIKey]struct{}, error) {
 	provided := map[APIKey]struct{}{}
 	crds, err := b.CustomResourceDefinitions()
@@ -94,7 +103,7 @@ func (b *Bundle) ProvidedAPIs() (map[APIKey]struct{}, error) {
 			provided[APIKey{Group: crd.Spec.Group, Version: v.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}] = struct{}{}
 		}
 		if crd.Spec.Version != "" {
-			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind, Plural:crd.Spec.Names.Plural}] = struct{}{}
+			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}] = struct{}{}
 		}
 	}
 
@@ -121,7 +130,7 @@ func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, api := range requiredCRDs{
+	for _, api := range requiredCRDs {
 		parts := strings.SplitN(api.Name, ".", 2)
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("couldn't parse plural.group from crd name: %s", api.Name)
@@ -174,8 +183,60 @@ func (b *Bundle) Images() (map[string]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	k, err := b.Kustomization()
+	if err != nil {
+		return nil, err
+	}
 
-	return csv.GetOperatorImages()
+	opImages, err := csv.GetOperatorImages()
+	if err != nil {
+		return nil, err
+	}
+
+	if k == nil {
+		return opImages, nil
+	}
+
+	// If there is a kustomization overriding the images, we need to calculate what the actual set of required images
+	// would be
+	images := map[string]struct{}{}
+	for i := range opImages {
+		name, tagOrDigest := split(i)
+
+		overridden := false
+		for _, imgConfig := range k.Images {
+			overridden = overridden || (imgConfig.Name == name)
+			if imgConfig.Name == name && imgConfig.NewName != "" && imgConfig.NewTag == "" && imgConfig.Digest == "" {
+				// there's a config to override just the `name`, so we need to keep the existing tagOrDigest or digest
+				images[imgConfig.NewName+tagOrDigest] = struct{}{}
+			}
+		}
+		// if there is no imgConfig that applies, we add the image to the list
+		if !overridden {
+			images[i] = struct{}{}
+		}
+	}
+
+	// Any other combination of config lets us build the image name directly from the imgConfig
+	for _, imgConfig := range k.Images {
+		var image string
+		if imgConfig.NewName != "" {
+			image = imgConfig.NewName
+		} else {
+			image = imgConfig.Name
+		}
+
+		if imgConfig.Digest != "" {
+			image = image + "@" + imgConfig.Digest
+			images[image] = struct{}{}
+		}
+		if imgConfig.NewTag != "" {
+			image = image + ":" + imgConfig.NewTag
+			images[image] = struct{}{}
+		}
+	}
+
+	return images, nil
 }
 
 func (b *Bundle) Serialize() (csvName string, csvBytes []byte, bundleBytes []byte, err error) {
@@ -217,6 +278,16 @@ func (b *Bundle) cache() error {
 			break
 		}
 	}
+	for _, o := range b.Objects {
+		if o.GetObjectKind().GroupVersionKind().Kind == kustomize.KustomizationKind {
+			kustomization := &kustomize.Kustomization{}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.UnstructuredContent(), kustomization); err != nil {
+				return err
+			}
+			b.kustomization = kustomization
+			break
+		}
+	}
 
 	if b.crds == nil {
 		b.crds = []*apiextensions.CustomResourceDefinition{}
@@ -239,4 +310,35 @@ func (b *Bundle) cache() error {
 
 	b.cacheStale = false
 	return nil
+}
+
+// split separates and returns the name and tag parts
+// from the image string using either colon `:` or at `@` separators.
+// Note that the returned tag keeps its separator.
+func split(imageName string) (name string, tag string) {
+	// check if image name contains a domain
+	// if domain is present, ignore domain and check for `:`
+	ic := -1
+	if slashIndex := strings.Index(imageName, "/"); slashIndex < 0 {
+		ic = strings.LastIndex(imageName, ":")
+	} else {
+		lastIc := strings.LastIndex(imageName[slashIndex:], ":")
+		// set ic only if `:` is present
+		if lastIc > 0 {
+			ic = slashIndex + lastIc
+		}
+	}
+	ia := strings.LastIndex(imageName, "@")
+	if ic < 0 && ia < 0 {
+		return imageName, ""
+	}
+
+	i := ic
+	if ia > 0 {
+		i = ia
+	}
+
+	name = imageName[:i]
+	tag = imageName[i:]
+	return
 }

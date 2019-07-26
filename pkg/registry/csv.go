@@ -123,6 +123,9 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 		for _, c := range d.Spec.Template.Spec.Containers {
 			images[c.Image] = struct{}{}
 		}
+		for _, c := range d.Spec.Template.Spec.InitContainers {
+			images[c.Image] = struct{}{}
+		}
 	}
 
 	return images, nil
