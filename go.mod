@@ -1,9 +1,8 @@
 module github.com/operator-framework/operator-registry
 
 require (
+	github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-openapi/runtime v0.0.0-20180920151709-4f900dc2ade9
-	github.com/go-openapi/strfmt v0.18.0
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.2.0
@@ -12,14 +11,13 @@ require (
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
 	github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.2.2
 	golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
-	golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7 // indirect
+	golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20181207222222-4c874b978acb // indirect
 	google.golang.org/grpc v1.17.0

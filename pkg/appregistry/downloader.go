@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	marketplace "github.com/operator-framework/operator-marketplace/pkg/client/clientset/versioned"
-	"github.com/operator-framework/operator-registry/pkg/apprclient"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/operator-framework/operator-registry/pkg/apprclient"
 )
 
 // downloadItem encapsulates the data that is needed to download a specific repository.
@@ -28,7 +28,6 @@ func (d *downloadItem) String() string {
 
 type downloader struct {
 	logger            *logrus.Entry
-	marketplaceClient marketplace.Interface
 	kubeClient        kubernetes.Clientset
 }
 
@@ -127,8 +126,6 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 
 		d.logger.Infof("downloading repository: %s from %s", item.RepositoryMetadata, endpoint)
 
-		factory := apprclient.NewClientFactory()
-
 		options, err := d.SetupRegistryOptions(item.Source)
 		if err != nil {
 			allErrors = append(allErrors, err)
@@ -137,7 +134,7 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 			continue
 		}
 
-		client, err := factory.New(*options)
+		client, err := apprclient.New(*options)
 		if err != nil {
 			allErrors = append(allErrors, err)
 			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
@@ -172,14 +169,12 @@ func (d *downloader) QuerySource(source *Source) (repositories []*apprclient.Reg
 		return nil, errors.New("specified source is <nil>")
 	}
 
-	factory := apprclient.NewClientFactory()
-
 	options, err := d.SetupRegistryOptions(source)
 	if err != nil {
 		return
 	}
 
-	client, err := factory.New(*options)
+	client, err := apprclient.New(*options)
 	if err != nil {
 		return
 	}
