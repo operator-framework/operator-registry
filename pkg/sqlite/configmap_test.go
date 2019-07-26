@@ -1,11 +1,14 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -56,6 +59,34 @@ func TestConfigMapLoader(t *testing.T) {
 
 	loader := NewSQLLoaderForConfigMap(store, manifest)
 	require.NoError(t, loader.Populate())
+}
+
+func TestReplaceCycle(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(t, err)
+
+	path := "../../configmap.example.yaml"
+	cmap, err := ioutil.ReadFile(path)
+
+	require.NoError(t, err, "unable to load configmap from file %s", path)
+
+	// Make etcdoperator.v0.9.0 in the example replace 0.9.2 to create a loop
+	sReader := strings.NewReader(string(bytes.Replace(cmap,
+			[]byte("replaces: etcdoperator.v0.6.1"),
+			[]byte("replaces: etcdoperator.v0.9.2"), 1)))
+
+	decoder := yaml.NewYAMLOrJSONDecoder(sReader, 30)
+	manifest := v1.ConfigMap{}
+	err = decoder.Decode(&manifest)
+	require.NoError(t, err, "could not decode contents of file %s into configmap", path)
+
+	loader := NewSQLLoaderForConfigMap(store, manifest)
+	err = loader.Populate()
+	require.Error(t, err, "Cycle detected, etcdoperator.v0.9.0 replaces etcdoperator.v0.9.2")
 }
 
 func TestQuerierForConfigmap(t *testing.T) {
