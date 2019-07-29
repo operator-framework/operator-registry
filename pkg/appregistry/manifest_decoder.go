@@ -1,33 +1,34 @@
 package appregistry
 
 import (
+	"fmt"
+
 	"github.com/operator-framework/operator-registry/pkg/apprclient"
-	"github.com/sirupsen/logrus"
+
+	log "github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
-func NewManifestDecoder(logger *logrus.Entry, directory string) (*manifestDecoder, error) {
-	bundle, err := NewBundleProcessor(logger, directory)
+func NewManifestDecoder(logger *log.Entry) (*manifestDecoder, error) {
+	bundle, err := NewBundleProcessor()
+	if err != nil {
+		return nil, err
+	}
+
+	flattened, err := NewFlattenedProcessor()
 	if err != nil {
 		return nil, err
 	}
 
 	return &manifestDecoder{
 		logger:    logger,
-		flattened: NewFlattenedProcessor(logger),
+		flattened: flattened,
 		nested:    bundle,
 		walker:    &tarWalker{},
 	}, nil
 }
 
 type result struct {
-	// Flattened contains all flattened single file operator manifest(s).
-	Flattened *RawOperatorManifestData
-
-	// NestedDirectory points to the directory where all specified nested
-	// operator bundle(s) have been written to.
-	NestedDirectory string
-
 	// FlattenedCount is the total number of flattened single-file operator
 	// manifest(s) processed so far.
 	FlattenedCount int
@@ -43,7 +44,7 @@ func (r *result) IsEmpty() bool {
 }
 
 type manifestDecoder struct {
-	logger    *logrus.Entry
+	logger    *log.Entry
 	flattened *flattenedProcessor
 	nested    *bundleProcessor
 	walker    *tarWalker
@@ -64,9 +65,7 @@ type manifestDecoder struct {
 // This function takes a best-effort approach. On return, err is set to an
 // aggregated list of error(s) encountered. The caller should inspect the
 // result object to determine the next steps.
-func (d *manifestDecoder) Decode(manifests []*apprclient.OperatorMetadata) (result result, err error) {
-	d.logger.Info("decoding the downloaded operator manifest(s)")
-
+func (d *manifestDecoder) Decode(manifests []*apprclient.OperatorMetadata, workingDirectory string) (result result, err error) {
 	getProcessor := func(isNested bool) (Processor, string) {
 		if isNested {
 			return d.nested, "nested"
@@ -77,13 +76,13 @@ func (d *manifestDecoder) Decode(manifests []*apprclient.OperatorMetadata) (resu
 
 	allErrors := []error{}
 	for _, om := range manifests {
-		loggerWithBlobID := d.logger.WithField("repository", om.RegistryMetadata.String())
+		log.Debug(fmt.Sprintf("repository: %s", om.RegistryMetadata.String()))
 
 		// Determine the format type of the manifest blob and select the right processor.
 		checker := NewFormatChecker()
-		walkError := d.walker.Walk(om.Blob, checker)
+		walkError := d.walker.Walk(om.Blob, om.RegistryMetadata.Name, workingDirectory, checker)
 		if walkError != nil {
-			loggerWithBlobID.Errorf("skipping, can't determine the format of the manifest - %v", walkError)
+			log.Debug(fmt.Sprintf("skipping, can't determine the format of the manifest - %v", walkError))
 			allErrors = append(allErrors, err)
 			continue
 		}
@@ -93,31 +92,19 @@ func (d *manifestDecoder) Decode(manifests []*apprclient.OperatorMetadata) (resu
 		}
 
 		processor, format := getProcessor(checker.IsNestedBundleFormat())
-		loggerWithBlobID.Infof("manifest format is - %s", format)
+		log.Debug(fmt.Sprintf("manifest format is - %s", format))
 
-		walkError = d.walker.Walk(om.Blob, processor)
+		walkError = d.walker.Walk(om.Blob, om.RegistryMetadata.Name, workingDirectory, processor)
 		if walkError != nil {
-			loggerWithBlobID.Errorf("skipping due to error - %v", walkError)
+			log.Debug(fmt.Sprintf("skipping due to error - %v", walkError))
 			allErrors = append(allErrors, err)
 			continue
 		}
 
-		loggerWithBlobID.Infof("decoded successfully")
+		log.Debug(fmt.Sprintf("decoded successfully"))
 	}
 
-	result.NestedDirectory = d.nested.GetManifestDownloadDirectory()
 	result.FlattenedCount = d.flattened.GetProcessedCount()
-
-	// Merge all flattened operator manifest(s) into one.
-	if d.flattened.GetProcessedCount() > 0 {
-		d.logger.Info("merging all flattened manifests into a single configmap 'data' section")
-
-		result.Flattened, err = d.flattened.MergeIntoDataSection()
-		if err != nil {
-			d.logger.Errorf("error merging flattened manifest(s) - %v", err)
-			allErrors = append(allErrors, err)
-		}
-	}
 
 	err = utilerrors.NewAggregate(allErrors)
 	return

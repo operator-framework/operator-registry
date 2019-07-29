@@ -3,24 +3,20 @@ package appregistry
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
-
-	"github.com/sirupsen/logrus"
+	"os"
+	"path/filepath"
 )
 
-func NewFlattenedProcessor(logger *logrus.Entry) *flattenedProcessor {
+func NewFlattenedProcessor() (*flattenedProcessor, error) {
 	return &flattenedProcessor{
-		logger: logger,
 		parser: &manifestYAMLParser{},
-		merged: StructuredOperatorManifestData{},
-	}
+	}, nil
 }
 
 type flattenedProcessor struct {
-	logger *logrus.Entry
 	parser ManifestYAMLParser
-
-	merged StructuredOperatorManifestData
 	count  int
 }
 
@@ -31,8 +27,9 @@ func (w *flattenedProcessor) GetProcessedCount() int {
 // Process handles a flattened single file operator manifest.
 //
 // It expects a single file, as soon as the function encounters a file it parses
-// the raw yaml and merges it into the uber manifest.
-func (w *flattenedProcessor) Process(header *tar.Header, reader io.Reader) (done bool, err error) {
+// the raw yaml, separates it, converts it into a nested directory format,
+// and writes those nested manifests to files.
+func (w *flattenedProcessor) Process(header *tar.Header, manifestName, workingDirectory string, reader io.Reader) (done bool, err error) {
 	if header.Typeflag != tar.TypeReg {
 		return
 	}
@@ -54,30 +51,72 @@ func (w *flattenedProcessor) Process(header *tar.Header, reader io.Reader) (done
 		return
 	}
 
-	w.merged.Packages = append(w.merged.Packages, manifest.Packages...)
-	w.merged.CustomResourceDefinitions = append(w.merged.CustomResourceDefinitions, manifest.CustomResourceDefinitions...)
-	w.merged.ClusterServiceVersions = append(w.merged.ClusterServiceVersions, manifest.ClusterServiceVersions...)
+	// now let's write each file to a directory
+	packageName := manifest.Packages[0].PackageName
 
-	w.count += 1
+	manifestFolder := filepath.Join(workingDirectory, packageName)
+
+	err = os.MkdirAll(manifestFolder, directoryPerm)
+	if err != nil {
+		return
+	}
+
+	// write csvs and crds for each csv version
+	for _, csv := range manifest.ClusterServiceVersions {
+		csvFileName := filepath.Join(manifestFolder, fmt.Sprintf("%s.clusterserviceversion.yaml", csv.Name))
+		csvFile, err := w.parser.MarshalCSV(&csv)
+		if err != nil {
+			return done, err
+		}
+
+		err = writeYamlToFile(csvFileName, csvFile)
+		if err != nil {
+			return done, err
+		}
+	}
+
+	// write crds
+	for _, crd := range manifest.CustomResourceDefinitions {
+		crdFileName := filepath.Join(manifestFolder, fmt.Sprintf("%s-%s.crd.yaml", crd.Spec.Names.Kind, crd.Spec.Version))
+		crdFile, err := w.parser.MarshalCRD(&crd)
+		if err != nil {
+			return done, err
+		}
+
+		err = writeYamlToFile(crdFileName, crdFile)
+		if err != nil {
+			return done, err
+		}
+	}
+
+	// write package file
+	packageFileName := filepath.Join(manifestFolder, fmt.Sprintf("%s.package.yaml", packageName))
+	packageFile, err := w.parser.MarshalPackage(&manifest.Packages[0])
+	if err != nil {
+		return
+	}
+
+	err = writeYamlToFile(packageFileName, packageFile)
+	if err != nil {
+		return
+	}
+
+	w.count++
 	return
 }
 
-// Merge merges a set of operator manifest(s) into one.
-//
-// For a given operator source we have N ( N >= 1 ) repositories within the
-// given registry namespace. It is required for each repository to contain
-// manifest for a single operator.
-//
-// Once downloaded we can use this function to merge manifest(s) from all
-// relevant repositories into an uber manifest.
-//
-// We assume that all CRD(s), CSV(s) and package(s) are globally unique.
-// Otherwise we will fail to load the uber manifest into sqlite.
-func (w *flattenedProcessor) MergeIntoDataSection() (*RawOperatorManifestData, error) {
-	manifests, err := w.parser.Marshal(&w.merged)
+func writeYamlToFile(filepath, content string) error {
+	fo, err := os.Create(filepath)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return manifests, nil
+	defer fo.Close()
+
+	_, err = fo.WriteString(content)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

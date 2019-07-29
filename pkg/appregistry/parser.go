@@ -24,6 +24,12 @@ type ManifestYAMLParser interface {
 	// The function accepts a structured representation of operator manifest(s)
 	// specified in marshaled and returns a raw yaml representation of it.
 	Marshal(bundle *StructuredOperatorManifestData) (*RawOperatorManifestData, error)
+
+	MarshalCSV(csv *ClusterServiceVersion) (string, error)
+
+	MarshalCRD(crd *CustomResourceDefinition) (string, error)
+
+	MarshalPackage(pkg *PackageManifest) (string, error)
 }
 
 // RawOperatorManifestData encapsulates the list of CRD(s), CSV(s) and
@@ -178,4 +184,32 @@ func (*manifestYAMLParser) Marshal(bundle *StructuredOperatorManifestData) (*Raw
 	}
 
 	return data, nil
+}
+
+
+func (*manifestYAMLParser) MarshalCSV(csv *ClusterServiceVersion) (string, error) {
+	csvRaw, err := yaml.Marshal(csv)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling CSV list into YAML : %s", err)
+	}
+
+	return string(csvRaw), nil
+}
+
+func (*manifestYAMLParser) MarshalCRD(crd *CustomResourceDefinition) (string, error) {
+	crdRaw, err := yaml.Marshal(crd)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling CSV list into YAML : %s", err)
+	}
+
+	return string(crdRaw), nil
+}
+
+func (*manifestYAMLParser) MarshalPackage(pkg *PackageManifest) (string, error) {
+	packageRaw, err := yaml.Marshal(pkg)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling CSV list into YAML : %s", err)
+	}
+
+	return string(packageRaw), nil
 }
