@@ -46,7 +46,7 @@ func (b *formatChecker) IsNestedBundleFormat() bool {
 // This function maintains state associated with a tar file, so it can be used
 // for a single tar file only. The caller is responsible for creating a new
 // instance for each tar ball it handles.
-func (b *formatChecker) Process(header *tar.Header, reader io.Reader) (done bool, err error) {
+func (b *formatChecker) Process(header *tar.Header, manifestName, workingDirectory string, reader io.Reader) (done bool, err error) {
 	// We expect tar ball using flattened format to contain exactly one file.
 	// So if we run into more than one file then we deem the tar to be
 	// a manifest using operator bundle format.
