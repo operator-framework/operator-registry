@@ -2,7 +2,7 @@
 // Source: ./pkg/appregistry/adapter.go
 
 // Package appregistry is a generated GoMock package.
-package apprclient
+package mock
 
 import (
 	reflect "reflect"

@@ -12,7 +12,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
-	github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.2.2
@@ -25,6 +24,5 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0-20181204003618-e419c5771cdc
 	k8s.io/apimachinery v0.0.0-20190118094746-1525e4dadd2d
 	k8s.io/client-go v8.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.1.10 // indirect
 	sigs.k8s.io/kustomize v2.0.3+incompatible
 )

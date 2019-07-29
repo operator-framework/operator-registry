@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
+	"github.com/operator-framework/operator-registry/pkg/apprclient/mock"
 	"github.com/operator-framework/operator-registry/pkg/apprclient/openapi"
 )
 
@@ -15,8 +16,8 @@ func TestRetrieveOne_PackageExists_SuccessExpected(t *testing.T) {
 	controller := gomock.NewController(t)
 	defer controller.Finish()
 
-	adapter := NewMockapprApiAdapter(controller)
-	decoder := NewMockblobDecoder(controller)
+	adapter := mock.NewMockapprApiAdapter(controller)
+	decoder := mock.NewMockblobDecoder(controller)
 
 	client := client{
 		adapter: adapter,
