@@ -3,18 +3,18 @@ package appregistry
 import (
 	"archive/tar"
 	"bytes"
-	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/apprclient"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/rand"
+
+	"github.com/operator-framework/operator-registry/pkg/apprclient"
 )
 
 const (
@@ -56,12 +56,12 @@ func setupDownloadFolder(t *testing.T) (downloadpath string, remove func()) {
 		nestedOutputDirectoryBase = "testdata/download"
 	)
 
-	path := fmt.Sprintf("%s/%s", nestedOutputDirectoryBase, rand.String(8))
+	// Create temporary working directory for manifests
+	path, err := ioutil.TempDir(nestedOutputDirectoryBase, "manifests-")
+	require.NoError(t, err)
 
 	return path, func() {
-		if err := os.RemoveAll(path); err != nil {
-			t.Logf("failed to cleanup download folder [%s]", path)
-		}
+		require.NoError(t, os.RemoveAll(path))
 	}
 }
 
@@ -70,11 +70,11 @@ func TestDecodeWithNestedBundleManifest(t *testing.T) {
 	defer remove()
 
 	manifests := []*apprclient.OperatorMetadata{
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: etcd,
 			Blob:             tarball(t, etcdManifestLocation, tarFilePrefixTrim),
 		},
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: prometheus,
 			Blob:             tarball(t, prometheusManifestLocation, tarFilePrefixTrim),
 		},
@@ -82,22 +82,21 @@ func TestDecodeWithNestedBundleManifest(t *testing.T) {
 
 	logger := logrus.WithField("test", "nested")
 
-	decoder, err := NewManifestDecoder(logger, nestedDirectoryWant)
+	decoder, err := NewManifestDecoder(logger)
 	require.NoError(t, err)
 
-	resultGot, errGot := decoder.Decode(manifests)
+	resultGot, errGot := decoder.Decode(manifests, nestedDirectoryWant)
 	assert.NoError(t, errGot)
-	assert.Nil(t, resultGot.Flattened)
-	assert.Equal(t, nestedDirectoryWant, resultGot.NestedDirectory)
 	assert.Equal(t, 0, resultGot.FlattenedCount)
 	assert.Equal(t, 2, resultGot.NestedCount)
 }
 
 func TestDecodeWithFlattenedManifest(t *testing.T) {
-	nestedDirectoryWant, _ := setupDownloadFolder(t)
+	nestedDirectoryWant, remove := setupDownloadFolder(t)
+	defer remove()
 
 	manifests := []*apprclient.OperatorMetadata{
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: descheduler,
 			Blob:             tarball(t, deschedulerManifestLocation, tarFilePrefixTrim),
 		},
@@ -105,13 +104,11 @@ func TestDecodeWithFlattenedManifest(t *testing.T) {
 
 	logger := logrus.WithField("test", "flattened")
 
-	decoder, err := NewManifestDecoder(logger, nestedDirectoryWant)
+	decoder, err := NewManifestDecoder(logger)
 	require.NoError(t, err)
 
-	resultGot, errGot := decoder.Decode(manifests)
+	resultGot, errGot := decoder.Decode(manifests, nestedDirectoryWant)
 	assert.NoError(t, errGot)
-	assert.NotNil(t, resultGot.Flattened)
-	assert.Equal(t, nestedDirectoryWant, resultGot.NestedDirectory)
 	assert.Equal(t, 1, resultGot.FlattenedCount)
 	assert.Equal(t, 0, resultGot.NestedCount)
 }
@@ -121,15 +118,15 @@ func TestDecodeWithBothFlattenedAndNestedManifest(t *testing.T) {
 	defer remove()
 
 	manifests := []*apprclient.OperatorMetadata{
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: etcd,
 			Blob:             tarball(t, etcdManifestLocation, tarFilePrefixTrim),
 		},
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: prometheus,
 			Blob:             tarball(t, prometheusManifestLocation, tarFilePrefixTrim),
 		},
-		&apprclient.OperatorMetadata{
+		{
 			RegistryMetadata: descheduler,
 			Blob:             tarball(t, deschedulerManifestLocation, tarFilePrefixTrim),
 		},
@@ -137,13 +134,11 @@ func TestDecodeWithBothFlattenedAndNestedManifest(t *testing.T) {
 
 	logger := logrus.WithField("test", "flattened+nested")
 
-	decoder, err := NewManifestDecoder(logger, nestedDirectoryWant)
+	decoder, err := NewManifestDecoder(logger)
 	require.NoError(t, err)
 
-	resultGot, errGot := decoder.Decode(manifests)
+	resultGot, errGot := decoder.Decode(manifests, nestedDirectoryWant)
 	assert.NoError(t, errGot)
-	assert.NotNil(t, resultGot.Flattened)
-	assert.Equal(t, nestedDirectoryWant, resultGot.NestedDirectory)
 	assert.Equal(t, 1, resultGot.FlattenedCount)
 	assert.Equal(t, 2, resultGot.NestedCount)
 }

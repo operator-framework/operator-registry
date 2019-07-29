@@ -2,9 +2,12 @@ package appregistry
 
 import (
 	"archive/tar"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProcessWithFlattenedFormat(t *testing.T) {
@@ -20,11 +23,17 @@ func TestProcessWithFlattenedFormat(t *testing.T) {
 		Name:     "bundle.yaml",
 	}
 
-	doneGot, errGot := checker.Process(root, nil)
+	workingDirectory, err := ioutil.TempDir(".", "manifests-")
+	require.NoError(t, err)
+	defer func(){
+		require.NoError(t, os.RemoveAll(workingDirectory))
+	}()
+
+	doneGot, errGot := checker.Process(root, "test", workingDirectory, nil)
 	assert.NoError(t, errGot)
 	assert.False(t, doneGot)
 
-	doneGot, errGot = checker.Process(bundleAML, nil)
+	doneGot, errGot = checker.Process(bundleAML, "test", workingDirectory, nil)
 	assert.NoError(t, errGot)
 	assert.False(t, doneGot)
 
@@ -44,8 +53,14 @@ func TestProcessWithNestedBundleFormat(t *testing.T) {
 		&tar.Header{Name: "manifests/etcd/etcd.package.yaml", Typeflag: tar.TypeReg},
 	}
 
+	workingDirectory, err := ioutil.TempDir(".", "manifests-")
+	require.NoError(t, err)
+	defer func(){
+		require.NoError(t, os.RemoveAll(workingDirectory))
+	}()
+
 	for _, header := range headers {
-		doneGot, errGot := checker.Process(header, nil)
+		doneGot, errGot := checker.Process(header,"test", workingDirectory, nil)
 		assert.NoError(t, errGot)
 
 		if checker.IsNestedBundleFormat() {
