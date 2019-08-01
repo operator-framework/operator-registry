@@ -51,6 +51,10 @@ func (w *flattenedProcessor) Process(header *tar.Header, manifestName, workingDi
 		return
 	}
 
+	if len(manifest.Packages) == 0 {
+		err = fmt.Errorf("no packages found")
+		return
+	}
 	// now let's write each file to a directory
 	packageName := manifest.Packages[0].PackageName
 
@@ -108,7 +112,7 @@ func (w *flattenedProcessor) Process(header *tar.Header, manifestName, workingDi
 func writeYamlToFile(filepath, content string) error {
 	fo, err := os.Create(filepath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	defer fo.Close()

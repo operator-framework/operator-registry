@@ -18,14 +18,14 @@ func TestProcessWithFlattenedFormat(t *testing.T) {
 		Typeflag: tar.TypeDir,
 		Name:     "/",
 	}
-	bundleAML := &tar.Header{
+	bundleYAML := &tar.Header{
 		Typeflag: tar.TypeReg,
 		Name:     "bundle.yaml",
 	}
 
 	workingDirectory, err := ioutil.TempDir(".", "manifests-")
 	require.NoError(t, err)
-	defer func(){
+	defer func() {
 		require.NoError(t, os.RemoveAll(workingDirectory))
 	}()
 
@@ -33,7 +33,7 @@ func TestProcessWithFlattenedFormat(t *testing.T) {
 	assert.NoError(t, errGot)
 	assert.False(t, doneGot)
 
-	doneGot, errGot = checker.Process(bundleAML, "test", workingDirectory, nil)
+	doneGot, errGot = checker.Process(bundleYAML, "test", workingDirectory, nil)
 	assert.NoError(t, errGot)
 	assert.False(t, doneGot)
 
@@ -45,22 +45,22 @@ func TestProcessWithNestedBundleFormat(t *testing.T) {
 
 	// Simulate a flattened format as used by Operator Courier
 	headers := []*tar.Header{
-		&tar.Header{Name: "manifests", Typeflag: tar.TypeDir},
-		&tar.Header{Name: "manifests/etcd", Typeflag: tar.TypeDir},
-		&tar.Header{Name: "manifests/etcd/0.6.1", Typeflag: tar.TypeDir},
-		&tar.Header{Name: "manifests/etcd/0.6.1/etcdcluster.crd.yaml", Typeflag: tar.TypeReg},
-		&tar.Header{Name: "manifests/etcd/0.6.1/etcdoperator.clusterserviceversion.yaml", Typeflag: tar.TypeReg},
-		&tar.Header{Name: "manifests/etcd/etcd.package.yaml", Typeflag: tar.TypeReg},
+		{Name: "manifests", Typeflag: tar.TypeDir},
+		{Name: "manifests/etcd", Typeflag: tar.TypeDir},
+		{Name: "manifests/etcd/0.6.1", Typeflag: tar.TypeDir},
+		{Name: "manifests/etcd/0.6.1/etcdcluster.crd.yaml", Typeflag: tar.TypeReg},
+		{Name: "manifests/etcd/0.6.1/etcdoperator.clusterserviceversion.yaml", Typeflag: tar.TypeReg},
+		{Name: "manifests/etcd/etcd.package.yaml", Typeflag: tar.TypeReg},
 	}
 
 	workingDirectory, err := ioutil.TempDir(".", "manifests-")
 	require.NoError(t, err)
-	defer func(){
+	defer func() {
 		require.NoError(t, os.RemoveAll(workingDirectory))
 	}()
 
 	for _, header := range headers {
-		doneGot, errGot := checker.Process(header,"test", workingDirectory, nil)
+		doneGot, errGot := checker.Process(header, "test", workingDirectory, nil)
 		assert.NoError(t, errGot)
 
 		if checker.IsNestedBundleFormat() {
