@@ -16,7 +16,7 @@ import (
 // dbName specifies the database name to be used for sqlite.
 // downloadPath specifies the folder where the downloaded nested bundle(s) will
 // be stored.
-func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
+func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry) (*AppregistryLoader, error) {
 	kubeClient, err := NewKubeClient(kubeconfig, logger)
 	if err != nil {
 		return nil, err
@@ -27,19 +27,7 @@ func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *lo
 		return nil, err
 	}
 
-	var specifier OperatorSourceSpecifier
-	if legacy {
-		logger.Info("operator source CR is being used.")
-		p, err := NewOperatorSourceCRSpecifier(kubeconfig, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		specifier = p
-	} else {
-		specifier = &registrySpecifier{}
-	}
-
+	specifier := &registrySpecifier{}
 	decoder, err := NewManifestDecoder(logger, downloadPath)
 	if err != nil {
 		return nil, err
