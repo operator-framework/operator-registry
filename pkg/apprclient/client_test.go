@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
-	appr_models "github.com/operator-framework/go-appr/models"
+
+	"github.com/operator-framework/operator-registry/pkg/apprclient/openapi"
 )
 
 func TestRetrieveOne_PackageExists_SuccessExpected(t *testing.T) {
@@ -27,7 +28,7 @@ func TestRetrieveOne_PackageExists_SuccessExpected(t *testing.T) {
 	release := "1.0"
 	digest := "abcdefgh"
 
-	pkg := &appr_models.Package{Content: &appr_models.OciDescriptor{
+	pkg := &openapi.Package{Content: openapi.OciDescriptor{
 		Digest: digest,
 	}}
 	adapter.EXPECT().GetPackageMetadata(namespace, repository, release).Return(pkg, nil).Times(1)

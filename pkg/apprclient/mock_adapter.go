@@ -8,7 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	models "github.com/operator-framework/go-appr/models"
+
+	"github.com/operator-framework/operator-registry/pkg/apprclient/openapi"
 )
 
 // MockapprApiAdapter is a mock of apprApiAdapter interface
@@ -35,9 +36,9 @@ func (m *MockapprApiAdapter) EXPECT() *MockapprApiAdapterMockRecorder {
 }
 
 // ListPackages mocks base method
-func (m *MockapprApiAdapter) ListPackages(namespace string) (models.Packages, error) {
+func (m *MockapprApiAdapter) ListPackages(namespace string) ([]openapi.PackageDescription, error) {
 	ret := m.ctrl.Call(m, "ListPackages", namespace)
-	ret0, _ := ret[0].(models.Packages)
+	ret0, _ := ret[0].([]openapi.PackageDescription)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -48,9 +49,9 @@ func (mr *MockapprApiAdapterMockRecorder) ListPackages(namespace interface{}) *g
 }
 
 // GetPackageMetadata mocks base method
-func (m *MockapprApiAdapter) GetPackageMetadata(namespace, repository, release string) (*models.Package, error) {
+func (m *MockapprApiAdapter) GetPackageMetadata(namespace, repository, release string) (*openapi.Package, error) {
 	ret := m.ctrl.Call(m, "GetPackageMetadata", namespace, repository, release)
-	ret0, _ := ret[0].(*models.Package)
+	ret0, _ := ret[0].(*openapi.Package)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
