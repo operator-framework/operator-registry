@@ -39,11 +39,12 @@ type downloader struct {
 //
 // If an OperatorSource is not found, we skip it and move on to the next source.
 func (d *downloader) Download(input *Input) (manifests []*apprclient.OperatorMetadata, err error) {
-	items, err := d.Prepare(input)
-	if err != nil {
-		d.logger.Errorf("the following error(s) occurred while preparing the download list: %v", err)
+	items, prepareErr := d.Prepare(input)
+	if prepareErr != nil {
+		d.logger.Errorf("the following error(s) occurred while preparing the download list: %v", prepareErr)
 
 		if len(items) == 0 {
+			err = prepareErr
 			d.logger.Infof("download list is empty, bailing out: %s", input.Packages)
 			return
 		}
@@ -51,7 +52,8 @@ func (d *downloader) Download(input *Input) (manifests []*apprclient.OperatorMet
 
 	d.logger.Infof("resolved the following packages: %s", items)
 
-	manifests, err = d.DownloadRepositories(items)
+	manifests, downloadErr := d.DownloadRepositories(items)
+	err = utilerrors.NewAggregate([]error{prepareErr, downloadErr})
 
 	return
 }

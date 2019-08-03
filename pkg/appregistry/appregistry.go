@@ -5,6 +5,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,11 +19,6 @@ import (
 // be stored.
 func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
 	kubeClient, err := NewKubeClient(kubeconfig, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	loader, err := NewDbLoader(dbName, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +51,7 @@ func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *lo
 			kubeClient: *kubeClient,
 		},
 		decoder: decoder,
-		loader:  loader,
+		loader:  NewDbLoader(dbName, logger),
 	}, nil
 }
 
@@ -67,17 +63,27 @@ type AppregistryLoader struct {
 	loader     *dbLoader
 }
 
-func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store registry.Query, err error) {
+func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) registry.Query {
+	if err := a.load(csvSources, csvPackages); err != nil {
+		a.loader.AddLoadError(newAppRegistryLoadError(err))
+	}
+
+	return a.loader.GetStore()
+}
+
+func (a *AppregistryLoader) load(csvSources []string, csvPackages string) error {
 	a.logger.Infof("operator source(s) specified are - %s", csvSources)
 	a.logger.Infof("package(s) specified are - %s", csvPackages)
 
+	var errs []error
 	input, err := a.input.Parse(csvSources, csvPackages)
 	if err != nil {
 		a.logger.Errorf("the following error(s) occurred while parsing input - %v", err)
+		errs = append(errs, err)
 
 		if input == nil || !input.IsGoodToProceed() {
 			a.logger.Info("can't proceed, bailing out")
-			return
+			return err
 		}
 	}
 
@@ -88,10 +94,11 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 	rawManifests, err := a.downloader.Download(input)
 	if err != nil {
 		a.logger.Errorf("The following error occurred while downloading - %v", err)
+		errs = append(errs, err)
 
 		if len(rawManifests) == 0 {
 			a.logger.Info("No package manifest downloaded")
-			return
+			return utilerrors.NewAggregate(errs)
 		}
 	}
 
@@ -102,10 +109,11 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 	result, err := a.decoder.Decode(rawManifests)
 	if err != nil {
 		a.logger.Errorf("The following error occurred while decoding manifest - %v", err)
+		errs = append(errs, err)
 
 		if result.IsEmpty() {
 			a.logger.Info("No operator manifest decoded")
-			return
+			return utilerrors.NewAggregate(errs)
 		}
 	}
 
@@ -113,20 +121,19 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 
 	if result.Flattened != nil {
 		a.logger.Info("loading flattened operator manifest(s) into sqlite")
-		if err = a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
-			return
+		if err := a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if result.NestedCount > 0 {
 		a.logger.Infof("loading nested operator bundle(s) from %s into sqlite", result.NestedDirectory)
-		if err = a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
-			return
+		if err := a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
-	store, err = a.loader.GetStore()
-	return
+	return utilerrors.NewAggregate(errs)
 }
 
 func NewKubeClient(kubeconfig string, logger *logrus.Entry) (clientset *kubernetes.Clientset, err error) {
@@ -147,4 +154,12 @@ func NewKubeClient(kubeconfig string, logger *logrus.Entry) (clientset *kubernet
 
 	clientset, err = kubernetes.NewForConfig(config)
 	return
+}
+
+func (a *AppregistryLoader) LoadErrors() []registry.LoadError {
+	return a.loader.LoadErrors()
+}
+
+func (a *AppregistryLoader) LoadErrorsByType(errType registry.LoadErrorType) []registry.LoadError {
+	return a.loader.LoadErrorsByType(errType)
 }

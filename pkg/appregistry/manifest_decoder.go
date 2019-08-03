@@ -52,8 +52,8 @@ type manifestDecoder struct {
 // Decode iterates through each operator manifest blob that is encoded in a tar
 // ball and processes it accordingly.
 //
-// On return, result.Flattened is populates with the set of operator manifest(s)
-// specified in flattened format ( one file with data section). If there are no
+// On return, result.Flattened is populated with the set of operator manifests
+// specified in flattened format (one file with data section). If there are no
 // operator(s) in flattened format result.Flattened is set to nil
 //
 // On return, result.NestedDirectory is set to the path of the folder which
@@ -62,7 +62,7 @@ type manifestDecoder struct {
 // zero.
 //
 // This function takes a best-effort approach. On return, err is set to an
-// aggregated list of error(s) encountered. The caller should inspect the
+// aggregated list of errors encountered. The caller should inspect the
 // result object to determine the next steps.
 func (d *manifestDecoder) Decode(manifests []*apprclient.OperatorMetadata) (result result, err error) {
 	d.logger.Info("decoding the downloaded operator manifest(s)")

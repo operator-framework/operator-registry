@@ -1,8 +1,6 @@
 package appregistry
 
 import (
-	"context"
-	"fmt"
 	"os"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -10,33 +8,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
-	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
-	if err != nil {
-		return nil, err
-	}
+func NewDbLoader(dbName string, logger *logrus.Entry) *dbLoader {
+	sqlLoader := sqlite.NewErrorSupressingSQLLoader(dbName)
 
 	return &dbLoader{
-		loader: sqlLoader,
-		logger: logger,
-		dbName: dbName,
-	}, nil
+		ErrorSupressingSQLLoader: sqlLoader,
+		dbName:                   dbName,
+		logger:                   logger,
+	}
 }
 
 type dbLoader struct {
+	*sqlite.ErrorSupressingSQLLoader
 	dbName string
 
-	loader *sqlite.SQLLoader
 	logger *logrus.Entry
 }
 
-func (l *dbLoader) GetStore() (registry.Query, error) {
-	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load db: %v", err)
-	}
-
-	return s, nil
+func (l *dbLoader) GetStore() registry.Query {
+	return sqlite.NewQuerier(l.dbName)
 }
 
 // LoadDataToSQLite uses configMaploader to load the downloaded operator
@@ -50,24 +40,9 @@ func (l *dbLoader) LoadFlattenedToSQLite(manifest *RawOperatorManifestData) erro
 		"packages":                  manifest.Packages,
 	}
 
-	configMapPopulator := sqlite.NewSQLLoaderForConfigMapData(l.logger, l.loader, data)
+	configMapPopulator := sqlite.NewSQLLoaderForConfigMapData(l.logger, l, data)
 	if err := configMapPopulator.Populate(); err != nil {
 		return err
-	}
-
-	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
-	if err != nil {
-		return fmt.Errorf("failed to load db: %v", err)
-	}
-
-	// sanity check that the db is available.
-	tables, err := s.ListTables(context.TODO())
-	if err != nil {
-		return fmt.Errorf("couldn't list tables in db, incorrect config: %v", err)
-	}
-
-	if len(tables) == 0 {
-		return fmt.Errorf("no tables found in db")
 	}
 
 	return nil
@@ -79,16 +54,10 @@ func (l *dbLoader) LoadBundleDirectoryToSQLite(directory string) error {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(l.loader, directory)
+	loader := sqlite.NewSQLLoaderForDirectory(l, directory)
 	if err := loader.Populate(); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (l *dbLoader) Close() {
-	if l.loader != nil {
-		l.loader.Close()
-	}
 }
