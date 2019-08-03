@@ -12,6 +12,7 @@ import (
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/appregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 )
 
@@ -97,7 +98,8 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.WithError(err).Warn("error loading app registry manifests")
 	}
 	if store == nil {
-		logger.Fatal("store failed to initialize")
+		logger.Warn("using empty querier")
+		store = registry.NewEmptyQuerier()
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
