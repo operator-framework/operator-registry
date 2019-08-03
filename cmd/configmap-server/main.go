@@ -16,6 +16,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -42,6 +43,7 @@ func main() {
 	rootCmd.Flags().StringP("configMapNamespace", "n", "", "namespace of a configmap")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("permissive", false, "permit failures during registry build time")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -81,6 +83,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	permissive, err := cmd.Flags().GetBool("permissive")
+	if err != nil {
+		return err
+	}
 	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 
 	client := NewClientFromConfig(kubeconfig, logger.Logger)
@@ -89,28 +95,28 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.Fatalf("error getting configmap: %v", err)
 	}
 
-	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
-	if err != nil {
-		return err
-	}
-
+	sqlLoader := sqlite.NewErrorSupressingSQLLoader(dbName)
 	configMapPopulator := sqlite.NewSQLLoaderForConfigMap(sqlLoader, *configMap)
 	if err := configMapPopulator.Populate(); err != nil {
 		return err
 	}
 
-	store, err := sqlite.NewSQLLiteQuerier(dbName)
-	if err != nil {
-		logger.Fatalf("failed to load db: %v", err)
+	if err = registry.NewAggregate(sqlLoader); err != nil && !permissive {
+		// TODO: Pass LoadErrors/Database to validator(s) to determine what is permitted vs. not
+		if !permissive {
+			logrus.Fatalf("failing on load errors:\n%v", err)
+		}
+
+		logrus.Warnf("permissive mode enabled, permitting load errors:\n%v", err)
 	}
 
-	// sanity check that the db is available
-	tables, err := store.ListTables(context.TODO())
-	if err != nil {
-		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
-	}
-	if len(tables) == 0 {
-		logger.Fatal("no tables found in db")
+	store := sqlite.NewQuerier(dbName)
+
+	// Sanity check that the db is available
+	if tables, err := store.ListTables(context.Background()); err != nil {
+		logger.Warnf("couldn't list tables in db: %v", err)
+	} else if len(tables) == 0 {
+		logger.Warnf("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
