@@ -1,7 +1,7 @@
 MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12)") && echo -mod=vendor)
 CMDS  := $(addprefix bin/, $(shell go list $(MOD_FLAGS) ./cmd/... | xargs -I{} basename {}))
 
-.PHONY: build test vendor clean
+.PHONY: build test vendor clean run-example image-upstream clean-example
 
 all: clean test build
 
@@ -19,8 +19,15 @@ unit:
 image:
 	docker build .
 
+run-example: image-upstream clean-example
+	@docker run --name example-registry -p 50051:50051 -d --rm example-registry:latest
+	@echo "example registry running and accessible at localhost:50051"
+
 image-upstream:
-	docker build -f upstream-example.Dockerfile .
+	@docker build -f upstream-example.Dockerfile .
+
+clean-example:
+	@docker rm -f example-registry || :
 
 vendor:
 	go mod vendor
