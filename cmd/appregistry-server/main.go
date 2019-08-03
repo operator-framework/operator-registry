@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -12,6 +13,7 @@ import (
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/appregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 )
 
@@ -39,6 +41,7 @@ func main() {
 	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s)")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("strict", false, "don't permit any registry load errors")
 
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
@@ -71,17 +74,19 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	sources, legacy, err := handleSourceFlag(cmd)
 	if err != nil {
 		return err
 	}
-
 	packages, err := cmd.Flags().GetString("packages")
 	if err != nil {
 		return err
 	}
 	dbName, err := cmd.Flags().GetString("database")
+	if err != nil {
+		return err
+	}
+	strict, err := cmd.Flags().GetBool("strict")
 	if err != nil {
 		return err
 	}
@@ -92,10 +97,21 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.Fatalf("error initializing - %v", err)
 	}
+	store := loader.Load(sources, packages)
 
-	store, err := loader.Load(sources, packages)
-	if err != nil {
-		logger.Fatalf("error loading manifest from remote registry - %v", err)
+	if err := registry.NewAggregate(loader); err != nil {
+		if strict {
+			logger.Fatalf("strict mode enabled, failing on load errors:\n%v", err)
+		}
+
+		logger.Warnf("permitted load errors:%v\n", err)
+	}
+
+	// Sanity check that the db is available
+	if tables, err := store.ListTables(context.Background()); err != nil {
+		logger.Warnf("couldn't list tables in db: %v", err)
+	} else if len(tables) == 0 {
+		logger.Warnf("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
