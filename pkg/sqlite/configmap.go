@@ -2,16 +2,18 @@ package sqlite
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 const (
@@ -56,26 +58,98 @@ func NewSQLLoaderForConfigMap(store registry.Load, configMap v1.ConfigMap) *Conf
 }
 
 func (c *ConfigMapLoader) Populate() error {
-	c.log.Info("loading CRDs")
-
-	// first load CRDs into memory; these will be added to the bundle that owns them
-	crdListYaml, ok := c.configMapData[ConfigMapCRDName]
-	if !ok {
-		return fmt.Errorf("couldn't find expected key %s in configmap", ConfigMapCRDName)
+	if err := c.populate(); err != nil {
+		c.store.AddLoadError(newConfigMapLoadError(err))
 	}
 
-	crdListJson, err := yaml.YAMLToJSON([]byte(crdListYaml))
+	return nil
+}
+
+func (c *ConfigMapLoader) populate() error {
+	c.log.Info("loading CRDs")
+
+	var errs []error
+	// First load CRDs into memory; these will be added to the bundle that owns them
+	if err := c.parseCRDs(); err != nil {
+		errs = append(errs, err)
+	}
+
+	c.log.Info("loading Bundles")
+	parsedCSVList, err := c.parseCSVs()
 	if err != nil {
-		c.log.WithError(err).Debug("error loading CRD list")
-		return err
+		errs = append(errs, err)
+	}
+
+	for _, csv := range parsedCSVList {
+		c.log.WithField("csv", csv.GetName()).Debug("loading CSV")
+		csvUnst, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&csv)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "error remarshaling csv %s", csv.GetName()))
+			continue
+		}
+
+		bundle := registry.NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
+		ownedCRDs, _, err := csv.GetCustomResourceDefintions()
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		for _, owned := range ownedCRDs {
+			split := strings.SplitN(owned.Name, ".", 2)
+			if len(split) < 2 {
+				errs = append(errs, errors.Errorf("error parsing owned name %s", owned.Name))
+				continue
+			}
+
+			gvk := registry.APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
+			crdUnst, ok := c.crds[gvk]
+			if !ok {
+				errs = append(errs, errors.Errorf("couldn't find owned crd %s with gvk %s in crd list", owned.Name, gvk))
+				continue
+			}
+
+			bundle.Add(crdUnst)
+		}
+
+		if err := c.store.AddOperatorBundle(bundle); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	c.log.Info("loading Packages")
+	parsedPackageList, err := c.parsePackages()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	for _, pkg := range parsedPackageList {
+		c.log.WithField("package", pkg.PackageName).Debug("loading package")
+		if err := c.store.AddPackageChannels(pkg); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
+func (c *ConfigMapLoader) parseCRDs() error {
+	crdListYaml, ok := c.configMapData[ConfigMapCRDName]
+	if !ok {
+		return errors.Errorf("couldn't find expected key %s in configmap", ConfigMapCRDName)
+	}
+
+	crdListJSON, err := yaml.YAMLToJSON([]byte(crdListYaml))
+	if err != nil {
+		return errors.Wrap(err, "error loading crd list")
 	}
 
 	var parsedCRDList []v1beta1.CustomResourceDefinition
-	if err := json.Unmarshal(crdListJson, &parsedCRDList); err != nil {
-		c.log.WithError(err).Debug("error parsing CRD list")
-		return err
+	if err := json.Unmarshal(crdListJSON, &parsedCRDList); err != nil {
+		return errors.Wrap(err, "error parsing crd list")
 	}
 
+	var errs []error
 	for _, crd := range parsedCRDList {
 		if crd.Spec.Versions == nil && crd.Spec.Version != "" {
 			crd.Spec.Versions = []v1beta1.CustomResourceDefinitionVersion{{Name: crd.Spec.Version, Served: true, Storage: true}}
@@ -84,91 +158,56 @@ func (c *ConfigMapLoader) Populate() error {
 			gvk := registry.APIKey{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}
 			c.log.WithField("gvk", gvk).Debug("loading CRD")
 			if _, ok := c.crds[gvk]; ok {
-				c.log.WithField("gvk", gvk).Debug("crd added twice")
-				return fmt.Errorf("can't add the same CRD twice in one configmap")
+				// Throw away duplicate CRDs; only keep the first one found
+				errs = append(errs, errors.Errorf("crd %s duplicates claim to gvk %s", crd.GetName(), gvk))
+				continue
 			}
 			crdUnst, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&crd)
 			if err != nil {
-				c.log.WithError(err).Debug("error remarshalling crd")
-				return err
+				errs = append(errs, errors.Wrapf(err, "error remarshaling crd: %s", crd.GetName()))
+				continue
 			}
 			c.crds[gvk] = &unstructured.Unstructured{Object: crdUnst}
 		}
 	}
 
-	c.log.Info("loading Bundles")
+	return utilerrors.NewAggregate(errs)
+}
+
+func (c *ConfigMapLoader) parseCSVs() ([]registry.ClusterServiceVersion, error) {
 	csvListYaml, ok := c.configMapData[ConfigMapCSVName]
 	if !ok {
-		return fmt.Errorf("couldn't find expected key %s in configmap", ConfigMapCSVName)
+		return nil, errors.Errorf("couldn't find expected key %s in configmap", ConfigMapCSVName)
 	}
-	csvListJson, err := yaml.YAMLToJSON([]byte(csvListYaml))
+
+	csvListJSON, err := yaml.YAMLToJSON([]byte(csvListYaml))
 	if err != nil {
-		c.log.WithError(err).Debug("error loading CSV list")
-		return err
+		return nil, errors.Wrap(err, "error loading csv list")
 	}
 
 	var parsedCSVList []registry.ClusterServiceVersion
-	err = json.Unmarshal(csvListJson, &parsedCSVList)
-	if err != nil {
-		c.log.WithError(err).Debug("error parsing CSV list")
-		return err
+	if err = json.Unmarshal(csvListJSON, &parsedCSVList); err != nil {
+		return nil, errors.Wrap(err, "error parsing csv list")
 	}
 
-	for _, csv := range parsedCSVList {
-		c.log.WithField("csv", csv.GetName()).Debug("loading CSV")
-		csvUnst, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&csv)
-		if err != nil {
-			c.log.WithError(err).Debug("error remarshalling csv")
-			return err
-		}
+	return parsedCSVList, nil
+}
 
-		bundle := registry.NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
-		ownedCRDs, _, err := csv.GetCustomResourceDefintions()
-		if err != nil {
-			return err
-		}
-		for _, owned := range ownedCRDs {
-			split := strings.SplitN(owned.Name, ".", 2)
-			if len(split) < 2 {
-				c.log.WithError(err).Debug("error parsing owned name")
-				return fmt.Errorf("error parsing owned name")
-			}
-			gvk := registry.APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
-			if crdUnst, ok := c.crds[gvk]; !ok {
-				c.log.WithField("gvk", gvk).WithError(err).Warn("couldn't find owned CRD in crd list")
-			} else {
-				bundle.Add(crdUnst)
-			}
-		}
-		if err := c.store.AddOperatorBundle(bundle); err != nil {
-			return err
-		}
-	}
-
-	c.log.Info("loading Packages")
+func (c *ConfigMapLoader) parsePackages() ([]registry.PackageManifest, error) {
 	packageListYaml, ok := c.configMapData[ConfigMapPackageName]
 	if !ok {
-		return fmt.Errorf("couldn't find expected key %s in configmap", ConfigMapPackageName)
+		return nil, errors.Errorf("couldn't find expected key %s in configmap", ConfigMapPackageName)
 	}
 
-	packageListJson, err := yaml.YAMLToJSON([]byte(packageListYaml))
+	packageListJSON, err := yaml.YAMLToJSON([]byte(packageListYaml))
 	if err != nil {
-		c.log.WithError(err).Debug("error loading package list")
-		return err
+		return nil, errors.Wrap(err, "error loading package list")
 	}
 
-	var parsedPackageManifests []registry.PackageManifest
-	err = json.Unmarshal(packageListJson, &parsedPackageManifests)
-	if err != nil {
-		c.log.WithError(err).Debug("error parsing package list")
-		return err
-	}
-	for _, packageManifest := range parsedPackageManifests {
-		c.log.WithField("package", packageManifest.PackageName).Debug("loading package")
-		if err := c.store.AddPackageChannels(packageManifest); err != nil {
-			return err
-		}
+	var parsedPackageList []registry.PackageManifest
+	if err := json.Unmarshal(packageListJSON, &parsedPackageList); err != nil {
+		return nil, errors.Wrap(err, "error parsing package list")
 	}
 
-	return nil
+	return parsedPackageList, nil
 }

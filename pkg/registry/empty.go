@@ -2,7 +2,8 @@ package registry
 
 import (
 	"context"
-	"errors"
+	
+	"github.com/pkg/errors"
 )
 
 type EmptyLoad struct{}

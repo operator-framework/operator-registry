@@ -1,14 +1,15 @@
 package sqlite
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -56,7 +57,8 @@ func (d *DirectoryLoader) Populate() error {
 // db for querying
 func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err error) error {
 	if f == nil {
-		return fmt.Errorf("Not a valid file")
+		d.store.AddLoadError(newDirectoryLoadError(errors.New("invalid file")))
+		return nil
 	}
 
 	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "bundles"})
@@ -75,9 +77,17 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return nil
 	}
 
+	if err := d.loadBundle(log, path); err != nil {
+		d.store.AddLoadError(newDirectoryLoadError(err))
+	}
+
+	return nil
+}
+
+func (d *DirectoryLoader) loadBundle(log *logrus.Entry, path string) error {
 	fileReader, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("unable to load file %s: %v", path, err)
+		return errors.New("unable to load file")
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
@@ -92,34 +102,16 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 	}
 
 	log.Info("found csv, loading bundle")
+	dir := filepath.Dir(path)
+	bundle := &registry.Bundle{}
 
-	bundle, err := d.LoadBundle(csv.GetName(), filepath.Dir(path))
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("error loading objs in dir: %s", err.Error())
-	}
-
-	if bundle == nil || bundle.Size() == 0 {
-		log.Warnf("no bundle objects found")
-		return nil
-	}
-
-	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
 		return err
 	}
 
-	return d.store.AddOperatorBundle(bundle)
-}
-
-// LoadBundle takes the directory that a CSV is in and assumes the rest of the objects in that directory
-// are part of the bundle.
-func (d *DirectoryLoader) LoadBundle(csvName string, dir string) (*registry.Bundle, error) {
-	bundle := &registry.Bundle{}
-	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "load": "bundle"})
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
+	// Collect bundle objects
+	var errs []error
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
@@ -136,33 +128,49 @@ func (d *DirectoryLoader) LoadBundle(csvName string, dir string) (*registry.Bund
 		path := filepath.Join(dir, f.Name())
 		fileReader, err := os.Open(path)
 		if err != nil {
-			return nil, fmt.Errorf("unable to load file %s: %v", path, err)
+			errs = append(errs, errors.Errorf("unable to load file %s: %v", path, err))
+			continue
 		}
 		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 		obj := &unstructured.Unstructured{}
 
 		if err = decoder.Decode(obj); err != nil {
-			log.Infof("could not decode contents of file %s into file: %v", path, err)
+			errs = append(errs, errors.Errorf("could not decode contents of file %s into file: %v", path, err))
 			continue
 		}
 
 		// Don't include other CSVs in the bundle
-		if obj.GetKind() == "ClusterServiceVersion" && obj.GetName() != csvName {
+		if obj.GetKind() == "ClusterServiceVersion" && obj.GetName() != csv.GetName() {
 			continue
 		}
 
 		if obj.Object != nil {
 			bundle.Add(obj)
 		}
-
 	}
-	return bundle, nil
+
+	if bundle.Size() == 0 {
+		// This should only happen when the bundle csv wasn't picked up again when collecting its objects.
+		errs = append(errs, errors.Errorf("no bundle objects found for csv %s", csv.GetName()))
+		return utilerrors.NewAggregate(errs)
+	}
+
+	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
+		errs = append(errs, err)
+	}
+
+	if err := d.store.AddOperatorBundle(bundle); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Wrap(utilerrors.NewAggregate(errs), "error loading bundle into db")
 }
 
 func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err error) error {
 	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "package"})
 	if f == nil {
-		return fmt.Errorf("Not a valid file")
+		d.store.AddLoadError(newDirectoryLoadError(errors.New("invalid file")))
+		return nil
 	}
 	if f.IsDir() {
 		if strings.HasPrefix(f.Name(), ".") {
@@ -178,24 +186,28 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return nil
 	}
 
+	if err := d.loadPackage(log, path); err != nil {
+		d.store.AddLoadError(newDirectoryLoadError(err))
+	}
+
+	return nil
+}
+
+func (d *DirectoryLoader) loadPackage(log *logrus.Entry, path string) error {
 	fileReader, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("unable to load package from file %s: %v", path, err)
+		return errors.New("unable to load package from file")
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 	manifest := registry.PackageManifest{}
 	if err = decoder.Decode(&manifest); err != nil {
-		log.Infof("could not decode contents of file %s into package: %v", path, err)
-		return nil
+		return errors.Wrap(err, "could not decode contents of file into package")
 	}
 	if manifest.PackageName == "" {
+		// return errors.New("empty package name encountered")
 		return nil
 	}
 
-	if err := d.store.AddPackageChannels(manifest); err != nil {
-		return fmt.Errorf("error loading package into db: %s", err.Error())
-	}
-
-	return nil
+	return errors.Wrap(d.store.AddPackageChannels(manifest), "error loading package into db")
 }
