@@ -66,18 +66,13 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
-	store, err := sqlite.NewSQLLiteQuerier(dbName)
-	if err != nil {
-		logger.Fatalf("failed to load db: %v", err)
-	}
+	store := sqlite.NewQuerier(dbName)
 
-	// sanity check that the db is available
-	tables, err := store.ListTables(context.TODO())
-	if err != nil {
-		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
-	}
-	if len(tables) == 0 {
-		logger.Fatal("no tables found in db")
+	// Sanity check that the db is available
+	if tables, err := store.ListTables(context.TODO()); err != nil {
+		logger.Warnf("couldn't list tables in db: %v", err)
+	} else if len(tables) == 0 {
+		logger.Warnf("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
