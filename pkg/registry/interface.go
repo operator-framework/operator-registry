@@ -7,6 +7,12 @@ import (
 type Load interface {
 	AddOperatorBundle(bundle *Bundle) error
 	AddPackageChannels(manifest PackageManifest) error
+	AddLoadError(err *LoadError)
+}
+
+type LoadErrors interface {
+	LoadErrors() []LoadError
+	LoadErrorsByType(errType LoadErrorType) []LoadError
 }
 
 type Query interface {

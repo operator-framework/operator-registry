@@ -1,6 +1,8 @@
 package registry
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // APIKey stores GroupVersionKind for use as map keys
 type APIKey struct {
