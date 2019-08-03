@@ -16,3 +16,6 @@ bin
 
 # Ignore sqlite
 *.db
+
+# Ignore vscode
+.vscode
