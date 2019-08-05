@@ -59,7 +59,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
-		return err
+		logrus.WithError(err).Warn("unable to set termination log path")
 	}
 	kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 	if err != nil {
