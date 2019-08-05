@@ -110,7 +110,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return fmt.Errorf("error loading objs in dir: %s", err.Error())
 	}
 
-	if bundle.Size() == 0 {
+	if bundle == nil || bundle.Size() == 0 {
 		log.Warnf("no bundle objects found")
 		return nil
 	}
@@ -155,8 +155,10 @@ func (d *DirectoryLoader) LoadBundle(dir string) (*registry.Bundle, error) {
 
 		log.Info("found csv, loading bundle")
 		if err = decoder.Decode(obj); err != nil {
-			log.Infof("could not decode contents of file %s into file: %v", path, err)
-			return nil, nil
+			log.Infof("could not decode contents of file %s into file: %v - skipping", path, err)
+			// Explicitly continue to make sure that nothing
+			// is added to the bundle
+			continue
 		}
 
 		if obj != nil {
@@ -194,8 +196,8 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 	manifest := registry.PackageManifest{}
 	if err = decoder.Decode(&manifest); err != nil {
-		 log.Infof("could not decode contents of file %s into package: %v", path, err)
-		 return nil
+		log.Infof("could not decode contents of file %s into package: %v", path, err)
+		return nil
 	}
 	if manifest.PackageName == "" {
 		return nil
