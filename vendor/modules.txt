@@ -94,6 +94,8 @@ github.com/modern-go/reflect2
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
+# github.com/otiai10/copy v1.0.1
+github.com/otiai10/copy
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
 # github.com/pmezard/go-difflib v1.0.0
@@ -242,7 +244,6 @@ k8s.io/apimachinery/pkg/util/sets
 k8s.io/apimachinery/pkg/util/validation
 k8s.io/apimachinery/pkg/util/json
 k8s.io/apimachinery/pkg/util/runtime
-k8s.io/apimachinery/pkg/util/rand
 k8s.io/apimachinery/pkg/conversion/queryparams
 k8s.io/apimachinery/pkg/runtime/serializer/json
 k8s.io/apimachinery/pkg/runtime/serializer/protobuf
