@@ -57,7 +57,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
-		return err
+		logrus.WithError(err).Warn("unable to set termination log path")
 	}
 	kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 	if err != nil {
@@ -90,17 +90,20 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger, legacy)
 	if err != nil {
-		logger.Fatalf("error initializing - %v", err)
+		logger.Fatalf("error initializing: %s", err)
 	}
 
 	store, err := loader.Load(sources, packages)
 	if err != nil {
-		logger.Fatalf("error loading manifest from remote registry - %v", err)
+		logger.WithError(err).Warn("error loading app registry manifests")
+	}
+	if store == nil {
+		logger.Fatal("store failed to initialize")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %s", err)
 	}
 	s := grpc.NewServer()
 
@@ -110,7 +113,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %s", err)
 	}
 
 	return nil

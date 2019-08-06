@@ -29,6 +29,8 @@ require (
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
 	github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba
+	github.com/otiai10/copy v1.0.1
+	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
 	github.com/sirupsen/logrus v1.2.0
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spf13/cobra v0.0.3
@@ -40,6 +42,7 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20181207222222-4c874b978acb // indirect
 	google.golang.org/grpc v1.17.0
+	gopkg.in/yaml.v2 v2.2.1
 	k8s.io/api v0.0.0-20190118113203-912cbe2bfef3
 	k8s.io/apiextensions-apiserver v0.0.0-20181204003618-e419c5771cdc
 	k8s.io/apimachinery v0.0.0-20190118094746-1525e4dadd2d
