@@ -3,11 +3,12 @@ package appregistry
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 // NewLoader returns a new instance of AppregistryLoader.
@@ -16,7 +17,7 @@ import (
 // dbName specifies the database name to be used for sqlite.
 // downloadPath specifies the folder where the downloaded nested bundle(s) will
 // be stored.
-func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry, legacy bool) (*AppregistryLoader, error) {
+func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry) (*AppregistryLoader, error) {
 	kubeClient, err := NewKubeClient(kubeconfig, logger)
 	if err != nil {
 		return nil, err
@@ -27,20 +28,8 @@ func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *lo
 		return nil, err
 	}
 
-	var specifier OperatorSourceSpecifier
-	if legacy {
-		logger.Info("operator source CR is being used.")
-		p, err := NewOperatorSourceCRSpecifier(kubeconfig, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		specifier = p
-	} else {
-		specifier = &registrySpecifier{}
-	}
-
-	decoder, err := NewManifestDecoder(logger, downloadPath)
+	specifier := &registrySpecifier{}
+	decoder, err := NewManifestDecoder(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +43,7 @@ func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *lo
 			logger:     logger,
 			kubeClient: *kubeClient,
 		},
+		downloadPath: downloadPath,
 		decoder: decoder,
 		loader:  loader,
 	}, nil
@@ -63,6 +53,7 @@ type AppregistryLoader struct {
 	logger     *logrus.Entry
 	input      *inputParser
 	downloader *downloader
+	downloadPath string
 	decoder    *manifestDecoder
 	loader     *dbLoader
 }
@@ -99,7 +90,7 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 
 	// The set of operator manifest(s) downloaded is a collection of both
 	// flattened single file yaml and nested operator bundle(s).
-	result, err := a.decoder.Decode(rawManifests)
+	result, err := a.decoder.Decode(rawManifests, a.downloadPath)
 	if err != nil {
 		a.logger.Errorf("The following error occurred while decoding manifest - %v", err)
 
@@ -111,18 +102,8 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 
 	a.logger.Infof("decoded %d flattened and %d nested operator manifest(s)", result.FlattenedCount, result.NestedCount)
 
-	if result.Flattened != nil {
-		a.logger.Info("loading flattened operator manifest(s) into sqlite")
-		if err = a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
-			return
-		}
-	}
-
-	if result.NestedCount > 0 {
-		a.logger.Infof("loading nested operator bundle(s) from %s into sqlite", result.NestedDirectory)
-		if err = a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
-			return
-		}
+	if err = a.loader.LoadBundleDirectoryToSQLite(a.downloadPath); err != nil {
+		return
 	}
 
 	store, err = a.loader.GetStore()

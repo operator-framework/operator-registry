@@ -34,7 +34,6 @@ func main() {
 	rootCmd.Flags().StringP("kubeconfig", "k", "", "absolute path to kubeconfig file")
 	rootCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded nested operator bundle(s) will be stored to be processed further")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "name of db to output")
-	rootCmd.Flags().StringSliceP("sources", "s", []string{}, "comma separated list of OperatorSource object(s) {namespace}/{name}")
 	rootCmd.Flags().StringSliceP("registry", "r", []string{}, "pipe delimited operator source - {base url with cnr prefix}|{quay registry namespace}|{secret namespace/secret name}")
 	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s)")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
@@ -72,7 +71,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sources, legacy, err := handleSourceFlag(cmd)
+	sources, err := cmd.Flags().GetStringSlice("registry")
 	if err != nil {
 		return err
 	}
@@ -88,7 +87,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"type": "appregistry", "port": port})
 
-	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger, legacy)
+	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger)
 	if err != nil {
 		logger.Fatalf("error initializing - %v", err)
 	}
@@ -114,39 +113,4 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// Backward compatibility:
-// If the old flag 'sources' is specified then we return legacy as true. This
-// helps appregistry.NewLoader to instantiate the right 'source' parser.
-//
-// If 'registry' is used to specify a set of operator sources in remote registry
-// then we set legacy to false.
-//
-// If both are specified then legacy=true takes precedence. Marketplace operator
-// is now using the legacy mode.
-//
-// TODO: Once marketplace operator starts using the new flag 'registry' then we
-// can remove this function and and marketplace client bindings.
-func handleSourceFlag(cmd *cobra.Command) (specifiers []string, legacy bool, err error) {
-	// old arg to specify a comma separated OperatorSource CR(s) {namespace}/{name}.
-	operatorSourceCRNames, err := cmd.Flags().GetStringSlice("sources")
-	if err != nil {
-		return
-	}
-
-	if len(operatorSourceCRNames) > 0 {
-		specifiers = operatorSourceCRNames
-		legacy = true
-		return
-	}
-
-	// New arg.
-	remoteSources, err := cmd.Flags().GetStringSlice("registry")
-	if err != nil {
-		return
-	}
-
-	specifiers = remoteSources
-	return
 }
