@@ -15,13 +15,13 @@ import (
 // if done is set to true then tar walker will exit from the walk loop.
 // Otherwise, it will continue
 type Processor interface {
-	Process(header *tar.Header, reader io.Reader) (done bool, err error)
+	Process(header *tar.Header, manifestName, workingDirectory string, reader io.Reader) (done bool, err error)
 }
 
 type tarWalker struct {
 }
 
-func (*tarWalker) Walk(raw []byte, processor Processor) error {
+func (*tarWalker) Walk(raw []byte, manifestName, workingDirectory string, processor Processor) error {
 	if raw == nil || processor == nil {
 		return errors.New("invalid argument specified to Walk")
 	}
@@ -47,7 +47,7 @@ func (*tarWalker) Walk(raw []byte, processor Processor) error {
 		switch header.Typeflag {
 		case tar.TypeReg:
 			// It's a regular file
-			done, err := processor.Process(header, reader)
+			done, err := processor.Process(header, manifestName, workingDirectory, reader)
 			if err != nil {
 				return fmt.Errorf("error happened while processing tar file - %s", err.Error())
 			}
@@ -57,7 +57,7 @@ func (*tarWalker) Walk(raw []byte, processor Processor) error {
 			}
 
 		case tar.TypeDir:
-			done, err := processor.Process(header, reader)
+			done, err := processor.Process(header, manifestName, workingDirectory, reader)
 			if err != nil {
 				return fmt.Errorf("error happened while processing directory - %s", err.Error())
 			}

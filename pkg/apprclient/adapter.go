@@ -1,12 +1,11 @@
 package apprclient
 
 import (
-	"bytes"
+	"context"
 
-	appr "github.com/operator-framework/go-appr/appregistry"
-	apprblobs "github.com/operator-framework/go-appr/appregistry/blobs"
-	apprpackage "github.com/operator-framework/go-appr/appregistry/package_appr"
-	apprmodels "github.com/operator-framework/go-appr/models"
+	"github.com/antihax/optional"
+
+	"github.com/operator-framework/operator-registry/pkg/apprclient/openapi"
 )
 
 const (
@@ -18,60 +17,52 @@ type apprApiAdapter interface {
 	// ListPackages returns a list of package(s) available to the user.
 	// When namespace is specified, only package(s) associated with the given namespace are returned.
 	// If namespace is empty then visible package(s) across all namespaces are returned.
-	ListPackages(namespace string) (apprmodels.Packages, error)
+	ListPackages(namespace string) ([]openapi.PackageDescription, error)
 
 	// GetPackageMetadata returns metadata associated with a given package
-	GetPackageMetadata(namespace string, repository string, release string) (*apprmodels.Package, error)
+	GetPackageMetadata(namespace string, repository string, release string) (*openapi.Package, error)
 
 	// DownloadOperatorManifest downloads the blob associated with a given digest that directly corresponds to a package release
 	DownloadOperatorManifest(namespace string, repository string, digest string) ([]byte, error)
 }
 
 type apprApiAdapterImpl struct {
-	client *appr.Appregistry
+	client   *openapi.APIClient
+	basePath string
 }
 
-func (a *apprApiAdapterImpl) ListPackages(namespace string) (apprmodels.Packages, error) {
-	params := apprpackage.NewListPackagesParams()
+func (a *apprApiAdapterImpl) ListPackages(namespace string) ([]openapi.PackageDescription, error) {
+	opts := openapi.ListPackagesOpts{
+		Namespace: optional.EmptyString(),
+		Query:     optional.EmptyString(),
+		MediaType: optional.NewString(mediaType),
+	}
 
 	if namespace != "" {
-		params.SetNamespace(&namespace)
+		opts.Namespace = optional.NewString(namespace)
 	}
 
-	packages, err := a.client.PackageAppr.ListPackages(params)
+	packages, _, err := a.client.PackageApi.ListPackages(context.TODO(), &opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return packages.Payload, nil
+	return packages, nil
 }
 
-func (a *apprApiAdapterImpl) GetPackageMetadata(namespace string, repository string, release string) (*apprmodels.Package, error) {
-	params := apprpackage.NewShowPackageParams().
-		WithNamespace(namespace).
-		WithPackage(repository).
-		WithRelease(release).
-		WithMediaType(mediaType)
-
-	pkg, err := a.client.PackageAppr.ShowPackage(params)
+func (a *apprApiAdapterImpl) GetPackageMetadata(namespace string, repository string, release string) (*openapi.Package, error) {
+	pkg, _, err := a.client.PackageApi.ShowPackage(context.TODO(), namespace, repository, release, mediaType)
 	if err != nil {
 		return nil, err
 	}
 
-	return pkg.Payload, nil
+	return &pkg, nil
 }
 
 func (a *apprApiAdapterImpl) DownloadOperatorManifest(namespace string, repository string, digest string) ([]byte, error) {
-	params := apprblobs.NewPullBlobParams().
-		WithNamespace(namespace).
-		WithPackage(repository).
-		WithDigest(digest)
-
-	writer := &bytes.Buffer{}
-	_, err := a.client.Blobs.PullBlob(params, writer)
+	bytes, _, err := a.client.BlobsApi.PullBlob(context.TODO(), namespace, repository, digest)
 	if err != nil {
 		return nil, err
 	}
-
-	return writer.Bytes(), nil
+	return bytes, nil
 }
