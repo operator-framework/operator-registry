@@ -40,7 +40,7 @@ type Bundle struct {
 }
 
 func NewBundle(name, pkgName, channelName string, objs ...*unstructured.Unstructured) *Bundle {
-	bundle := &Bundle{Name: name, Package:pkgName, Channel:channelName, cacheStale: false}
+	bundle := &Bundle{Name: name, Package: pkgName, Channel: channelName, cacheStale: false}
 	for _, o := range objs {
 		bundle.Add(o)
 	}
@@ -94,7 +94,7 @@ func (b *Bundle) ProvidedAPIs() (map[APIKey]struct{}, error) {
 			provided[APIKey{Group: crd.Spec.Group, Version: v.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}] = struct{}{}
 		}
 		if crd.Spec.Version != "" {
-			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind, Plural:crd.Spec.Names.Plural}] = struct{}{}
+			provided[APIKey{Group: crd.Spec.Group, Version: crd.Spec.Version, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}] = struct{}{}
 		}
 	}
 
@@ -121,7 +121,7 @@ func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, api := range requiredCRDs{
+	for _, api := range requiredCRDs {
 		parts := strings.SplitN(api.Name, ".", 2)
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("couldn't parse plural.group from crd name: %s", api.Name)
