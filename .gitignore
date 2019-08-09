@@ -17,8 +17,5 @@ bin
 # Ignore sqlite
 *.db
 
-# Ignore vscode
-.vscode
-
 # Igore apprclient meta
 pkg/apprclient/openapi/git_push.sh

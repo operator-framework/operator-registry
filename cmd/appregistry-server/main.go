@@ -12,7 +12,6 @@ import (
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/appregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 )
 
@@ -57,7 +56,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
-		logrus.WithError(err).Warn("unable to set termination log path")
+		return err
 	}
 	kubeconfig, err := cmd.Flags().GetString("kubeconfig")
 	if err != nil {
@@ -90,21 +89,17 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	loader, err := appregistry.NewLoader(kubeconfig, dbName, downloadPath, logger)
 	if err != nil {
-		logger.Fatalf("error initializing: %s", err)
+		logger.Fatalf("error initializing - %v", err)
 	}
 
 	store, err := loader.Load(sources, packages)
 	if err != nil {
-		logger.WithError(err).Warn("error loading app registry manifests")
-	}
-	if store == nil {
-		logger.Warn("using empty querier")
-		store = registry.NewEmptyQuerier()
+		logger.Fatalf("error loading manifest from remote registry - %v", err)
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %s", err)
+		logger.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 
@@ -114,7 +109,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %s", err)
+		logger.Fatalf("failed to serve: %v", err)
 	}
 
 	return nil

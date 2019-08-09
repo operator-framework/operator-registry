@@ -12,7 +12,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190125151539-1e295784b30a
-	github.com/otiai10/copy v1.0.1
 	github.com/sirupsen/logrus v1.2.0
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.2.2
@@ -21,7 +20,6 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20181207222222-4c874b978acb // indirect
 	google.golang.org/grpc v1.17.0
-	gopkg.in/yaml.v2 v2.2.1
 	k8s.io/api v0.0.0-20190118113203-912cbe2bfef3
 	k8s.io/apiextensions-apiserver v0.0.0-20181204003618-e419c5771cdc
 	k8s.io/apimachinery v0.0.0-20190118094746-1525e4dadd2d

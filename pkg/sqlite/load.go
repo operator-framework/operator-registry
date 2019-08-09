@@ -8,7 +8,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -126,11 +125,31 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addDefaultChannel.Close()
 
+	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
+		return err
+	}
+
 	addChannel, err := tx.Prepare("insert into channel(name, package_name, head_operatorbundle_name) values(?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer addChannel.Close()
+
+	hasDefault := false
+	for _, c := range manifest.Channels {
+		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
+			return err
+		}
+		if c.IsDefaultChannel(manifest) {
+			hasDefault = true
+			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
+				return err
+			}
+		}
+	}
+	if !hasDefault {
+		return fmt.Errorf("no default channel specified for %s", manifest.PackageName)
+	}
 
 	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
 	if err != nil {
@@ -156,40 +175,14 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addAPIProvider.Close()
 
-	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
-		// This should be terminal
-		return err
-	}
-
-	hasDefault := false
-	var errs []error
-	for _, c := range manifest.Channels {
-		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		if c.IsDefaultChannel(manifest) {
-			hasDefault = true
-			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
-				errs = append(errs, err)
-				continue
-			}
-		}
-	}
-	if !hasDefault {
-		errs = append(errs, fmt.Errorf("no default channel specified for %s", manifest.PackageName))
-	}
-
 	for _, c := range manifest.Channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
-			errs = append(errs, err)
-			continue
+			return err
 		}
 		currentID, err := res.LastInsertId()
 		if err != nil {
-			errs = append(errs, err)
-			continue
+			return err
 		}
 
 		channelEntryCSVName := c.CurrentCSVName
@@ -199,64 +192,56 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			// Get CSV for current entry
 			channelEntryCSV, err := s.getCSV(tx, channelEntryCSVName)
 			if err != nil {
-				errs = append(errs, err)
-				break
+				return err
 			}
 
 			if err := s.addProvidedAPIs(tx, channelEntryCSV, currentID); err != nil {
-				errs = append(errs, err)
+				return err
 			}
 
 			skips, err := channelEntryCSV.GetSkips()
 			if err != nil {
-				errs = append(errs, err)
+				return err
 			}
 
 			for _, skip := range skips {
 				// add dummy channel entry for the skipped version
 				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
 				if err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
 				skippedID, err := skippedChannelEntry.LastInsertId()
 				if err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
 				// add another channel entry for the parent, which replaces the skipped
 				synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, channelEntryCSVName, depth)
 				if err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
 				synthesizedID, err := synthesizedChannelEntry.LastInsertId()
 				if err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
 				if _, err = addReplaces.Exec(skippedID, synthesizedID); err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
 				if err := s.addProvidedAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
-					errs = append(errs, err)
-					continue
+					return err
 				}
 
-				depth++
+				depth += 1
 			}
 
 			// create real replacement chain
 			replaces, err := channelEntryCSV.GetReplaces()
 			if err != nil {
-				errs = append(errs, err)
-				break
+				return err
 			}
 
 			if replaces == "" {
@@ -264,36 +249,29 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 				break
 			}
 
-			replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaces, depth)
+			replaced, err := s.getCSV(tx, replaces)
 			if err != nil {
-				errs = append(errs, err)
-				break
+				return fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName)
+			}
+
+			replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.GetName(), depth)
+			if err != nil {
+				return err
 			}
 			replacedID, err := replacedChannelEntry.LastInsertId()
 			if err != nil {
-				errs = append(errs, err)
-				break
+				return err
 			}
-			if _, err = addReplaces.Exec(replacedID, currentID); err != nil {
-				errs = append(errs, err)
-				break
+			_, err = addReplaces.Exec(replacedID, currentID)
+			if err != nil {
+				return err
 			}
-			if _, err := s.getCSV(tx, replaces); err != nil {
-				errs = append(errs, fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName))
-				break
-			}
-
 			currentID = replacedID
 			channelEntryCSVName = replaces
-			depth++
+			depth += 1
 		}
 	}
-
-	if err := tx.Commit(); err != nil {
-		errs = append(errs, err)
-	}
-
-	return utilerrors.NewAggregate(errs)
+	return tx.Commit()
 }
 
 func (s *SQLLoader) Close() error {
@@ -347,6 +325,7 @@ func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterService
 
 	return csv, nil
 }
+
 
 func (s *SQLLoader) addProvidedAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, channelEntryId int64) error {
 	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
