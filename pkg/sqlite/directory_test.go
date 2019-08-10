@@ -88,7 +88,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	foundPackages, err := store.ListPackages(context.TODO())
 	require.NoError(t, err)
-	require.ElementsMatch(t, []string{"etcd", "prometheus"}, foundPackages)
+	require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, foundPackages)
 
 	etcdPackage, err := store.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
@@ -151,4 +151,28 @@ func TestQuerierForDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedBundle, etcdBundleByProvides)
 	require.Equal(t, &registry.ChannelEntry{"etcd", "alpha", "etcdoperator.v0.9.2", ""}, entry)
+
+	kafkaPackage, err := store.GetPackage(context.TODO(), "strimzi-kafka-operator")
+	require.NoError(t, err)
+	expectedKafkaPackage := &registry.PackageManifest{
+		PackageName:        "strimzi-kafka-operator",
+		DefaultChannelName: "stable",
+		Channels: []registry.PackageChannel{
+			{
+				Name:           "stable",
+				CurrentCSVName: "strimzi-cluster-operator.v0.11.1",
+			},
+			{
+				Name:           "beta",
+				CurrentCSVName: "strimzi-cluster-operator.v0.12.1",
+			},
+			{
+				Name:           "alpha",
+				CurrentCSVName: "strimzi-cluster-operator.v0.12.2",
+			},
+		},
+	}
+	require.Equal(t, expectedKafkaPackage.PackageName, kafkaPackage.PackageName)
+	require.Equal(t, expectedKafkaPackage.DefaultChannelName, kafkaPackage.DefaultChannelName)
+	require.ElementsMatch(t, expectedKafkaPackage.Channels, kafkaPackage.Channels)
 }
