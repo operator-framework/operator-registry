@@ -40,13 +40,13 @@ func (d *DirectoryLoader) Populate() error {
 	log := logrus.WithField("dir", d.directory)
 
 	log.Info("loading Bundles")
-	var errs []error
-	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadBundleWalkFunc, errs)); err != nil {
+	errs := make([]error, 0)
+	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadBundleWalkFunc, &errs)); err != nil {
 		errs = append(errs, err)
 	}
 
 	log.Info("loading Packages and Entries")
-	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadPackagesWalkFunc, errs)); err != nil {
+	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadPackagesWalkFunc, &errs)); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -54,10 +54,11 @@ func (d *DirectoryLoader) Populate() error {
 }
 
 // collectWalkErrs calls the given walk func and appends any non-nil, non skip dir error returned to the given errors slice.
-func collectWalkErrs(walk filepath.WalkFunc, errs []error) filepath.WalkFunc {
+func collectWalkErrs(walk filepath.WalkFunc, errs *[]error) filepath.WalkFunc {
 	return func(path string, f os.FileInfo, err error) (walkErr error) {
-		if walkErr = walk(path, f, err); walk != nil && walkErr != filepath.SkipDir {
-			errs = append(errs, walkErr)
+		if walkErr = walk(path, f, err); walkErr != nil && walkErr != filepath.SkipDir {
+			*errs = append(*errs, walkErr)
+			return nil
 		}
 
 		return walkErr
@@ -161,7 +162,7 @@ func (d *DirectoryLoader) loadBundle(csvName string, dir string) (*registry.Bund
 		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 		obj := &unstructured.Unstructured{}
 		if err = decoder.Decode(obj); err != nil {
-			errs = append(errs, fmt.Errorf("could not decode file contents for %s: %s", path, err))
+			logrus.WithError(err).Debugf("could not decode file contents for %s", path)
 			continue
 		}
 
