@@ -90,7 +90,7 @@ func TestListPackages(t *testing.T) {
 		}
 	}(t)
 	<-waitc
-	require.ElementsMatch(t, []string{"etcd", "prometheus"}, packages)
+	require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, packages)
 }
 
 func TestGetPackage(t *testing.T) {
