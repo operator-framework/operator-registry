@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -25,6 +27,7 @@ func main() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("manifests", "m", "manifests", "relative path to directory of manifests")
 	rootCmd.Flags().StringP("output", "o", "bundles.db", "relative path to a sqlite file to create or overwrite")
+	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		panic(err)
 	}
@@ -43,16 +46,25 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	permissive, err := cmd.Flags().GetBool("permissive")
+	if err != nil {
+		return err
+	}
 
 	dbLoader, err := sqlite.NewSQLLiteLoader(outFilename)
 	if err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	defer dbLoader.Close()
 
 	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestDir)
 	if err := loader.Populate(); err != nil {
-		logrus.Fatal(err)
+		err = fmt.Errorf("error loading manifests from directory: %s", err)
+		if !permissive {
+			logrus.WithError(err).Fatal("permissive mode disabled")
+			return err
+		}
+		logrus.WithError(err).Warn("permissive mode enabled")
 	}
 
 	return nil
