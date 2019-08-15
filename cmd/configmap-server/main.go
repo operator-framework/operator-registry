@@ -22,21 +22,21 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func main() {
-	var rootCmd = &cobra.Command{
-		Short: "configmap-server",
-		Long:  `configmap-server reads a configmap and builds a sqlite database containing operator manifests and serves a grpc API to query it`,
+var rootCmd = &cobra.Command{
+	Short: "configmap-server",
+	Long:  `configmap-server reads a configmap and builds a sqlite database containing operator manifests and serves a grpc API to query it`,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if debug, _ := cmd.Flags().GetBool("debug"); debug {
-				logrus.SetLevel(logrus.DebugLevel)
-			}
-			return nil
-		},
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if debug, _ := cmd.Flags().GetBool("debug"); debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		return nil
+	},
 
-		RunE: runCmdFunc,
-	}
+	RunE: runCmdFunc,
+}
 
+func init() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("kubeconfig", "k", "", "absolute path to kubeconfig file")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "name of db to output")
@@ -48,7 +48,9 @@ func main() {
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
+}
 
+func main() {
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Panic(err.Error())
 	}

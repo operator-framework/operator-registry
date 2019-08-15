@@ -17,21 +17,21 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func main() {
-	var rootCmd = &cobra.Command{
-		Short: "registry-server",
-		Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+var rootCmd = &cobra.Command{
+	Short: "registry-server",
+	Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if debug, _ := cmd.Flags().GetBool("debug"); debug {
-				logrus.SetLevel(logrus.DebugLevel)
-			}
-			return nil
-		},
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if debug, _ := cmd.Flags().GetBool("debug"); debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		return nil
+	},
 
-		RunE: runCmdFunc,
-	}
+	RunE: runCmdFunc,
+}
 
+func init() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to sqlite db")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
@@ -39,7 +39,9 @@ func main() {
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
+}
 
+func main() {
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -53,7 +55,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
-		return err
+		logrus.WithError(err).Warn("unable to set termination log path")
 	}
 	dbName, err := cmd.Flags().GetString("database")
 	if err != nil {
