@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,7 @@ func main() {
 	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s)")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("strict", false, "fail on registry load errors")
 
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
@@ -85,6 +87,10 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	strict, err := cmd.Flags().GetBool("strict")
+	if err != nil {
+		return err
+	}
 
 	logger := logrus.WithFields(logrus.Fields{"type": "appregistry", "port": port})
 
@@ -95,7 +101,11 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	store, err := loader.Load(sources, packages)
 	if err != nil {
-		logger.WithError(err).Warn("error loading app registry manifests")
+		err = fmt.Errorf("error loading manifests from appregistry: %s", err)
+		if strict {
+			logger.WithError(err).Fatal("strict mode enabled")
+		}
+		logger.WithError(err).Warn("strict mode disabled")
 	}
 	if store == nil {
 		logger.Warn("using empty querier")

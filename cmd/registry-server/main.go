@@ -12,25 +12,26 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func main() {
-	var rootCmd = &cobra.Command{
-		Short: "registry-server",
-		Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+var rootCmd = &cobra.Command{
+	Short: "registry-server",
+	Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if debug, _ := cmd.Flags().GetBool("debug"); debug {
-				logrus.SetLevel(logrus.DebugLevel)
-			}
-			return nil
-		},
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if debug, _ := cmd.Flags().GetBool("debug"); debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		return nil
+	},
 
-		RunE: runCmdFunc,
-	}
+	RunE: runCmdFunc,
+}
 
+func init() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to sqlite db")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
@@ -38,7 +39,9 @@ func main() {
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
+}
 
+func main() {
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -52,7 +55,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	err = log.AddDefaultWriterHooks(terminationLogPath)
 	if err != nil {
-		return err
+		logrus.WithError(err).Warn("unable to set termination log path")
 	}
 	dbName, err := cmd.Flags().GetString("database")
 	if err != nil {
@@ -66,23 +69,27 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
-	store, err := sqlite.NewSQLLiteQuerier(dbName)
+	var store registry.Query
+	store, err = sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {
-		logger.Fatalf("failed to load db: %v", err)
+		logger.WithError(err).Warnf("failed to load db")
+	}
+	if store == nil {
+		store = registry.NewEmptyQuerier()
 	}
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
 	if err != nil {
-		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
+		logger.WithError(err).Warnf("couldn't list tables in db")
 	}
 	if len(tables) == 0 {
-		logger.Fatal("no tables found in db")
+		logger.Warn("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %s", err)
 	}
 	s := grpc.NewServer()
 
@@ -91,7 +98,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	reflection.Register(s)
 	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %s", err)
 	}
 
 	return nil
