@@ -12,6 +12,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -66,23 +67,27 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
-	store, err := sqlite.NewSQLLiteQuerier(dbName)
+	var store registry.Query
+	store, err = sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {
-		logger.Fatalf("failed to load db: %v", err)
+		logger.WithError(err).Warnf("failed to load db")
+	}
+	if store == nil {
+		store = registry.NewEmptyQuerier()
 	}
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
 	if err != nil {
-		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
+		logger.WithError(err).Warnf("couldn't list tables in db")
 	}
 	if len(tables) == 0 {
-		logger.Fatal("no tables found in db")
+		logger.Warn("no tables found in db")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %s", err)
 	}
 	s := grpc.NewServer()
 
@@ -91,7 +96,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	reflection.Register(s)
 	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %s", err)
 	}
 
 	return nil
