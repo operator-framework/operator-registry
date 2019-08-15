@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -42,6 +43,7 @@ func main() {
 	rootCmd.Flags().StringP("configMapNamespace", "n", "", "namespace of a configmap")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -81,12 +83,16 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	permissive, err := cmd.Flags().GetBool("permissive")
+	if err != nil {
+		return err
+	}
 	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 
 	client := NewClientFromConfig(kubeconfig, logger.Logger)
 	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
-		logger.Fatalf("error getting configmap: %v", err)
+		logger.Fatalf("error getting configmap: %s", err)
 	}
 
 	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
@@ -96,18 +102,22 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	configMapPopulator := sqlite.NewSQLLoaderForConfigMap(sqlLoader, *configMap)
 	if err := configMapPopulator.Populate(); err != nil {
-		return err
+		err = fmt.Errorf("error loading manifests from configmap: %s", err)
+		if !permissive {
+			logger.WithError(err).Fatal("permissive mode disabled")
+		}
+		logger.WithError(err).Warn("permissive mode enabled")
 	}
 
 	store, err := sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {
-		logger.Fatalf("failed to load db: %v", err)
+		logger.Fatalf("failed to load db: %s", err)
 	}
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
 	if err != nil {
-		logger.Fatalf("couldn't list tables in db, incorrect config: %v", err)
+		logger.Fatalf("couldn't list tables in db, incorrect config: %s", err)
 	}
 	if len(tables) == 0 {
 		logger.Fatal("no tables found in db")
@@ -115,7 +125,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %s", err)
 	}
 	s := grpc.NewServer()
 
@@ -125,7 +135,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger.Info("serving registry")
 	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %s", err)
 	}
 	return nil
 }
@@ -144,7 +154,7 @@ func NewClientFromConfig(kubeconfig string, logger *logrus.Logger) kubernetes.In
 	}
 
 	if err != nil {
-		logger.Fatalf("Cannot load config for REST client: %v", err)
+		logger.Fatalf("Cannot load config for REST client: %s", err)
 	}
 
 	return kubernetes.NewForConfigOrDie(config)
