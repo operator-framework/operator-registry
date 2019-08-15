@@ -360,7 +360,7 @@ func validateExamplesAnnotations(csv *v1alpha1.ClusterServiceVersion) error {
 		return err
 	}
 
-	if matchGVKProvidedAPIs(parsedExamples, providedAPIs) != nil {
+	if err = matchGVKProvidedAPIs(parsedExamples, providedAPIs); err != nil {
 		return err
 	}
 
