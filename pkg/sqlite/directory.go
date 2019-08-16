@@ -201,6 +201,11 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return nil
 	}
 
+	if !strings.HasSuffix(f.Name(), ".yaml") && !strings.HasSuffix(f.Name(), ".json") {
+		log.Info("skipping non yaml or json file")
+		return nil
+	}
+
 	fileReader, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to load package from file %s: %s", path, err)
