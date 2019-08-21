@@ -3,11 +3,13 @@ package appregistry
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 // NewLoader returns a new instance of AppregistryLoader.
@@ -67,17 +69,17 @@ type AppregistryLoader struct {
 	loader     *dbLoader
 }
 
-func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store registry.Query, err error) {
+func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (registry.Query, error) {
 	a.logger.Infof("operator source(s) specified are - %s", csvSources)
 	a.logger.Infof("package(s) specified are - %s", csvPackages)
 
+	var errs []error
 	input, err := a.input.Parse(csvSources, csvPackages)
 	if err != nil {
-		a.logger.Errorf("the following error(s) occurred while parsing input - %v", err)
-
+		errs = append(errs, fmt.Errorf("error parsing input: %s", err))
 		if input == nil || !input.IsGoodToProceed() {
 			a.logger.Info("can't proceed, bailing out")
-			return
+			return nil, utilerrors.NewAggregate(errs)
 		}
 	}
 
@@ -87,12 +89,7 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 
 	rawManifests, err := a.downloader.Download(input)
 	if err != nil {
-		a.logger.Errorf("The following error occurred while downloading - %v", err)
-
-		if len(rawManifests) == 0 {
-			a.logger.Info("No package manifest downloaded")
-			return
-		}
+		errs = append(errs, fmt.Errorf("error downloading manifests: %s", err))
 	}
 
 	a.logger.Infof("download complete - %d repositories have been downloaded", len(rawManifests))
@@ -101,32 +98,34 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (store
 	// flattened single file yaml and nested operator bundle(s).
 	result, err := a.decoder.Decode(rawManifests)
 	if err != nil {
-		a.logger.Errorf("The following error occurred while decoding manifest - %v", err)
-
-		if result.IsEmpty() {
-			a.logger.Info("No operator manifest decoded")
-			return
-		}
+		errs = append(errs, fmt.Errorf("error decoding manifest: %s", err))
+	}
+	if result.IsEmpty() {
+		a.logger.Info("No operator manifest decoded")
 	}
 
 	a.logger.Infof("decoded %d flattened and %d nested operator manifest(s)", result.FlattenedCount, result.NestedCount)
 
 	if result.Flattened != nil {
 		a.logger.Info("loading flattened operator manifest(s) into sqlite")
-		if err = a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
-			return
+		if err := a.loader.LoadFlattenedToSQLite(result.Flattened); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if result.NestedCount > 0 {
 		a.logger.Infof("loading nested operator bundle(s) from %s into sqlite", result.NestedDirectory)
-		if err = a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
-			return
+		if err := a.loader.LoadBundleDirectoryToSQLite(result.NestedDirectory); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
-	store, err = a.loader.GetStore()
-	return
+	store, err := a.loader.GetStore()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return store, utilerrors.NewAggregate(errs)
 }
 
 func NewKubeClient(kubeconfig string, logger *logrus.Entry) (clientset *kubernetes.Clientset, err error) {
