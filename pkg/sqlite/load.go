@@ -84,6 +84,9 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
 
 	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle) values(?, ?, ?)")
 	if err != nil {
@@ -108,6 +111,9 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
 
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
@@ -302,6 +308,10 @@ func (s *SQLLoader) AddProvidedAPIs() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
+
 	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
