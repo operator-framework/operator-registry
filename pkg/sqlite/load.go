@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -83,6 +84,9 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
 
 	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle) values(?, ?, ?)")
 	if err != nil {
@@ -107,6 +111,9 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
 
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
@@ -120,26 +127,11 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addDefaultChannel.Close()
 
-	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
-		return err
-	}
-
 	addChannel, err := tx.Prepare("insert into channel(name, package_name, head_operatorbundle_name) values(?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer addChannel.Close()
-
-	for _, c := range manifest.Channels {
-		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
-			return err
-		}
-		if c.IsDefaultChannel(manifest) {
-			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
-				return err
-			}
-		}
-	}
 
 	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
 	if err != nil {
@@ -173,14 +165,35 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addReplaces.Close()
 
+	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
+		// This should be terminal
+		return err
+	}
+
+	var errs []error
+	for _, c := range manifest.Channels {
+		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if c.IsDefaultChannel(manifest) {
+			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+		}
+	}
+
 	for _, c := range manifest.Channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		currentID, err := res.LastInsertId()
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 
 		channelEntryCSVName := c.CurrentCSVName
@@ -190,60 +203,68 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			// create skip entries
 			skipRows, err := getSkips.Query(channelEntryCSVName)
 			if err != nil {
-				return err
+				errs = append(errs, err)
+				break
 			}
 
 			for skipRows.Next() {
 				var skips sql.NullString
 				if err := skipRows.Scan(&skips); err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 
 				if !skips.Valid || skips.String == "" {
-					break
+					continue
 				}
 
 				// add dummy channel entry for the skipped version
 				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skips.String, depth)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 
 				skippedID, err := skippedChannelEntry.LastInsertId()
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 
 				// add another channel entry for the parent, which replaces the skipped
 				synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, channelEntryCSVName, depth)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
-
 
 				synthesizedID, err := synthesizedChannelEntry.LastInsertId()
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 
 				_, err = addReplaces.Exec(skippedID, synthesizedID)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 
-				depth += 1
+				depth++
 			}
 
 			// create real replacement chain
 			replaceRows, err := getReplaces.Query(channelEntryCSVName)
 			if err != nil {
-				return err
+				errs = append(errs, err)
+				break
 			}
 
 			if replaceRows.Next() {
 				var replaced sql.NullString
 				if err := replaceRows.Scan(&replaced); err != nil {
-					return err
+					errs = append(errs, err)
+					break
 				}
 
 				if !replaced.Valid || replaced.String == "" {
@@ -252,25 +273,34 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 				replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaced.String, depth)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					break
 				}
 				replacedID, err := replacedChannelEntry.LastInsertId()
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					break
 				}
 				_, err = addReplaces.Exec(replacedID, currentID)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					break
 				}
 				currentID = replacedID
 				channelEntryCSVName = replaced.String
-				depth += 1
+				depth++
 			} else {
-				return fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName)
+				errs = append(errs, fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName))
+				break
 			}
 		}
 	}
-	return tx.Commit()
+
+	if err := tx.Commit(); err != nil {
+		errs = append(errs, err)
+	}
+
+	return utilerrors.NewAggregate(errs)
 }
 
 func (s *SQLLoader) AddProvidedAPIs() error {
@@ -278,6 +308,10 @@ func (s *SQLLoader) AddProvidedAPIs() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		tx.Rollback()
+	}()
+
 	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -300,6 +334,7 @@ func (s *SQLLoader) AddProvidedAPIs() error {
 	}
 	defer getChannelEntryProvidedAPIs.Close()
 
+	var errs []error
 	rows, err := getChannelEntryProvidedAPIs.Query()
 	if err != nil {
 		return err
@@ -309,21 +344,26 @@ func (s *SQLLoader) AddProvidedAPIs() error {
 		var gvkSQL sql.NullString
 
 		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		apigvk := []string{}
 		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		plural, group, err := SplitCRDName(apigvk[0])
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		if _, err := addAPI.Exec(group, apigvk[1], apigvk[2], plural); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		if _, err := addAPIProvider.Exec(group, apigvk[1], apigvk[2], channelId.Int64); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 	}
 
@@ -345,21 +385,29 @@ func (s *SQLLoader) AddProvidedAPIs() error {
 		var gvkSQL sql.NullString
 
 		if err := rows.Scan(&channelId, &gvkSQL); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		apigvk := []string{}
 		if err := json.Unmarshal([]byte(gvkSQL.String), &apigvk); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		if _, err := addAPI.Exec(apigvk[0], apigvk[1], apigvk[2], apigvk[3]); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		if _, err := addAPIProvider.Exec(apigvk[0], apigvk[1], apigvk[2], channelId.Int64); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		errs = append(errs, err)
+	}
+
+	return utilerrors.NewAggregate(errs)
 }
 
 func (s *SQLLoader) Close() {
