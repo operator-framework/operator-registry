@@ -126,9 +126,9 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.2.2
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# golang.org/x/crypto v0.0.0-20181015023909-0c41d7ab0a0e
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20181114220301-adae6a3d119a
+# golang.org/x/net v0.0.0-20190311183353-d8887717615a
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/http2
@@ -136,7 +136,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/http2/hpack
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
-# golang.org/x/sys v0.0.0-20181116152217-5ac8a444bdc5
+# golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.0
@@ -149,7 +149,7 @@ golang.org/x/text/width
 golang.org/x/time/rate
 # google.golang.org/genproto v0.0.0-20181016170114-94acd270e44e
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.17.0
+# google.golang.org/grpc v1.23.0
 google.golang.org/grpc
 google.golang.org/grpc/reflection
 google.golang.org/grpc/codes
@@ -164,6 +164,7 @@ google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
+google.golang.org/grpc/internal/balancerload
 google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
@@ -177,6 +178,7 @@ google.golang.org/grpc/peer
 google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/passthrough
+google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/tap
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
@@ -205,10 +207,10 @@ k8s.io/api/batch/v1
 k8s.io/api/batch/v1beta1
 k8s.io/api/batch/v2alpha1
 k8s.io/api/certificates/v1beta1
-k8s.io/api/events/v1beta1
 k8s.io/api/extensions/v1beta1
-k8s.io/api/networking/v1
 k8s.io/api/policy/v1beta1
+k8s.io/api/events/v1beta1
+k8s.io/api/networking/v1
 k8s.io/api/rbac/v1
 k8s.io/api/rbac/v1alpha1
 k8s.io/api/rbac/v1beta1
@@ -273,7 +275,6 @@ k8s.io/apiserver/pkg/util/feature
 k8s.io/client-go/kubernetes
 k8s.io/client-go/rest
 k8s.io/client-go/tools/clientcmd
-k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/discovery
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1
@@ -316,6 +317,7 @@ k8s.io/client-go/tools/auth
 k8s.io/client-go/tools/clientcmd/api/latest
 k8s.io/client-go/util/homedir
 k8s.io/client-go/tools/record
+k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/tools/reference
 k8s.io/client-go/util/integer
 k8s.io/client-go/pkg/apis/clientauthentication
