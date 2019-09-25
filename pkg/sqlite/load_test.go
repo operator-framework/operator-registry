@@ -2,12 +2,12 @@ package sqlite
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 	"testing"
 
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,11 +16,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-var testScheme = runtime.NewScheme()
-
-func init() {
-	v1alpha1.AddToScheme(testScheme)
-}
 
 func TestAddPackageChannels(t *testing.T) {
 	type fields struct {
@@ -150,7 +145,8 @@ func TestAddPackageChannels(t *testing.T) {
 			}
 
 			for i, pkg := range tt.args.pkgs {
-				require.Equal(t, tt.expected.errs[i], store.AddPackageChannels(pkg))
+				errs := store.AddPackageChannels(pkg)
+				require.Equal(t, tt.expected.errs[i], errs, "expected %v, got %v", tt.expected.errs[i], errs)
 			}
 
 			// Ensure expected packages were loaded
@@ -165,14 +161,14 @@ func TestAddPackageChannels(t *testing.T) {
 }
 
 func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstructured {
-	csv := &v1alpha1.ClusterServiceVersion{}
+	csv := &registry.ClusterServiceVersion{}
+	csv.TypeMeta.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
-	csv.Spec.Replaces = replaces
+	csv.Spec = json.RawMessage(fmt.Sprintf(`{"replaces": "%s"}`, replaces))
 
-	out := &unstructured.Unstructured{}
-	require.NoError(t, testScheme.Convert(csv, out, nil))
-
-	return out
+	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
+	require.NoError(t, err)
+	return &unstructured.Unstructured{Object:out}
 }
 
 func newBundle(t *testing.T, name, pkgName, channelName string, objs ...*unstructured.Unstructured) *registry.Bundle {
