@@ -20,11 +20,14 @@ const (
 	// replaces.
 	replaces = "replaces"
 
-
 	// The yaml attribute that points to the names of older
 	// ClusterServiceVersion objects that the current ClusterServiceVersion
 	// skips
 	skips = "skips"
+
+	// The yaml attribute that specifies the version of the ClusterServiceVersion
+	// expected to be semver and parseable by blang/semver
+	version = "version"
 )
 
 // ClusterServiceVersion is a structured representation of cluster service
@@ -64,6 +67,28 @@ func (csv *ClusterServiceVersion) GetReplaces() (string, error) {
 	}
 
 	return replaces, nil
+}
+
+// GetVersion returns the version of the CSV
+//
+// If not defined, the function returns an empty string.
+func (csv *ClusterServiceVersion) GetVersion() (string, error) {
+	var objmap map[string]*json.RawMessage
+	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
+		return "", err
+	}
+
+	rawValue, ok := objmap[version]
+	if !ok || rawValue == nil {
+		return "", nil
+	}
+
+	var v string
+	if err := json.Unmarshal(*rawValue, &v); err != nil {
+		return "", err
+	}
+
+	return v, nil
 }
 
 // GetSkips returns the name of the older ClusterServiceVersion objects that
