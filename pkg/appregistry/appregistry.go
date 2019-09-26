@@ -5,10 +5,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/operator-framework/operator-registry/pkg/client"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -19,7 +17,7 @@ import (
 // downloadPath specifies the folder where the downloaded nested bundle(s) will
 // be stored.
 func NewLoader(kubeconfig string, dbName string, downloadPath string, logger *logrus.Entry) (*AppregistryLoader, error) {
-	kubeClient, err := NewKubeClient(kubeconfig, logger)
+	kubeClient, err := client.NewKubeClient(kubeconfig, logger.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -103,24 +101,4 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (regis
 	store := a.loader.GetStore()
 
 	return store, utilerrors.NewAggregate(errs)
-}
-
-func NewKubeClient(kubeconfig string, logger *logrus.Entry) (clientset *kubernetes.Clientset, err error) {
-	var config *rest.Config
-
-	if kubeconfig != "" {
-		logger.Infof("Loading kube client config from path %q", kubeconfig)
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	} else {
-		logger.Infof("Using in-cluster kube client config")
-		config, err = rest.InClusterConfig()
-	}
-
-	if err != nil {
-		err = fmt.Errorf("Cannot load config for REST client: %v", err)
-		return
-	}
-
-	clientset, err = kubernetes.NewForConfig(config)
-	return
 }
