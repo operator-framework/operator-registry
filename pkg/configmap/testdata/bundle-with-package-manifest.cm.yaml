@@ -1,0 +1,28 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ocs
+  namespace: kube-system
+
+data:
+  crd.yaml: |-
+    apiVersion: apiextensions.k8s.io/v1beta1
+    kind: CustomResourceDefinition
+    metadata:
+      name: alertmanagers.monitoring.coreos.com
+    spec:
+  csv.yaml: |-
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    metadata:
+      name: etcdoperator.v0.6.1
+      namespace: placeholder
+    spec:
+  package.yaml: |-
+    packageName: etcd
+    defaultChannel: alpha
+    channels:
+    - name: alpha
+      currentCSV: etcdoperator.v0.9.4
+    - name: beta
+      currentCSV: etcdoperator.v0.9.4-beta

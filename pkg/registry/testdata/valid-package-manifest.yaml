@@ -1,0 +1,7 @@
+packageName: foo
+defaultChannel: alpha
+channels:
+  - name: alpha
+    currentCSV: foo
+  - name: beta
+    currentCSV: bar

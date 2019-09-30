@@ -1,0 +1,17 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ocs
+  namespace: kube-system
+
+data:
+  crd.yaml: |-
+    apiVersion::
+    ->
+  csv.yaml: |-
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    metadata:
+      name: etcdoperator.v0.6.1
+      namespace: placeholder
+    spec:

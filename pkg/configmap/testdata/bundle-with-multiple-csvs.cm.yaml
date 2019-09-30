@@ -1,0 +1,21 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ocs
+  namespace: kube-system
+
+data:
+  first.csv.yaml: |-
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    metadata:
+      name: first
+      namespace: placeholder
+    spec:
+  second.csv.yaml: |-
+    apiVersion: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    metadata:
+      name: second
+      namespace: placeholder
+    spec:
