@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/cmd/opm/bundle"
 	"github.com/operator-framework/operator-registry/cmd/opm/registry"
 )
 
@@ -15,6 +16,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(registry.NewOpmRegistryCmd())
+	rootCmd.AddCommand(bundle.NewCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Panic(err.Error())

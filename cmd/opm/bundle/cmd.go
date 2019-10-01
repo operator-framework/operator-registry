@@ -6,9 +6,10 @@ import (
 
 func NewCmd() *cobra.Command {
 	runCmd := &cobra.Command{
-		Use:   "bundle",
-		Short: "Operator bundle commands",
-		Long:  `Generate operator bundle metadata and build bundle image.`,
+		Hidden: true,
+		Use:    "bundle",
+		Short:  "Operator bundle commands",
+		Long:   `Generate operator bundle metadata and build bundle image.`,
 	}
 
 	runCmd.AddCommand(newBundleGenerateCmd())

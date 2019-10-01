@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 
 	"gopkg.in/yaml.v2"
 )
@@ -34,47 +33,26 @@ type AnnotationType struct {
 	MediaType string `yaml:"operators.operatorframework.io.bundle.mediatype"`
 }
 
-// newBundleBuildCmd returns a command that will build operator bundle image.
-func newBundleGenerateCmd() *cobra.Command {
-	bundleGenerateCmd := &cobra.Command{
-		Use:   "generate",
-		Short: "Generate operator bundle metadata and Dockerfile",
-		Long: `The operator-cli buindle generate command will generate operator
-        bundle metadata if needed and a Dockerfile to build Operator bundle image.
-
-        $ operator-cli bundle generate -d /test/0.0.1/
-        `,
-		RunE: generateFunc,
-	}
-
-	bundleGenerateCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "", "The directory where bundle manifests are located.")
-	if err := bundleGenerateCmd.MarkFlagRequired("directory"); err != nil {
-		log.Fatalf("Failed to mark `directory` flag for `generate` subcommand as required")
-	}
-
-	return bundleGenerateCmd
-}
-
-func generateFunc(cmd *cobra.Command, args []string) error {
+func GenerateFunc(directory string) error {
 	var mediaType string
 
 	// Determine mediaType
-	mediaType, err := getMediaType(dirBuildArgs)
+	mediaType, err := GetMediaType(directory)
 	if err != nil {
 		return err
 	}
 
 	// Parent directory
-	parentDir := path.Dir(path.Clean(dirBuildArgs))
+	parentDir := path.Dir(path.Clean(directory))
 
 	log.Info("Building annotations.yaml file")
 
 	// Generate annotations.yaml
-	content, err := generateAnnotationsFunc(manifestsMetadata, mediaType)
+	content, err := GenerateAnnotations(manifestsMetadata, mediaType)
 	if err != nil {
 		return err
 	}
-	err = writeFile(annotationsFile, parentDir, content)
+	err = WriteFile(annotationsFile, parentDir, content)
 	if err != nil {
 		return err
 	}
@@ -82,8 +60,8 @@ func generateFunc(cmd *cobra.Command, args []string) error {
 	log.Info("Building Dockerfile")
 
 	// Generate Dockerfile
-	content = generateDockerfileFunc(manifestsMetadata, mediaType, dirBuildArgs)
-	err = writeFile(dockerFile, parentDir, content)
+	content = GenerateDockerfile(manifestsMetadata, mediaType, directory)
+	err = WriteFile(dockerFile, parentDir, content)
 	if err != nil {
 		return err
 	}
@@ -91,11 +69,11 @@ func generateFunc(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getMediaType(dirBuildArgs string) (string, error) {
+func GetMediaType(directory string) (string, error) {
 	var files []string
 
 	// Read all file names in directory
-	items, _ := ioutil.ReadDir(dirBuildArgs)
+	items, _ := ioutil.ReadDir(directory)
 	for _, item := range items {
 		if item.IsDir() {
 			continue
@@ -105,7 +83,7 @@ func getMediaType(dirBuildArgs string) (string, error) {
 	}
 
 	if len(files) == 0 {
-		return "", fmt.Errorf("The directory %s contains no files", dirBuildArgs)
+		return "", fmt.Errorf("The directory %s contains no files", directory)
 	}
 
 	// Validate the file names to determine media type
@@ -122,7 +100,7 @@ func getMediaType(dirBuildArgs string) (string, error) {
 	return plainType, nil
 }
 
-func generateAnnotationsFunc(resourcesType, mediaType string) ([]byte, error) {
+func GenerateAnnotations(resourcesType, mediaType string) ([]byte, error) {
 	annotations := &AnnotationMetadata{
 		Annotations: AnnotationType{
 			Resources: resourcesType,
@@ -138,7 +116,7 @@ func generateAnnotationsFunc(resourcesType, mediaType string) ([]byte, error) {
 	return afile, nil
 }
 
-func generateDockerfileFunc(resourcesType, mediaType, directory string) []byte {
+func GenerateDockerfile(resourcesType, mediaType, directory string) []byte {
 	var fileContent string
 
 	metadataDir := path.Dir(path.Clean(directory))
@@ -159,7 +137,7 @@ func generateDockerfileFunc(resourcesType, mediaType, directory string) []byte {
 
 // Write `fileName` file with `content` into a `directory`
 // Note: Will overwrite the existing `fileName` file if it exists
-func writeFile(fileName, directory string, content []byte) error {
+func WriteFile(fileName, directory string, content []byte) error {
 	err := ioutil.WriteFile(filepath.Join(directory, fileName), content, defaultPermission)
 	if err != nil {
 		return err

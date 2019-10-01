@@ -22,21 +22,21 @@ func TestBuildBundleImage(t *testing.T) {
 			operatorDir,
 			"test",
 			"docker",
-			"docker build -f test-operator/Dockerfile -t test .",
-			"",
-		},
-		{
-			operatorDir,
-			"test",
-			"podman",
-			"podman bud --format=docker -f test-operator/Dockerfile -t test .",
+			"docker build -f /test-operator/Dockerfile -t test .",
 			"",
 		},
 		{
 			operatorDir,
 			"test",
 			"buildah",
-			"buildah build -f test-operator/Dockerfile -t test .",
+			"buildah bud --format=docker -f /test-operator/Dockerfile -t test .",
+			"",
+		},
+		{
+			operatorDir,
+			"test",
+			"podman",
+			"podman build -f /test-operator/Dockerfile -t test .",
 			"",
 		},
 		{
@@ -50,9 +50,9 @@ func TestBuildBundleImage(t *testing.T) {
 
 	for _, item := range tests {
 		var cmd *exec.Cmd
-		cmd, err := buildBundleImage(item.directory, item.imageTag, item.imageBuilder)
+		cmd, err := BuildBundleImage(item.directory, item.imageTag, item.imageBuilder)
 		if item.errorMsg == "" {
-			require.Equal(t, item.commandStr, cmd.String())
+			require.Contains(t, cmd.String(), item.commandStr)
 		} else {
 			require.Equal(t, item.errorMsg, err.Error())
 		}

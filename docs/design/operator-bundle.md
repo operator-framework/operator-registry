@@ -1,6 +1,6 @@
 # Operator Bundle
 
-An `Operator Bundle` is a container image that stores Kubernetes manifests and metadata associated with an operator. A bundle is meant to present a specific version of an operator.
+An `Operator Bundle` is a container image that stores Kubernetes manifests and metadata associated with an operator. A bundle is meant to present a *specific* version of an operator.
 
 ## Operator Bundle Overview
 
@@ -13,7 +13,7 @@ The operator manifests refers to a set of Kubernetes manifest(s) the defines the
 * API(s) provided and required.
 * Related images.
 
-An `Operator Bundle` is built as scratch (non-runnable) container image that contains operator manifests and specific metadata in designated directories inside the image. Then, it can be pushed and pulled from an OCI-compliant container registry. Ultimately, an operator bundle will be used by [Operator Registry](https://github.com/operator-framework/operator-registry) and [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) to install an operator in OLM-enabled clusters.
+An `Operator Bundle` is built as a scratch (non-runnable) container image that contains operator manifests and specific metadata in designated directories inside the image. Then, it can be pushed and pulled from an OCI-compliant container registry. Ultimately, an operator bundle will be used by [Operator Registry](https://github.com/operator-framework/operator-registry) and [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) to install an operator in OLM-enabled clusters.
 
 ### Bundle Annotations
 
@@ -34,19 +34,19 @@ annotations:
 ```
 
 *Notes:*
-* In case of a mismatch, the `annotations.yaml` file is authoritative because on-cluster operator-registry that relies on these annotations has access to the yaml file only.
+* In case of a mismatch, the `annotations.yaml` file is authoritative because the on-cluster operator-registry that relies on these annotations has access to the yaml file only.
 * The potential use case for the `LABELS` is - an external off-cluster tool can inspect the image to check the type of a given bundle image without downloading the content.
 
 This example uses [Operator Registry Manifests](https://github.com/operator-framework/operator-registry#manifest-format) format to build an operator bundle image. The source directory of an operator registry bundle has the following layout.
 ```
 $ tree test
 test
-├── 0.1.0
-│   ├── testbackup.crd.yaml
-│   ├── testcluster.crd.yaml
-│   ├── testoperator.v0.1.0.clusterserviceversion.yaml
-│   └── testrestore.crd.yaml
-└── annotations.yaml
+├── testbackup.crd.yaml
+├── testcluster.crd.yaml
+├── testoperator.v0.1.0.clusterserviceversion.yaml
+├── testrestore.crd.yaml
+└── metadata
+    └── annotations.yaml
 ```
 
 ### Bundle Dockerfile
@@ -60,7 +60,7 @@ FROM scratch
 LABEL operators.operatorframework.io.bundle.resources=manifests+metadata
 LABEL operators.operatorframework.io.bundle.mediatype=registry+v1
 
-ADD test/0.1.0 /manifests
+ADD test/*.yaml /manifests
 ADD test/annotations.yaml /metadata/annotations.yaml
 ```
 
@@ -77,68 +77,69 @@ $ tree
     └── annotations.yaml
 ```
 
-## Operator Bundle Command-Line Tool
+## Operator Bundle Commands
 
-A CLI tool is available to generate Bundle annotations and Dockerfile based on provided operator manifests.
+Operator SDK CLI is available to generate Bundle annotations and Dockerfile based on provided operator manifests.
 
-### Bundle CLI
+### Operator SDK CLI
 
-In order to build `operator-cli` CLI tool, follow these steps:
+In order to use Operator SDK CLI, follow the operator-SDK installation instruction:
 
-1. Clone [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) repository.
-2. Build `operator-cli` binary:
-```bash
-$ go build ./cmd/operator-cli/
-```
+1. Install the [Operator SDK CLI](https://github.com/operator-framework/operator-sdk/blob/master/doc/user/install-operator-sdk.md)
 
 Now, a binary named `operator-cli` is available in OLM's directory to use.
 ```bash
-$ ./operator-cli
-Generate operator bundle metadata and build bundle image.
+$ ./operator-sdk
+An SDK for building operators with ease
 
 Usage:
-   bundle [command]
+  operator-sdk [command]
 
 Available Commands:
-  build       Build operator bundle image
-  generate    Generate operator bundle metadata and Dockerfile
+    bundle      Operator bundle commands
 
 Flags:
-  -h, --help   help for bundle
+  -h, --help      help for operator-sdk
+      --verbose   Enable verbose logging
 
-Use " bundle [command] --help" for more information about a command.
+Use "operator-sdk [command] --help" for more information about a command.
 ```
 
 ### Generate Bundle Annotations and DockerFile
 
-Using `operator-cli` CLI, bundle annotations can be generated from provided operator manifests. The command for `generate` task is:
+Using `operator-sdk` CLI, bundle annotations can be generated from provided operator manifests. The command for `generate` task is:
 ```bash
-$ ./operator-cli bundle generate --directory /test/0.0.1/
+$ ./operator-sdk bundle generate --directory /test/
 ```
-The `--directory` or `-d` specifies the directory where the operator manifests are located. The `annotations.yaml` and `Dockerfile` are generated in the same directory where the manifests folder is located (not where the YAML manifests are located). For example:
+The `--directory` or `-d` specifies the directory where the operator manifests are located. The `Dockerfile` is generated in the same directory where the YAML manifests are located while the `annotations.yaml` file is located in a folder named `metadata`. For example:
 ```bash
 $ tree test
 test
-├── 0.0.1
-│   ├── testbackup.crd.yaml
-│   ├── testcluster.crd.yaml
-│   ├── testoperator.v0.1.0.clusterserviceversion.yaml
-│   └── testrestore.crd.yaml
-├── annotations.yaml
+├── testbackup.crd.yaml
+├── testcluster.crd.yaml
+├── testoperator.v0.1.0.clusterserviceversion.yaml
+├── testrestore.crd.yaml
+├── metadata
+│   └── annotations.yaml
 └── Dockerfile
 ```
 
-Note: If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
+*Notes:*
+* If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
 
 ### Build Bundle Image
 
 Operator bundle image can be built from provided operator manifests using `build` command:
 ```bash
-$ ./operator-cli bundle build --directory /test/0.0.1/ --tag quay.io/coreos/test-operator.v0.0.1:latest
+$ ./operator-sdk bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest
 ```
 The `--directory` or `-d` specifies the directory where the operator manifests are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
 The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
 ```bash
-$ ./operator-cli bundle build --directory /test/0.0.1/ --tag quay.io/coreos/test-operator.v0.0.1:latest --image-builder podman
+$ ./operator-sdk bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder podman
 ```
+
+*Notes:*
+* If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
+* The directory where the operator manifests are located must must be inside the context of the build which in this case is inside the directory where you run the command.

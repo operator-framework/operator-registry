@@ -2,6 +2,7 @@ package bundle
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ func TestGetMediaType(t *testing.T) {
 	setup("")
 	defer cleanup()
 
-	testDir := operatorDir + manifestsMetadata
+	testDir := filepath.Join(getTestDir(), manifestsDir)
 	tests := []struct {
 		directory string
 		mediaType string
@@ -42,7 +43,7 @@ func TestGetMediaType(t *testing.T) {
 
 	for _, item := range tests {
 		createFiles(testDir, item.mediaType)
-		manifestType, err := getMediaType(item.directory)
+		manifestType, err := GetMediaType(item.directory)
 		if item.errorMsg == "" {
 			require.Equal(t, item.mediaType, manifestType)
 		} else {
@@ -62,24 +63,24 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 	}
 	// Create result annotations struct
 	resultAnnotations := AnnotationMetadata{}
-	data, err := generateAnnotationsFunc("test1", "test2")
+	data, err := GenerateAnnotations("test1", "test2")
 	require.NoError(t, err)
 
 	err = yaml.Unmarshal(data, &resultAnnotations)
 	require.NoError(t, err)
 
 	require.Equal(t, testAnnotations.Annotations.Resources, resultAnnotations.Annotations.Resources)
-	require.Equal(t, testAnnotations.Annotations.MediaType, resultAnnotations.Annotations.Resources)
+	require.Equal(t, testAnnotations.Annotations.MediaType, resultAnnotations.Annotations.MediaType)
 }
 
 func TestGenerateDockerfileFunc(t *testing.T) {
-	testDir := operatorDir + manifestsMetadata
+	testDir := filepath.Join(operatorDir, manifestsDir)
 	output := "FROM scratch\n\n" +
 		"LABEL operators.operatorframework.io.bundle.resources=test1\n" +
 		"LABEL operators.operatorframework.io.bundle.mediatype=test2\n\n" +
-		"ADD test-operator/0.0.1 /manifests\n" +
-		"ADD test-operator/0.0.1/annotations.yaml /metadata/annotations.yaml\n"
+		"ADD /test-operator/0.0.1 /manifests\n" +
+		"ADD /test-operator/annotations.yaml /metadata/annotations.yaml\n"
 
-	content := generateDockerfileFunc("test1", "test2", testDir)
+	content := GenerateDockerfile("test1", "test2", testDir)
 	require.Equal(t, output, string(content))
 }

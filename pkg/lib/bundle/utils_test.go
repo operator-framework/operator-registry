@@ -16,16 +16,23 @@ const (
 
 func setup(input string) {
 	// Create test directory
-	testDir := operatorDir + manifestsDir
+	testDir := filepath.Join(getTestDir(), manifestsDir)
 	createDir(testDir)
 
 	// Create test files in test directory
 	createFiles(testDir, input)
 }
 
+func getTestDir() string {
+	// Create test directory
+	dir, _ := os.Getwd()
+	testDir := filepath.Join(dir, operatorDir)
+	return testDir
+}
+
 func cleanup() {
 	// Remove test directory
-	os.RemoveAll(operatorDir)
+	os.RemoveAll(getTestDir())
 }
 
 func createDir(dir string) {
@@ -56,7 +63,7 @@ func clearDir(dir string) {
 		if item.IsDir() {
 			continue
 		} else {
-			os.Remove(item.Name())
+			os.Remove(filepath.Join(dir, item.Name()))
 		}
 	}
 }
