@@ -106,6 +106,14 @@ func TestGetPackage(t *testing.T) {
 				Name:    "alpha",
 				CsvName: "etcdoperator.v0.9.2",
 			},
+			{
+				Name:    "beta",
+				CsvName: "etcdoperator.v0.9.0",
+			},
+			{
+				Name:    "stable",
+				CsvName: "etcdoperator.v0.9.2",
+			},
 		},
 		DefaultChannelName: "alpha",
 	}
@@ -185,6 +193,18 @@ func TestGetChannelEntriesThatReplace(t *testing.T) {
 		{
 			PackageName: "etcd",
 			ChannelName: "alpha",
+			BundleName:  "etcdoperator.v0.9.0",
+			Replaces:    "etcdoperator.v0.6.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "beta",
+			BundleName:  "etcdoperator.v0.9.0",
+			Replaces:    "etcdoperator.v0.6.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
 			BundleName:  "etcdoperator.v0.9.0",
 			Replaces:    "etcdoperator.v0.6.1",
 		},
@@ -288,6 +308,42 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 			BundleName:  "etcdoperator.v0.9.2",
 			Replaces:    "etcdoperator.v0.9.0",
 		},
+		{
+			PackageName: "etcd",
+			ChannelName: "beta",
+			BundleName:  "etcdoperator.v0.6.1",
+			Replaces:    "",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "beta",
+			BundleName:  "etcdoperator.v0.9.0",
+			Replaces:    "etcdoperator.v0.6.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
+			BundleName:  "etcdoperator.v0.6.1",
+			Replaces:    "",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
+			BundleName:  "etcdoperator.v0.9.0",
+			Replaces:    "etcdoperator.v0.6.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
+			BundleName:  "etcdoperator.v0.9.2",
+			Replaces:    "etcdoperator.v0.9.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
+			BundleName:  "etcdoperator.v0.9.2",
+			Replaces:    "etcdoperator.v0.9.0",
+		},
 	}
 
 	require.ElementsMatch(t, expected, channelEntries)
@@ -324,6 +380,18 @@ func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 		{
 			PackageName: "etcd",
 			ChannelName: "alpha",
+			BundleName:  "etcdoperator.v0.9.2",
+			Replaces:    "etcdoperator.v0.9.0",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "beta",
+			BundleName:  "etcdoperator.v0.9.0",
+			Replaces:    "etcdoperator.v0.6.1",
+		},
+		{
+			PackageName: "etcd",
+			ChannelName: "stable",
 			BundleName:  "etcdoperator.v0.9.2",
 			Replaces:    "etcdoperator.v0.9.0",
 		},
