@@ -35,7 +35,8 @@ func NewSQLLiteLoader(opts ...DbOption) (*SQLLoader, error) {
 	CREATE TABLE IF NOT EXISTS operatorbundle (
 		name TEXT PRIMARY KEY,  
 		csv TEXT UNIQUE, 
-		bundle TEXT
+		bundle TEXT,
+		bundlepath TEXT
 	);
 	CREATE TABLE IF NOT EXISTS package (
 		name TEXT PRIMARY KEY,
@@ -109,7 +110,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle) values(?, ?, ?)")
+	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		return fmt.Errorf("csv name not found")
 	}
 
-	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
+	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, nil); err != nil {
 		return err
 	}
 

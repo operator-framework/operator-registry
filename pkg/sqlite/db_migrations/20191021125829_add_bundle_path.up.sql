@@ -1,0 +1,10 @@
+BEGIN TRANSACTION;
+PRAGMA foreign_keys = 0;
+CREATE TEMPORARY TABLE operatorbundle_backup (name TEXT,csv TEXT,bundle TEXT);
+INSERT INTO operatorbundle_backup SELECT name,csv,bundle FROM operatorbundle;
+DROP TABLE operatorbundle;
+CREATE TABLE operatorbundle(name TEXT,csv TEXT,bundle TEXT);
+INSERT INTO operatorbundle SELECT name,csv,bundle FROM operatorbundle_backup;
+DROP TABLE operatorbundle_backup;
+PRAGMA foreign_keys = 1;
+COMMIT;

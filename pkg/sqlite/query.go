@@ -122,6 +122,25 @@ func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvNam
 	return bundleStringSQL.String, nil
 }
 
+func (s *SQLQuerier) GetBundlePath(ctx context.Context, pkgName, channelName, csvName string) (string, error) {
+	query := `SELECT DISTINCT operatorbundle.bundlepath
+			  FROM operatorbundle INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
+			  WHERE channel_entry.package_name=? AND channel_entry.channel_name=? AND operatorbundle.name=? LIMIT 1`
+	rows, err := s.db.QueryContext(ctx, query, pkgName, channelName, csvName)
+	if err != nil {
+		return "", err
+	}
+
+	if !rows.Next() {
+		return "", fmt.Errorf("no bundle path found for csv %s", csvName)
+	}
+	var bundlePathStringSQL sql.NullString
+	if err := rows.Scan(&bundlePathStringSQL); err != nil {
+		return "", err
+	}
+	return bundlePathStringSQL.String, nil
+}
+
 func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error) {
 	query := `SELECT DISTINCT operatorbundle.bundle
               FROM channel INNER JOIN operatorbundle ON channel.head_operatorbundle_name=operatorbundle.name

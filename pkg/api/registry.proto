@@ -6,6 +6,7 @@ service Registry {
     rpc ListPackages(ListPackageRequest) returns (stream PackageName) {}
 	rpc GetPackage(GetPackageRequest) returns (Package) {}
 	rpc GetBundle(GetBundleRequest) returns (Bundle) {}
+	rpc GetBundlePath(GetBundlePathRequest) returns (BundlePath) {}
 	rpc GetBundleForChannel(GetBundleInChannelRequest) returns (Bundle) {}
 	rpc GetChannelEntriesThatReplace(GetAllReplacementsRequest) returns (stream ChannelEntry) {}
 	rpc GetBundleThatReplaces(GetReplacementRequest) returns (Bundle) {}
@@ -38,6 +39,10 @@ message Bundle{
 	repeated string object = 5;
 }
 
+message BundlePath{
+	string path = 1;
+}
+
 message ChannelEntry{
 	string packageName = 1;
 	string channelName = 2;
@@ -52,6 +57,12 @@ message GetPackageRequest{
 }
 
 message GetBundleRequest{
+	string pkgName = 1;
+	string channelName = 2;
+	string csvName = 3;
+}
+
+message GetBundlePathRequest{
 	string pkgName = 1;
 	string channelName = 2;
 	string csvName = 3;

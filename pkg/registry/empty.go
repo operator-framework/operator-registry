@@ -26,6 +26,10 @@ func (EmptyQuery) GetBundle(ctx context.Context, pkgName, channelName, csvName s
 	return "", errors.New("empty querier: cannot get bundle")
 }
 
+func (EmptyQuery) GetBundlePath(ctx context.Context, pkgName, channelName, csvName string) (string, error) {
+	return "", errors.New("empty querier: cannot get bundle path")
+}
+
 func (EmptyQuery) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error) {
 	return "", errors.New("empty querier: cannot get bundle for channel")
 }

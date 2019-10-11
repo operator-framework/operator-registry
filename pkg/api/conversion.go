@@ -82,3 +82,10 @@ func BundleStringToAPIBundle(bundleString string, entry *registry.ChannelEntry) 
 	out.PackageName = entry.PackageName
 	return out, nil
 }
+
+func BundlePathStringToAPIBundlePath(bundlePath string) *BundlePath {
+	out := &BundlePath{
+		Path: bundlePath,
+	}
+	return out
+}

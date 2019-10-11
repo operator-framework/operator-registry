@@ -3,13 +3,14 @@
 
 package api
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -21,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Channel struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -35,16 +36,17 @@ func (m *Channel) Reset()         { *m = Channel{} }
 func (m *Channel) String() string { return proto.CompactTextString(m) }
 func (*Channel) ProtoMessage()    {}
 func (*Channel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{0}
+	return fileDescriptor_41af05d40a615591, []int{0}
 }
+
 func (m *Channel) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Channel.Unmarshal(m, b)
 }
 func (m *Channel) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Channel.Marshal(b, m, deterministic)
 }
-func (dst *Channel) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Channel.Merge(dst, src)
+func (m *Channel) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Channel.Merge(m, src)
 }
 func (m *Channel) XXX_Size() int {
 	return xxx_messageInfo_Channel.Size(m)
@@ -80,16 +82,17 @@ func (m *PackageName) Reset()         { *m = PackageName{} }
 func (m *PackageName) String() string { return proto.CompactTextString(m) }
 func (*PackageName) ProtoMessage()    {}
 func (*PackageName) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{1}
+	return fileDescriptor_41af05d40a615591, []int{1}
 }
+
 func (m *PackageName) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PackageName.Unmarshal(m, b)
 }
 func (m *PackageName) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PackageName.Marshal(b, m, deterministic)
 }
-func (dst *PackageName) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PackageName.Merge(dst, src)
+func (m *PackageName) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PackageName.Merge(m, src)
 }
 func (m *PackageName) XXX_Size() int {
 	return xxx_messageInfo_PackageName.Size(m)
@@ -120,16 +123,17 @@ func (m *Package) Reset()         { *m = Package{} }
 func (m *Package) String() string { return proto.CompactTextString(m) }
 func (*Package) ProtoMessage()    {}
 func (*Package) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{2}
+	return fileDescriptor_41af05d40a615591, []int{2}
 }
+
 func (m *Package) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Package.Unmarshal(m, b)
 }
 func (m *Package) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Package.Marshal(b, m, deterministic)
 }
-func (dst *Package) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Package.Merge(dst, src)
+func (m *Package) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Package.Merge(m, src)
 }
 func (m *Package) XXX_Size() int {
 	return xxx_messageInfo_Package.Size(m)
@@ -176,16 +180,17 @@ func (m *Bundle) Reset()         { *m = Bundle{} }
 func (m *Bundle) String() string { return proto.CompactTextString(m) }
 func (*Bundle) ProtoMessage()    {}
 func (*Bundle) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{3}
+	return fileDescriptor_41af05d40a615591, []int{3}
 }
+
 func (m *Bundle) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Bundle.Unmarshal(m, b)
 }
 func (m *Bundle) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Bundle.Marshal(b, m, deterministic)
 }
-func (dst *Bundle) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Bundle.Merge(dst, src)
+func (m *Bundle) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Bundle.Merge(m, src)
 }
 func (m *Bundle) XXX_Size() int {
 	return xxx_messageInfo_Bundle.Size(m)
@@ -231,6 +236,45 @@ func (m *Bundle) GetObject() []string {
 	return nil
 }
 
+type BundlePath struct {
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *BundlePath) Reset()         { *m = BundlePath{} }
+func (m *BundlePath) String() string { return proto.CompactTextString(m) }
+func (*BundlePath) ProtoMessage()    {}
+func (*BundlePath) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41af05d40a615591, []int{4}
+}
+
+func (m *BundlePath) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BundlePath.Unmarshal(m, b)
+}
+func (m *BundlePath) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BundlePath.Marshal(b, m, deterministic)
+}
+func (m *BundlePath) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BundlePath.Merge(m, src)
+}
+func (m *BundlePath) XXX_Size() int {
+	return xxx_messageInfo_BundlePath.Size(m)
+}
+func (m *BundlePath) XXX_DiscardUnknown() {
+	xxx_messageInfo_BundlePath.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BundlePath proto.InternalMessageInfo
+
+func (m *BundlePath) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
 type ChannelEntry struct {
 	PackageName          string   `protobuf:"bytes,1,opt,name=packageName,proto3" json:"packageName,omitempty"`
 	ChannelName          string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
@@ -245,16 +289,17 @@ func (m *ChannelEntry) Reset()         { *m = ChannelEntry{} }
 func (m *ChannelEntry) String() string { return proto.CompactTextString(m) }
 func (*ChannelEntry) ProtoMessage()    {}
 func (*ChannelEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{4}
+	return fileDescriptor_41af05d40a615591, []int{5}
 }
+
 func (m *ChannelEntry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ChannelEntry.Unmarshal(m, b)
 }
 func (m *ChannelEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ChannelEntry.Marshal(b, m, deterministic)
 }
-func (dst *ChannelEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ChannelEntry.Merge(dst, src)
+func (m *ChannelEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ChannelEntry.Merge(m, src)
 }
 func (m *ChannelEntry) XXX_Size() int {
 	return xxx_messageInfo_ChannelEntry.Size(m)
@@ -303,16 +348,17 @@ func (m *ListPackageRequest) Reset()         { *m = ListPackageRequest{} }
 func (m *ListPackageRequest) String() string { return proto.CompactTextString(m) }
 func (*ListPackageRequest) ProtoMessage()    {}
 func (*ListPackageRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{5}
+	return fileDescriptor_41af05d40a615591, []int{6}
 }
+
 func (m *ListPackageRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListPackageRequest.Unmarshal(m, b)
 }
 func (m *ListPackageRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListPackageRequest.Marshal(b, m, deterministic)
 }
-func (dst *ListPackageRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListPackageRequest.Merge(dst, src)
+func (m *ListPackageRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListPackageRequest.Merge(m, src)
 }
 func (m *ListPackageRequest) XXX_Size() int {
 	return xxx_messageInfo_ListPackageRequest.Size(m)
@@ -334,16 +380,17 @@ func (m *GetPackageRequest) Reset()         { *m = GetPackageRequest{} }
 func (m *GetPackageRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPackageRequest) ProtoMessage()    {}
 func (*GetPackageRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{6}
+	return fileDescriptor_41af05d40a615591, []int{7}
 }
+
 func (m *GetPackageRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetPackageRequest.Unmarshal(m, b)
 }
 func (m *GetPackageRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetPackageRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetPackageRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetPackageRequest.Merge(dst, src)
+func (m *GetPackageRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPackageRequest.Merge(m, src)
 }
 func (m *GetPackageRequest) XXX_Size() int {
 	return xxx_messageInfo_GetPackageRequest.Size(m)
@@ -374,16 +421,17 @@ func (m *GetBundleRequest) Reset()         { *m = GetBundleRequest{} }
 func (m *GetBundleRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBundleRequest) ProtoMessage()    {}
 func (*GetBundleRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{7}
+	return fileDescriptor_41af05d40a615591, []int{8}
 }
+
 func (m *GetBundleRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBundleRequest.Unmarshal(m, b)
 }
 func (m *GetBundleRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetBundleRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetBundleRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBundleRequest.Merge(dst, src)
+func (m *GetBundleRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBundleRequest.Merge(m, src)
 }
 func (m *GetBundleRequest) XXX_Size() int {
 	return xxx_messageInfo_GetBundleRequest.Size(m)
@@ -415,6 +463,61 @@ func (m *GetBundleRequest) GetCsvName() string {
 	return ""
 }
 
+type GetBundlePathRequest struct {
+	PkgName              string   `protobuf:"bytes,1,opt,name=pkgName,proto3" json:"pkgName,omitempty"`
+	ChannelName          string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
+	CsvName              string   `protobuf:"bytes,3,opt,name=csvName,proto3" json:"csvName,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetBundlePathRequest) Reset()         { *m = GetBundlePathRequest{} }
+func (m *GetBundlePathRequest) String() string { return proto.CompactTextString(m) }
+func (*GetBundlePathRequest) ProtoMessage()    {}
+func (*GetBundlePathRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41af05d40a615591, []int{9}
+}
+
+func (m *GetBundlePathRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetBundlePathRequest.Unmarshal(m, b)
+}
+func (m *GetBundlePathRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetBundlePathRequest.Marshal(b, m, deterministic)
+}
+func (m *GetBundlePathRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBundlePathRequest.Merge(m, src)
+}
+func (m *GetBundlePathRequest) XXX_Size() int {
+	return xxx_messageInfo_GetBundlePathRequest.Size(m)
+}
+func (m *GetBundlePathRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetBundlePathRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetBundlePathRequest proto.InternalMessageInfo
+
+func (m *GetBundlePathRequest) GetPkgName() string {
+	if m != nil {
+		return m.PkgName
+	}
+	return ""
+}
+
+func (m *GetBundlePathRequest) GetChannelName() string {
+	if m != nil {
+		return m.ChannelName
+	}
+	return ""
+}
+
+func (m *GetBundlePathRequest) GetCsvName() string {
+	if m != nil {
+		return m.CsvName
+	}
+	return ""
+}
+
 type GetBundleInChannelRequest struct {
 	PkgName              string   `protobuf:"bytes,1,opt,name=pkgName,proto3" json:"pkgName,omitempty"`
 	ChannelName          string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
@@ -427,16 +530,17 @@ func (m *GetBundleInChannelRequest) Reset()         { *m = GetBundleInChannelReq
 func (m *GetBundleInChannelRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBundleInChannelRequest) ProtoMessage()    {}
 func (*GetBundleInChannelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{8}
+	return fileDescriptor_41af05d40a615591, []int{10}
 }
+
 func (m *GetBundleInChannelRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBundleInChannelRequest.Unmarshal(m, b)
 }
 func (m *GetBundleInChannelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetBundleInChannelRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetBundleInChannelRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetBundleInChannelRequest.Merge(dst, src)
+func (m *GetBundleInChannelRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBundleInChannelRequest.Merge(m, src)
 }
 func (m *GetBundleInChannelRequest) XXX_Size() int {
 	return xxx_messageInfo_GetBundleInChannelRequest.Size(m)
@@ -472,16 +576,17 @@ func (m *GetAllReplacementsRequest) Reset()         { *m = GetAllReplacementsReq
 func (m *GetAllReplacementsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetAllReplacementsRequest) ProtoMessage()    {}
 func (*GetAllReplacementsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{9}
+	return fileDescriptor_41af05d40a615591, []int{11}
 }
+
 func (m *GetAllReplacementsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAllReplacementsRequest.Unmarshal(m, b)
 }
 func (m *GetAllReplacementsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetAllReplacementsRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetAllReplacementsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAllReplacementsRequest.Merge(dst, src)
+func (m *GetAllReplacementsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetAllReplacementsRequest.Merge(m, src)
 }
 func (m *GetAllReplacementsRequest) XXX_Size() int {
 	return xxx_messageInfo_GetAllReplacementsRequest.Size(m)
@@ -512,16 +617,17 @@ func (m *GetReplacementRequest) Reset()         { *m = GetReplacementRequest{} }
 func (m *GetReplacementRequest) String() string { return proto.CompactTextString(m) }
 func (*GetReplacementRequest) ProtoMessage()    {}
 func (*GetReplacementRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{10}
+	return fileDescriptor_41af05d40a615591, []int{12}
 }
+
 func (m *GetReplacementRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetReplacementRequest.Unmarshal(m, b)
 }
 func (m *GetReplacementRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetReplacementRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetReplacementRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetReplacementRequest.Merge(dst, src)
+func (m *GetReplacementRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetReplacementRequest.Merge(m, src)
 }
 func (m *GetReplacementRequest) XXX_Size() int {
 	return xxx_messageInfo_GetReplacementRequest.Size(m)
@@ -567,16 +673,17 @@ func (m *GetAllProvidersRequest) Reset()         { *m = GetAllProvidersRequest{}
 func (m *GetAllProvidersRequest) String() string { return proto.CompactTextString(m) }
 func (*GetAllProvidersRequest) ProtoMessage()    {}
 func (*GetAllProvidersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{11}
+	return fileDescriptor_41af05d40a615591, []int{13}
 }
+
 func (m *GetAllProvidersRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAllProvidersRequest.Unmarshal(m, b)
 }
 func (m *GetAllProvidersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetAllProvidersRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetAllProvidersRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetAllProvidersRequest.Merge(dst, src)
+func (m *GetAllProvidersRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetAllProvidersRequest.Merge(m, src)
 }
 func (m *GetAllProvidersRequest) XXX_Size() int {
 	return xxx_messageInfo_GetAllProvidersRequest.Size(m)
@@ -629,16 +736,17 @@ func (m *GetLatestProvidersRequest) Reset()         { *m = GetLatestProvidersReq
 func (m *GetLatestProvidersRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLatestProvidersRequest) ProtoMessage()    {}
 func (*GetLatestProvidersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{12}
+	return fileDescriptor_41af05d40a615591, []int{14}
 }
+
 func (m *GetLatestProvidersRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetLatestProvidersRequest.Unmarshal(m, b)
 }
 func (m *GetLatestProvidersRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetLatestProvidersRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetLatestProvidersRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetLatestProvidersRequest.Merge(dst, src)
+func (m *GetLatestProvidersRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetLatestProvidersRequest.Merge(m, src)
 }
 func (m *GetLatestProvidersRequest) XXX_Size() int {
 	return xxx_messageInfo_GetLatestProvidersRequest.Size(m)
@@ -691,16 +799,17 @@ func (m *GetDefaultProviderRequest) Reset()         { *m = GetDefaultProviderReq
 func (m *GetDefaultProviderRequest) String() string { return proto.CompactTextString(m) }
 func (*GetDefaultProviderRequest) ProtoMessage()    {}
 func (*GetDefaultProviderRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_registry_3b20cfe64d54b8f8, []int{13}
+	return fileDescriptor_41af05d40a615591, []int{15}
 }
+
 func (m *GetDefaultProviderRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetDefaultProviderRequest.Unmarshal(m, b)
 }
 func (m *GetDefaultProviderRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetDefaultProviderRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetDefaultProviderRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetDefaultProviderRequest.Merge(dst, src)
+func (m *GetDefaultProviderRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetDefaultProviderRequest.Merge(m, src)
 }
 func (m *GetDefaultProviderRequest) XXX_Size() int {
 	return xxx_messageInfo_GetDefaultProviderRequest.Size(m)
@@ -744,16 +853,66 @@ func init() {
 	proto.RegisterType((*PackageName)(nil), "api.PackageName")
 	proto.RegisterType((*Package)(nil), "api.Package")
 	proto.RegisterType((*Bundle)(nil), "api.Bundle")
+	proto.RegisterType((*BundlePath)(nil), "api.BundlePath")
 	proto.RegisterType((*ChannelEntry)(nil), "api.ChannelEntry")
 	proto.RegisterType((*ListPackageRequest)(nil), "api.ListPackageRequest")
 	proto.RegisterType((*GetPackageRequest)(nil), "api.GetPackageRequest")
 	proto.RegisterType((*GetBundleRequest)(nil), "api.GetBundleRequest")
+	proto.RegisterType((*GetBundlePathRequest)(nil), "api.GetBundlePathRequest")
 	proto.RegisterType((*GetBundleInChannelRequest)(nil), "api.GetBundleInChannelRequest")
 	proto.RegisterType((*GetAllReplacementsRequest)(nil), "api.GetAllReplacementsRequest")
 	proto.RegisterType((*GetReplacementRequest)(nil), "api.GetReplacementRequest")
 	proto.RegisterType((*GetAllProvidersRequest)(nil), "api.GetAllProvidersRequest")
 	proto.RegisterType((*GetLatestProvidersRequest)(nil), "api.GetLatestProvidersRequest")
 	proto.RegisterType((*GetDefaultProviderRequest)(nil), "api.GetDefaultProviderRequest")
+}
+
+func init() { proto.RegisterFile("registry.proto", fileDescriptor_41af05d40a615591) }
+
+var fileDescriptor_41af05d40a615591 = []byte{
+	// 660 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x56, 0x5d, 0x6f, 0xd3, 0x30,
+	0x14, 0x6d, 0xda, 0xf5, 0xeb, 0xb6, 0xc0, 0x66, 0xba, 0x92, 0x05, 0x34, 0x15, 0xbf, 0xd0, 0xa7,
+	0x0a, 0x06, 0x88, 0xa7, 0x3d, 0x30, 0x06, 0x15, 0x68, 0xa0, 0x2a, 0x02, 0xf1, 0xc0, 0x93, 0x9b,
+	0x9a, 0x36, 0x34, 0x4d, 0x42, 0xec, 0x76, 0xda, 0x9f, 0xe0, 0x99, 0xdf, 0xc5, 0x2f, 0x42, 0x76,
+	0x9c, 0xd4, 0xf9, 0x28, 0x43, 0x42, 0xc0, 0x5b, 0xee, 0xb5, 0xef, 0x39, 0xe7, 0xda, 0xf7, 0xb8,
+	0x85, 0x9b, 0x11, 0x9d, 0xbb, 0x8c, 0x47, 0x57, 0xa3, 0x30, 0x0a, 0x78, 0x80, 0x6a, 0x24, 0x74,
+	0xf1, 0x33, 0x68, 0xbe, 0x58, 0x10, 0xdf, 0xa7, 0x1e, 0x42, 0xb0, 0xe7, 0x93, 0x15, 0x35, 0x8d,
+	0x81, 0x31, 0x6c, 0xdb, 0xf2, 0x1b, 0x99, 0xd0, 0x74, 0xd8, 0xe6, 0x9d, 0x48, 0x57, 0x65, 0x3a,
+	0x09, 0xf1, 0x7d, 0xe8, 0x4c, 0x88, 0xb3, 0x24, 0x73, 0x2a, 0xc2, 0xb2, 0x62, 0x7c, 0x09, 0x4d,
+	0xb5, 0xa5, 0x14, 0x7b, 0x08, 0x2d, 0x27, 0xa6, 0x66, 0x66, 0x75, 0x50, 0x1b, 0x76, 0x4e, 0xba,
+	0x23, 0x12, 0xba, 0x23, 0xa5, 0xc7, 0x4e, 0x57, 0xd1, 0x08, 0xd0, 0x8c, 0x7e, 0x26, 0x6b, 0x8f,
+	0xab, 0x35, 0x29, 0xa8, 0x26, 0xb1, 0x4a, 0x56, 0xf0, 0x77, 0x03, 0x1a, 0x67, 0x6b, 0x7f, 0xe6,
+	0x65, 0x1a, 0x30, 0x32, 0x0d, 0xa0, 0x01, 0x74, 0xc2, 0x6d, 0x03, 0xaa, 0x3d, 0x3d, 0x25, 0x76,
+	0x38, 0x05, 0x3e, 0x3d, 0xa5, 0xd0, 0xdf, 0xb0, 0xc0, 0x37, 0xf7, 0x52, 0x74, 0x11, 0xa2, 0x3e,
+	0x34, 0x82, 0xe9, 0x17, 0xea, 0x70, 0xb3, 0x3e, 0xa8, 0x0d, 0xdb, 0xb6, 0x8a, 0xf0, 0x00, 0x20,
+	0x56, 0x36, 0x21, 0x7c, 0x21, 0x8e, 0x25, 0x24, 0x7c, 0x91, 0x1c, 0x8b, 0xf8, 0xc6, 0xdf, 0x0c,
+	0xe8, 0xaa, 0x66, 0x5e, 0xfa, 0x3c, 0xba, 0xca, 0x0b, 0x35, 0xae, 0x15, 0x5a, 0x2d, 0x0a, 0x3d,
+	0x06, 0x98, 0x4a, 0x5a, 0xad, 0x13, 0x2d, 0x83, 0x2c, 0x68, 0x45, 0x34, 0xf4, 0x88, 0x43, 0x99,
+	0xea, 0x24, 0x8d, 0x71, 0x0f, 0xd0, 0x85, 0xcb, 0xb8, 0xba, 0x4a, 0x9b, 0x7e, 0x5d, 0x53, 0xc6,
+	0xf1, 0x03, 0x38, 0x18, 0xd3, 0x5c, 0xb2, 0x74, 0x0a, 0x16, 0xb0, 0x3f, 0xa6, 0x3c, 0x6e, 0x3a,
+	0xd9, 0x67, 0x42, 0x33, 0x5c, 0xce, 0xf5, 0x5b, 0x51, 0xe1, 0x6f, 0xb4, 0xa2, 0xdd, 0x68, 0x2d,
+	0x3b, 0x92, 0x1e, 0xf4, 0x52, 0x26, 0x71, 0xbc, 0x7f, 0x97, 0xed, 0x23, 0x1c, 0xa5, 0x6c, 0xaf,
+	0xfd, 0x64, 0x68, 0xff, 0x9c, 0x12, 0x3f, 0x95, 0xc0, 0xcf, 0x3d, 0xcf, 0x8e, 0x6f, 0x60, 0x45,
+	0x7d, 0xce, 0x34, 0xe0, 0xf2, 0x79, 0xc6, 0x2b, 0x38, 0x1c, 0x53, 0xae, 0xd5, 0x5c, 0x5b, 0xa2,
+	0xab, 0xac, 0xfe, 0x52, 0x65, 0x71, 0xf4, 0x31, 0x87, 0x7e, 0xac, 0x72, 0x12, 0x05, 0x1b, 0x77,
+	0x46, 0xa3, 0x54, 0x62, 0x0f, 0xea, 0xf3, 0x28, 0x58, 0x87, 0x8a, 0x2d, 0x0e, 0x04, 0xd7, 0x86,
+	0x46, 0xcc, 0x0d, 0xfc, 0x84, 0x4b, 0x85, 0x62, 0x68, 0x96, 0xae, 0x3f, 0x53, 0x24, 0xf2, 0x5b,
+	0xd8, 0x27, 0xf4, 0xd6, 0x11, 0xf1, 0xd4, 0x34, 0xaa, 0x08, 0x5f, 0xca, 0xb3, 0xb9, 0x20, 0x9c,
+	0x32, 0xfe, 0x1f, 0x88, 0xcf, 0xe3, 0xb7, 0x26, 0x61, 0xfe, 0x07, 0xc4, 0x27, 0x3f, 0xea, 0xd0,
+	0xb2, 0xd5, 0xc3, 0x8d, 0x4e, 0xa1, 0xab, 0x59, 0x91, 0xa1, 0x3b, 0xf2, 0xc1, 0x2c, 0xba, 0xd3,
+	0xda, 0x97, 0x0b, 0xda, 0x03, 0x8d, 0x2b, 0x0f, 0x0d, 0xf4, 0x04, 0x60, 0xeb, 0x59, 0xd4, 0x97,
+	0x7b, 0x0a, 0x26, 0xb6, 0xba, 0x7a, 0x2d, 0xae, 0xa0, 0x47, 0xd0, 0x4e, 0x07, 0x1d, 0x1d, 0x26,
+	0x45, 0x19, 0x43, 0x5b, 0x1d, 0x99, 0x8e, 0x73, 0xb8, 0x82, 0x4e, 0xe1, 0x46, 0xc6, 0x89, 0xe8,
+	0x28, 0x5b, 0xa6, 0xb9, 0xd3, 0xba, 0xa5, 0x95, 0x8a, 0x3c, 0xae, 0xa0, 0x73, 0xb8, 0x9d, 0x6e,
+	0x7d, 0x15, 0x44, 0xc9, 0x0f, 0xd4, 0x71, 0x16, 0x24, 0x6f, 0xba, 0xbc, 0x88, 0x0f, 0x70, 0x6f,
+	0x4c, 0xb9, 0xf6, 0x94, 0xba, 0x94, 0xbd, 0x5f, 0x90, 0xc4, 0x22, 0x5b, 0xb8, 0x72, 0xab, 0x59,
+	0x07, 0xfa, 0xaf, 0x91, 0x7c, 0x8a, 0xe5, 0x21, 0x9e, 0x49, 0x9f, 0xc5, 0x2c, 0x1a, 0x1c, 0x43,
+	0x56, 0x82, 0x57, 0xf4, 0x60, 0x5e, 0x9a, 0xbd, 0x43, 0x9a, 0x1a, 0x2c, 0x74, 0x57, 0x93, 0x96,
+	0x1f, 0xf3, 0x5d, 0xba, 0x3e, 0x01, 0x4e, 0xad, 0xb1, 0x1b, 0x39, 0x6d, 0xba, 0xdc, 0x43, 0xbb,
+	0xc0, 0xdf, 0x4a, 0xc1, 0x6a, 0xfc, 0xb7, 0xbd, 0xab, 0x72, 0xb6, 0x85, 0x2d, 0x77, 0x48, 0xae,
+	0xff, 0x69, 0x43, 0xfe, 0x03, 0x79, 0xfc, 0x33, 0x00, 0x00, 0xff, 0xff, 0x59, 0x5f, 0x52, 0x99,
+	0x93, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -771,6 +930,7 @@ type RegistryClient interface {
 	ListPackages(ctx context.Context, in *ListPackageRequest, opts ...grpc.CallOption) (Registry_ListPackagesClient, error)
 	GetPackage(ctx context.Context, in *GetPackageRequest, opts ...grpc.CallOption) (*Package, error)
 	GetBundle(ctx context.Context, in *GetBundleRequest, opts ...grpc.CallOption) (*Bundle, error)
+	GetBundlePath(ctx context.Context, in *GetBundlePathRequest, opts ...grpc.CallOption) (*BundlePath, error)
 	GetBundleForChannel(ctx context.Context, in *GetBundleInChannelRequest, opts ...grpc.CallOption) (*Bundle, error)
 	GetChannelEntriesThatReplace(ctx context.Context, in *GetAllReplacementsRequest, opts ...grpc.CallOption) (Registry_GetChannelEntriesThatReplaceClient, error)
 	GetBundleThatReplaces(ctx context.Context, in *GetReplacementRequest, opts ...grpc.CallOption) (*Bundle, error)
@@ -831,6 +991,15 @@ func (c *registryClient) GetPackage(ctx context.Context, in *GetPackageRequest, 
 func (c *registryClient) GetBundle(ctx context.Context, in *GetBundleRequest, opts ...grpc.CallOption) (*Bundle, error) {
 	out := new(Bundle)
 	err := c.cc.Invoke(ctx, "/api.Registry/GetBundle", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryClient) GetBundlePath(ctx context.Context, in *GetBundlePathRequest, opts ...grpc.CallOption) (*BundlePath, error) {
+	out := new(BundlePath)
+	err := c.cc.Invoke(ctx, "/api.Registry/GetBundlePath", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -965,12 +1134,48 @@ type RegistryServer interface {
 	ListPackages(*ListPackageRequest, Registry_ListPackagesServer) error
 	GetPackage(context.Context, *GetPackageRequest) (*Package, error)
 	GetBundle(context.Context, *GetBundleRequest) (*Bundle, error)
+	GetBundlePath(context.Context, *GetBundlePathRequest) (*BundlePath, error)
 	GetBundleForChannel(context.Context, *GetBundleInChannelRequest) (*Bundle, error)
 	GetChannelEntriesThatReplace(*GetAllReplacementsRequest, Registry_GetChannelEntriesThatReplaceServer) error
 	GetBundleThatReplaces(context.Context, *GetReplacementRequest) (*Bundle, error)
 	GetChannelEntriesThatProvide(*GetAllProvidersRequest, Registry_GetChannelEntriesThatProvideServer) error
 	GetLatestChannelEntriesThatProvide(*GetLatestProvidersRequest, Registry_GetLatestChannelEntriesThatProvideServer) error
 	GetDefaultBundleThatProvides(context.Context, *GetDefaultProviderRequest) (*Bundle, error)
+}
+
+// UnimplementedRegistryServer can be embedded to have forward compatible implementations.
+type UnimplementedRegistryServer struct {
+}
+
+func (*UnimplementedRegistryServer) ListPackages(req *ListPackageRequest, srv Registry_ListPackagesServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListPackages not implemented")
+}
+func (*UnimplementedRegistryServer) GetPackage(ctx context.Context, req *GetPackageRequest) (*Package, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPackage not implemented")
+}
+func (*UnimplementedRegistryServer) GetBundle(ctx context.Context, req *GetBundleRequest) (*Bundle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBundle not implemented")
+}
+func (*UnimplementedRegistryServer) GetBundlePath(ctx context.Context, req *GetBundlePathRequest) (*BundlePath, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBundlePath not implemented")
+}
+func (*UnimplementedRegistryServer) GetBundleForChannel(ctx context.Context, req *GetBundleInChannelRequest) (*Bundle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBundleForChannel not implemented")
+}
+func (*UnimplementedRegistryServer) GetChannelEntriesThatReplace(req *GetAllReplacementsRequest, srv Registry_GetChannelEntriesThatReplaceServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetChannelEntriesThatReplace not implemented")
+}
+func (*UnimplementedRegistryServer) GetBundleThatReplaces(ctx context.Context, req *GetReplacementRequest) (*Bundle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBundleThatReplaces not implemented")
+}
+func (*UnimplementedRegistryServer) GetChannelEntriesThatProvide(req *GetAllProvidersRequest, srv Registry_GetChannelEntriesThatProvideServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetChannelEntriesThatProvide not implemented")
+}
+func (*UnimplementedRegistryServer) GetLatestChannelEntriesThatProvide(req *GetLatestProvidersRequest, srv Registry_GetLatestChannelEntriesThatProvideServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetLatestChannelEntriesThatProvide not implemented")
+}
+func (*UnimplementedRegistryServer) GetDefaultBundleThatProvides(ctx context.Context, req *GetDefaultProviderRequest) (*Bundle, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultBundleThatProvides not implemented")
 }
 
 func RegisterRegistryServer(s *grpc.Server, srv RegistryServer) {
@@ -1030,6 +1235,24 @@ func _Registry_GetBundle_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RegistryServer).GetBundle(ctx, req.(*GetBundleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Registry_GetBundlePath_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBundlePathRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServer).GetBundlePath(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Registry/GetBundlePath",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServer).GetBundlePath(ctx, req.(*GetBundlePathRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1164,6 +1387,10 @@ var _Registry_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Registry_GetBundle_Handler,
 		},
 		{
+			MethodName: "GetBundlePath",
+			Handler:    _Registry_GetBundlePath_Handler,
+		},
+		{
 			MethodName: "GetBundleForChannel",
 			Handler:    _Registry_GetBundleForChannel_Handler,
 		},
@@ -1199,49 +1426,4 @@ var _Registry_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Metadata: "registry.proto",
-}
-
-func init() { proto.RegisterFile("registry.proto", fileDescriptor_registry_3b20cfe64d54b8f8) }
-
-var fileDescriptor_registry_3b20cfe64d54b8f8 = []byte{
-	// 615 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x55, 0x4d, 0x6f, 0xd3, 0x40,
-	0x10, 0x8d, 0x93, 0xe6, 0x6b, 0x12, 0xa1, 0x76, 0x69, 0x83, 0x31, 0xa8, 0x0a, 0x7b, 0x21, 0xa7,
-	0x08, 0x0a, 0x88, 0x13, 0x07, 0x4a, 0x21, 0x02, 0x15, 0x54, 0x59, 0x20, 0x0e, 0x9c, 0x36, 0xce,
-	0x92, 0x98, 0x38, 0x6b, 0xb3, 0xbb, 0x49, 0xd5, 0x3f, 0xc1, 0x85, 0x0b, 0x3f, 0x17, 0x79, 0xbd,
-	0x76, 0xd6, 0x1f, 0xa1, 0x48, 0x48, 0xf4, 0x96, 0x19, 0xef, 0xbc, 0xf7, 0x66, 0xf7, 0xcd, 0x04,
-	0x6e, 0x71, 0x3a, 0xf7, 0x85, 0xe4, 0x57, 0xe3, 0x88, 0x87, 0x32, 0x44, 0x0d, 0x12, 0xf9, 0xf8,
-	0x39, 0xb4, 0x5f, 0x2d, 0x08, 0x63, 0x34, 0x40, 0x08, 0xf6, 0x18, 0x59, 0x51, 0xdb, 0x1a, 0x5a,
-	0xa3, 0xae, 0xab, 0x7e, 0x23, 0x1b, 0xda, 0x9e, 0xd8, 0x7c, 0x88, 0xd3, 0x75, 0x95, 0x4e, 0x43,
-	0xfc, 0x00, 0x7a, 0x17, 0xc4, 0x5b, 0x92, 0x39, 0x8d, 0xc3, 0xaa, 0x62, 0x7c, 0x09, 0x6d, 0x7d,
-	0xa4, 0x12, 0x7b, 0x04, 0x1d, 0x2f, 0xa1, 0x16, 0x76, 0x7d, 0xd8, 0x18, 0xf5, 0x4e, 0xfa, 0x63,
-	0x12, 0xf9, 0x63, 0xad, 0xc7, 0xcd, 0xbe, 0xa2, 0x31, 0xa0, 0x19, 0xfd, 0x4a, 0xd6, 0x81, 0xd4,
-	0xdf, 0x94, 0xa0, 0x86, 0xc2, 0xaa, 0xf8, 0x82, 0x7f, 0x59, 0xd0, 0x3a, 0x5d, 0xb3, 0x59, 0x90,
-	0x6b, 0xc0, 0xca, 0x35, 0x80, 0x86, 0xd0, 0x8b, 0xb6, 0x0d, 0xe8, 0xf6, 0xcc, 0x54, 0x7c, 0xc2,
-	0x2b, 0xf1, 0x99, 0x29, 0x8d, 0xfe, 0x4e, 0x84, 0xcc, 0xde, 0xcb, 0xd0, 0xe3, 0x10, 0x0d, 0xa0,
-	0x15, 0x4e, 0xbf, 0x51, 0x4f, 0xda, 0xcd, 0x61, 0x63, 0xd4, 0x75, 0x75, 0x84, 0x7f, 0x58, 0xd0,
-	0xd7, 0x52, 0x5f, 0x33, 0xc9, 0xaf, 0x8a, 0x32, 0xac, 0x6b, 0x65, 0xd4, 0xcb, 0x32, 0x8e, 0x01,
-	0xa6, 0xaa, 0x5d, 0x43, 0xa7, 0x91, 0x41, 0x0e, 0x74, 0x38, 0x8d, 0x02, 0xe2, 0x51, 0xa1, 0x75,
-	0x66, 0x31, 0x3e, 0x04, 0x74, 0xee, 0x0b, 0xa9, 0x1f, 0xca, 0xa5, 0xdf, 0xd7, 0x54, 0x48, 0xfc,
-	0x10, 0x0e, 0x26, 0xb4, 0x90, 0xac, 0x7c, 0xe3, 0x05, 0xec, 0x4f, 0xa8, 0x4c, 0x2e, 0x3b, 0x3d,
-	0x67, 0x43, 0x3b, 0x5a, 0xce, 0xcd, 0x3b, 0xd7, 0xe1, 0x5f, 0xb4, 0x62, 0xbc, 0x57, 0x23, 0x6f,
-	0xb8, 0xcf, 0x70, 0x37, 0x63, 0x7a, 0xcb, 0x52, 0x93, 0xfc, 0x3b, 0x25, 0x7e, 0xa6, 0x80, 0x5f,
-	0x06, 0x81, 0x9b, 0xdc, 0xc9, 0x8a, 0x32, 0x29, 0x0c, 0xe0, 0x6a, 0xff, 0xe0, 0x15, 0x1c, 0x4d,
-	0xa8, 0x34, 0x6a, 0xae, 0x2d, 0x31, 0x55, 0xd6, 0xff, 0xa8, 0xb2, 0x6c, 0x35, 0x2c, 0x61, 0x90,
-	0xa8, 0xbc, 0xe0, 0xe1, 0xc6, 0x9f, 0x51, 0x9e, 0x49, 0x3c, 0x84, 0xe6, 0x9c, 0x87, 0xeb, 0x48,
-	0xb3, 0x25, 0x41, 0xcc, 0xb5, 0xa1, 0x5c, 0xf8, 0x21, 0x4b, 0xb9, 0x74, 0x18, 0x3f, 0xe3, 0xd2,
-	0x67, 0x33, 0x4d, 0xa2, 0x7e, 0xc7, 0x76, 0x8d, 0x82, 0x35, 0x27, 0x81, 0xf6, 0x87, 0x8e, 0xf0,
-	0xa5, 0xba, 0x9b, 0x73, 0x22, 0xa9, 0x90, 0x37, 0x40, 0x7c, 0x96, 0xcc, 0x76, 0xca, 0xfc, 0x1f,
-	0x88, 0x4f, 0x7e, 0x36, 0xa1, 0xe3, 0xea, 0x45, 0x89, 0x5e, 0x40, 0xdf, 0x18, 0x0e, 0x81, 0xee,
-	0xa8, 0x05, 0x55, 0x9e, 0x17, 0x67, 0x5f, 0x7d, 0x30, 0x16, 0x22, 0xae, 0x3d, 0xb2, 0xd0, 0x53,
-	0x80, 0xed, 0x14, 0xa1, 0x81, 0x3a, 0x53, 0x1a, 0x2b, 0xa7, 0x6f, 0xd6, 0xe2, 0x1a, 0x7a, 0x0c,
-	0xdd, 0xcc, 0xe8, 0xe8, 0x28, 0x2d, 0xca, 0x8d, 0x98, 0xd3, 0x53, 0xe9, 0x24, 0x87, 0x6b, 0xe8,
-	0x0c, 0x6e, 0x67, 0x47, 0xde, 0x84, 0x3c, 0xdd, 0xe8, 0xc7, 0xf9, 0xe2, 0xe2, 0xd4, 0x14, 0x51,
-	0x3e, 0xc1, 0xfd, 0x09, 0x95, 0xc6, 0x76, 0xf2, 0xa9, 0xf8, 0xb8, 0x20, 0xa9, 0xc7, 0xb7, 0x70,
-	0xd5, 0xb3, 0xe2, 0x1c, 0x98, 0xeb, 0x5b, 0x6d, 0x37, 0x75, 0x0b, 0xa7, 0x6a, 0x50, 0x12, 0x16,
-	0x03, 0x4e, 0x20, 0x27, 0xc5, 0x2b, 0x0f, 0x51, 0x51, 0x9a, 0xbb, 0x43, 0x9a, 0x76, 0x06, 0xba,
-	0x67, 0x48, 0x2b, 0xfa, 0x74, 0x97, 0xae, 0x2f, 0x80, 0x33, 0x6f, 0xef, 0x46, 0xce, 0x9a, 0xae,
-	0x1e, 0x82, 0x5d, 0xe0, 0xef, 0x95, 0x60, 0xed, 0xdf, 0x6d, 0xef, 0xba, 0x5c, 0x6c, 0x61, 0xab,
-	0x2d, 0x5e, 0xe8, 0x7f, 0xda, 0x52, 0x7f, 0xd9, 0x4f, 0x7e, 0x07, 0x00, 0x00, 0xff, 0xff, 0x11,
-	0x0c, 0xe5, 0xa0, 0xc4, 0x07, 0x00, 0x00,
 }

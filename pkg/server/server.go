@@ -50,6 +50,15 @@ func (s *RegistryServer) GetBundle(ctx context.Context, req *api.GetBundleReques
 	return api.BundleStringToAPIBundle(bundleString, entry)
 }
 
+func (s *RegistryServer) GetBundlePath(ctx context.Context, req *api.GetBundlePathRequest) (*api.BundlePath, error) {
+	bundlePath, err := s.store.GetBundlePath(ctx, req.GetPkgName(), req.GetChannelName(), req.GetCsvName())
+	if err != nil {
+		return nil, err
+	}
+
+	return api.BundlePathStringToAPIBundlePath(bundlePath), nil
+}
+
 func (s *RegistryServer) GetBundleForChannel(ctx context.Context, req *api.GetBundleInChannelRequest) (*api.Bundle, error) {
 	bundleString, err := s.store.GetBundleForChannel(ctx, req.GetPkgName(), req.GetChannelName())
 	if err != nil {
