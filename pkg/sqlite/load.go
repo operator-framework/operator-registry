@@ -35,7 +35,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	CREATE TABLE IF NOT EXISTS package (
 		name TEXT PRIMARY KEY,
 		default_channel TEXT,
-		FOREIGN KEY(default_channel) REFERENCES channel(name)
+		FOREIGN KEY(name, default_channel) REFERENCES channel(package_name,name)
 	);
 	CREATE TABLE IF NOT EXISTS channel (
 		name TEXT, 
@@ -53,9 +53,7 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		replaces INTEGER,
 		depth INTEGER,
 		FOREIGN KEY(replaces) REFERENCES channel_entry(entry_id)  DEFERRABLE INITIALLY DEFERRED, 
-		FOREIGN KEY(channel_name) REFERENCES channel(name),
-		FOREIGN KEY(package_name) REFERENCES channel(package_name),
-		FOREIGN KEY(operatorbundle_name) REFERENCES operatorbundle(name)
+		FOREIGN KEY(channel_name, package_name) REFERENCES channel(name, package_name)
 	);
 	CREATE TABLE IF NOT EXISTS api (
 		group_name TEXT,
@@ -73,6 +71,10 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
 	);
 	`
+
+	if _, err := db.Exec("PRAGMA foreign_keys = ON", nil); err != nil {
+		return nil, err
+	}
 
 	if _, err = db.Exec(createTable); err != nil {
 		return nil, err
