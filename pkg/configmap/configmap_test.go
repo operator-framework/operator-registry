@@ -1,12 +1,13 @@
 package configmap
 
 import (
+	"os"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"os"
-	"testing"
 )
 
 func TestLoad(t *testing.T) {
@@ -36,7 +37,6 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, 1, len(crdListGot))
 			},
 		},
-
 		{
 			name:   "BundleWithPackageManifest",
 			source: "testdata/bundle-with-package-manifest.cm.yaml",
@@ -47,7 +47,6 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, "etcd", manifestGot.PackageManifest.PackageName)
 			},
 		},
-
 		{
 			name:   "BundleWithMultiplePackageManifests",
 			source: "testdata/bundle-with-multiple-package-manifests.cm.yaml",
@@ -59,7 +58,6 @@ func TestLoad(t *testing.T) {
 				assert.True(t, name == "first" || name == "second")
 			},
 		},
-
 		{
 			name:   "BundleWithBuiltInKubeTypes",
 			source: "testdata/bundle-with-kube-resources.cm.yaml",
@@ -72,7 +70,6 @@ func TestLoad(t *testing.T) {
 				assert.True(t, objects[0].GetKind() == "Foo")
 			},
 		},
-
 		{
 			name:   "BundleWithMultipleCsvs",
 			source: "testdata/bundle-with-multiple-csvs.cm.yaml",
@@ -85,7 +82,6 @@ func TestLoad(t *testing.T) {
 				assert.True(t, csvGot.GetName() == "first" || csvGot.GetName() == "second")
 			},
 		},
-
 		{
 			name:   "BundleWithBadResource",
 			source: "testdata/bundle-with-bad-resource.cm.yaml",
@@ -95,6 +91,31 @@ func TestLoad(t *testing.T) {
 				csvGot, errGot := manifestGot.Bundle.ClusterServiceVersion()
 				assert.NoError(t, errGot)
 				assert.NotNil(t, csvGot)
+			},
+		},
+		{
+			name:   "BundleWithAll",
+			source: "testdata/bundle-with-all.yaml",
+			assertFunc: func(t *testing.T, manifestGot *Manifest) {
+				assert.NotNil(t, manifestGot.Bundle)
+				assert.NotNil(t, manifestGot.PackageManifest)
+
+				csvGot, errGot := manifestGot.Bundle.ClusterServiceVersion()
+				assert.NoError(t, errGot)
+				assert.NotNil(t, csvGot)
+				assert.True(t, csvGot.GetName() == "kiali-operator.v1.4.2")
+
+				crdListGot, errGot := manifestGot.Bundle.CustomResourceDefinitions()
+				assert.NoError(t, errGot)
+				assert.Equal(t, 2, len(crdListGot))
+
+				providedAPIList, errGot := manifestGot.Bundle.ProvidedAPIs()
+				assert.NoError(t, errGot)
+				assert.Equal(t, 2, len(providedAPIList))
+
+				requiredAPIList, errGot := manifestGot.Bundle.RequiredAPIs()
+				assert.NoError(t, errGot)
+				assert.Equal(t, 0, len(requiredAPIList))
 			},
 		},
 	}
