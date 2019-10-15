@@ -43,6 +43,11 @@ func (s *RegistryServer) GetBundle(ctx context.Context, req *api.GetBundleReques
 	if err != nil {
 		return nil, err
 	}
+	// if the value of the `bundle` field in the OperatorBundle table is NULL, return an
+	// empty Bundle struct
+	if bundleString == "" {
+		return new(api.Bundle), nil
+	}
 	entry := &registry.ChannelEntry{
 		PackageName: req.GetPkgName(),
 		ChannelName: req.GetChannelName(),

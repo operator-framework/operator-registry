@@ -162,6 +162,19 @@ func TestGetBundleForChannel(t *testing.T) {
 	require.Equal(t, expected, bundle)
 }
 
+func TestGetBundlePath(t *testing.T) {
+	c, conn := client(t)
+	defer conn.Close()
+
+	bundlePath, err := c.GetBundlePath(context.TODO(), &api.GetBundlePathRequest{PkgName: "etcd", ChannelName: "alpha", CsvName: "etcdoperator.v0.6.1"})
+	require.NoError(t, err)
+
+	expectedBundlePath := &api.BundlePath{
+		Path: "",
+	}
+	require.Equal(t, expectedBundlePath, bundlePath)
+}
+
 func TestGetChannelEntriesThatReplace(t *testing.T) {
 	c, conn := client(t)
 	defer conn.Close()

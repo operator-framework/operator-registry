@@ -113,7 +113,7 @@ func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvNam
 	}
 
 	if !rows.Next() {
-		return "", fmt.Errorf("no bundle found for csv %s", csvName)
+		return "", fmt.Errorf("no entry found for csv %s", csvName)
 	}
 	var bundleStringSQL sql.NullString
 	if err := rows.Scan(&bundleStringSQL); err != nil {
