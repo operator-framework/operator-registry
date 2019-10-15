@@ -29,7 +29,7 @@ func server() {
 	}
 	s := grpc.NewServer()
 
-	load, err := sqlite.NewSQLLiteLoader(dbName)
+	load, err := sqlite.NewSQLLiteLoader(dbName, "../sqlite/db_migrations")
 	if err != nil {
 		logrus.Fatal(err)
 	}

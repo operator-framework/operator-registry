@@ -18,7 +18,7 @@ import (
 func TestDirectoryLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader("test.db")
+	store, err := NewSQLLiteLoader("test.db", "./db_migrations")
 	require.NoError(t, err)
 	defer func() {
 		if err := os.Remove("test.db"); err != nil {
@@ -33,7 +33,7 @@ func TestDirectoryLoader(t *testing.T) {
 func TestDirectoryLoaderWithBadManifests(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader("test.db")
+	store, err := NewSQLLiteLoader("test.db", "./db_migrations")
 	require.NoError(t, err)
 	defer func() {
 		if err := os.Remove("test.db"); err != nil {
@@ -72,7 +72,7 @@ func TestDirectoryLoaderWithBadManifests(t *testing.T) {
 }
 
 func TestQuerierForDirectory(t *testing.T) {
-	load, err := NewSQLLiteLoader("test.db")
+	load, err := NewSQLLiteLoader("test.db", "./db_migrations")
 	require.NoError(t, err)
 	defer func() {
 		if err := os.Remove("test.db"); err != nil {

@@ -53,7 +53,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(outFilename)
+	dbLoader, err := sqlite.NewSQLLiteLoader(outFilename, "")
 	if err != nil {
 		return err
 	}

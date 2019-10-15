@@ -4,19 +4,19 @@ import (
 	"context"
 	"os"
 	"testing"
-	
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	
+
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestConfigMapLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader("test.db")
+	store, err := NewSQLLiteLoader("test.db", "./db_migrations")
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 
@@ -34,7 +34,7 @@ func TestConfigMapLoader(t *testing.T) {
 }
 
 func TestQuerierForConfigmap(t *testing.T) {
-	load, err := NewSQLLiteLoader("test.db")
+	load, err := NewSQLLiteLoader("test.db", "./db_migrations")
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 

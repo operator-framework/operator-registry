@@ -20,7 +20,7 @@ type SQLLoader struct {
 
 var _ registry.Load = &SQLLoader{}
 
-func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
+func NewSQLLiteLoader(outFilename, migrationsPath string) (*SQLLoader, error) {
 	db, err := sql.Open("sqlite3", outFilename) // TODO: ?immutable=true
 	if err != nil {
 		return nil, err
@@ -77,6 +77,14 @@ func NewSQLLiteLoader(outFilename string) (*SQLLoader, error) {
 	if _, err = db.Exec(createTable); err != nil {
 		return nil, err
 	}
+
+	// Apply the current latest database version to keep net new databases in sync with upgradeable ones
+	migrator := NewSQLLiteMigrator(db, migrationsPath)
+	err = migrator.InitMigrationVersion()
+	if err != nil {
+		return nil, err
+	}
+
 	return &SQLLoader{db}, nil
 }
 
