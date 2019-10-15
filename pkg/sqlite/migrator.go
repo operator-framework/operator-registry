@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,26 +15,70 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file" // indirect import required by golang-migrate package
 )
 
-const (
-	// Hardcoded path where the db_migrations live
-	defaultMigrationsPath = "./pkg/sqlite/db_migrations"
-)
-
 type SQLMigrator struct {
 	db             *sql.DB
 	migrationsPath string
+	generated bool
 }
 
 // NewSQLLiteMigrator returns a SQLMigrator. The SQLMigrator takes a sql database and directory for migrations
 // and exposes a set of functions that allow the golang-migrate project to apply migrations to that database.
-func NewSQLLiteMigrator(db *sql.DB, migrationsPath string) *SQLMigrator {
+func NewSQLLiteMigrator(db *sql.DB, migrationsPath string) (*SQLMigrator, error) {
+	// If no migrations folder is set, use the generated migrations
 	if migrationsPath == "" {
-		migrationsPath = defaultMigrationsPath
+		// Create a temp dir for the generated migrations
+		tempDir, err := ioutil.TempDir(".", "db_migrations_")
+		if err != nil {
+			return nil, err
+		}
+
+		migrationsFolder := "pkg/sqlite/db_migrations"
+
+		dirData, err := AssetDir(migrationsFolder)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, file := range dirData {
+			fileData, err := Asset(fmt.Sprintf("%s/%s", migrationsFolder, file))
+			if err != nil {
+				return nil, err
+			}
+			
+			f, err := os.Create(fmt.Sprintf("%s/%s", tempDir, file))
+			if err != nil {
+				return nil, err
+			}
+			defer f.Close()
+
+			_, err = f.Write(fileData)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &SQLMigrator{
+			db:             db,
+			migrationsPath: tempDir,
+			generated: true,
+		}, nil
 	}
+
 	return &SQLMigrator{
 		db:             db,
 		migrationsPath: migrationsPath,
+		generated: false,
+	}, nil
+}
+
+// CleanUpMigrator deletes any unnecessary data generated just for the scope of the migrator. 
+// Call this function once the scope of the Migrator is no longer required
+func (m *SQLMigrator) CleanUpMigrator() {
+	if m.generated {
+		os.RemoveAll(m.migrationsPath)
 	}
+
+	return
 }
 
 // InitMigrationVersion parses the db_migrations for the latest migration version, then applies that

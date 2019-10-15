@@ -3,7 +3,7 @@ CMDS  := $(addprefix bin/, $(shell go list $(MOD_FLAGS) ./cmd/... | xargs -I{} b
 
 .PHONY: build test vendor clean
 
-all: clean test build
+all: clean install-go-bindata test build
 
 $(CMDS):
 	go build $(MOD_FLAGS) $(extra_flags) -o $@ ./cmd/$(shell basename $@)
@@ -24,6 +24,12 @@ image-upstream:
 
 vendor:
 	go mod vendor
+
+install-go-bindata:
+	go get -u github.com/go-bindata/go-bindata/...
+
+generate-migration-bundle:
+	go-bindata -pkg sqlite -o ./pkg/sqlite/migrations.go ./pkg/sqlite/db_migrations/
 
 codegen:
 	protoc -I pkg/api/ --go_out=plugins=grpc:pkg/api pkg/api/*.proto

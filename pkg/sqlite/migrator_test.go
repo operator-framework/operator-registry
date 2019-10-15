@@ -11,11 +11,12 @@ import (
 func TestValidMigratorVersion(t *testing.T) {
 	migrationsPath := "./db_migrations"
 
-	store, err := NewSQLLiteLoader("test.db", migrationsPath)
+	store, err := NewSQLLiteLoader(WithDBName("test.db"), WithMigrationsPath(migrationsPath))
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 
-	migrator := NewSQLLiteMigrator(store.db, migrationsPath)
+	migrator, err := NewSQLLiteMigrator(store.db, migrationsPath)
+	require.NoError(t, err, "Unable to initialize migrator")
 
 	version, err := migrator.CurrentVersion()
 	require.NoError(t, err, "Could not parse latest migration version from db_migrations folder")
@@ -27,11 +28,12 @@ func TestGetMigrationVersion(t *testing.T) {
 	expectedVersion := uint(200412250000)
 	migrationsPath := "./testdata/test_db_migrations/valid"
 
-	store, err := NewSQLLiteLoader("test.db", migrationsPath)
+	store, err := NewSQLLiteLoader(WithDBName("test.db"), WithMigrationsPath(migrationsPath))
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 
-	migrator := NewSQLLiteMigrator(store.db, migrationsPath)
+	migrator, err := NewSQLLiteMigrator(store.db, migrationsPath)
+	require.NoError(t, err, "Unable to initialize migrator")
 
 	version, err := migrator.CurrentVersion()
 	require.NoError(t, err, "Could not parse latest migration version from db_migrations folder")
@@ -43,7 +45,18 @@ func TestGetMigrationVersion(t *testing.T) {
 func TestGetMigrationError(t *testing.T) {
 	migrationsPath := "./testdata/test_db_migrations/invalid"
 
-	_, err := NewSQLLiteLoader("test.db", migrationsPath)
+	_, err := NewSQLLiteLoader(WithDBName("test.db"), WithMigrationsPath(migrationsPath))
 	require.Error(t, err)
 	defer os.Remove("test.db")
+}
+
+func TestGeneratedMigrations(t *testing.T) {
+	store, err := NewSQLLiteLoader(WithDBName("test.db"))
+	require.NoError(t, err)
+	defer os.Remove("test.db")
+	
+	migrator, err := NewSQLLiteMigrator(store.db, "")
+	defer migrator.CleanUpMigrator()
+
+	require.NoError(t, err, "Unable to initialize migrator with generated migrations")
 }

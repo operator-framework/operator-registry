@@ -16,7 +16,7 @@ import (
 func TestConfigMapLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader("test.db", "./db_migrations")
+	store, err := NewSQLLiteLoader(WithDBName("test.db"))
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 
@@ -34,7 +34,7 @@ func TestConfigMapLoader(t *testing.T) {
 }
 
 func TestQuerierForConfigmap(t *testing.T) {
-	load, err := NewSQLLiteLoader("test.db", "./db_migrations")
+	load, err := NewSQLLiteLoader(WithDBName("test.db"))
 	require.NoError(t, err)
 	defer os.Remove("test.db")
 
