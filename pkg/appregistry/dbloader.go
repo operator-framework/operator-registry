@@ -11,7 +11,7 @@ import (
 )
 
 func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
-	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
+	sqlLoader, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
 	if err != nil {
 		return nil, err
 	}

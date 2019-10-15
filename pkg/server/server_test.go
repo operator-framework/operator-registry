@@ -29,7 +29,7 @@ func server() {
 	}
 	s := grpc.NewServer()
 
-	load, err := sqlite.NewSQLLiteLoader(dbName)
+	load, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
 	if err != nil {
 		logrus.Fatal(err)
 	}

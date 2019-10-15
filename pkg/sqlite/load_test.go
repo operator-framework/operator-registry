@@ -131,7 +131,7 @@ func TestAddPackageChannels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			db := fmt.Sprintf("%d.db", rand.Int())
-			store, err := NewSQLLiteLoader(db)
+			store, err := NewSQLLiteLoader(WithDBName(db))
 			require.NoError(t, err)
 			defer func() {
 				if err := os.Remove(db); err != nil {

@@ -98,7 +98,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.Fatalf("error getting configmap: %s", err)
 	}
 
-	sqlLoader, err := sqlite.NewSQLLiteLoader(dbName)
+	sqlLoader, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
 	if err != nil {
 		return err
 	}
