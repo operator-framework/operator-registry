@@ -1,4 +1,4 @@
-overwrite# Operator Bundle
+# Operator Bundle
 
 An `Operator Bundle` is a container image that stores Kubernetes manifests and metadata associated with an operator. A bundle is meant to present a *specific* version of an operator.
 
@@ -18,19 +18,27 @@ An `Operator Bundle` is built as a scratch (non-runnable) container image that c
 ### Bundle Annotations
 
 We use the following labels to annotate the operator bundle image.
-* The label `operators.operatorframework.io.bundle.resources` represents the bundle type:
-    * The value `manifests` implies that this bundle contains operator manifests only.
-    * The value `metadata` implies that this bundle has operator metadata only.
-    * The value `manifests+metadata` implies that this bundle contains both operator metadata and manifests.
-* The label `operators.operatorframework.io.bundle.mediatype` reflects the media type or format of the operator bundle. It could be helm charts, plain Kubernetes manifests etc.
+* The label `operators.operatorframework.io.bundle.mediatype.v1` reflects the media type or format of the operator bundle. It could be helm charts, plain Kubernetes manifests etc.
+* The label `operators.operatorframework.io.bundle.manifests.v1 `reflects the path in the image to the directory that contains the operator manifests.
+* The label `operators.operatorframework.io.bundle.metadata.v1` reflects the path in the image to the directory that contains metadata files about the bundle.
+* The `manifests.v1` and `metadata.v1` labels imply the bundle type:
+    * The value `manifests.v1` implies that this bundle contains operator manifests.
+    * The value `metadata.v1` implies that this bundle has operator metadata.
+* The label `operators.operatorframework.io.bundle.package.v1` reflects the package name of the bundle.
+* The label `operators.operatorframework.io.bundle.channels.v1` reflects the list of channels the bundle is subscribing to when added into an operator registry
+* The label `operators.operatorframework.io.bundle.channel.default.v1` reflects the default channel an operator should be subscribed to when installed from a registry
 
 The labels will also be put inside a YAML file, as shown below.
 
 *annotations.yaml*
 ```yaml
 annotations:
-  operators.operatorframework.io.bundle.resources: "manifests+metadata"
-  operators.operatorframework.io.bundle.mediatype: "registry+v1"
+  operators.operatorframework.io.bundle.mediatype.v1: "registry+v1"
+  operators.operatorframework.io.bundle.manifests.v1: "manifests/"
+  operators.operatorframework.io.bundle.metadata.v1: "metadata/"
+  operators.operatorframework.io.bundle.package.v1: "test-operator"
+  operators.operatorframework.io.bundle.channels.v1: "beta,stable"
+  operators.operatorframework.io.bundle.channel.default.v1: "stable"
 ```
 
 *Notes:*
@@ -57,11 +65,15 @@ FROM scratch
 
 # We are pushing an operator-registry bundle
 # that has both metadata and manifests.
-LABEL operators.operatorframework.io.bundle.resources=manifests+metadata
-LABEL operators.operatorframework.io.bundle.mediatype=registry+v1
+LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
+LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
+LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
+LABEL operators.operatorframework.io.bundle.package.v1=test-operator
+LABEL operators.operatorframework.io.bundle.channels.v1=beta,stable
+LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
 
 ADD test/*.yaml /manifests
-ADD test/annotations.yaml /metadata/annotations.yaml
+ADD test/metadata/annotations.yaml /metadata/annotations.yaml
 ```
 
 Below is the directory layout of the operator bundle inside the image:
@@ -126,7 +138,8 @@ The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `
 
 The command for `generate` task is:
 ```bash
-$ ./operator-sdk bundle generate --directory /test --package test-operator --channels stable,beta --default stable
+$ ./operator-sdk bundle generate --directory /test --package test-operator \
+--channels stable,beta --default stable
 ```
 
 The `--directory` or `-d` specifies the directory where the operator manifests are located. The `Dockerfile` is generated in the same directory where the YAML manifests are located while the `annotations.yaml` file is located in a folder named `metadata`. For example:
@@ -166,14 +179,16 @@ Flags:
 
 The command for `build` task is:
 ```bash
-$ ./operator-sdk bundle build --directory /test --tag quay.io/coreos/test-operator.v0.1.0:latest --package test-operator --channels stable,beta --default stable
+$ ./operator-sdk bundle build --directory /test --tag quay.io/coreos/test-operator.v0.1.0:latest \
+--package test-operator --channels stable,beta --default stable
 ```
 
 The `--directory` or `-d` specifies the directory where the operator manifests are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
 The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
 ```bash
-$ ./operator-sdk bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder podman --package test-operator --channels stable,beta --default stable
+$ ./operator-sdk bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
+--image-builder podman --package test-operator --channels stable,beta --default stable
 ```
 
 The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.

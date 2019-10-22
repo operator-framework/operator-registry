@@ -36,6 +36,12 @@ type AnnotationMetadata struct {
 // GenerateFunc builds annotations.yaml with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information and then writes the file to `/metadata` directory.
+// Inputs:
+// @directory: The local directory where bundle manifests and metadata are located
+// @packageName: The name of the package that bundle image belongs to
+// @channels: The list of channels that bundle image belongs to
+// @channelDefault: The default channel for the bundle image
+// @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
 func GenerateFunc(directory, packageName, channels, channelDefault string, overwrite bool) error {
 	var mediaType string
 

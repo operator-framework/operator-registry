@@ -40,6 +40,19 @@ func ExecuteCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
+// BuildFunc is used to build bundle container image from a list of manifests
+// that exist in local directory and it also generates Dockerfile annotations.yaml
+// which contains media type, package name and channels information if the file
+// doesn't exist locally.
+// Inputs:
+// @directory: The local directory where bundle manifests and metadata are located
+// @imageTag: The image tag that is applied to the bundle image
+// @imageBuilder: The image builder tool that is used to build container image
+// (docker, buildah or podman)
+// @packageName: The name of the package that bundle image belongs to
+// @channels: The list of channels that bundle image belongs to
+// @channelDefault: The default channel for the bundle image
+// @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
 func BuildFunc(directory, imageTag, imageBuilder, packageName, channels, channelDefault string, overwrite bool) error {
 	// Generate annotations.yaml and Dockerfile
 	err := GenerateFunc(directory, packageName, channels, channelDefault, overwrite)
