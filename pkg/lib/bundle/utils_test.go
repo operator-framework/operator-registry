@@ -4,19 +4,20 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
-	operatorDir  = "/test-operator"
-	manifestsDir = "/0.0.1"
-	helmFile     = "Chart.yaml"
-	csvFile      = "test.clusterserviceversion.yaml"
-	crdFile      = "test.crd.yaml"
+	testOperatorDir = "/test-operator"
+	helmFile        = "Chart.yaml"
+	csvFile         = "test.clusterserviceversion.yaml"
+	crdFile         = "test.crd.yaml"
 )
 
 func setup(input string) {
 	// Create test directory
-	testDir := filepath.Join(getTestDir(), manifestsDir)
+	testDir := getTestDir()
 	createDir(testDir)
 
 	// Create test files in test directory
@@ -26,7 +27,7 @@ func setup(input string) {
 func getTestDir() string {
 	// Create test directory
 	dir, _ := os.Getwd()
-	testDir := filepath.Join(dir, operatorDir)
+	testDir := filepath.Join(dir, testOperatorDir)
 	return testDir
 }
 
@@ -54,6 +55,13 @@ func createFiles(dir, input string) {
 	default:
 		break
 	}
+}
+
+func buildTestAnnotations(key string, items map[string]string) []byte {
+	temp := make(map[string]interface{})
+	temp[key] = items
+	output, _ := yaml.Marshal(temp)
+	return output
 }
 
 func clearDir(dir string) {

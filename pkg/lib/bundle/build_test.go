@@ -19,28 +19,28 @@ func TestBuildBundleImage(t *testing.T) {
 		errorMsg     string
 	}{
 		{
-			operatorDir,
+			testOperatorDir,
 			"test",
 			"docker",
 			"docker build -f /test-operator/Dockerfile -t test .",
 			"",
 		},
 		{
-			operatorDir,
+			testOperatorDir,
 			"test",
 			"buildah",
 			"buildah bud --format=docker -f /test-operator/Dockerfile -t test .",
 			"",
 		},
 		{
-			operatorDir,
+			testOperatorDir,
 			"test",
 			"podman",
 			"podman build -f /test-operator/Dockerfile -t test .",
 			"",
 		},
 		{
-			operatorDir,
+			testOperatorDir,
 			"test",
 			"hello",
 			"",

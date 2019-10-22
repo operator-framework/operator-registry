@@ -13,7 +13,7 @@ func TestGetMediaType(t *testing.T) {
 	setup("")
 	defer cleanup()
 
-	testDir := filepath.Join(getTestDir(), manifestsDir)
+	testDir := getTestDir()
 	tests := []struct {
 		directory string
 		mediaType string
@@ -53,34 +53,170 @@ func TestGetMediaType(t *testing.T) {
 	}
 }
 
+func TestValidateChannelDefault(t *testing.T) {
+	tests := []struct {
+		channels       string
+		channelDefault string
+		result         string
+		errorMsg       string
+	}{
+		{
+			"test5,test6",
+			"",
+			"test5",
+			"",
+		},
+		{
+			"test5,test6",
+			"test7",
+			"test5",
+			`The channel list "test5,test6" doesn't contain channelDefault "test7"`,
+		},
+		{
+			",",
+			"",
+			"",
+			`Invalid channels is provied: ,`,
+		},
+	}
+
+	for _, item := range tests {
+		output, err := ValidateChannelDefault(item.channels, item.channelDefault)
+		if item.errorMsg == "" {
+			require.Equal(t, item.result, output)
+		} else {
+			require.Equal(t, item.errorMsg, err.Error())
+		}
+	}
+}
+
+func TestValidateAnnotations(t *testing.T) {
+	tests := []struct {
+		existing []byte
+		expected []byte
+		err      error
+	}{
+		{
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			nil,
+		},
+		{
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+					"test3": "beta",
+				}),
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			fmt.Errorf("Unmatched number of fields. Expected (2) vs existing (3)"),
+		},
+		{
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable",
+				}),
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			fmt.Errorf(`Expect field "test2" to have value "stable,beta" instead of "stable"`),
+		},
+		{
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test3": "stable",
+				}),
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			fmt.Errorf("Missing field: test2"),
+		},
+		{
+			[]byte("\t"),
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			fmt.Errorf("yaml: found character that cannot start any token"),
+		},
+		{
+			buildTestAnnotations("annotations",
+				map[string]string{
+					"test1": "stable",
+					"test2": "stable,beta",
+				}),
+			[]byte("\t"),
+			fmt.Errorf("yaml: found character that cannot start any token"),
+		},
+	}
+
+	for _, item := range tests {
+		err := ValidateAnnotations(item.existing, item.expected)
+		if item.err != nil {
+			require.Equal(t, item.err.Error(), err.Error())
+		} else {
+			require.Nil(t, err)
+		}
+	}
+}
+
 func TestGenerateAnnotationsFunc(t *testing.T) {
 	// Create test annotations struct
 	testAnnotations := &AnnotationMetadata{
-		Annotations: AnnotationType{
-			Resources: "test1",
-			MediaType: "test2",
+		Annotations: map[string]string{
+			mediatypeLabel:      "test1",
+			manifestsLabel:      "test2",
+			metadataLabel:       "test3",
+			packageLabel:        "test4",
+			channelsLabel:       "test5",
+			channelDefaultLabel: "test5",
 		},
 	}
 	// Create result annotations struct
 	resultAnnotations := AnnotationMetadata{}
-	data, err := GenerateAnnotations("test1", "test2")
+	data, err := GenerateAnnotations("test1", "test2", "test3", "test4", "test5", "test5")
 	require.NoError(t, err)
 
 	err = yaml.Unmarshal(data, &resultAnnotations)
 	require.NoError(t, err)
 
-	require.Equal(t, testAnnotations.Annotations.Resources, resultAnnotations.Annotations.Resources)
-	require.Equal(t, testAnnotations.Annotations.MediaType, resultAnnotations.Annotations.MediaType)
+	for key, value := range testAnnotations.Annotations {
+		require.Equal(t, value, resultAnnotations.Annotations[key])
+	}
 }
 
 func TestGenerateDockerfileFunc(t *testing.T) {
-	testDir := filepath.Join(operatorDir, manifestsDir)
-	output := "FROM scratch\n\n" +
-		"LABEL operators.operatorframework.io.bundle.resources=test1\n" +
-		"LABEL operators.operatorframework.io.bundle.mediatype=test2\n\n" +
-		"ADD /test-operator/0.0.1 /manifests\n" +
-		"ADD /test-operator/annotations.yaml /metadata/annotations.yaml\n"
+	output := fmt.Sprintf("FROM scratch\n\n"+
+		"LABEL operators.operatorframework.io.bundle.mediatype.v1=test1\n"+
+		"LABEL operators.operatorframework.io.bundle.manifests.v1=test2\n"+
+		"LABEL operators.operatorframework.io.bundle.metadata.v1=%s\n"+
+		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
+		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
+		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
+		"ADD %s/*.yaml /manifests\n"+
+		"ADD %s/annotations.yaml /metadata/annotations.yaml\n", metadataDir, getTestDir(),
+		filepath.Join(getTestDir(), metadataDir))
 
-	content := GenerateDockerfile("test1", "test2", testDir)
+	content, err := GenerateDockerfile(getTestDir(), "test1", "test2", metadataDir, "test4", "test5", "")
+	require.NoError(t, err)
 	require.Equal(t, output, string(content))
 }
