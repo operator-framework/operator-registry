@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS test(
+   test_column VARCHAR (50) PRIMARY KEY
+);

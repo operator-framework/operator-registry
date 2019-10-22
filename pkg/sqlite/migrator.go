@@ -18,7 +18,7 @@ import (
 type SQLMigrator struct {
 	db             *sql.DB
 	migrationsPath string
-	generated bool
+	generated      bool
 }
 
 // NewSQLLiteMigrator returns a SQLMigrator. The SQLMigrator takes a sql database and directory for migrations
@@ -44,7 +44,7 @@ func NewSQLLiteMigrator(db *sql.DB, migrationsPath string) (*SQLMigrator, error)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			f, err := os.Create(fmt.Sprintf("%s/%s", tempDir, file))
 			if err != nil {
 				return nil, err
@@ -60,18 +60,18 @@ func NewSQLLiteMigrator(db *sql.DB, migrationsPath string) (*SQLMigrator, error)
 		return &SQLMigrator{
 			db:             db,
 			migrationsPath: tempDir,
-			generated: true,
+			generated:      true,
 		}, nil
 	}
 
 	return &SQLMigrator{
 		db:             db,
 		migrationsPath: migrationsPath,
-		generated: false,
+		generated:      false,
 	}, nil
 }
 
-// CleanUpMigrator deletes any unnecessary data generated just for the scope of the migrator. 
+// CleanUpMigrator deletes any unnecessary data generated just for the scope of the migrator.
 // Call this function once the scope of the Migrator is no longer required
 func (m *SQLMigrator) CleanUpMigrator() {
 	if m.generated {
@@ -105,6 +105,31 @@ func (m *SQLMigrator) InitMigrationVersion() error {
 
 	err = migrator.Force(initVersion)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MigrateUp is a wrapper around golang-migrate's Up. Up
+// looks at the currently active migration version and will
+// migrate all the way up (applying all up migrations).
+func (m *SQLMigrator) MigrateUp(dbName string) error {
+	instance, err := sqlite3.WithInstance(m.db, &sqlite3.Config{DatabaseName: dbName})
+	if err != nil {
+		return err
+	}
+
+	migrator, err := migrate.NewWithDatabaseInstance(fmt.Sprintf("file://%s", m.migrationsPath), "registrydb", instance)
+	if err != nil {
+		return err
+	}
+
+	err = migrator.Up()
+	if err != nil {
+		if err == migrate.ErrNoChange {
+			return nil
+		}
 		return err
 	}
 

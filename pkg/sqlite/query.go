@@ -25,6 +25,10 @@ func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
 	return &SQLQuerier{db}, nil
 }
 
+func NewSQLLiteQuerierFromDb(db *sql.DB) *SQLQuerier {
+	return &SQLQuerier{db}
+}
+
 func (s *SQLQuerier) ListTables(ctx context.Context) ([]string, error) {
 	query := "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 	rows, err := s.db.QueryContext(ctx, query)

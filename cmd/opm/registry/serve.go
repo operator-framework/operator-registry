@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"database/sql"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -64,8 +65,19 @@ func runRegistryServeCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
+	db, err := sql.Open("sqlite3", dbName)
+	if err != nil {
+		return err
+	}
+
+	// Migrate database to latest version before serving
+	err = migrateToLatest(db, dbName)
+	if err != nil {
+		return err
+	}
+
 	var store registry.Query
-	store, err = sqlite.NewSQLLiteQuerier(dbName)
+	store = sqlite.NewSQLLiteQuerierFromDb(db)
 	if err != nil {
 		logger.WithError(err).Warnf("failed to load db")
 	}
@@ -96,5 +108,19 @@ func runRegistryServeCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.Fatalf("failed to serve: %s", err)
 	}
 
+	return nil
+}
+
+func migrateToLatest(db *sql.DB, dbName string) error {
+	migrator, err := sqlite.NewSQLLiteMigrator(db, "")
+	if err != nil {
+		return err
+	}
+	defer migrator.CleanUpMigrator()
+
+	err = migrator.MigrateUp(dbName)
+	if err != nil {
+		return err
+	}
 	return nil
 }

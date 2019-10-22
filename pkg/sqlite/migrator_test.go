@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"os"
 	"testing"
 
@@ -54,9 +55,29 @@ func TestGeneratedMigrations(t *testing.T) {
 	store, err := NewSQLLiteLoader(WithDBName("test.db"))
 	require.NoError(t, err)
 	defer os.Remove("test.db")
-	
+
 	migrator, err := NewSQLLiteMigrator(store.db, "")
 	defer migrator.CleanUpMigrator()
 
 	require.NoError(t, err, "Unable to initialize migrator with generated migrations")
+}
+
+func TestUpMigration(t *testing.T) {
+	migrationsPath := "./testdata/test_db_migrations/migrations"
+
+	db, err := sql.Open("sqlite3", "test.db")
+	require.NoError(t, err)
+
+	defer os.Remove("test.db")
+
+	migrator, err := NewSQLLiteMigrator(db, migrationsPath)
+	require.NoError(t, err, "Unable to initialize migrator")
+
+	err = migrator.MigrateUp("test.db") // Migrating up adds a new table `test`
+	require.NoError(t, err)
+
+	var name string
+	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='test';").Scan(&name)
+	require.NoError(t, err)
+	require.Equal(t, name, "test")
 }
