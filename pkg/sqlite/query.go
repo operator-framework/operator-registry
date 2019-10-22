@@ -315,3 +315,41 @@ func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, version, 
 	}
 	return bundle.String, entry, nil
 }
+
+func (s *SQLQuerier) ListImages(ctx context.Context) ([]string, error){
+	query := "SELECT DISTINCT image FROM related_image"
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	images := []string{}
+	for rows.Next() {
+		var imgName sql.NullString
+		if err := rows.Scan(&imgName); err != nil {
+			return nil, err
+		}
+		if imgName.Valid {
+			images = append(images, imgName.String)
+		}
+	}
+	return images, nil
+}
+
+func (s *SQLQuerier) GetImagesForBundle(ctx context.Context, csvName string) ([]string, error) {
+	query := "SELECT DISTINCT image FROM related_image WHERE operatorbundle_name=?"
+	rows, err := s.db.QueryContext(ctx, query, csvName)
+	if err != nil {
+		return nil, err
+	}
+	images := []string{}
+	for rows.Next() {
+		var imgName sql.NullString
+		if err := rows.Scan(&imgName); err != nil {
+			return nil, err
+		}
+		if imgName.Valid {
+			images = append(images, imgName.String)
+		}
+	}
+	return images, nil
+}

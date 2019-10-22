@@ -63,6 +63,12 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	}
 	defer stmt.Close()
 
+	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
+	if err != nil {
+		return err
+	}
+	defer addImage.Close()
+
 	csvName, csvBytes, bundleBytes, err := bundle.Serialize()
 	if err != nil {
 		return err
@@ -74,6 +80,17 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 
 	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
 		return err
+	}
+
+	imgs, err := bundle.Images()
+	if err != nil {
+		return err
+	}
+	// TODO: bulk insert
+	for img := range imgs {
+		if _, err := addImage.Exec(img, csvName); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

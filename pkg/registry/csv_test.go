@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -461,6 +462,301 @@ func TestClusterServiceVersion_GetVersion(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("GetVersion() got = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestClusterServiceVersion_GetRelatedImages(t *testing.T) {
+	type fields struct {
+		TypeMeta   v1.TypeMeta
+		ObjectMeta v1.ObjectMeta
+		Spec       json.RawMessage
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]struct{}
+		wantErr bool
+	}{
+		{
+			name: "no related images",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"no": "field"}`),
+			},
+			want: map[string]struct{}{},
+		},
+		{
+			name: "one related image",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"relatedImages": [
+					{"name": "test", "image": "quay.io/etcd/etcd-operator@sha256:123"}
+				]}`),
+			},
+			want: map[string]struct{}{"quay.io/etcd/etcd-operator@sha256:123": {}},
+		},
+		{
+			name: "multiple related images",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"relatedImages": [
+					{"name": "test", "image": "quay.io/etcd/etcd-operator@sha256:123"},
+					{"name": "operand", "image": "quay.io/etcd/etcd@sha256:123"}
+				]}`),
+			},
+			want: map[string]struct{}{"quay.io/etcd/etcd-operator@sha256:123": {}, "quay.io/etcd/etcd@sha256:123": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   tt.fields.TypeMeta,
+				ObjectMeta: tt.fields.ObjectMeta,
+				Spec:       tt.fields.Spec,
+			}
+			got, err := csv.GetRelatedImages()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRelatedImages() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
+	type fields struct {
+		TypeMeta   v1.TypeMeta
+		ObjectMeta v1.ObjectMeta
+		Spec       json.RawMessage
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]struct{}
+		wantErr bool
+	}{
+		{
+			name: "bad strategy",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{"install": {"strategy": "nope", "spec": {"deployments":[{"name":"etcd-operator","spec":{"template":{"spec":{"containers":[{
+					"command":["etcd-operator"],
+					"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+					"name":"etcd-operator"
+				}]}}}}]}}}`),
+			},
+		},
+		{
+			name: "no images",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{"install": {"strategy": "deployment","spec": {"deployments":[{"name":"etcd-operator","spec":{"template":{"spec":
+					"containers":[]
+				}}}}]}}}`),
+			},
+			want: nil,
+			wantErr: true,
+		},
+		{
+			name: "one image",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{"install": {"strategy": "deployment", "spec": {"deployments":[{
+					"name":"etcd-operator",
+					"spec":{
+						"template":{
+							"spec":{
+								"containers":[
+									{
+										"command":["etcd-operator"],
+										"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+										"name":"etcd-operator"
+									}	
+								]
+							}
+						}
+				}}]}}}`),
+			},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+		},
+		{
+			name: "two container images",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{"install": {"strategy": "deployment", "spec": {"deployments":[{
+					"name":"etcd-operator",
+					"spec":{
+						"template":{
+							"spec":{
+								"containers":[
+									{
+										"command":["etcd-operator"],
+										"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+										"name":"etcd-operator"
+									},
+									{
+										"command":["etcd-operator-2"],
+										"image":"quay.io/coreos/etcd-operator-2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+										"name":"etcd-operator-2"
+									}	
+								]
+							}
+						}
+				}}]}}}`),
+			},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator-2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+		},
+		{
+			name: "init container image",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{
+					"install": {
+						"strategy": "deployment",
+						"spec": {
+							"deployments":[
+								{
+									"name":"etcd-operator",
+									"spec":{
+										"template":{
+											"spec":{
+												"initContainers":[
+													{
+														"command":["etcd-operator"],
+														"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator"
+													}	
+												]
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				}`),
+			},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+		},
+		{
+			name: "two init container images",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{
+					"install": {
+						"strategy": "deployment",
+						"spec": {
+							"deployments":[
+								{
+									"name":"etcd-operator",
+									"spec":{
+										"template":{
+											"spec":{
+												"initContainers":[
+													{
+														"command":["etcd-operator"],
+														"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator"
+													},
+													{
+														"command":["etcd-operator2"],
+														"image":"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator2"
+													}	
+												]
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				}`),
+			},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+		},
+		{
+			name: "container and init container",
+			fields: fields{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec: json.RawMessage(`
+				{
+					"install": {
+						"strategy": "deployment",
+						"spec": {
+							"deployments":[
+								{
+									"name":"etcd-operator",
+									"spec":{
+										"template":{
+											"spec":{
+												"initContainers":[
+													{
+														"command":["init-etcd-operator"],
+														"image":"quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator"
+													},
+													{
+														"command":["init-etcd-operator2"],
+														"image":"quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator2"
+													}	
+												],
+												"containers":[
+													{
+														"command":["etcd-operator"],
+														"image":"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator"
+													},
+													{
+														"command":["etcd-operator2"],
+														"image":"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+														"name":"etcd-operator2"
+													}	
+												]
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				}`),
+			},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":struct {}{}, "quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   tt.fields.TypeMeta,
+				ObjectMeta: tt.fields.ObjectMeta,
+				Spec:       tt.fields.Spec,
+			}
+			got, err := csv.GetOperatorImages()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetOperatorImages() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

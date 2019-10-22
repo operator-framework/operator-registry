@@ -25,4 +25,8 @@ type Query interface {
 	GetLatestChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*ChannelEntry, err error)
 	// Get the the latest bundle that provides the API in a default channel
 	GetBundleThatProvides(ctx context.Context, group, version, kind string) (string, *ChannelEntry, error)
+	// List all images in the database
+	ListImages(ctx context.Context) ([]string, error)
+	// List all images for a particular bundle
+	GetImagesForBundle(ctx context.Context, bundleName string) ([]string, error)
 }
