@@ -107,42 +107,44 @@ func (s *SQLQuerier) GetPackage(ctx context.Context, name string) (*registry.Pac
 	return pkg, nil
 }
 
-func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (string, error) {
-	query := `SELECT DISTINCT operatorbundle.bundle
+func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (string, string, error) {
+	query := `SELECT DISTINCT operatorbundle.bundle, operatorbundle.bundlepath
 			  FROM operatorbundle INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
 			  WHERE channel_entry.package_name=? AND channel_entry.channel_name=? AND operatorbundle.name=? LIMIT 1`
 	rows, err := s.db.QueryContext(ctx, query, pkgName, channelName, csvName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if !rows.Next() {
-		return "", fmt.Errorf("no bundle found for csv %s", csvName)
+		return "", "", fmt.Errorf("no entry found for csv %s", csvName)
 	}
 	var bundleStringSQL sql.NullString
-	if err := rows.Scan(&bundleStringSQL); err != nil {
-		return "", err
+	var bundlepathStringSQL sql.NullString
+	if err := rows.Scan(&bundleStringSQL, &bundlepathStringSQL); err != nil {
+		return "", "", err
 	}
-	return bundleStringSQL.String, nil
+	return bundleStringSQL.String, bundlepathStringSQL.String, nil
 }
 
-func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error) {
-	query := `SELECT DISTINCT operatorbundle.bundle
+func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, string, error) {
+	query := `SELECT DISTINCT operatorbundle.bundle, operatorbundle.bundlepath
               FROM channel INNER JOIN operatorbundle ON channel.head_operatorbundle_name=operatorbundle.name
               WHERE channel.package_name=? AND channel.name=? LIMIT 1`
 	rows, err := s.db.QueryContext(ctx, query, pkgName, channelName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if !rows.Next() {
-		return "", fmt.Errorf("no bundle found for %s %s", pkgName, channelName)
+		return "", "", fmt.Errorf("no entry found for %s %s", pkgName, channelName)
 	}
 	var bundle sql.NullString
-	if err := rows.Scan(&bundle); err != nil {
-		return "", err
+	var bundlePath sql.NullString
+	if err := rows.Scan(&bundle, &bundlePath); err != nil {
+		return "", "", err
 	}
-	return bundle.String, nil
+	return bundle.String, bundlePath.String, nil
 }
 
 func (s *SQLQuerier) GetChannelEntriesThatReplace(ctx context.Context, name string) (entries []*registry.ChannelEntry, err error) {
@@ -179,25 +181,26 @@ func (s *SQLQuerier) GetChannelEntriesThatReplace(ctx context.Context, name stri
 	return
 }
 
-func (s *SQLQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (string, error) {
-	query := `SELECT DISTINCT operatorbundle.bundle
+func (s *SQLQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (string, string, error) {
+	query := `SELECT DISTINCT operatorbundle.bundle, operatorbundle.bundlepath
               FROM channel_entry
 			  LEFT  OUTER JOIN channel_entry replaces ON replaces.replaces = channel_entry.entry_id
 			  INNER JOIN operatorbundle ON replaces.operatorbundle_name = operatorbundle.name
 			  WHERE channel_entry.operatorbundle_name = ? AND channel_entry.package_name = ? AND channel_entry.channel_name = ? LIMIT 1`
 	rows, err := s.db.QueryContext(ctx, query, name, pkgName, channelName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if !rows.Next() {
-		return "", fmt.Errorf("no bundle found that replaces %s", name)
+		return "", "", fmt.Errorf("no entry found that replaces %s", name)
 	}
 	var bundle sql.NullString
-	if err := rows.Scan(&bundle); err != nil {
-		return "", err
+	var bundlePath sql.NullString
+	if err := rows.Scan(&bundle, &bundlePath); err != nil {
+		return "", "", err
 	}
-	return bundle.String, nil
+	return bundle.String, bundlePath.String, nil
 }
 
 func (s *SQLQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
@@ -277,8 +280,8 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, gro
 }
 
 // Get the the latest bundle that provides the API in a default channel, error unless there is ONLY one
-func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, version, kind string) (string, *registry.ChannelEntry, error) {
-	query := `SELECT DISTINCT operatorbundle.bundle, MIN(channel_entry.depth), channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces
+func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, version, kind string) (string, string, *registry.ChannelEntry, error) {
+	query := `SELECT DISTINCT operatorbundle.bundle, operatorbundle.bundlepath, MIN(channel_entry.depth), channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
 		  INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
@@ -288,32 +291,33 @@ func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, version, 
 
 	rows, err := s.db.QueryContext(ctx, query, group, version, kind)
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
 
 	if !rows.Next() {
-		return "", nil, fmt.Errorf("no bundle found that provides %s %s %s", group, version, kind)
+		return "", "", nil, fmt.Errorf("no entry found that provides %s %s %s", group, version, kind)
 	}
 
 	var bundle sql.NullString
+	var bundlePath sql.NullString
 	var min_depth sql.NullInt64
 	var bundleName sql.NullString
 	var pkgName sql.NullString
 	var channelName sql.NullString
 	var replaces sql.NullString
-	if err := rows.Scan(&bundle, &min_depth, &bundleName, &pkgName, &channelName, &replaces); err != nil {
-		return "", nil, err
+	if err := rows.Scan(&bundle, &bundlePath, &min_depth, &bundleName, &pkgName, &channelName, &replaces); err != nil {
+		return "", "", nil, err
 	}
 
 	if !bundle.Valid {
-		return "", nil, fmt.Errorf("no bundle found that provides %s %s %s", group, version, kind)
+		return "", "", nil, fmt.Errorf("no entry found that provides %s %s %s", group, version, kind)
 	}
 	entry := &registry.ChannelEntry{
 		PackageName: pkgName.String,
 		ChannelName: channelName.String,
 		BundleName:  bundleName.String,
 	}
-	return bundle.String, entry, nil
+	return bundle.String, bundlePath.String, entry, nil
 }
 
 func (s *SQLQuerier) ListImages(ctx context.Context) ([]string, error) {

@@ -56,7 +56,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle) values(?, ?, ?)")
+	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		return fmt.Errorf("csv name not found")
 	}
 
-	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
+	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, nil); err != nil {
 		return err
 	}
 

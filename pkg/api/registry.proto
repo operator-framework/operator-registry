@@ -36,6 +36,7 @@ message Bundle{
 	string channelName = 3;
 	string csvJson = 4;
 	repeated string object = 5;
+	string bundlePath = 6;
 }
 
 message ChannelEntry{
