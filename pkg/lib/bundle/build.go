@@ -40,16 +40,16 @@ func ExecuteCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
-func BuildFunc(directory, imageTag, imageBuilder string) error {
+func BuildFunc(directory, imageTag, imageBuilder, packageName, channels, channelDefault string, overwrite bool) error {
 	// Generate annotations.yaml and Dockerfile
-	err := GenerateFunc(directory)
+	err := GenerateFunc(directory, packageName, channels, channelDefault, overwrite)
 	if err != nil {
 		return err
 	}
 
 	// Build bundle image
 	log.Info("Building bundle image")
-	buildCmd, err := BuildBundleImage(path.Dir(path.Clean(directory)), imageBuilder, imageTag)
+	buildCmd, err := BuildBundleImage(path.Clean(directory), imageBuilder, imageTag)
 	if err != nil {
 		return err
 	}
