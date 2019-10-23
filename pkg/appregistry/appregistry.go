@@ -100,10 +100,7 @@ func (a *AppregistryLoader) Load(csvSources []string, csvPackages string) (regis
 		errs = append(errs, fmt.Errorf("error loading operator manifests: %s", err))
 	}
 
-	store, err := a.loader.GetStore()
-	if err != nil {
-		errs = append(errs, err)
-	}
+	store := a.loader.GetStore()
 
 	return store, utilerrors.NewAggregate(errs)
 }

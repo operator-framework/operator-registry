@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -53,11 +55,19 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(outFilename))
+	db, err := sql.Open("sqlite3", outFilename)
 	if err != nil {
 		return err
 	}
-	defer dbLoader.Close()
+	defer db.Close()
+
+	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := dbLoader.Migrate(context.TODO()); err != nil {
+		return err
+	}
 
 	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestDir)
 	if err := loader.Populate(); err != nil {

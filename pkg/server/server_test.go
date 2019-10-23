@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"io"
 	"net"
 	"os"
@@ -29,8 +30,15 @@ func server() {
 	}
 	s := grpc.NewServer()
 
-	load, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
+		logrus.Fatal(err)
+	}
+	load, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	if err := load.Migrate(context.TODO()); err != nil {
 		logrus.Fatal(err)
 	}
 
@@ -38,7 +46,9 @@ func server() {
 	if err := loader.Populate(); err != nil {
 		logrus.Fatal(err)
 	}
-	load.Close()
+	if err := db.Close(); err != nil {
+		logrus.Fatal(err)
+	}
 
 	store, err := sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {

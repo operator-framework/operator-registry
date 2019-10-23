@@ -2,6 +2,8 @@ package registry
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -12,9 +14,9 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func newRegistryServeCmd() *cobra.Command {
@@ -37,7 +39,7 @@ func newRegistryServeCmd() *cobra.Command {
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to sqlite db")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
-
+	rootCmd.Flags().Bool("skip-migrate", false, "do  not attempt to migrate to the latest db revision when starting")
 	return rootCmd
 
 }
@@ -64,14 +66,17 @@ func runRegistryServeCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
-	var store registry.Query
-	store, err = sqlite.NewSQLLiteQuerier(dbName)
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
-		logger.WithError(err).Warnf("failed to load db")
+		return err
 	}
-	if store == nil {
-		store = registry.NewEmptyQuerier()
+
+	// migrate to the latest version
+	if err := migrate(cmd, db); err != nil {
+		logger.WithError(err).Warnf("couldn't migrate db")
 	}
+
+	store := sqlite.NewSQLLiteQuerierFromDb(db)
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
@@ -97,4 +102,24 @@ func runRegistryServeCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func migrate(cmd *cobra.Command, db *sql.DB) error {
+	shouldSkipMigrate, err := cmd.Flags().GetBool("skip-migrate")
+	if err != nil {
+		return err
+	}
+	if shouldSkipMigrate {
+		return nil
+	}
+
+	migrator, err := sqlite.NewSQLLiteMigrator(db)
+	if err != nil {
+		return err
+	}
+	if migrator == nil {
+		return fmt.Errorf("failed to load migrator")
+	}
+
+	return migrator.Up(context.TODO(), migrations.From(migrations.InitMigrationKey))
 }

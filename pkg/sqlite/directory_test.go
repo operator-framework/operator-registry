@@ -17,14 +17,11 @@ import (
 
 func TestDirectoryLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-
-	store, err := NewSQLLiteLoader(WithDBName("test.db"))
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
-	defer func() {
-		if err := os.Remove("test.db"); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	require.NoError(t, store.Migrate(context.TODO()))
 
 	loader := NewSQLLoaderForDirectory(store, "../../manifests")
 	require.NoError(t, loader.Populate())
@@ -33,13 +30,11 @@ func TestDirectoryLoader(t *testing.T) {
 func TestDirectoryLoaderWithBadManifests(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader(WithDBName("test.db"))
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
-	defer func() {
-		if err := os.Remove("test.db"); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	require.NoError(t, store.Migrate(context.TODO()))
 
 	// Copy golden manifests to a temp dir
 	dir, err := ioutil.TempDir("testdata", "manifests-")
@@ -72,20 +67,16 @@ func TestDirectoryLoaderWithBadManifests(t *testing.T) {
 }
 
 func TestQuerierForDirectory(t *testing.T) {
-	load, err := NewSQLLiteLoader(WithDBName("test.db"))
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	load, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
-	defer func() {
-		if err := os.Remove("test.db"); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	require.NoError(t, load.Migrate(context.TODO()))
 
 	loader := NewSQLLoaderForDirectory(load, "../../manifests")
 	require.NoError(t, loader.Populate())
 
-	store, err := NewSQLLiteQuerier("test.db")
-	require.NoError(t, err)
-
+	store := NewSQLLiteQuerierFromDb(db)
 	foundPackages, err := store.ListPackages(context.TODO())
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, foundPackages)

@@ -2,6 +2,9 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -13,12 +16,33 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
+func CreateTestDb(t *testing.T) (*sql.DB, func()) {
+	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+
+	db, err := sql.Open("sqlite3", dbName)
+	require.NoError(t, err)
+
+	return db, func() {
+		defer func() {
+			if err := os.Remove(dbName); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestConfigMapLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	store, err := NewSQLLiteLoader(WithDBName("test.db"))
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
 	defer os.Remove("test.db")
+	require.NoError(t, store.Migrate(context.TODO()))
 
 	path := "../../configmap.example.yaml"
 	fileReader, err := os.Open(path)
@@ -34,9 +58,11 @@ func TestConfigMapLoader(t *testing.T) {
 }
 
 func TestQuerierForConfigmap(t *testing.T) {
-	load, err := NewSQLLiteLoader(WithDBName("test.db"))
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	load, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
-	defer os.Remove("test.db")
+	require.NoError(t, load.Migrate(context.TODO()))
 
 	path := "../../configmap.example.yaml"
 	fileReader, err := os.Open(path)
@@ -50,8 +76,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 	loader := NewSQLLoaderForConfigMap(load, manifest)
 	require.NoError(t, loader.Populate())
 
-	store, err := NewSQLLiteQuerier("test.db")
-	require.NoError(t, err)
+	store := NewSQLLiteQuerierFromDb(db)
 
 	foundPackages, err := store.ListPackages(context.TODO())
 	require.NoError(t, err)

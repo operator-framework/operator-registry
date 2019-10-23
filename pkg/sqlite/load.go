@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -12,92 +13,39 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 type SQLLoader struct {
-	db *sql.DB
+	db       *sql.DB
+	migrator Migrator
 }
 
 var _ registry.Load = &SQLLoader{}
 
-func NewSQLLiteLoader(opts ...DbOption) (*SQLLoader, error) {
-	options := DbOptions{}
+func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
+	options := defaultDBOptions()
     for _, o := range opts {
-        o(&options)
+        o(options)
     }
-
-	db, err := sql.Open("sqlite3", options.OutFileName) // TODO: ?immutable=true
-	if err != nil {
-		return nil, err
-	}
-
-	createTable := `
-	CREATE TABLE IF NOT EXISTS operatorbundle (
-		name TEXT PRIMARY KEY,  
-		csv TEXT UNIQUE, 
-		bundle TEXT
-	);
-	CREATE TABLE IF NOT EXISTS package (
-		name TEXT PRIMARY KEY,
-		default_channel TEXT,
-		FOREIGN KEY(name, default_channel) REFERENCES channel(package_name,name)
-	);
-	CREATE TABLE IF NOT EXISTS channel (
-		name TEXT, 
-		package_name TEXT, 
-		head_operatorbundle_name TEXT,
-		PRIMARY KEY(name, package_name),
-		FOREIGN KEY(package_name) REFERENCES package(name),
-		FOREIGN KEY(head_operatorbundle_name) REFERENCES operatorbundle(name)
-	);
-	CREATE TABLE IF NOT EXISTS channel_entry (
-		entry_id INTEGER PRIMARY KEY,
-		channel_name TEXT,
-		package_name TEXT,
-		operatorbundle_name TEXT,
-		replaces INTEGER,
-		depth INTEGER,
-		FOREIGN KEY(replaces) REFERENCES channel_entry(entry_id)  DEFERRABLE INITIALLY DEFERRED, 
-		FOREIGN KEY(channel_name, package_name) REFERENCES channel(name, package_name)
-	);
-	CREATE TABLE IF NOT EXISTS api (
-		group_name TEXT,
-		version TEXT,
-		kind TEXT,
-		plural TEXT NOT NULL,
-		PRIMARY KEY(group_name, version, kind)
-	);
-	CREATE TABLE IF NOT EXISTS api_provider (
-		group_name TEXT,
-		version TEXT,
-		kind TEXT,
-		channel_entry_id INTEGER,
-		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
-		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
-	);
-	`
 
 	if _, err := db.Exec("PRAGMA foreign_keys = ON", nil); err != nil {
 		return nil, err
 	}
 
-	if _, err = db.Exec(createTable); err != nil {
-		return nil, err
-	}
-
-	// Apply the current latest database version to keep net new databases in sync with upgradeable ones
-	migrator, err := NewSQLLiteMigrator(db, options.MigrationsPath)
-	if err != nil {
-		return nil, err
-	}
-	defer migrator.CleanUpMigrator()
-
-	err = migrator.InitMigrationVersion()
+	migrator, err := options.MigratorBuilder(db)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SQLLoader{db}, nil
+	return &SQLLoader{db: db, migrator: migrator}, nil
+}
+
+func (s *SQLLoader) Migrate(ctx context.Context) error {
+	if s.migrator == nil {
+		return fmt.Errorf("no migrator configured")
+	}
+	return s.migrator.Up(ctx, migrations.From(migrations.InitMigrationKey))
 }
 
 func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
@@ -320,10 +268,6 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 
 	return utilerrors.NewAggregate(errs)
-}
-
-func (s *SQLLoader) Close() error {
-	return s.db.Close()
 }
 
 func SplitCRDName(crdName string) (plural, group string, err error) {
