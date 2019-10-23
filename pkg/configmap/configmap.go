@@ -3,6 +3,7 @@ package configmap
 import (
 	"errors"
 	"fmt"
+	libbundle "github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -44,17 +45,42 @@ func (l *BundleLoader) Load(cm *corev1.ConfigMap) (manifest *Manifest, err error
 		"configmap": fmt.Sprintf("%s/%s", cm.GetNamespace(), cm.GetName()),
 	})
 
-	bundle, skipped, bundleErr := loadBundle(logger, cm.Data)
+	bundle, _, bundleErr := loadBundle(logger, cm.Data)
 	if bundleErr != nil {
 		err = fmt.Errorf("failed to extract bundle from configmap - %v", bundleErr)
 		return
 	}
 
-	packageManifest := loadPackageManifest(logger, skipped)
+	// get package manifest information from required annotations
+	annotations := cm.GetAnnotations()
+	if len(annotations) == 0 {
+		err = fmt.Errorf("missing required annoations on configmap %v", cm.GetName())
+		return
+	}
+
+	switch mediatype := annotations[libbundle.MediatypeLabel]; mediatype {
+	case "registry+v1":
+		// supported, proceed
+	default:
+		err = fmt.Errorf("failed to parse annotations due to unsupported media type %v", mediatype)
+		return
+	}
+
+	var packageChannels []registry.PackageChannel
+	channels := strings.Split(annotations[libbundle.ChannelsLabel], ",")
+	for _, channel := range channels {
+		packageChannels = append(packageChannels, registry.PackageChannel{
+			Name: channel,
+		})
+	}
 
 	manifest = &Manifest{
-		Bundle:          bundle,
-		PackageManifest: packageManifest,
+		Bundle: bundle,
+		PackageManifest: &registry.PackageManifest{
+			PackageName:        annotations[libbundle.PackageLabel],
+			Channels:           packageChannels,
+			DefaultChannelName: annotations[libbundle.ChannelDefaultLabel],
+		},
 	}
 	return
 }

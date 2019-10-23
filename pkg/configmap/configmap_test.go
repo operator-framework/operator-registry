@@ -17,16 +17,11 @@ func TestLoad(t *testing.T) {
 		assertFunc func(t *testing.T, manifestGot *Manifest)
 	}{
 		{
-			name:   "BundleWithCsvAndCrdOnly",
+			name:   "BundleWithCsvAndCrd",
 			source: "testdata/bundle.cm.yaml",
 			assertFunc: func(t *testing.T, manifestGot *Manifest) {
 				assert.NotNil(t, manifestGot.Bundle)
-				assert.Nil(t, manifestGot.PackageManifest)
-
-				// We don't populate package, channel and name of a bundle object.
-				assert.Empty(t, manifestGot.Bundle.Package)
-				assert.Empty(t, manifestGot.Bundle.Channel)
-				assert.Empty(t, manifestGot.Bundle.Name)
+				assert.NotNil(t, manifestGot.PackageManifest)
 
 				csvGot, errGot := manifestGot.Bundle.ClusterServiceVersion()
 				assert.NoError(t, errGot)
@@ -35,27 +30,6 @@ func TestLoad(t *testing.T) {
 				crdListGot, errGot := manifestGot.Bundle.CustomResourceDefinitions()
 				assert.NoError(t, errGot)
 				assert.Equal(t, 1, len(crdListGot))
-			},
-		},
-		{
-			name:   "BundleWithPackageManifest",
-			source: "testdata/bundle-with-package-manifest.cm.yaml",
-			assertFunc: func(t *testing.T, manifestGot *Manifest) {
-				assert.NotNil(t, manifestGot.Bundle)
-				assert.NotNil(t, manifestGot.PackageManifest)
-
-				assert.Equal(t, "etcd", manifestGot.PackageManifest.PackageName)
-			},
-		},
-		{
-			name:   "BundleWithMultiplePackageManifests",
-			source: "testdata/bundle-with-multiple-package-manifests.cm.yaml",
-			assertFunc: func(t *testing.T, manifestGot *Manifest) {
-				assert.NotNil(t, manifestGot.Bundle)
-				assert.NotNil(t, manifestGot.PackageManifest)
-
-				name := manifestGot.PackageManifest.PackageName
-				assert.True(t, name == "first" || name == "second")
 			},
 		},
 		{
