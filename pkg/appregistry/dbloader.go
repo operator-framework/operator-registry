@@ -29,12 +29,12 @@ func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
 	return &dbLoader{
 		loader: sqlLoader,
 		logger: logger,
-		db: db,
+		db:     db,
 	}, nil
 }
 
 type dbLoader struct {
-	db *sql.DB
+	db     *sql.DB
 	loader *sqlite.SQLLoader
 	logger *logrus.Entry
 }
@@ -59,7 +59,7 @@ func (l *dbLoader) LoadFlattenedToSQLite(manifest *RawOperatorManifestData) erro
 		return err
 	}
 
-	s:= sqlite.NewSQLLiteQuerierFromDb(l.db)
+	s := sqlite.NewSQLLiteQuerierFromDb(l.db)
 
 	// sanity check that the db is available.
 	tables, err := s.ListTables(context.TODO())

@@ -7,8 +7,8 @@ import (
 )
 
 type Migration struct {
-	Id int
-	Up func(context.Context, *sql.Tx) error
+	Id   int
+	Up   func(context.Context, *sql.Tx) error
 	Down func(context.Context, *sql.Tx) error
 }
 
@@ -23,9 +23,9 @@ func (m Migrations) Less(i, j int) bool { return m[i].Id < m[j].Id }
 var migrations MigrationSet = make(map[int]*Migration)
 
 // From returns a set of migrations, starting at key
-func From(key int) Migrations {
+func (m MigrationSet) From(key int) Migrations {
 	keys := make([]int, 0)
-	for k := range migrations {
+	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
@@ -34,15 +34,15 @@ func From(key int) Migrations {
 		if k < key {
 			continue
 		}
-		sorted = append(sorted, migrations[k])
+		sorted = append(sorted, m[k])
 	}
 	return sorted
 }
 
 // To returns a set of migrations, up to and including key
-func To(key int) Migrations {
+func (m MigrationSet) To(key int) Migrations {
 	keys := make([]int, 0)
-	for k := range migrations {
+	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
@@ -51,12 +51,32 @@ func To(key int) Migrations {
 		if k > key {
 			continue
 		}
-		sorted = append(sorted, migrations[k])
+		sorted = append(sorted, m[k])
 	}
 	return sorted
 }
 
 // Only returns a set of one migration
+func (m MigrationSet) Only(key int) Migrations {
+	return []*Migration{m[key]}
+}
+
+// From returns a set of migrations, starting at key
+func From(key int) Migrations {
+	return migrations.From(key)
+}
+
+// To returns a set of migrations, up to and including key
+func To(key int) Migrations {
+	return migrations.To(key)
+}
+
+// Only returns a set of one migration
 func Only(key int) Migrations {
-	return []*Migration{migrations[key]}
+	return migrations.Only(key)
+}
+
+// All returns the full set
+func All() MigrationSet {
+	return migrations
 }

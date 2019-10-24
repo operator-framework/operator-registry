@@ -27,7 +27,7 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "apiservicedefinitions": {
 					"owned": [ 
@@ -41,18 +41,18 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			},
 			wantOwned: []*DefinitionKey{
 				{
-					Group: "g",
-					Kind: "K",
+					Group:   "g",
+					Kind:    "K",
 					Version: "v1",
-					Name: "Ks.g",
+					Name:    "Ks.g",
 				},
 			},
 			wantRequired: []*DefinitionKey{
 				{
-					Group: "g2",
-					Kind: "K2",
+					Group:   "g2",
+					Kind:    "K2",
 					Version: "v1",
-					Name: "K2s.g",
+					Name:    "K2s.g",
 				},
 			},
 		},
@@ -61,7 +61,7 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "apiservicedefinitions": {
 					"owned": [ 
@@ -72,10 +72,10 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			},
 			wantOwned: []*DefinitionKey{
 				{
-					Group: "g",
-					Kind: "K",
+					Group:   "g",
+					Kind:    "K",
 					Version: "v1",
-					Name: "Ks.g",
+					Name:    "Ks.g",
 				},
 			},
 		},
@@ -84,7 +84,7 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "apiservicedefinitions": {
 					"required": [
@@ -95,10 +95,10 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			},
 			wantRequired: []*DefinitionKey{
 				{
-					Group: "g2",
-					Kind: "K2",
+					Group:   "g2",
+					Kind:    "K2",
 					Version: "v1",
-					Name: "K2s.g",
+					Name:    "K2s.g",
 				},
 			},
 		},
@@ -115,7 +115,7 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "apiservicedefinitions": {
 					splat: [
@@ -123,10 +123,9 @@ func TestClusterServiceVersion_GetApiServiceDefinitions(t *testing.T) {
 					] 
 				  } 
 				}`),
-
 			},
-			wantErr:true,
-		},	}
+			wantErr: true,
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			csv := &ClusterServiceVersion{
@@ -167,7 +166,7 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "customresourcedefinitions": {
 					"owned": [ 
@@ -181,18 +180,18 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			},
 			wantOwned: []*DefinitionKey{
 				{
-					Group: "g",
-					Kind: "K",
+					Group:   "g",
+					Kind:    "K",
 					Version: "v1",
-					Name: "Ks.g",
+					Name:    "Ks.g",
 				},
 			},
 			wantRequired: []*DefinitionKey{
 				{
-					Group: "g2",
-					Kind: "K2",
+					Group:   "g2",
+					Kind:    "K2",
 					Version: "v1",
-					Name: "K2s.g",
+					Name:    "K2s.g",
 				},
 			},
 		},
@@ -201,7 +200,7 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "customresourcedefinitions": {
 					"owned": [ 
@@ -212,10 +211,10 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			},
 			wantOwned: []*DefinitionKey{
 				{
-					Group: "g",
-					Kind: "K",
+					Group:   "g",
+					Kind:    "K",
 					Version: "v1",
-					Name: "Ks.g",
+					Name:    "Ks.g",
 				},
 			},
 		},
@@ -224,7 +223,7 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "customresourcedefinitions": {
 					"required": [
@@ -235,10 +234,10 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			},
 			wantRequired: []*DefinitionKey{
 				{
-					Group: "g2",
-					Kind: "K2",
+					Group:   "g2",
+					Kind:    "K2",
 					Version: "v1",
-					Name: "K2s.g",
+					Name:    "K2s.g",
 				},
 			},
 		},
@@ -255,7 +254,7 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`
+				Spec: json.RawMessage(`
 				{ 
 				  "customresourcedefinitions": {
 					splat: [
@@ -263,9 +262,8 @@ func TestClusterServiceVersion_GetCustomResourceDefintions(t *testing.T) {
 					] 
 				  } 
 				}`),
-
 			},
-			wantErr:true,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -387,7 +385,7 @@ func TestClusterServiceVersion_GetSkips(t *testing.T) {
 				Spec:       json.RawMessage(`{"skips": 5}`),
 			},
 			wantErr: true,
-		},	}
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			csv := &ClusterServiceVersion{
@@ -492,7 +490,7 @@ func TestClusterServiceVersion_GetRelatedImages(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`{"relatedImages": [
+				Spec: json.RawMessage(`{"relatedImages": [
 					{"name": "test", "image": "quay.io/etcd/etcd-operator@sha256:123"}
 				]}`),
 			},
@@ -503,7 +501,7 @@ func TestClusterServiceVersion_GetRelatedImages(t *testing.T) {
 			fields: fields{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{},
-				Spec:       json.RawMessage(`{"relatedImages": [
+				Spec: json.RawMessage(`{"relatedImages": [
 					{"name": "test", "image": "quay.io/etcd/etcd-operator@sha256:123"},
 					{"name": "operand", "image": "quay.io/etcd/etcd@sha256:123"}
 				]}`),
@@ -563,7 +561,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 					"containers":[]
 				}}}}]}}}`),
 			},
-			want: nil,
+			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -588,7 +586,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 						}
 				}}]}}}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 		{
 			name: "two container images",
@@ -617,7 +615,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 						}
 				}}]}}}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator-2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator-2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 		{
 			name: "init container image",
@@ -651,7 +649,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 					}
 				}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 		{
 			name: "two init container images",
@@ -690,7 +688,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 					}
 				}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 		{
 			name: "container and init container",
@@ -741,7 +739,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 					}
 				}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":struct {}{}, "quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}, "quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2":{}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": struct{}{}, "quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 	}
 	for _, tt := range tests {

@@ -316,7 +316,7 @@ func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, version, 
 	return bundle.String, entry, nil
 }
 
-func (s *SQLQuerier) ListImages(ctx context.Context) ([]string, error){
+func (s *SQLQuerier) ListImages(ctx context.Context) ([]string, error) {
 	query := "SELECT DISTINCT image FROM related_image"
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {

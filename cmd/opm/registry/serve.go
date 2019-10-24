@@ -16,7 +16,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func newRegistryServeCmd() *cobra.Command {
@@ -121,5 +120,5 @@ func migrate(cmd *cobra.Command, db *sql.DB) error {
 		return fmt.Errorf("failed to load migrator")
 	}
 
-	return migrator.Up(context.TODO(), migrations.From(migrations.InitMigrationKey))
+	return migrator.Migrate(context.TODO())
 }

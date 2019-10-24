@@ -14,7 +14,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-
 func TestAddPackageChannels(t *testing.T) {
 	type fields struct {
 		bundles []*registry.Bundle
@@ -162,7 +161,7 @@ func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstr
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
 	require.NoError(t, err)
-	return &unstructured.Unstructured{Object:out}
+	return &unstructured.Unstructured{Object: out}
 }
 
 func newBundle(t *testing.T, name, pkgName, channelName string, objs ...*unstructured.Unstructured) *registry.Bundle {

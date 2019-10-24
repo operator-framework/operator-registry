@@ -208,7 +208,7 @@ func (csv *ClusterServiceVersion) GetRelatedImages() (imageSet map[string]struct
 
 	type relatedImage struct {
 		Name string `json:"name"`
-		Ref string `json:"image"`
+		Ref  string `json:"image"`
 	}
 	var relatedImages []relatedImage
 	if err = json.Unmarshal(*rawValue, &relatedImages); err != nil {
@@ -233,7 +233,7 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 		Deployments []dep
 	}
 	type strategy struct {
-		Name string `json:"strategy"`
+		Name string       `json:"strategy"`
 		Spec strategySpec `json:"spec"`
 	}
 	type csvSpec struct {
@@ -246,7 +246,7 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 	}
 
 	// this is the only install strategy we know about
-	if spec.Install.Name != "deployment"  {
+	if spec.Install.Name != "deployment" {
 		return nil, nil
 	}
 

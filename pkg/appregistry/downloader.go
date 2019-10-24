@@ -27,8 +27,8 @@ func (d *downloadItem) String() string {
 }
 
 type downloader struct {
-	logger            *logrus.Entry
-	kubeClient        kubernetes.Clientset
+	logger     *logrus.Entry
+	kubeClient kubernetes.Clientset
 }
 
 // Download downloads manifest(s) associated with the specified package(s) from

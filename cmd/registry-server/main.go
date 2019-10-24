@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
@@ -111,7 +110,6 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-
 func migrate(cmd *cobra.Command, db *sql.DB) error {
 	shouldSkipMigrate, err := cmd.Flags().GetBool("skip-migrate")
 	if err != nil {
@@ -129,5 +127,5 @@ func migrate(cmd *cobra.Command, db *sql.DB) error {
 		return fmt.Errorf("failed to load migrator")
 	}
 
-	return migrator.Up(context.TODO(), migrations.From(migrations.InitMigrationKey))
+	return migrator.Migrate(context.TODO())
 }

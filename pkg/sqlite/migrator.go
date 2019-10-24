@@ -12,6 +12,7 @@ import (
 )
 
 type Migrator interface {
+	Migrate(ctx context.Context) error
 	Up(ctx context.Context, migrations migrations.Migrations) error
 	Down(ctx context.Context, migrations migrations.Migrations) error
 }
@@ -19,13 +20,14 @@ type Migrator interface {
 type SQLLiteMigrator struct {
 	db              *sql.DB
 	migrationsTable string
+	migrations      migrations.MigrationSet
 }
 
 var _ Migrator = &SQLLiteMigrator{}
 
 const (
 	DefaultMigrationsTable = "schema_migrations"
-	NilVersion = -1
+	NilVersion             = -1
 )
 
 // NewSQLLiteMigrator returns a SQLLiteMigrator.
@@ -33,7 +35,32 @@ func NewSQLLiteMigrator(db *sql.DB) (Migrator, error) {
 	return &SQLLiteMigrator{
 		db:              db,
 		migrationsTable: DefaultMigrationsTable,
+		migrations:      migrations.All(),
 	}, nil
+}
+
+// Migrate gets the current version from the database, the latest version from the migrations,
+// and migrates up the the latest
+func (m *SQLLiteMigrator) Migrate(ctx context.Context) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			logrus.WithError(err).Debugf("couldn't rollback - this is expected if the transaction committed")
+		}
+	}()
+
+	version, err := m.version(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return m.Up(ctx, m.migrations.From(version+1))
 }
 
 // Up runs a specific set of migrations.
@@ -58,7 +85,7 @@ func (m *SQLLiteMigrator) Up(ctx context.Context, migrations migrations.Migratio
 			return err
 		}
 
-		if migration.Id != current_version + 1 {
+		if migration.Id != current_version+1 {
 			return fmt.Errorf("migration applied out of order")
 		}
 
@@ -166,10 +193,10 @@ func (m *SQLLiteMigrator) setVersion(ctx context.Context, tx *sql.Tx, version in
 	if err := m.ensureMigrationTable(ctx, tx); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, "DELETE FROM " + m.migrationsTable)
+	_, err := tx.ExecContext(ctx, "DELETE FROM "+m.migrationsTable)
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO " + m.migrationsTable+ "(version) values(?)", version)
+	_, err = tx.ExecContext(ctx, "INSERT INTO "+m.migrationsTable+"(version) values(?)", version)
 	return err
 }

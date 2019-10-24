@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 type SQLLoader struct {
@@ -25,9 +24,9 @@ var _ registry.Load = &SQLLoader{}
 
 func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
 	options := defaultDBOptions()
-    for _, o := range opts {
-        o(options)
-    }
+	for _, o := range opts {
+		o(options)
+	}
 
 	if _, err := db.Exec("PRAGMA foreign_keys = ON", nil); err != nil {
 		return nil, err
@@ -45,7 +44,7 @@ func (s *SQLLoader) Migrate(ctx context.Context) error {
 	if s.migrator == nil {
 		return fmt.Errorf("no migrator configured")
 	}
-	return s.migrator.Up(ctx, migrations.From(migrations.InitMigrationKey))
+	return s.migrator.Migrate(ctx)
 }
 
 func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
