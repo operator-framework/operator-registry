@@ -1,23 +1,24 @@
 package sqlite
 
-type DbOptions struct {
-	// OutFileName is used to define the database file name that is generated from the loader
-	OutFileName string
+import (
+	"database/sql"
+)
 
-	// Migrator refers to the SQL migrator used to initialize the database with
-	MigrationsPath string
+type DbOptions struct {
+	// MigratorBuilder is a function that returns a migrator instance
+	MigratorBuilder func(*sql.DB) (Migrator, error)
 }
 
 type DbOption func(*DbOptions)
 
-func WithDBName(name string) DbOption {
-	return func(o *DbOptions) {
-        o.OutFileName = name
-    }
+func defaultDBOptions() *DbOptions {
+	return &DbOptions{
+		MigratorBuilder: NewSQLLiteMigrator,
+	}
 }
 
-func WithMigrationsPath(path string) DbOption {
+func WithMigratorBuilder(m func(loader *sql.DB) (Migrator, error)) DbOption {
 	return func(o *DbOptions) {
-        o.MigrationsPath = path
-    }
+		o.MigratorBuilder = m
+	}
 }

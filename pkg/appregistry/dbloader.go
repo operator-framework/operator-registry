@@ -2,6 +2,7 @@ package appregistry
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 
@@ -11,32 +12,35 @@ import (
 )
 
 func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
-	sqlLoader, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
+		return nil, err
+	}
+
+	sqlLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := sqlLoader.Migrate(context.TODO()); err != nil {
 		return nil, err
 	}
 
 	return &dbLoader{
 		loader: sqlLoader,
 		logger: logger,
-		dbName: dbName,
+		db:     db,
 	}, nil
 }
 
 type dbLoader struct {
-	dbName string
-
+	db     *sql.DB
 	loader *sqlite.SQLLoader
 	logger *logrus.Entry
 }
 
-func (l *dbLoader) GetStore() (registry.Query, error) {
-	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load db: %v", err)
-	}
-
-	return s, nil
+func (l *dbLoader) GetStore() registry.Query {
+	return sqlite.NewSQLLiteQuerierFromDb(l.db)
 }
 
 // LoadDataToSQLite uses configMaploader to load the downloaded operator
@@ -55,10 +59,7 @@ func (l *dbLoader) LoadFlattenedToSQLite(manifest *RawOperatorManifestData) erro
 		return err
 	}
 
-	s, err := sqlite.NewSQLLiteQuerier(l.dbName)
-	if err != nil {
-		return fmt.Errorf("failed to load db: %v", err)
-	}
+	s := sqlite.NewSQLLiteQuerierFromDb(l.db)
 
 	// sanity check that the db is available.
 	tables, err := s.ListTables(context.TODO())
@@ -87,8 +88,9 @@ func (l *dbLoader) LoadBundleDirectoryToSQLite(directory string) error {
 	return nil
 }
 
-func (l *dbLoader) Close() {
-	if l.loader != nil {
-		l.loader.Close()
+func (l *dbLoader) Close() error {
+	if l.db != nil {
+		return l.db.Close()
 	}
+	return nil
 }

@@ -50,6 +50,17 @@ func (EmptyQuery) GetBundleThatProvides(ctx context.Context, group, version, kin
 	return "", nil, errors.New("empty querier: cannot get bundle that provides")
 }
 
+func (EmptyQuery) ListImages(ctx context.Context) ([]string, error) {
+	return nil, errors.New("empty querier: cannot get image list")
+
+}
+
+func (EmptyQuery) GetImagesForBundle(ctx context.Context, bundleName string) ([]string, error) {
+	return nil, errors.New("empty querier: cannot get image list")
+}
+
+var _ Query = &EmptyQuery{}
+
 func NewEmptyQuerier() *EmptyQuery {
 	return &EmptyQuery{}
 }

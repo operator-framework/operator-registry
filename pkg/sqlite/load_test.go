@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +13,6 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
-
 
 func TestAddPackageChannels(t *testing.T) {
 	type fields struct {
@@ -130,14 +127,12 @@ func TestAddPackageChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			db := fmt.Sprintf("%d.db", rand.Int())
-			store, err := NewSQLLiteLoader(WithDBName(db))
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewSQLLiteLoader(db)
 			require.NoError(t, err)
-			defer func() {
-				if err := os.Remove(db); err != nil {
-					t.Fatal(err)
-				}
-			}()
+			err = store.Migrate(context.TODO())
+			require.NoError(t, err)
 
 			for _, bundle := range tt.fields.bundles {
 				// Throw away any errors loading bundles (not testing this)
@@ -150,9 +145,7 @@ func TestAddPackageChannels(t *testing.T) {
 			}
 
 			// Ensure expected packages were loaded
-			querier, err := NewSQLLiteQuerier(db)
-			require.NoError(t, err)
-
+			querier := NewSQLLiteQuerierFromDb(db)
 			pkgs, err := querier.ListPackages(context.Background())
 			require.NoError(t, err)
 			require.ElementsMatch(t, tt.expected.pkgs, pkgs)
@@ -168,7 +161,7 @@ func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstr
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
 	require.NoError(t, err)
-	return &unstructured.Unstructured{Object:out}
+	return &unstructured.Unstructured{Object: out}
 }
 
 func newBundle(t *testing.T, name, pkgName, channelName string, objs ...*unstructured.Unstructured) *registry.Bundle {

@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -15,89 +16,35 @@ import (
 )
 
 type SQLLoader struct {
-	db *sql.DB
+	db       *sql.DB
+	migrator Migrator
 }
 
 var _ registry.Load = &SQLLoader{}
 
-func NewSQLLiteLoader(opts ...DbOption) (*SQLLoader, error) {
-	options := DbOptions{}
-    for _, o := range opts {
-        o(&options)
-    }
-
-	db, err := sql.Open("sqlite3", options.OutFileName) // TODO: ?immutable=true
-	if err != nil {
-		return nil, err
+func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
+	options := defaultDBOptions()
+	for _, o := range opts {
+		o(options)
 	}
-
-	createTable := `
-	CREATE TABLE IF NOT EXISTS operatorbundle (
-		name TEXT PRIMARY KEY,  
-		csv TEXT UNIQUE, 
-		bundle TEXT
-	);
-	CREATE TABLE IF NOT EXISTS package (
-		name TEXT PRIMARY KEY,
-		default_channel TEXT,
-		FOREIGN KEY(name, default_channel) REFERENCES channel(package_name,name)
-	);
-	CREATE TABLE IF NOT EXISTS channel (
-		name TEXT, 
-		package_name TEXT, 
-		head_operatorbundle_name TEXT,
-		PRIMARY KEY(name, package_name),
-		FOREIGN KEY(package_name) REFERENCES package(name),
-		FOREIGN KEY(head_operatorbundle_name) REFERENCES operatorbundle(name)
-	);
-	CREATE TABLE IF NOT EXISTS channel_entry (
-		entry_id INTEGER PRIMARY KEY,
-		channel_name TEXT,
-		package_name TEXT,
-		operatorbundle_name TEXT,
-		replaces INTEGER,
-		depth INTEGER,
-		FOREIGN KEY(replaces) REFERENCES channel_entry(entry_id)  DEFERRABLE INITIALLY DEFERRED, 
-		FOREIGN KEY(channel_name, package_name) REFERENCES channel(name, package_name)
-	);
-	CREATE TABLE IF NOT EXISTS api (
-		group_name TEXT,
-		version TEXT,
-		kind TEXT,
-		plural TEXT NOT NULL,
-		PRIMARY KEY(group_name, version, kind)
-	);
-	CREATE TABLE IF NOT EXISTS api_provider (
-		group_name TEXT,
-		version TEXT,
-		kind TEXT,
-		channel_entry_id INTEGER,
-		FOREIGN KEY(channel_entry_id) REFERENCES channel_entry(entry_id),
-		FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) 
-	);
-	`
 
 	if _, err := db.Exec("PRAGMA foreign_keys = ON", nil); err != nil {
 		return nil, err
 	}
 
-	if _, err = db.Exec(createTable); err != nil {
-		return nil, err
-	}
-
-	// Apply the current latest database version to keep net new databases in sync with upgradeable ones
-	migrator, err := NewSQLLiteMigrator(db, options.MigrationsPath)
-	if err != nil {
-		return nil, err
-	}
-	defer migrator.CleanUpMigrator()
-
-	err = migrator.InitMigrationVersion()
+	migrator, err := options.MigratorBuilder(db)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SQLLoader{db}, nil
+	return &SQLLoader{db: db, migrator: migrator}, nil
+}
+
+func (s *SQLLoader) Migrate(ctx context.Context) error {
+	if s.migrator == nil {
+		return fmt.Errorf("no migrator configured")
+	}
+	return s.migrator.Migrate(ctx)
 }
 
 func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
@@ -115,6 +62,12 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	}
 	defer stmt.Close()
 
+	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
+	if err != nil {
+		return err
+	}
+	defer addImage.Close()
+
 	csvName, csvBytes, bundleBytes, err := bundle.Serialize()
 	if err != nil {
 		return err
@@ -126,6 +79,17 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 
 	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes); err != nil {
 		return err
+	}
+
+	imgs, err := bundle.Images()
+	if err != nil {
+		return err
+	}
+	// TODO: bulk insert
+	for img := range imgs {
+		if _, err := addImage.Exec(img, csvName); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -320,10 +284,6 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 
 	return utilerrors.NewAggregate(errs)
-}
-
-func (s *SQLLoader) Close() error {
-	return s.db.Close()
 }
 
 func SplitCRDName(crdName string) (plural, group string, err error) {

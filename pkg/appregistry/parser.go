@@ -186,7 +186,6 @@ func (*manifestYAMLParser) Marshal(bundle *StructuredOperatorManifestData) (*Raw
 	return data, nil
 }
 
-
 func (*manifestYAMLParser) MarshalCSV(csv *ClusterServiceVersion) (string, error) {
 	csvRaw, err := yaml.Marshal(csv)
 	if err != nil {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 
@@ -98,8 +99,16 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.Fatalf("error getting configmap: %s", err)
 	}
 
-	sqlLoader, err := sqlite.NewSQLLiteLoader(sqlite.WithDBName(dbName))
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
+		return err
+	}
+
+	sqlLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := sqlLoader.Migrate(context.TODO()); err != nil {
 		return err
 	}
 
