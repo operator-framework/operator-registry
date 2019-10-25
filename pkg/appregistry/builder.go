@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"k8s.io/klog"
 
@@ -141,7 +140,7 @@ func BuildDatabase(manifestPath, databasePath string) error {
 
 	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestPath)
 	if err := loader.Populate(); err != nil {
-		return err
+		klog.Warningf("error building database: %s", err.Error())
 	}
 	return nil
 }
@@ -179,6 +178,22 @@ func BuildLayer(directory string) (string, error) {
 		if err != nil {
 			return err
 		}
+
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(info, info.Name())
+		if err != nil {
+			return err
+		}
+
+		err = writer.WriteHeader(header)
+		if err != nil {
+			return err
+		}
+
+		// if it's a directory, just write the header and continue
 		if info.IsDir() {
 			return nil
 		}
@@ -193,19 +208,11 @@ func BuildLayer(directory string) (string, error) {
 			}
 		}()
 
-		header := new(tar.Header)
-		header.Name = strings.TrimPrefix(file.Name(), directory)
-		header.Size = info.Size()
-		header.Mode = int64(info.Mode())
-		header.Uname = "root"
-		header.Gname = "root"
-		header.ModTime = info.ModTime()
-		err = writer.WriteHeader(header)
+		_, err = io.Copy(writer, file)
 		if err != nil {
 			return err
 		}
 
-		_, err = io.Copy(writer, file)
 		return err
 	}); err != nil {
 		return "", err
