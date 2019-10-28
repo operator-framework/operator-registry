@@ -8,8 +8,8 @@ type IndexImageMirrorerOptions struct {
 	ImageMirrorer     ImageMirrorer
 	DatabaseExtractor DatabaseExtractor
 
-	Source, Dest            string
-	ManifestDir            string
+	Source, Dest string
+	ManifestDir  string
 }
 
 func (o *IndexImageMirrorerOptions) Validate() error {
@@ -50,6 +50,28 @@ func (c *IndexImageMirrorerOptions) Apply(options []ImageIndexMirrorOption) {
 	}
 }
 
+// ToOption converts an AppregistryBuildOptions object into a function that applies
+// its current configuration to another AppregistryBuildOptions instance
+func (c *IndexImageMirrorerOptions) ToOption() ImageIndexMirrorOption {
+	return func(o *IndexImageMirrorerOptions) {
+		if c.ImageMirrorer != nil {
+			o.ImageMirrorer = c.ImageMirrorer
+		}
+		if c.DatabaseExtractor != nil {
+			o.DatabaseExtractor = c.DatabaseExtractor
+		}
+		if c.Source != "" {
+			o.Source = c.Source
+		}
+		if c.Dest != "" {
+			o.Dest = c.Dest
+		}
+		if c.ManifestDir != "" {
+			o.ManifestDir = c.ManifestDir
+		}
+	}
+}
+
 type ImageIndexMirrorOption func(*IndexImageMirrorerOptions)
 
 func DefaultImageIndexMirrorerOptions() *IndexImageMirrorerOptions {
@@ -64,7 +86,7 @@ func WithMirrorer(i ImageMirrorer) ImageIndexMirrorOption {
 	}
 }
 
-func WithExtractor(e DatabaseExtractor ) ImageIndexMirrorOption {
+func WithExtractor(e DatabaseExtractor) ImageIndexMirrorOption {
 	return func(o *IndexImageMirrorerOptions) {
 		o.DatabaseExtractor = e
 	}
@@ -75,7 +97,6 @@ func WithSource(s string) ImageIndexMirrorOption {
 		o.Source = s
 	}
 }
-
 
 func WithDest(d string) ImageIndexMirrorOption {
 	return func(o *IndexImageMirrorerOptions) {

@@ -48,10 +48,8 @@ type AppregistryImageBuilder struct {
 	DatabaseDir string
 }
 
-func NewAppregistryImageBuilder(config *AppregistryBuildOptions, options ...AppregistryBuildOption) (*AppregistryImageBuilder, error) {
-	if config == nil {
-		config = DefaultAppregistryBuildOptions()
-	}
+func NewAppregistryImageBuilder(options ...AppregistryBuildOption) (*AppregistryImageBuilder, error) {
+	config := DefaultAppregistryBuildOptions()
 	config.Apply(options)
 	if err := config.Complete(); err != nil {
 		return nil, err

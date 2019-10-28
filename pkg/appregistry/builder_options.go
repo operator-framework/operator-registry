@@ -80,6 +80,34 @@ func (c *AppregistryBuildOptions) Apply(options []AppregistryBuildOption) {
 	}
 }
 
+// ToOption converts an AppregistryBuildOptions object into a function that applies
+// its current configuration to another AppregistryBuildOptions instance
+func (c *AppregistryBuildOptions) ToOption() AppregistryBuildOption {
+	return  func(o *AppregistryBuildOptions) {
+		if c.Appender != nil {
+			o.Appender = c.Appender
+		}
+		if c.From != "" {
+			o.From = c.From
+		}
+		if c.To != "" {
+			o.To = c.To
+		}
+		if c.AuthToken != "" {
+			o.AuthToken = c.AuthToken
+		}
+		if c.AppRegistryEndpoint != "" {
+			o.AppRegistryEndpoint = c.AppRegistryEndpoint
+		}
+		if c.DatabasePath != "" {
+			o.DatabasePath = c.DatabasePath
+		}
+		if c.CacheDir != "" {
+			o.CacheDir = c.CacheDir
+		}
+	}
+}
+
 type AppregistryBuildOption func(*AppregistryBuildOptions)
 
 func DefaultAppregistryBuildOptions() *AppregistryBuildOptions {

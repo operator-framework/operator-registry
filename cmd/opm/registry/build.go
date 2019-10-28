@@ -26,7 +26,7 @@ func BuildCmd() *cobra.Command {
 			var noopAppender appregistry.ImageAppendFunc = func(from, to, layer string) error {
 				return nil
 			}
-			builder, err := appregistry.NewAppregistryImageBuilder(o, appregistry.WithAppender(noopAppender))
+			builder, err := appregistry.NewAppregistryImageBuilder(o.ToOption(), appregistry.WithAppender(noopAppender))
 			if err != nil {
 				return err
 			}

@@ -48,10 +48,8 @@ type IndexImageMirrorer struct {
 
 var _ Mirrorer = &IndexImageMirrorer{}
 
-func NewIndexImageMirror(config *IndexImageMirrorerOptions, options ...ImageIndexMirrorOption) (*IndexImageMirrorer, error) {
-	if config == nil {
-		config = DefaultImageIndexMirrorerOptions()
-	}
+func NewIndexImageMirror(options ...ImageIndexMirrorOption) (*IndexImageMirrorer, error) {
+	config := DefaultImageIndexMirrorerOptions()
 	config.Apply(options)
 	if err := config.Complete(); err != nil {
 		return nil, err
@@ -95,8 +93,7 @@ func (b *IndexImageMirrorer) Mirror() (map[string]string, error) {
 
 	mapping := map[string]string{}
 
-	errs := []error{}
-
+	var errs []error
 	for _, img := range images {
 		ref, err := reference.ParseNamed(img)
 		if err != nil {

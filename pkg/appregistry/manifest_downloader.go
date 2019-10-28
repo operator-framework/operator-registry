@@ -2,6 +2,7 @@ package appregistry
 
 import (
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 
 	"github.com/operator-framework/operator-registry/pkg/apprclient"
@@ -14,7 +15,7 @@ func NewManifestDownloader(client apprclient.Client) ManifestDownloader {
 	}
 }
 
-// Downloader is an interface that is implemented by structs that
+// ManifestDownloader is an interface that is implemented by structs that
 // implement the DownloadManifests method.
 type ManifestDownloader interface {
 	// DownloadManifests downloads the manifests in a namespace into a local directory
@@ -35,21 +36,25 @@ func (d *manifestDownloader) DownloadManifests(directory, namespace string) erro
 		return err
 	}
 
+	var errs []error
 	for _, pkg := range packages {
 		klog.V(4).Infof("Downloading %s", pkg)
 		manifest, err := d.client.RetrieveOne(namespace+"/"+pkg.Name, pkg.Release)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 
 		decoder, err := NewManifestDecoder(log)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		if _, err = decoder.Decode([]*apprclient.OperatorMetadata{manifest}, directory); err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 	}
 
-	return nil
+	return errors.NewAggregate(errs)
 }

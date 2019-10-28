@@ -11,7 +11,7 @@ func MirrorCmd() *cobra.Command {
 	o := mirror.DefaultImageIndexMirrorerOptions()
 	cmd := &cobra.Command{
 		Hidden: true,
-		Use:    "mirror",
+		Use:    "mirror [src image] [dest image]",
 		Short:  "mirror an operator-registry catalog",
 		Long:   `mirror an operator-registry catalog image from one registry to another`,
 
@@ -26,7 +26,7 @@ func MirrorCmd() *cobra.Command {
 			src := args[0]
 			dest := args[1]
 
-			mirrorer, err := mirror.NewIndexImageMirror(o, mirror.WithSource(src), mirror.WithDest(dest))
+			mirrorer, err := mirror.NewIndexImageMirror(o.ToOption(), mirror.WithSource(src), mirror.WithDest(dest))
 			if err != nil {
 				return err
 			}
