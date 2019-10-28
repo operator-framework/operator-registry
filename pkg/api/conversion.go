@@ -55,7 +55,7 @@ func BundleStringToObjectStrings(bundleString string) ([]string, error) {
 	return objs, nil
 }
 
-func BundleStringToAPIBundle(bundleString string, entry *registry.ChannelEntry) (*Bundle, error) {
+func BundleStringToAPIBundle(bundleString string, bundlepathString string, entry *registry.ChannelEntry) (*Bundle, error) {
 	objs, err := BundleStringToObjectStrings(bundleString)
 	if err != nil {
 		return nil, err
@@ -80,5 +80,6 @@ func BundleStringToAPIBundle(bundleString string, entry *registry.ChannelEntry) 
 	}
 	out.ChannelName = entry.ChannelName
 	out.PackageName = entry.PackageName
+	out.BundlePath = bundlepathString
 	return out, nil
 }

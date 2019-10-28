@@ -22,20 +22,20 @@ func (EmptyQuery) GetPackage(ctx context.Context, name string) (*PackageManifest
 	return nil, errors.New("empty querier: cannot get package")
 }
 
-func (EmptyQuery) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (string, error) {
-	return "", errors.New("empty querier: cannot get bundle")
+func (EmptyQuery) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (string, string, error) {
+	return "", "", errors.New("empty querier: cannot get bundle")
 }
 
-func (EmptyQuery) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, error) {
-	return "", errors.New("empty querier: cannot get bundle for channel")
+func (EmptyQuery) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (string, string, error) {
+	return "", "", errors.New("empty querier: cannot get bundle for channel")
 }
 
 func (EmptyQuery) GetChannelEntriesThatReplace(ctx context.Context, name string) (entries []*ChannelEntry, err error) {
 	return nil, errors.New("empty querier: cannot get channel entries that replace")
 }
 
-func (EmptyQuery) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (string, error) {
-	return "", errors.New("empty querier: cannot get bundle that replaces")
+func (EmptyQuery) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (string, string, error) {
+	return "", "", errors.New("empty querier: cannot get bundle that replaces")
 }
 
 func (EmptyQuery) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*ChannelEntry, err error) {
@@ -46,8 +46,8 @@ func (EmptyQuery) GetLatestChannelEntriesThatProvide(ctx context.Context, group,
 	return nil, errors.New("empty querier: cannot get latest channel entries that provide")
 }
 
-func (EmptyQuery) GetBundleThatProvides(ctx context.Context, group, version, kind string) (string, *ChannelEntry, error) {
-	return "", nil, errors.New("empty querier: cannot get bundle that provides")
+func (EmptyQuery) GetBundleThatProvides(ctx context.Context, group, version, kind string) (string, string, *ChannelEntry, error) {
+	return "", "", nil, errors.New("empty querier: cannot get bundle that provides")
 }
 
 func (EmptyQuery) ListImages(ctx context.Context) ([]string, error) {
