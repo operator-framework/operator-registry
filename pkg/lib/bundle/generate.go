@@ -13,20 +13,20 @@ import (
 )
 
 const (
-	defaultPermission   = 0644
-	registryV1Type      = "registry+v1"
-	plainType           = "plain"
-	helmType            = "helm"
-	annotationsFile     = "annotations.yaml"
-	dockerFile          = "Dockerfile"
-	manifestsDir        = "manifests/"
-	metadataDir         = "metadata/"
-	manifestsLabel      = "operators.operatorframework.io.bundle.manifests.v1"
-	metadataLabel       = "operators.operatorframework.io.bundle.metadata.v1"
-	mediatypeLabel      = "operators.operatorframework.io.bundle.mediatype.v1"
-	packageLabel        = "operators.operatorframework.io.bundle.package.v1"
-	channelsLabel       = "operators.operatorframework.io.bundle.channels.v1"
-	channelDefaultLabel = "operators.operatorframework.io.bundle.channel.default.v1"
+	DefaultPermission   = 0644
+	RegistryV1Type      = "registry+v1"
+	PlainType           = "plain"
+	HelmType            = "helm"
+	AnnotationsFile     = "annotations.yaml"
+	DockerFile          = "Dockerfile"
+	ManifestsDir        = "manifests/"
+	MetadataDir         = "metadata/"
+	ManifestsLabel      = "operators.operatorframework.io.bundle.manifests.v1"
+	MetadataLabel       = "operators.operatorframework.io.bundle.metadata.v1"
+	MediatypeLabel      = "operators.operatorframework.io.bundle.mediatype.v1"
+	PackageLabel        = "operators.operatorframework.io.bundle.package.v1"
+	ChannelsLabel       = "operators.operatorframework.io.bundle.channels.v1"
+	ChannelDefaultLabel = "operators.operatorframework.io.bundle.channel.default.v1"
 )
 
 type AnnotationMetadata struct {
@@ -54,14 +54,14 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 	log.Info("Building annotations.yaml")
 
 	// Generate annotations.yaml
-	content, err := GenerateAnnotations(mediaType, manifestsDir, metadataDir, packageName, channels, channelDefault)
+	content, err := GenerateAnnotations(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
 	if err != nil {
 		return err
 	}
 
-	file, err := ioutil.ReadFile(filepath.Join(directory, metadataDir, annotationsFile))
+	file, err := ioutil.ReadFile(filepath.Join(directory, MetadataDir, AnnotationsFile))
 	if os.IsNotExist(err) || overwrite {
-		err = WriteFile(annotationsFile, filepath.Join(directory, metadataDir), content)
+		err = WriteFile(AnnotationsFile, filepath.Join(directory, MetadataDir), content)
 		if err != nil {
 			return err
 		}
@@ -77,12 +77,12 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 	log.Info("Building Dockerfile")
 
 	// Generate Dockerfile
-	content, err = GenerateDockerfile(directory, mediaType, manifestsDir, metadataDir, packageName, channels, channelDefault)
+	content, err = GenerateDockerfile(directory, mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
 	if err != nil {
 		return err
 	}
 
-	err = WriteFile(dockerFile, directory, content)
+	err = WriteFile(DockerFile, directory, content)
 	if err != nil {
 		return err
 	}
@@ -113,15 +113,15 @@ func GetMediaType(directory string) (string, error) {
 	// Validate the file names to determine media type
 	for _, file := range files {
 		if file == "Chart.yaml" {
-			return helmType, nil
+			return HelmType, nil
 		} else if strings.HasSuffix(file, "clusterserviceversion.yaml") {
-			return registryV1Type, nil
+			return RegistryV1Type, nil
 		} else {
 			continue
 		}
 	}
 
-	return plainType, nil
+	return PlainType, nil
 }
 
 // ValidateAnnotations validates existing annotations.yaml against generated
@@ -199,12 +199,12 @@ func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
 	annotations := &AnnotationMetadata{
 		Annotations: map[string]string{
-			mediatypeLabel:      mediaType,
-			manifestsLabel:      manifests,
-			metadataLabel:       metadata,
-			packageLabel:        packageName,
-			channelsLabel:       channels,
-			channelDefaultLabel: channelDefault,
+			MediatypeLabel:      mediaType,
+			ManifestsLabel:      manifests,
+			MetadataLabel:       metadata,
+			PackageLabel:        packageName,
+			ChannelsLabel:       channels,
+			ChannelDefaultLabel: channelDefault,
 		},
 	}
 
@@ -213,7 +213,7 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 		return nil, err
 	}
 
-	annotations.Annotations[channelDefaultLabel] = chanDefault
+	annotations.Annotations[ChannelDefaultLabel] = chanDefault
 
 	afile, err := yaml.Marshal(annotations)
 	if err != nil {
@@ -238,16 +238,16 @@ func GenerateDockerfile(directory, mediaType, manifests, metadata, packageName, 
 	fileContent += "FROM scratch\n\n"
 
 	// LABEL
-	fileContent += fmt.Sprintf("LABEL %s=%s\n", mediatypeLabel, mediaType)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n", manifestsLabel, manifests)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n", metadataLabel, metadata)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n", packageLabel, packageName)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n", channelsLabel, channels)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", channelDefaultLabel, chanDefault)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", MediatypeLabel, mediaType)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", ManifestsLabel, manifests)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", MetadataLabel, metadata)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", PackageLabel, packageName)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", ChannelsLabel, channels)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, chanDefault)
 
 	// CONTENT
 	fileContent += fmt.Sprintf("ADD %s %s\n", filepath.Join(directory, "*.yaml"), "/manifests")
-	fileContent += fmt.Sprintf("ADD %s %s%s\n", filepath.Join(directory, metadata, annotationsFile), "/metadata/", annotationsFile)
+	fileContent += fmt.Sprintf("ADD %s %s%s\n", filepath.Join(directory, metadata, AnnotationsFile), "/metadata/", AnnotationsFile)
 
 	return []byte(fileContent), nil
 }
@@ -259,7 +259,7 @@ func WriteFile(fileName, directory string, content []byte) error {
 		os.Mkdir(directory, os.ModePerm)
 	}
 
-	err := ioutil.WriteFile(filepath.Join(directory, fileName), content, defaultPermission)
+	err := ioutil.WriteFile(filepath.Join(directory, fileName), content, DefaultPermission)
 	if err != nil {
 		return err
 	}

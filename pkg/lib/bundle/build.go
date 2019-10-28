@@ -13,7 +13,7 @@ import (
 func BuildBundleImage(directory, imageTag, imageBuilder string) (*exec.Cmd, error) {
 	var args []string
 
-	dockerfilePath := path.Join(directory, dockerFile)
+	dockerfilePath := path.Join(directory, DockerFile)
 
 	switch imageBuilder {
 	case "docker", "podman":

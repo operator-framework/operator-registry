@@ -21,17 +21,17 @@ func TestGetMediaType(t *testing.T) {
 	}{
 		{
 			testDir,
-			registryV1Type,
+			RegistryV1Type,
 			"",
 		},
 		{
 			testDir,
-			helmType,
+			HelmType,
 			"",
 		},
 		{
 			testDir,
-			plainType,
+			PlainType,
 			"",
 		},
 		{
@@ -183,12 +183,12 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 	// Create test annotations struct
 	testAnnotations := &AnnotationMetadata{
 		Annotations: map[string]string{
-			mediatypeLabel:      "test1",
-			manifestsLabel:      "test2",
-			metadataLabel:       "test3",
-			packageLabel:        "test4",
-			channelsLabel:       "test5",
-			channelDefaultLabel: "test5",
+			MediatypeLabel:      "test1",
+			ManifestsLabel:      "test2",
+			MetadataLabel:       "test3",
+			PackageLabel:        "test4",
+			ChannelsLabel:       "test5",
+			ChannelDefaultLabel: "test5",
 		},
 	}
 	// Create result annotations struct
@@ -213,10 +213,10 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
 		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
 		"ADD %s/*.yaml /manifests\n"+
-		"ADD %s/annotations.yaml /metadata/annotations.yaml\n", metadataDir, getTestDir(),
-		filepath.Join(getTestDir(), metadataDir))
+		"ADD %s/annotations.yaml /metadata/annotations.yaml\n", MetadataDir, getTestDir(),
+		filepath.Join(getTestDir(), MetadataDir))
 
-	content, err := GenerateDockerfile(getTestDir(), "test1", "test2", metadataDir, "test4", "test5", "")
+	content, err := GenerateDockerfile(getTestDir(), "test1", "test2", MetadataDir, "test4", "test5", "")
 	require.NoError(t, err)
 	require.Equal(t, output, string(content))
 }

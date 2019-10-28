@@ -43,13 +43,13 @@ func createDir(dir string) {
 func createFiles(dir, input string) {
 	// Create test files in test directory
 	switch input {
-	case registryV1Type:
+	case RegistryV1Type:
 		file, _ := os.Create(filepath.Join(dir, csvFile))
 		file.Close()
-	case helmType:
+	case HelmType:
 		file, _ := os.Create(filepath.Join(dir, helmFile))
 		file.Close()
-	case plainType:
+	case PlainType:
 		file, _ := os.Create(filepath.Join(dir, crdFile))
 		file.Close()
 	default:
