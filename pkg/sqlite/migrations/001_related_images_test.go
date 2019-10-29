@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,10 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 func CreateTestDbAt(t *testing.T, key int) (*sql.DB, sqlite.Migrator, func()) {
 	dbName := fmt.Sprintf("%d.db", rand.Int())
