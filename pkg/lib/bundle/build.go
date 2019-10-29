@@ -62,7 +62,7 @@ func BuildFunc(directory, imageTag, imageBuilder, packageName, channels, channel
 
 	// Build bundle image
 	log.Info("Building bundle image")
-	buildCmd, err := BuildBundleImage(path.Clean(directory), imageBuilder, imageTag)
+	buildCmd, err := BuildBundleImage(path.Clean(directory), imageTag, imageBuilder)
 	if err != nil {
 		return err
 	}
