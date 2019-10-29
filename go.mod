@@ -2,6 +2,7 @@ module github.com/operator-framework/operator-registry
 
 require (
 	github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6
+	github.com/docker/distribution v2.7.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.2.0
@@ -25,6 +26,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
 	k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655
 	k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
+	k8s.io/klog v0.4.0
 )
 
 go 1.13
