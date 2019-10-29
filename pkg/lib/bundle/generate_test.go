@@ -212,7 +212,7 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
 		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
-		"ADD %s/*.yaml /manifests\n"+
+		"ADD %s/*.yaml /manifests/\n"+
 		"ADD %s/annotations.yaml /metadata/annotations.yaml\n", MetadataDir, getTestDir(),
 		filepath.Join(getTestDir(), MetadataDir))
 

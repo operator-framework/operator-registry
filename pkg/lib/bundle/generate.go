@@ -246,7 +246,7 @@ func GenerateDockerfile(directory, mediaType, manifests, metadata, packageName, 
 	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, chanDefault)
 
 	// CONTENT
-	fileContent += fmt.Sprintf("ADD %s %s\n", filepath.Join(directory, "*.yaml"), "/manifests")
+	fileContent += fmt.Sprintf("ADD %s %s\n", filepath.Join(directory, "*.yaml"), "/manifests/")
 	fileContent += fmt.Sprintf("ADD %s %s%s\n", filepath.Join(directory, metadata, AnnotationsFile), "/metadata/", AnnotationsFile)
 
 	return []byte(fileContent), nil
