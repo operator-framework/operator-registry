@@ -31,6 +31,7 @@ COPY --from=builder /src/bin/initializer /bin/initializer
 COPY --from=builder /src/bin/registry-server /bin/registry-server
 COPY --from=builder /src/bin/configmap-server /bin/configmap-server
 COPY --from=builder /src/bin/appregistry-server /bin/appregistry-server
+COPY --from=builder /src/bin/opm /bin/opm
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
