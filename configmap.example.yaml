@@ -6049,6 +6049,7 @@ data:
         apiservicedefinitions:
           owned:
           - group: etcd.database.coreos.com
+            name: fakeetcds
             version: v1beta2
             kind: FakeEtcdObject
             displayName: Fake Object
