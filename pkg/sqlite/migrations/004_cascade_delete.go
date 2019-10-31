@@ -9,7 +9,7 @@ var CascadeDeleteMigrationKey = 4
 
 // Register this migration
 func init() {
-	migrations[CascadeDeleteMigrationKey] = cascadeDeleteMigration
+	registerMigration(CascadeDeleteMigrationKey, cascadeDeleteMigration)
 }
 
 var cascadeDeleteMigration = &Migration{
