@@ -2,12 +2,11 @@ package migrations_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
@@ -35,20 +34,31 @@ func TestRequiredApisUp(t *testing.T) {
 	require.NoError(t, tx.Commit())
 
 	// check that no required apis were extracted.
-	querier := sqlite.NewSQLLiteQuerierFromDb(db)
-	provided, required, err := querier.GetApisForEntry(context.TODO(), 1)
+	requiredQuery := `SELECT DISTINCT api.group_name, api.version, api.kind, api.plural FROM api
+		 	  		  INNER JOIN api_requirer ON (api.group_name=api_requirer.group_name AND api.version=api_requirer.version AND api.kind=api_requirer.kind)
+			  		  WHERE api_requirer.channel_entry_id=?`
+	// check that no required apis were extracted.
+	_, err = db.Query(requiredQuery, 1)
 	require.Error(t, err)
-	require.Nil(t, provided)
-	require.Nil(t, required)
 
 	// Up the migration with backfill
 	err = migrator.Up(context.TODO(), migrations.Only(migrations.RequiredApiMigrationKey))
 	require.NoError(t, err)
 
 	// check that required apis were extracted
-	bundle, err := querier.GetBundleForChannel(context.TODO(), "etcd", "alpha")
+	rows, err := db.Query(requiredQuery, 1)
 	require.NoError(t, err)
-	require.Equal(t, []*api.GroupVersionKind{{Group:"etcd.database.coreos.com", Version: "v1beta2", Kind:"EtcdCluster", Plural:"etcdclusters"}}, bundle.RequiredApis)
+	var group sql.NullString
+	var version sql.NullString
+	var kind sql.NullString
+	var plural sql.NullString
+	rows.Next()
+	require.NoError(t, rows.Scan(&group, &version, &kind, &plural))
+	require.Equal(t, group.String, "etcd.database.coreos.com")
+	require.Equal(t, version.String, "v1beta2")
+	require.Equal(t, kind.String, "EtcdCluster")
+	require.Equal(t, plural.String, "etcdclusters")
+	require.NoError(t, rows.Close())
 }
 
 func TestRequiredApisDown(t *testing.T) {
@@ -64,19 +74,29 @@ func TestRequiredApisDown(t *testing.T) {
 	require.NoError(t, err)
 
 	// check that required apis were extracted from existing bundles
-	querier := sqlite.NewSQLLiteQuerierFromDb(db)
-	provided, required, err := querier.GetApisForEntry(context.TODO(), 1)
+	requiredQuery := `SELECT DISTINCT api.group_name, api.version, api.kind, api.plural FROM api
+		 	  		  INNER JOIN api_requirer ON (api.group_name=api_requirer.group_name AND api.version=api_requirer.version AND api.kind=api_requirer.kind)
+			  		  WHERE api_requirer.channel_entry_id=?`
+
+	rows, err := db.Query(requiredQuery, 1)
 	require.NoError(t, err)
-	require.Equal(t, provided, []*api.GroupVersionKind{})
-	require.Equal(t, []*api.GroupVersionKind{{Group:"etcd.database.coreos.com", Version: "v1beta2", Kind:"EtcdCluster", Plural:"etcdclusters"}}, required)
+	var group sql.NullString
+	var version sql.NullString
+	var kind sql.NullString
+	var plural sql.NullString
+	rows.Next()
+	require.NoError(t, rows.Scan(&group, &version, &kind, &plural))
+	require.Equal(t, group.String, "etcd.database.coreos.com")
+	require.Equal(t, version.String, "v1beta2")
+	require.Equal(t, kind.String, "EtcdCluster")
+	require.Equal(t, plural.String, "etcdclusters")
+	require.NoError(t, rows.Close())
 
 	// run down migration
 	err = migrator.Down(context.TODO(), migrations.Only(migrations.RequiredApiMigrationKey))
 	require.NoError(t, err)
 
 	// check that no required apis were extracted.
-	provided, required, err = querier.GetApisForEntry(context.TODO(), 1)
+	_, err = db.Query(requiredQuery, 1)
 	require.Error(t, err)
-	require.Nil(t, provided)
-	require.Nil(t, required)
 }
