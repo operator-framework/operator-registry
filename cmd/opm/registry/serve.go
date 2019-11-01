@@ -31,7 +31,7 @@ func newRegistryServeCmd() *cobra.Command {
 			return nil
 		},
 
-		RunE: runRegistryServeCmdFunc,
+		RunE: serveFunc,
 	}
 
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -43,7 +43,7 @@ func newRegistryServeCmd() *cobra.Command {
 
 }
 
-func runRegistryServeCmdFunc(cmd *cobra.Command, args []string) error {
+func serveFunc(cmd *cobra.Command, args []string) error {
 	// Immediately set up termination log
 	terminationLogPath, err := cmd.Flags().GetString("termination-log")
 	if err != nil {
