@@ -74,9 +74,11 @@ func TestIndexImageMirrorer_Mirror(t *testing.T) {
 				"quay.io/coreos/prometheus-operator@sha256:0e92dd9b5789c4b13d53e1319d0a6375bcca4caaf0d698af61198061222a576d":"localhost/coreos/prometheus-operator@sha256:0e92dd9b5789c4b13d53e1319d0a6375bcca4caaf0d698af61198061222a576d",
 				"quay.io/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf":"localhost/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf",
 				"quay.io/coreos/prometheus-operator@sha256:5037b4e90dbb03ebdefaa547ddf6a1f748c8eeebeedf6b9d9f0913ad662b5731":"localhost/coreos/prometheus-operator@sha256:5037b4e90dbb03ebdefaa547ddf6a1f748c8eeebeedf6b9d9f0913ad662b5731",
+				"docker.io/strimzi/cluster-operator:0.11.0": "localhost/strimzi/cluster-operator:0.11.0",
+				"docker.io/strimzi/cluster-operator:0.11.1": "localhost/strimzi/cluster-operator:0.11.1",
+				"docker.io/strimzi/operator:0.12.1": "localhost/strimzi/operator:0.12.1",
+				"docker.io/strimzi/operator:0.12.2": "localhost/strimzi/operator:0.12.2",
 			},
-			// strimzi has invalid images in its manifests, so we both return a list of maps and an error
-			wantErr: fmt.Errorf("[couldn't parse image for mirroring (strimzi/cluster-operator:0.11.0), skipping mirror: repository name must be canonical, couldn't parse image for mirroring (strimzi/cluster-operator:0.11.1), skipping mirror: repository name must be canonical, couldn't parse image for mirroring (strimzi/operator:0.12.1), skipping mirror: repository name must be canonical, couldn't parse image for mirroring (strimzi/operator:0.12.2), skipping mirror: repository name must be canonical]"),
 		},
 	}
 	for _, tt := range tests {
@@ -95,7 +97,9 @@ func TestIndexImageMirrorer_Mirror(t *testing.T) {
 				Dest:              tt.fields.Dest,
 			}
 			got, err := b.Mirror()
-			require.Equal(t, tt.wantErr.Error(), err.Error())
+			if err != nil {
+				require.Equal(t, tt.wantErr.Error(), err.Error())
+			}
 			require.Equal(t, tt.want, got)
 		})
 	}
