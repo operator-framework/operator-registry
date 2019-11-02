@@ -1,14 +1,10 @@
 package registry
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newRegistryAddCmd() *cobra.Command {
@@ -31,6 +27,7 @@ func newRegistryAddCmd() *cobra.Command {
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to database file")
 	rootCmd.Flags().StringSliceP("bundle-images", "b", []string{}, "comma separated list of links to bundle image")
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
+	rootCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 
 	return rootCmd
 }
@@ -50,32 +47,27 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var errs []error
-
-	db, err := sql.Open("sqlite3", fromFilename)
+	containerTool, err := cmd.Flags().GetString("container-tool")
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	request := registry.AddToRegistryRequest{
+		Bundles: bundleImages,
+		InputDatabase: fromFilename,
+		Permissive: permissive,
+		ContainerTool: containerTool,
+	}
+
+	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
+
+	logger.Info("adding to the registry")
+
+	registryAdder := registry.NewRegistryAdder(logger)
+
+	err = registryAdder.AddToRegistry(request)
 	if err != nil {
 		return err
-	}
-	if err := dbLoader.Migrate(context.TODO()); err != nil {
-		return err
-	}
-
-	for _, bundleImage := range bundleImages {
-		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage)
-		if err := loader.Populate(); err != nil {
-			err = fmt.Errorf("error loading bundle from image: %s", err)
-			if !permissive {
-				logrus.WithError(err).Fatal("permissive mode disabled")
-				errs = append(errs, err)
-			}
-			logrus.WithError(err).Warn("permissive mode enabled")
-		}
 	}
 	return nil
 }

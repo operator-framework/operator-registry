@@ -1,0 +1,27 @@
+package index
+
+import (
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+)
+
+// NewOpmIndexCmd returns the opm index command
+func NewOpmIndexCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "index",
+		Short: "generate operator index container images",
+		Long:  `generate operator index container images from preexisting operator bundles`,
+
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if debug, _ := cmd.Flags().GetBool("debug"); debug {
+				logrus.SetLevel(logrus.DebugLevel)
+			}
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(newIndexAddCmd())
+	rootCmd.AddCommand(newIndexDeleteCmd())
+
+	return rootCmd
+}

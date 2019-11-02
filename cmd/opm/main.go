@@ -8,6 +8,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
 	"github.com/operator-framework/operator-registry/cmd/opm/registry"
+	"github.com/operator-framework/operator-registry/cmd/opm/index"
 )
 
 func main() {
@@ -25,6 +26,7 @@ func main() {
 
 	rootCmd.AddCommand(registry.NewOpmRegistryCmd())
 	rootCmd.AddCommand(alpha.NewCmd())
+	rootCmd.AddCommand(index.NewOpmIndexCmd())
 
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
 	if err := rootCmd.Flags().MarkHidden("debug"); err != nil {

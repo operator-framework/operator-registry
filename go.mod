@@ -11,6 +11,7 @@ require (
 	github.com/grpc-ecosystem/grpc-health-probe v0.2.1-0.20181220223928-2bf0a5b182db
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/otiai10/copy v1.0.1

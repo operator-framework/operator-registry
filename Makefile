@@ -42,6 +42,10 @@ container-codegen:
 	docker cp temp-codegen:/codegen/pkg/api/. ./pkg/api
 	docker rm temp-codegen
 
+generate-fakes:
+	go install -mod=vendor ./vendor/github.com/maxbrunsfeld/counterfeiter/v6
+	go generate ./...
+
 clean:
 	@rm -rf ./bin
 
