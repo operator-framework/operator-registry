@@ -1,14 +1,10 @@
 package registry
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newRegistryRmCmd() *cobra.Command {
@@ -49,30 +45,21 @@ func rmFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	db, err := sql.Open("sqlite3", fromFilename)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
-	if err != nil {
-		return err
-	}
-	if err := dbLoader.Migrate(context.TODO()); err != nil {
-		return err
+	request := registry.DeleteFromRegistryRequest{
+		Packages: packages,
+		InputDatabase: fromFilename,
+		Permissive: permissive,
 	}
 
-	for _, pkg := range packages {
-		remover := sqlite.NewSQLRemoverForPackages(dbLoader, pkg)
-		if err := remover.Remove(); err != nil {
-			err = fmt.Errorf("error deleting packages from database: %s", err)
-			if !permissive {
-				logrus.WithError(err).Fatal("permissive mode disabled")
-				return err
-			}
-			logrus.WithError(err).Warn("permissive mode enabled")
-		}
+	logger := logrus.WithFields(logrus.Fields{"packages": packages})
+
+	logger.Info("adding to the registry")
+
+	registryDeleter := registry.NewRegistryDeleter(logger)
+
+	err = registryDeleter.DeleteFromRegistry(request)
+	if err != nil {
+		return err
 	}
 
 	return nil
