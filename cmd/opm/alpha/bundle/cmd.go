@@ -13,6 +13,7 @@ func NewCmd() *cobra.Command {
 
 	runCmd.AddCommand(newBundleGenerateCmd())
 	runCmd.AddCommand(newBundleBuildCmd())
+	runCmd.AddCommand(newBundleValidateCmd())
 	runCmd.AddCommand(extractCmd)
 	return runCmd
 }
