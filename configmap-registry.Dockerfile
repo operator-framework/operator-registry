@@ -1,4 +1,4 @@
-FROM quay.io/operator-framework/upstream-registry-builder:v1.1.0 as builder
+FROM quay.io/operator-framework/upstream-registry-builder:latest as builder
 
 FROM scratch
 COPY --from=builder /build/bin/configmap-server /bin/configmap-server
