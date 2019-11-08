@@ -65,6 +65,9 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		if dbLocation, ok := labels[containertools.DbLocationLabel]; ok {
 			// extract the database to the file
 			err = i.ImageReader.GetImageData(request.FromIndex, workingDir)
+			if err != nil {
+				return err
+			}
 
 			databaseFile = path.Join(workingDir, dbLocation)
 		}
@@ -139,6 +142,9 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 
 			// extract the database to the file
 			err = i.ImageReader.GetImageData(request.FromIndex, workingDir)
+			if err != nil {
+				return err
+			}
 
 			databaseFile = path.Join(workingDir, dbLocation)
 		}

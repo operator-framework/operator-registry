@@ -8,11 +8,12 @@ import (
 )
 
 type FakeImageReader struct {
-	GetImageDataStub        func(string, string) error
+	GetImageDataStub        func(string, string, ...containertools.GetImageDataOption) error
 	getImageDataMutex       sync.RWMutex
 	getImageDataArgsForCall []struct {
 		arg1 string
 		arg2 string
+		arg3 []containertools.GetImageDataOption
 	}
 	getImageDataReturns struct {
 		result1 error
@@ -24,17 +25,18 @@ type FakeImageReader struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeImageReader) GetImageData(arg1 string, arg2 string) error {
+func (fake *FakeImageReader) GetImageData(arg1 string, arg2 string, arg3 ...containertools.GetImageDataOption) error {
 	fake.getImageDataMutex.Lock()
 	ret, specificReturn := fake.getImageDataReturnsOnCall[len(fake.getImageDataArgsForCall)]
 	fake.getImageDataArgsForCall = append(fake.getImageDataArgsForCall, struct {
 		arg1 string
 		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("GetImageData", []interface{}{arg1, arg2})
+		arg3 []containertools.GetImageDataOption
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("GetImageData", []interface{}{arg1, arg2, arg3})
 	fake.getImageDataMutex.Unlock()
 	if fake.GetImageDataStub != nil {
-		return fake.GetImageDataStub(arg1, arg2)
+		return fake.GetImageDataStub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
@@ -49,17 +51,17 @@ func (fake *FakeImageReader) GetImageDataCallCount() int {
 	return len(fake.getImageDataArgsForCall)
 }
 
-func (fake *FakeImageReader) GetImageDataCalls(stub func(string, string) error) {
+func (fake *FakeImageReader) GetImageDataCalls(stub func(string, string, ...containertools.GetImageDataOption) error) {
 	fake.getImageDataMutex.Lock()
 	defer fake.getImageDataMutex.Unlock()
 	fake.GetImageDataStub = stub
 }
 
-func (fake *FakeImageReader) GetImageDataArgsForCall(i int) (string, string) {
+func (fake *FakeImageReader) GetImageDataArgsForCall(i int) (string, string, []containertools.GetImageDataOption) {
 	fake.getImageDataMutex.RLock()
 	defer fake.getImageDataMutex.RUnlock()
 	argsForCall := fake.getImageDataArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeImageReader) GetImageDataReturns(result1 error) {

@@ -25,11 +25,11 @@ type imageManifest struct {
 }
 
 type ImageReader interface {
-	GetImageData(string, string) error
+	GetImageData(string, string, ...GetImageDataOption) error
 }
 
 type ImageLayerReader struct {
-	Cmd CommandRunner
+	Cmd    CommandRunner
 	Logger *logrus.Entry
 }
 
@@ -37,12 +37,17 @@ func NewImageReader(containerTool string, logger *logrus.Entry) ImageReader {
 	cmd := NewCommandRunner(containerTool, logger)
 
 	return &ImageLayerReader{
-		Cmd: cmd,
+		Cmd:    cmd,
 		Logger: logger,
 	}
 }
 
-func (b ImageLayerReader) GetImageData(image, outputDir string) error {
+func (b ImageLayerReader) GetImageData(image, outputDir string, opts ...GetImageDataOption) error {
+	options := GetImageDataOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
+
 	// Create the output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		os.Mkdir(outputDir, 0777)
@@ -53,11 +58,14 @@ func (b ImageLayerReader) GetImageData(image, outputDir string) error {
 		return err
 	}
 
-	workingDir, err := ioutil.TempDir("./", "bundle_staging_")
-	if err != nil {
-		return err
+	workingDir := options.WorkingDir
+	if workingDir == "" {
+		workingDir, err := ioutil.TempDir("./", "bundle_staging_")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(workingDir)
 	}
-	defer os.RemoveAll(workingDir)
 
 	rootTarfile := filepath.Join(workingDir, "bundle.tar")
 
@@ -77,7 +85,7 @@ func (b ImageLayerReader) GetImageData(image, outputDir string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Untar the image layer tarballs and push the bundle manifests to the output directory
 	for _, tarball := range layerTarballs {
 		f, err = os.Open(rootTarfile)
@@ -143,18 +151,16 @@ func extractBundleManifests(layerTarball, outputDir string, tarReader *tar.Reade
 
 		if header.Typeflag == tar.TypeReg {
 			if header.Name == layerTarball {
-				// Found the embedded top layer tarball
+				// Found the embedded tarball for the layer
 				layerReader := tar.NewReader(tarReader)
 
 				err = extractTarballToDir(outputDir, layerReader)
 				if err != nil {
 					return err
 				}
-			}
 
-			continue
-		} else {
-			return nil
+				return nil
+			}
 		}
 	}
 }
