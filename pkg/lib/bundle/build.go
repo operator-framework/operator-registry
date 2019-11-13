@@ -17,9 +17,9 @@ func BuildBundleImage(directory, imageTag, imageBuilder string) (*exec.Cmd, erro
 
 	switch imageBuilder {
 	case "docker", "podman":
-		args = append(args, "build", "-f", dockerfilePath, "-t", imageTag, ".")
+		args = append(args, "build", "-f", dockerfilePath, "-t", imageTag, directory)
 	case "buildah":
-		args = append(args, "bud", "--format=docker", "-f", dockerfilePath, "-t", imageTag, ".")
+		args = append(args, "bud", "--format=docker", "-f", dockerfilePath, "-t", imageTag, directory)
 	default:
 		return nil, fmt.Errorf("%s is not supported image builder", imageBuilder)
 	}

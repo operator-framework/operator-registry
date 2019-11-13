@@ -159,6 +159,12 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 
 All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
 
+The `Dockerfile` can used to manually build bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
+
+```bash
+$ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path/to/manifests/
+```
+
 ### Build Bundle Image
 
 Operator bundle image can be built from provided operator manifests using `build` command (see *Notes* below). The overall `bundle build` command usage is:
@@ -196,4 +202,3 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 *Notes:*
 * If there is `Dockerfile` existing in the directory, it will be overwritten.
 * If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and returns any found errors. If the ``annotations.yaml`` is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow cli to overwrite the `annotations.yaml` if existed.
-* The directory where the operator manifests are located must be inside the context of the build which in this case is inside the directory where you run the command.
