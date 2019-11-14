@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -684,33 +685,77 @@ func buildContainer(tag, dockerfilePath, context string) {
 
 var _ = ginkgo.Describe("Launch bundle", func() {
 	namespace := "default"
+	initImage := "init-operator-manifest:test"
+	bundleImage := "bundle-image:test"
+
 	correctConfigMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Annotations: map[string]string{
-				bundle.MediatypeLabel:                "registry+v1",
+				bundle.MediatypeLabel:                 "registry+v1",
 				bundle.ManifestsLabel:                 "/manifests/",
-				bundle.MetadataLabel:                 "/metadata/",
-				bundle.PackageLabel:                  "kiali-operator.v1.4.2",
-				bundle.ChannelsLabel:                 "alpha,stable",
-				bundle.ChannelDefaultLabel:           "stable",
-				configmap.ConfigMapImageAnnotationKey: "bundle-image:latest",
+				bundle.MetadataLabel:                  "/metadata/",
+				bundle.PackageLabel:                   "kiali-operator.v1.4.2",
+				bundle.ChannelsLabel:                  "alpha,stable",
+				bundle.ChannelDefaultLabel:            "stable",
+				configmap.ConfigMapImageAnnotationKey: bundleImage,
 			},
 		},
 		Data: getConfigMapDataSection(),
 	}
 
 	ginkgo.Context("Deploy bundle job", func() {
+		// these permissions are only necessary for the e2e (and not OLM using the feature)
+		ginkgo.It("should apply necessary RBAC", func() {
+			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			_, err = kubeclient.RbacV1().Roles(namespace).Create(&rbacv1.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "olm-dev-configmap-access",
+					Namespace: namespace,
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"configmaps"},
+						Verbs:     []string{"create", "get", "update"},
+					},
+				},
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			_, err = kubeclient.RbacV1().RoleBindings(namespace).Create(&rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "olm-dev-configmap-access-binding",
+					Namespace: namespace,
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						APIGroup:  "",
+						Kind:      "ServiceAccount",
+						Name:      "default",
+						Namespace: namespace,
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "Role",
+					Name:     "olm-dev-configmap-access",
+				},
+			})
+		})
+
 		ginkgo.It("should build required images", func() {
-			buildContainer("init-operator-manifest", imageDirectory+"Dockerfile.serve", "../../bin")
-			buildContainer("bundle-image", imageDirectory+"Dockerfile.bundle", imageDirectory)
+			buildContainer(initImage, imageDirectory+"Dockerfile.serve", "../../bin")
+			buildContainer(bundleImage, imageDirectory+"Dockerfile.bundle", imageDirectory)
 		})
 
 		ginkgo.It("should populate specified configmap", func() {
 			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, "bundle-image:latest", "init-operator-manifest:latest", namespace)
+			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, bundleImage, initImage, namespace)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			// wait for job to complete
