@@ -43,7 +43,10 @@ type AnnotationMetadata struct {
 // @channelDefault: The default channel for the bundle image
 // @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
 func GenerateFunc(directory, packageName, channels, channelDefault string, overwrite bool) error {
-	var mediaType string
+	_, err := os.Stat(directory)
+	if os.IsNotExist(err) {
+		return err
+	}
 
 	// Determine mediaType
 	mediaType, err := GetMediaType(directory)

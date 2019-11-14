@@ -159,7 +159,7 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 
 All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
 
-The `Dockerfile` can used to manually build bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
+The `Dockerfile` can be used manually to build the bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
 
 ```bash
 $ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path/to/manifests/
