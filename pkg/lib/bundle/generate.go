@@ -104,13 +104,13 @@ func GetMediaType(directory string) (string, error) {
 	for _, item := range items {
 		if item.IsDir() {
 			continue
-		} else {
+		} else if filepath.Ext(item.Name()) == ".yaml" {
 			files = append(files, item.Name())
 		}
 	}
 
 	if len(files) == 0 {
-		return "", fmt.Errorf("The directory %s contains no files", directory)
+		return "", fmt.Errorf("The directory %s contains no yaml files", directory)
 	}
 
 	// Validate the file names to determine media type
