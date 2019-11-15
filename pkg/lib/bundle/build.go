@@ -17,9 +17,9 @@ func BuildBundleImage(directory, imageTag, imageBuilder string) (*exec.Cmd, erro
 
 	switch imageBuilder {
 	case "docker", "podman":
-		args = append(args, "build", "-f", dockerfilePath, "-t", imageTag, ".")
+		args = append(args, "build", "-f", dockerfilePath, "-t", imageTag, directory)
 	case "buildah":
-		args = append(args, "bud", "--format=docker", "-f", dockerfilePath, "-t", imageTag, ".")
+		args = append(args, "bud", "--format=docker", "-f", dockerfilePath, "-t", imageTag, directory)
 	default:
 		return nil, fmt.Errorf("%s is not supported image builder", imageBuilder)
 	}
@@ -54,8 +54,13 @@ func ExecuteCommand(cmd *exec.Cmd) error {
 // @channelDefault: The default channel for the bundle image
 // @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
 func BuildFunc(directory, imageTag, imageBuilder, packageName, channels, channelDefault string, overwrite bool) error {
+	_, err := os.Stat(directory)
+	if os.IsNotExist(err) {
+		return err
+	}
+
 	// Generate annotations.yaml and Dockerfile
-	err := GenerateFunc(directory, packageName, channels, channelDefault, overwrite)
+	err = GenerateFunc(directory, packageName, channels, channelDefault, overwrite)
 	if err != nil {
 		return err
 	}

@@ -43,7 +43,10 @@ type AnnotationMetadata struct {
 // @channelDefault: The default channel for the bundle image
 // @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
 func GenerateFunc(directory, packageName, channels, channelDefault string, overwrite bool) error {
-	var mediaType string
+	_, err := os.Stat(directory)
+	if os.IsNotExist(err) {
+		return err
+	}
 
 	// Determine mediaType
 	mediaType, err := GetMediaType(directory)
@@ -77,7 +80,7 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 	log.Info("Building Dockerfile")
 
 	// Generate Dockerfile
-	content, err = GenerateDockerfile(directory, mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
+	content, err = GenerateDockerfile(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
 	if err != nil {
 		return err
 	}
@@ -226,7 +229,7 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 // GenerateDockerfile builds Dockerfile with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information in LABEL section.
-func GenerateDockerfile(directory, mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
+func GenerateDockerfile(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
 	var fileContent string
 
 	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
@@ -246,8 +249,8 @@ func GenerateDockerfile(directory, mediaType, manifests, metadata, packageName, 
 	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, chanDefault)
 
 	// CONTENT
-	fileContent += fmt.Sprintf("ADD %s %s\n", filepath.Join(directory, "*.yaml"), "/manifests/")
-	fileContent += fmt.Sprintf("ADD %s %s%s\n", filepath.Join(directory, metadata, AnnotationsFile), "/metadata/", AnnotationsFile)
+	fileContent += fmt.Sprintf("COPY %s %s\n", "/*.yaml", "/manifests/")
+	fileContent += fmt.Sprintf("COPY %s %s%s\n", filepath.Join("/", metadata, AnnotationsFile), "/metadata/", AnnotationsFile)
 
 	return []byte(fileContent), nil
 }
