@@ -23,7 +23,7 @@ func newBundleBuildCmd() *cobra.Command {
 		Short: "Build operator bundle image",
 		Long: `The "opm alpha bundle build" command will generate operator
         bundle metadata if needed and build bundle image with operator manifest
-        and metadata.
+        and metadata for a specific version.
 
         For example: The command will generate annotations.yaml metadata plus
         Dockerfile for bundle image and then build a container image from
@@ -33,15 +33,17 @@ func newBundleBuildCmd() *cobra.Command {
         After the build process is completed, a container image would be built
         locally in docker and available to push to a container registry.
 
-        $ opm alpha bundle build --directory /test/ --tag quay.io/example/operator:v0.1.0 \
+        $ opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/example/operator:v0.1.0 \
 		--package test-operator --channels stable,beta --default stable --overwrite
 
-        Note: Bundle image is not runnable.
+		Note:
+		* Bundle image is not runnable.
+		* All manifests yaml must be in the same directory. 
         `,
 		RunE: buildFunc,
 	}
 
-	bundleBuildCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "", "The directory where bundle manifests and metadata are located")
+	bundleBuildCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "", "The directory where bundle manifests and metadata for a specific version are located")
 	if err := bundleBuildCmd.MarkFlagRequired("directory"); err != nil {
 		log.Fatalf("Failed to mark `directory` flag for `build` subcommand as required")
 	}

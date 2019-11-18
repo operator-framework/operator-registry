@@ -129,9 +129,12 @@ Usage:
 Flags:
   -c, --channels string    The list of channels that bundle image belongs to
   -e, --default string     The default channel for the bundle image
-  -d, --directory string   The directory where bundle manifests are located.
+  -d, --directory string   The directory where bundle manifests for a specific version are located.
   -h, --help               help for generate
   -p, --package string     The name of the package that bundle image belongs to
+
+  Note:
+  * All manifests yaml must be in the same directory.
 ```
 
 The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `--default/-e` is optional.
@@ -175,12 +178,16 @@ Usage:
 Flags:
   -c, --channels string        The list of channels that bundle image belongs to
   -e, --default string         The default channel for the bundle image
-  -d, --directory string       The directory where bundle manifests are located
+  -d, --directory string       The directory where bundle manifests for a specific version are located
   -h, --help                   help for build
   -b, --image-builder string   Tool to build container images. One of: [docker, podman, buildah] (default "docker")
   -0, --overwrite               To overwrite annotations.yaml if existing
   -p, --package string         The name of the package that bundle image belongs to
   -t, --tag string             The name of the bundle image will be built
+
+  Note:
+  * Bundle image is not runnable.
+  * All manifests yaml must be in the same directory.
 ```
 
 The command for `build` task is:
@@ -189,7 +196,7 @@ $ ./operator-sdk bundle build --directory /test --tag quay.io/coreos/test-operat
 --package test-operator --channels stable,beta --default stable
 ```
 
-The `--directory` or `-d` specifies the directory where the operator manifests are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
+The `--directory` or `-d` specifies the directory where the operator manifests for a specific version are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
 The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
 ```bash
