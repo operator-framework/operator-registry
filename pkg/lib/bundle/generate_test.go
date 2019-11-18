@@ -37,7 +37,7 @@ func TestGetMediaType(t *testing.T) {
 		{
 			testDir,
 			"",
-			fmt.Sprintf("The directory %s contains no files", testDir),
+			fmt.Sprintf("The directory %s contains no yaml files", testDir),
 		},
 	}
 
