@@ -28,7 +28,7 @@ func TestDirectoryLoader(t *testing.T) {
 	require.NoError(t, loader.Populate())
 }
 
-func TestDirectoryLoaderWithBadManifests(t *testing.T) {
+func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	db, cleanup := CreateTestDb(t)
@@ -67,6 +67,21 @@ func TestDirectoryLoaderWithBadManifests(t *testing.T) {
 	require.Error(t, loader.Populate(), "error loading package into db: no bundle found for csv imaginary")
 }
 
+func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(t, err)
+	require.NoError(t, store.Migrate(context.TODO()))
+
+	// Load and expect error
+	// incorrectbundle has an operator which has incorrect data
+	// (a number where a string is expected) in it's CSV
+	loader := NewSQLLoaderForDirectory(store, "incorrectbundle")
+	require.Error(t, loader.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
+}
 func TestQuerierForDirectory(t *testing.T) {
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()

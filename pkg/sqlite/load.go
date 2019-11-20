@@ -806,7 +806,11 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 		// because this is caught by primary key of operatorbundle table
 
 		channelEntryCSV, err := s.getCSV(tx, c.CurrentCSVName)
-
+		if err != nil {
+			errs = append(errs, err)
+			break
+		}
+		
 		// check replaces
 		replaces, err := channelEntryCSV.GetReplaces()
 		if err != nil {
