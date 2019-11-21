@@ -79,7 +79,7 @@ func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
 	// Load and expect error
 	// incorrectbundle has an operator which has incorrect data
 	// (a number where a string is expected) in it's CSV
-	loader := NewSQLLoaderForDirectory(store, "incorrectbundle")
+	loader := NewSQLLoaderForDirectory(store, "pkg/sqlite/testdata/incorrectbundle")
 	require.Error(t, loader.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
 }
 func TestQuerierForDirectory(t *testing.T) {
