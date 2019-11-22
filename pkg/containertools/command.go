@@ -1,4 +1,4 @@
-//go:generate counterfeiter command.go CommandRunner
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CommandRunner
 package containertools
 
 import (
@@ -25,8 +25,8 @@ type CommandRunner interface {
 
 // ContainerCommandRunner is configured to select a container cli tool and execute commands with that
 // tooling.
-type ContainerCommandRunner struct{
-	logger *logrus.Entry
+type ContainerCommandRunner struct {
+	logger        *logrus.Entry
 	containerTool string
 }
 
@@ -76,7 +76,7 @@ func (r *ContainerCommandRunner) Pull(image string) error {
 // Build takes a dockerfile and a tag and builds a container image
 func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 	args := []string{"build", "-f", dockerfile}
-	
+
 	if tag != "" {
 		args = append(args, "-t", tag)
 	}

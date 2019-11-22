@@ -1,9 +1,9 @@
-//go:generate counterfeiter labelreader.go LabelReader
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . LabelReader
 package containertools
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 )
@@ -14,15 +14,15 @@ type LabelReader interface {
 
 type ImageLabelReader struct {
 	Logger *logrus.Entry
-	Cmd CommandRunner
+	Cmd    CommandRunner
 }
 
 func NewLabelReader(containerTool string, logger *logrus.Entry) LabelReader {
 	cmd := NewCommandRunner(containerTool, logger)
-	
+
 	return ImageLabelReader{
 		Logger: logger,
-		Cmd: cmd,
+		Cmd:    cmd,
 	}
 }
 
@@ -39,7 +39,7 @@ type PodmanImageData struct {
 }
 
 // GetLabelsFromImage takes a container image path as input, pulls that image
-// to the local environment and then inspects it for labels  
+// to the local environment and then inspects it for labels
 func (r ImageLabelReader) GetLabelsFromImage(image string) (map[string]string, error) {
 	err := r.Cmd.Pull(image)
 	if err != nil {

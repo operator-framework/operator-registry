@@ -1,5 +1,4 @@
-//go:generate counterfeiter indexer.go IndexAdder
-//go:generate counterfeiter indexer.go IndexDeleter
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 package indexer
 
 import (
@@ -11,6 +10,7 @@ import (
 
 // IndexAdder allows the creation of index container images from scratch or
 // based on previous index images
+//counterfeiter:generate . IndexAdder
 type IndexAdder interface {
 	AddToIndex(AddToIndexRequest) error
 }
@@ -19,17 +19,18 @@ type IndexAdder interface {
 func NewIndexAdder(containerTool string, logger *logrus.Entry) IndexAdder {
 	return ImageIndexer{
 		DockerfileGenerator: containertools.NewDockerfileGenerator(containerTool, logger),
-		CommandRunner: containertools.NewCommandRunner(containerTool, logger),
-		LabelReader: containertools.NewLabelReader(containerTool, logger),
-		RegistryAdder: registry.NewRegistryAdder(logger),
-		ImageReader: containertools.NewImageReader(containerTool, logger),
-		ContainerTool: containerTool,
-		Logger: logger,
+		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
+		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		RegistryAdder:       registry.NewRegistryAdder(logger),
+		ImageReader:         containertools.NewImageReader(containerTool, logger),
+		ContainerTool:       containerTool,
+		Logger:              logger,
 	}
 }
 
 // IndexDeleter takes indexes and deletes all references to an operator
 // from them
+//counterfeiter:generate . IndexDeleter
 type IndexDeleter interface {
 	DeleteFromIndex(DeleteFromIndexRequest) error
 }
@@ -38,11 +39,11 @@ type IndexDeleter interface {
 func NewIndexDeleter(containerTool string, logger *logrus.Entry) IndexDeleter {
 	return ImageIndexer{
 		DockerfileGenerator: containertools.NewDockerfileGenerator(containerTool, logger),
-		CommandRunner: containertools.NewCommandRunner(containerTool, logger),
-		LabelReader: containertools.NewLabelReader(containerTool, logger),
-		RegistryDeleter: registry.NewRegistryDeleter(logger),
-		ImageReader: containertools.NewImageReader(containerTool, logger),
-		ContainerTool: containerTool,
-		Logger: logger,
+		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
+		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		RegistryDeleter:     registry.NewRegistryDeleter(logger),
+		ImageReader:         containertools.NewImageReader(containerTool, logger),
+		ContainerTool:       containerTool,
+		Logger:              logger,
 	}
 }

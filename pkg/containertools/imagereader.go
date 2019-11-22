@@ -1,4 +1,4 @@
-//go:generate counterfeiter imagereader.go ImageReader
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ImageReader
 package containertools
 
 import (
