@@ -1,11 +1,11 @@
-//go:generate counterfeiter registry.go RegistryAdder
-//go:generate counterfeiter registry.go RegistryDeleter
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 package registry
 
 import (
 	"github.com/sirupsen/logrus"
 )
 
+//counterfeiter:generate . RegistryAdder
 type RegistryAdder interface {
 	AddToRegistry(AddToRegistryRequest) error
 }
@@ -16,6 +16,7 @@ func NewRegistryAdder(logger *logrus.Entry) RegistryAdder {
 	}
 }
 
+//counterfeiter:generate . RegistryDeleter
 type RegistryDeleter interface {
 	DeleteFromRegistry(DeleteFromRegistryRequest) error
 }

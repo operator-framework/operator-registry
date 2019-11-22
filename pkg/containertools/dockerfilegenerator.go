@@ -1,4 +1,4 @@
-//go:generate counterfeiter dockerfilegenerator.go DockerfileGenerator
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . DockerfileGenerator
 package containertools
 
 import (
@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	baseImage = "scratch"
+	baseImage                = "scratch"
 	defaultBinarySourceImage = "quay.io/operator-framework/upstream-registry-builder"
-	DefaultDbLocation = "./index.db"
-	DbLocationLabel = "operators.operatorframework.io.index.database.v1"
+	DefaultDbLocation        = "./index.db"
+	DbLocationLabel          = "operators.operatorframework.io.index.database.v1"
 )
 
 // DockerfileGenerator defines functions to generate index dockerfiles
