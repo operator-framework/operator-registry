@@ -39,6 +39,12 @@ var _ SQLPopulator = &ConfigMapLoader{}
 // originate from a different source than a configMap. For example, operator
 // manifest(s) can be downloaded from a remote registry like quay.io.
 func NewSQLLoaderForConfigMapData(logger *logrus.Entry, store registry.Load, configMapData map[string]string) *ConfigMapLoader {
+	if logger == nil {
+		logger = logrus.NewEntry(logrus.New())
+	}
+	if logger.Logger == nil {
+		logger.Logger = logrus.New()
+	}
 	return &ConfigMapLoader{
 		log:           logger,
 		store:         store,

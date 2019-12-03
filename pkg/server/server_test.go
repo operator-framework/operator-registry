@@ -42,7 +42,7 @@ func server() {
 		logrus.Fatal(err)
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(load, "../../manifests")
+	loader := sqlite.NewSQLLoaderForDirectory(nil, load, "../../manifests")
 	if err := loader.Populate(); err != nil {
 		logrus.Fatal(err)
 	}

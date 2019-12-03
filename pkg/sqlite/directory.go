@@ -23,21 +23,29 @@ type SQLPopulator interface {
 
 // DirectoryLoader loads a directory of resources into the database
 type DirectoryLoader struct {
+	log       *logrus.Entry
 	store     registry.Load
 	directory string
 }
 
 var _ SQLPopulator = &DirectoryLoader{}
 
-func NewSQLLoaderForDirectory(store registry.Load, directory string) *DirectoryLoader {
+func NewSQLLoaderForDirectory(logger *logrus.Entry, store registry.Load, directory string) *DirectoryLoader {
+	if logger == nil {
+		logger = logrus.NewEntry(logrus.New())
+	}
+	if logger.Logger == nil {
+		logger.Logger = logrus.New()
+	}
 	return &DirectoryLoader{
+		log:       logger,
 		store:     store,
 		directory: directory,
 	}
 }
 
 func (d *DirectoryLoader) Populate() error {
-	log := logrus.WithField("dir", d.directory)
+	log := d.log.WithField("dir", d.directory)
 
 	log.Info("loading Bundles")
 	errs := make([]error, 0)
@@ -73,7 +81,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		return fmt.Errorf("invalid file: %v", f)
 	}
 
-	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "bundles"})
+	log := d.log.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "bundles"})
 	if f.IsDir() {
 		if strings.HasPrefix(f.Name(), ".") {
 			log.Info("skipping hidden directory")
@@ -107,7 +115,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 	log.Info("found csv, loading bundle")
 
 	var errs []error
-	bundle, err := loadBundle(csv.GetName(), filepath.Dir(path))
+	bundle, err := loadBundle(d.log, csv.GetName(), filepath.Dir(path))
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error loading objs in directory: %s", err))
 	}
@@ -135,7 +143,7 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return fmt.Errorf("invalid file: %v", f)
 	}
 
-	log := logrus.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "package"})
+	log := d.log.WithFields(logrus.Fields{"dir": d.directory, "file": f.Name(), "load": "package"})
 	if f.IsDir() {
 		if strings.HasPrefix(f.Name(), ".") {
 			log.Info("skipping hidden directory")
@@ -176,8 +184,8 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 
 // loadBundle takes the directory that a CSV is in and assumes the rest of the objects in that directory
 // are part of the bundle.
-func loadBundle(csvName string, dir string) (*registry.Bundle, error) {
-	log := logrus.WithFields(logrus.Fields{"dir": dir, "load": "bundle"})
+func loadBundle(logger *logrus.Entry, csvName string, dir string) (*registry.Bundle, error) {
+	log := logger.WithFields(logrus.Fields{"dir": dir, "load": "bundle"})
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err

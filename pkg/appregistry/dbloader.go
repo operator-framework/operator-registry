@@ -80,7 +80,7 @@ func (l *dbLoader) LoadBundleDirectoryToSQLite(directory string) error {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(l.loader, directory)
+	loader := sqlite.NewSQLLoaderForDirectory(nil, l.loader, directory)
 	if err := loader.Populate(); err != nil {
 		return err
 	}

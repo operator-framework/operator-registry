@@ -130,7 +130,7 @@ func BuildDatabase(manifestPath, databasePath string) error {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestPath)
+	loader := sqlite.NewSQLLoaderForDirectory(nil, dbLoader, manifestPath)
 	if err := loader.Populate(); err != nil {
 		klog.Warningf("error building database: %s", err.Error())
 	}

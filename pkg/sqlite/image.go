@@ -18,24 +18,32 @@ import (
 
 // ImageLoader loads a bundle image of resources into the database
 type ImageLoader struct {
-	store     registry.Load
-	image     string
-	directory string
+	log           *logrus.Entry
+	store         registry.Load
+	image         string
+	directory     string
 	containerTool string
 }
 
-func NewSQLLoaderForImage(store registry.Load, image, containerTool string) *ImageLoader {
+func NewSQLLoaderForImage(logger *logrus.Entry, store registry.Load, image, containerTool string) *ImageLoader {
+	if logger == nil {
+		logger = logrus.NewEntry(logrus.New())
+	}
+	if logger.Logger == nil {
+		logger.Logger = logrus.New()
+	}
 	return &ImageLoader{
-		store:     store,
-		image:     image,
-		directory: "",
+		log:           logger,
+		store:         store,
+		image:         image,
+		directory:     "",
 		containerTool: containerTool,
 	}
 }
 
 func (i *ImageLoader) Populate() error {
 
-	log := logrus.WithField("img", i.image)
+	log := i.log.WithField("img", i.image)
 
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
 	if err != nil {
@@ -71,7 +79,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 	metadata := filepath.Join(path, "metadata")
 
 	// Get annotations file
-	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "file": metadata, "load": "annotations"})
+	log := i.log.WithFields(logrus.Fields{"dir": i.directory, "file": metadata, "load": "annotations"})
 	files, err := ioutil.ReadDir(metadata)
 	if err != nil {
 		return fmt.Errorf("unable to read directory %s: %s", metadata, err)
@@ -105,7 +113,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 }
 
 func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.AnnotationsFile) error {
-	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "file": manifests, "load": "bundle"})
+	log := i.log.WithFields(logrus.Fields{"dir": i.directory, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
 	if err != nil {
@@ -120,7 +128,7 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 
 	// TODO: Check channels against what's in the database vs in the bundle csv
 
-	bundle, err := loadBundle(csv.GetName(), manifests)
+	bundle, err := loadBundle(i.log, csv.GetName(), manifests)
 	if err != nil {
 		return fmt.Errorf("error loading objs in directory: %s", err)
 	}
@@ -160,7 +168,7 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 
 // findCSV looks through the bundle directory to find a csv
 func (i *ImageLoader) findCSV(manifests string) (*unstructured.Unstructured, error) {
-	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "find": "csv"})
+	log := i.log.WithFields(logrus.Fields{"dir": i.directory, "find": "csv"})
 
 	files, err := ioutil.ReadDir(manifests)
 	if err != nil {
@@ -220,8 +228,6 @@ func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bund
 
 // translateAnnotationsIntoPackage attempts to translate the channels.yaml file at the given path into a package.yaml
 func translateAnnotationsIntoPackage(annotations *registry.AnnotationsFile, csv *registry.ClusterServiceVersion) (registry.PackageManifest, error) {
-	manifest := registry.PackageManifest{}
-
 	channels := []registry.PackageChannel{}
 	for _, ch := range annotations.GetChannels() {
 		channels = append(channels,
@@ -231,7 +237,7 @@ func translateAnnotationsIntoPackage(annotations *registry.AnnotationsFile, csv 
 			})
 	}
 
-	manifest = registry.PackageManifest{
+	manifest := registry.PackageManifest{
 		PackageName:        annotations.GetName(),
 		DefaultChannelName: annotations.GetDefaultChannelName(),
 		Channels:           channels,

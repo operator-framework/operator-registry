@@ -69,7 +69,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestDir)
+	loader := sqlite.NewSQLLoaderForDirectory(nil, dbLoader, manifestDir)
 	if err := loader.Populate(); err != nil {
 		err = fmt.Errorf("error loading manifests from directory: %s", err)
 		if !permissive {

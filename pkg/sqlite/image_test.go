@@ -17,38 +17,23 @@ func TestImageLoader(t *testing.T) {
 	require.NoError(t, store.Migrate(context.TODO()))
 
 	image := "quay.io/test/"
-	etcdFirstVersion := &ImageLoader{
-		store:     store,
-		image:     image + "etcd.0.9.0",
-		directory: "../../bundles/etcd.0.9.0",
-	}
+	etcdFirstVersion := NewSQLLoaderForImage(nil, store, image+"etcd.0.9.0", "")
+	etcdFirstVersion.directory = "../../bundles/etcd.0.9.0"
 	require.NoError(t, etcdFirstVersion.LoadBundleFunc())
 
-	etcdNextVersion := &ImageLoader{
-		store:     store,
-		image:     image + "etcd.0.9.2",
-		directory: "../../bundles/etcd.0.9.2",
-	}
+	etcdNextVersion := NewSQLLoaderForImage(nil, store, image+"etcd.0.9.2", "")
+	etcdNextVersion.directory = "../../bundles/etcd.0.9.2"
 	require.NoError(t, etcdNextVersion.LoadBundleFunc())
 
-	prometheusFirstVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.14.0",
-		directory: "../../bundles/prometheus.0.14.0",
-	}
+	prometheusFirstVersion := NewSQLLoaderForImage(nil, store, image+"prometheus.0.14.0", "")
+	prometheusFirstVersion.directory = "../../bundles/prometheus.0.14.0"
 	require.NoError(t, prometheusFirstVersion.LoadBundleFunc())
 
-	prometheusSecondVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.15.0",
-		directory: "../../bundles/prometheus.0.15.0",
-	}
+	prometheusSecondVersion := NewSQLLoaderForImage(nil, store, image+"prometheus.0.15.0", "")
+	prometheusSecondVersion.directory = "../../bundles/prometheus.0.15.0"
 	require.NoError(t, prometheusSecondVersion.LoadBundleFunc())
 
-	prometheusThirdVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.22.2",
-		directory: "../../bundles/prometheus.0.22.2",
-	}
+	prometheusThirdVersion := NewSQLLoaderForImage(nil, store, image+"prometheus.0.22.2", "")
+	prometheusThirdVersion.directory = "../../bundles/prometheus.0.22.2"
 	require.NoError(t, prometheusThirdVersion.LoadBundleFunc())
 }

@@ -24,7 +24,7 @@ func TestDirectoryLoader(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.Migrate(context.TODO()))
 
-	loader := NewSQLLoaderForDirectory(store, "../../manifests")
+	loader := NewSQLLoaderForDirectory(nil, store, "../../manifests")
 	require.NoError(t, loader.Populate())
 }
 
@@ -63,7 +63,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 	require.NoError(t, yaml.NewEncoder(w).Encode(pkg))
 
 	// Load and expect error
-	loader := NewSQLLoaderForDirectory(store, dir)
+	loader := NewSQLLoaderForDirectory(nil, store, dir)
 	require.Error(t, loader.Populate(), "error loading package into db: no bundle found for csv imaginary")
 }
 
@@ -79,7 +79,7 @@ func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
 	// Load and expect error
 	// incorrectbundle has an operator which has incorrect data
 	// (a number where a string is expected) in it's CSV
-	loader := NewSQLLoaderForDirectory(store, "pkg/sqlite/testdata/incorrectbundle")
+	loader := NewSQLLoaderForDirectory(nil, store, "pkg/sqlite/testdata/incorrectbundle")
 	require.Error(t, loader.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
 }
 func TestQuerierForDirectory(t *testing.T) {
@@ -89,7 +89,7 @@ func TestQuerierForDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, load.Migrate(context.TODO()))
 
-	loader := NewSQLLoaderForDirectory(load, "../../manifests")
+	loader := NewSQLLoaderForDirectory(nil, load, "../../manifests")
 	require.NoError(t, loader.Populate())
 
 	store := NewSQLLiteQuerierFromDb(db)
