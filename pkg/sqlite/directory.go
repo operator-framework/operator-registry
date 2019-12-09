@@ -185,6 +185,7 @@ func loadBundle(csvName string, dir string) (*registry.Bundle, error) {
 
 	var errs []error
 	bundle := &registry.Bundle{}
+FILES:
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
@@ -205,11 +206,18 @@ func loadBundle(csvName string, dir string) (*registry.Bundle, error) {
 			continue
 		}
 
+		var obj *unstructured.Unstructured
 		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-		obj := &unstructured.Unstructured{}
-		if err = decoder.Decode(obj); err != nil {
-			logrus.WithError(err).Debugf("could not decode file contents for %s", path)
-			continue
+		for nildoc := 0; nildoc < 2; nildoc++ {
+			obj = &unstructured.Unstructured{}
+			if err = decoder.Decode(obj); err != nil {
+				logrus.WithError(err).Debugf("could not decode file contents for %s", path)
+				continue FILES
+			}
+			if obj.Object != nil {
+				break
+			}
+			log.Info("skipping empty yaml doc in file " + path)
 		}
 
 		// Don't include other CSVs in the bundle
