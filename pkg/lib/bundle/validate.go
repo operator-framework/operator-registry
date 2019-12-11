@@ -43,16 +43,16 @@ func ValidateFunc(imageTag, imageBuilder string) error {
 	if err != nil {
 		return err
 	}
-	//defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 
-	log.Infof("Pulling bunde image %s", imageTag)
-	pullCmd, err := FullImage(imageTag, imageBuilder)
+	log.Infof("Pulling bundle image %s", imageTag)
+	pullCmd, err := PullImage(imageTag, imageBuilder)
 
 	if err := ExecuteCommand(pullCmd); err != nil {
 		return err
 	}
 
-	log.Infof("Saving bunde image into tarball %s", BundleTarFile)
+	log.Infof("Saving bundle image into tarball %s", BundleTarFile)
 	saveCmd, err := SaveImage(dir, imageTag, imageBuilder)
 	if err := ExecuteCommand(saveCmd); err != nil {
 		return err
@@ -148,7 +148,7 @@ func UntarFile(dir, tarName string) error {
 	return nil
 }
 
-func FullImage(imageTag, imageBuilder string) (*exec.Cmd, error) {
+func PullImage(imageTag, imageBuilder string) (*exec.Cmd, error) {
 	var args []string
 
 	switch imageBuilder {
