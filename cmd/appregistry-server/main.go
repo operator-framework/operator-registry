@@ -37,7 +37,7 @@ func main() {
 	rootCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded nested operator bundle(s) will be stored to be processed further")
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "name of db to output")
 	rootCmd.Flags().StringSliceP("registry", "r", []string{}, "pipe delimited operator source - {base url with cnr prefix}|{quay registry namespace}|{secret namespace/secret name}")
-	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s)")
+	rootCmd.Flags().StringP("packages", "o", "", "comma separated list of package(s) to be downloaded from the specified operator source(s). The requested release can be appended to the package name, delimited with a colone (e.g some-pkg:1.1.0)")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
 	rootCmd.Flags().Bool("strict", false, "fail on registry load errors")

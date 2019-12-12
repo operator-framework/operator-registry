@@ -25,9 +25,9 @@ var testPrepare = []struct {
 					RegistryNamespace: "",
 				},
 			},
-			Packages: []string{
-				"Kubevirt",
-				"etcd",
+			Packages: []*Package{
+				&Package{"Kubevirt", ""},
+				&Package{"etcd", ""},
 			},
 		},
 		sourceQuerier: &fakeSourceQuerier{
@@ -43,8 +43,9 @@ var testPrepare = []struct {
 		},
 		expectedDownloadItems: []*downloadItem{
 			&downloadItem{
-				&apprclient.RegistryMetadata{Name: "Kubevirt"},
-				&Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				RepositoryMetadata: &apprclient.RegistryMetadata{Name: "Kubevirt"},
+				Source:             &Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				Release:            "",
 			},
 		},
 		expectedError: nil,
@@ -61,9 +62,9 @@ var testPrepare = []struct {
 					RegistryNamespace: "",
 				},
 			},
-			Packages: []string{
-				"Kubevirt",
-				"etcd",
+			Packages: []*Package{
+				&Package{"Kubevirt", ""},
+				&Package{"etcd", ""},
 			},
 		},
 		sourceQuerier: &fakeSourceQuerier{
@@ -84,8 +85,9 @@ var testPrepare = []struct {
 		},
 		expectedDownloadItems: []*downloadItem{
 			&downloadItem{
-				&apprclient.RegistryMetadata{Name: "Kubevirt"},
-				&Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				RepositoryMetadata: &apprclient.RegistryMetadata{Name: "Kubevirt"},
+				Source:             &Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				Release:            "",
 			},
 		},
 		expectedError: utilerrors.NewAggregate(
@@ -93,6 +95,91 @@ var testPrepare = []struct {
 				errors.New("Failed to fetch sources from other-endpoint.io"),
 			},
 		),
+	},
+	{
+		input: &Input{
+			Sources: []*Source{
+				{
+					Endpoint:          "quay.io",
+					RegistryNamespace: "",
+				},
+			},
+			Packages: []*Package{
+				&Package{"Kubevirt", "10.0.0"},
+				&Package{"etcd", ""},
+			},
+		},
+		sourceQuerier: &fakeSourceQuerier{
+			map[Source][]*apprclient.RegistryMetadata{
+				Source{
+					Endpoint:          "quay.io",
+					RegistryNamespace: "",
+				}: {
+					&apprclient.RegistryMetadata{
+						Name:     "Kubevirt",
+						Release:  "11.0.0",
+						Releases: []string{"10.0.0", "11.0.0"},
+					},
+					&apprclient.RegistryMetadata{
+						Name:     "etcd",
+						Release:  "2.0.0",
+						Releases: []string{"1.0.0", "2.0.0"},
+					},
+				},
+			},
+			map[Source]error{},
+		},
+		expectedDownloadItems: []*downloadItem{
+			&downloadItem{
+				RepositoryMetadata: &apprclient.RegistryMetadata{
+					Name:     "Kubevirt",
+					Release:  "11.0.0",
+					Releases: []string{"10.0.0", "11.0.0"},
+				},
+				Source:  &Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				Release: "10.0.0",
+			},
+			&downloadItem{
+				RepositoryMetadata: &apprclient.RegistryMetadata{
+					Name:     "etcd",
+					Release:  "2.0.0",
+					Releases: []string{"1.0.0", "2.0.0"},
+				},
+				Source:  &Source{Endpoint: "quay.io", RegistryNamespace: ""},
+				Release: "2.0.0",
+			},
+		},
+		expectedError: nil,
+	},
+	{
+		input: &Input{
+			Sources: []*Source{
+				{
+					Endpoint:          "quay.io",
+					RegistryNamespace: "",
+				},
+			},
+			Packages: []*Package{
+				&Package{"Kubevirt", "10.0.0"},
+			},
+		},
+		sourceQuerier: &fakeSourceQuerier{
+			map[Source][]*apprclient.RegistryMetadata{
+				Source{
+					Endpoint:          "quay.io",
+					RegistryNamespace: "",
+				}: {
+					&apprclient.RegistryMetadata{
+						Name:     "Kubevirt",
+						Release:  "11.0.0",
+						Releases: []string{"11.0.0"},
+					},
+				},
+			},
+			map[Source]error{},
+		},
+		expectedDownloadItems: []*downloadItem{},
+		expectedError:         nil,
 	},
 }
 
@@ -122,7 +209,9 @@ func TestPrepare(t *testing.T) {
 		}
 
 		downloadItems, err := d.Prepare(testItem.input)
-		assert.Equal(t, testItem.expectedDownloadItems, downloadItems)
+		// Since downloadItems are stored in a map inside of the Prepare
+		// function the order isn't guaranteed
+		assert.ElementsMatch(t, testItem.expectedDownloadItems, downloadItems)
 		if testItem.expectedError != nil {
 			assert.Equal(t, testItem.expectedError, err)
 		} else {
