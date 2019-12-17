@@ -1,6 +1,7 @@
 
 MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12)") && echo -mod=vendor)
 CMDS  := $(addprefix bin/, $(shell ls ./cmd))
+SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
 
 .PHONY: build test vendor clean
 
@@ -15,7 +16,7 @@ static: extra_flags=-ldflags '-w -extldflags "-static"'
 static: build
 
 unit:
-	go test $(MOD_FLAGS) -count=1 -v -race ./pkg/...
+	go test $(MOD_FLAGS) $(SPECIFIC_UNIT_TEST) -count=1 -v -race ./pkg/...
 
 image:
 	docker build .
