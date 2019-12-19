@@ -5,9 +5,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewOpmIndexCmd returns the opm index command
-func NewOpmIndexCmd() *cobra.Command {
-	rootCmd := &cobra.Command{
+// AddCommand adds the index subcommand to the given parent command.
+func AddCommand(parent *cobra.Command) {
+	cmd := &cobra.Command{
 		Use:   "index",
 		Short: "generate operator index container images",
 		Long:  `generate operator index container images from preexisting operator bundles`,
@@ -20,8 +20,7 @@ func NewOpmIndexCmd() *cobra.Command {
 		},
 	}
 
-	rootCmd.AddCommand(newIndexAddCmd())
-	rootCmd.AddCommand(newIndexDeleteCmd())
-
-	return rootCmd
+	parent.AddCommand(cmd)
+	cmd.AddCommand(newIndexDeleteCmd())
+	addIndexAddCmd(cmd)
 }

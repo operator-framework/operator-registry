@@ -1,25 +1,45 @@
 package index
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 )
 
-func newIndexAddCmd() *cobra.Command {
+var (
+	addLong = templates.LongDesc(`
+		Add operator bundles to an index.
+
+		This command will add the given set of bundle images (specified by the --bundles option) to an index image (provided by the --from-index option).
+	`)
+
+	addExample = templates.Examples(`
+		# Create an index image from scratch with a single bundle image
+		%[1]s --bundles quay.io/operator-framework/operator-bundle-prometheus@sha256:a3ee653ffa8a0d2bbb2fabb150a94da6e878b6e9eb07defd40dc884effde11a0 --tag quay.io/operator-framework/monitoring:1.0.0
+
+		# Add a single bundle image to an index image
+		%[1]s --bundles quay.io/operator-framework/operator-bundle-prometheus:0.15.0 --from-index quay.io/operator-framework/monitoring:1.0.0 --tag quay.io/operator-framework/monitoring:1.0.1
+
+		# Add multiple bundles to an index and generate a Dockerfile instead of an image
+		%[1]s --bundles quay.io/operator-framework/operator-bundle-prometheus:0.15.0,quay.io/operator-framework/operator-bundle-prometheus:0.22.2 --generate
+	`)
+)
+
+func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd := &cobra.Command{
 		Use:   "add",
-		Short: "add an operator bundle to an index",
-		Long:  `add an operator bundle to an index`,
-
+		Short: "Add operator bundles to an index.",
+		Long:  addLong,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
 			return nil
 		},
-
 		RunE: runIndexAddCmdFunc,
 	}
 
@@ -40,7 +60,9 @@ func newIndexAddCmd() *cobra.Command {
 		logrus.Panic(err.Error())
 	}
 
-	return indexCmd
+	// Set the example after the parent has been set to get the correct command path
+	parent.AddCommand(indexCmd)
+	indexCmd.Example = fmt.Sprintf(addExample, indexCmd.CommandPath())
 
 }
 
@@ -80,7 +102,6 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-
 	permissive, err := cmd.Flags().GetBool("permissive")
 	if err != nil {
 		return err
@@ -93,13 +114,13 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 	indexAdder := indexer.NewIndexAdder(containerTool, logger)
 
 	request := indexer.AddToIndexRequest{
-		Generate: generate,
-		FromIndex: fromIndex,
+		Generate:          generate,
+		FromIndex:         fromIndex,
 		BinarySourceImage: binaryImage,
-		OutDockerfile: outDockerfile,
-		Tag: tag,
-		Bundles: bundles,
-		Permissive: permissive,
+		OutDockerfile:     outDockerfile,
+		Tag:               tag,
+		Bundles:           bundles,
+		Permissive:        permissive,
 	}
 
 	err = indexAdder.AddToIndex(request)
