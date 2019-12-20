@@ -1,65 +1,82 @@
 package bundle
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools/containertoolsfakes"
+
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateBundleAnnotations(t *testing.T) {
-	annotationsFilePath := "./testdata/annotations.yaml"
-	file, err := ioutil.ReadFile(annotationsFilePath)
-	require.NoError(t, err, "error reading from annotations.yaml")
+func TestPullBundle(t *testing.T) {
+	tag := "quay.io/example/bundle:0.0.1"
+	dir := "/tmp/dir"
 
-	err = ValidateBundleAnnotations(RegistryV1Type, file)
-	assert.NoError(t, err, "error validating annotations.yaml file")
+	logger := logrus.NewEntry(logrus.New())
 
-	err = ValidateBundleAnnotations("", file)
-	assert.Error(t, err, "expecting MediatypeLabel error when validating annotations.yaml file")
+	mockImgReader := containertoolsfakes.FakeImageReader{}
+	mockImgReader.GetImageDataReturns(nil)
+
+	validator := imageValidator{
+		imageReader: &mockImgReader,
+		logger:      logger,
+	}
+
+	err := validator.PullBundleImage(tag, dir)
+	require.NoError(t, err)
 }
 
-func TestParseManifestJson(t *testing.T) {
-	manifestJsonFile := "./testdata/manifest.json"
-	expectedConfig := "b7e63f6a13273f125c08ce9681e049d2946476f15bda3c556c93ffd3d3574bcd.json"
-	expectedLayer := []string{"cba8efc9fb725f08c9956e87bfb84e92037b81264ba0a5a0633f546cb4f7d966/layer.tar",
-		"e1f1237e89119d099ad19069292b6eef47f8f7676df706b600c3a945f0604bc8/layer.tar"}
+func TestPullBundle_Error(t *testing.T) {
+	tag := "quay.io/example/bundle:0.0.1"
+	dir := "/tmp/dir"
 
-	file, err := ioutil.ReadFile(manifestJsonFile)
-	require.NoError(t, err, "error reading from manifest.json file")
+	expectedErr := fmt.Errorf("Unable to unpack image")
 
-	config, layers, err := ParseManifestJson(file)
-	assert.NoError(t, err, "error parsing manifest.json file")
-	assert.EqualValues(t, expectedConfig, config)
-	assert.EqualValues(t, expectedLayer, layers)
+	logger := logrus.NewEntry(logrus.New())
+
+	mockImgReader := containertoolsfakes.FakeImageReader{}
+	mockImgReader.GetImageDataReturns(expectedErr)
+
+	validator := imageValidator{
+		imageReader: &mockImgReader,
+		logger:      logger,
+	}
+
+	err := validator.PullBundleImage(tag, dir)
+	require.Error(t, err)
+	assert.Equal(t, expectedErr, err)
 }
 
-func TestUntarFile(t *testing.T) {
-	bundleDir := "./testdata/bundle"
-	expectedBundleDir := "./testdata/expectedBundle"
+func TestValidateBundle(t *testing.T) {
+	dir := "./testdata/validate/valid_bundle"
 
-	err := UntarFile(bundleDir, BundleTarFile)
-	assert.NoError(t, err, "error untaring docker bundle")
+	logger := logrus.NewEntry(logrus.New())
 
-	expectedFiles, err := ioutil.ReadDir(expectedBundleDir)
-	require.NoError(t, err, "error reading from expected bundle directory")
-
-	files, err := ioutil.ReadDir(bundleDir)
-	require.NoError(t, err, "error reading from untared bundle directory")
-
-	expectedFileMap := make(map[string]int64, len(expectedFiles))
-	for _, file := range (expectedFiles) {
-		expectedFileMap[file.Name()] = file.Size()
+	validator := imageValidator{
+		logger: logger,
 	}
-	FileMap := make(map[string]int64, len(files))
-	for _, file := range (files) {
-		FileMap[file.Name()] = file.Size()
-		if file.Name() != BundleTarFile{
-			defer os.RemoveAll(filepath.Join(bundleDir,file.Name()))
-		}
+
+	err := validator.ValidateBundle(dir)
+	require.NoError(t, err)
+}
+
+func TestValidateBundle_InvalidRegistryVersion(t *testing.T) {
+	dir := "./testdata/validate/invalid_annotations_bundle"
+
+	logger := logrus.NewEntry(logrus.New())
+
+	validator := imageValidator{
+		logger: logger,
 	}
-	assert.EqualValues(t,expectedFileMap,FileMap)
+
+	err := validator.ValidateBundle(dir)
+	require.Error(t, err)
+	var validationError ValidationError
+	isValidationErr := errors.As(err, &validationError)
+	require.True(t, isValidationErr)
+	require.Equal(t, len(validationError.AnnotationErrors), 1)
 }

@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
@@ -93,19 +95,32 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 	return nil
 }
 
-// GenerateFunc determines mediatype from files (yaml) in given directory
+// GetMediaType determines mediatype from files (yaml) in given directory
 // Currently able to detect helm chart, registry+v1 (CSV) and plain k8s resources
 // such as CRD.
 func GetMediaType(directory string) (string, error) {
 	var files []string
+	k8sFiles := make(map[string]*unstructured.Unstructured)
 
 	// Read all file names in directory
 	items, _ := ioutil.ReadDir(directory)
 	for _, item := range items {
 		if item.IsDir() {
 			continue
-		} else if filepath.Ext(item.Name()) == ".yaml" {
-			files = append(files, item.Name())
+		}
+
+		files = append(files, item.Name())
+
+		fileWithPath := filepath.Join(directory, item.Name())
+		fileBlob, err := ioutil.ReadFile(fileWithPath)
+		if err != nil {
+			return "", fmt.Errorf("Unable to read file %s in bundle", fileWithPath)
+		}
+
+		dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(fileBlob)), 10)
+		unst := &unstructured.Unstructured{}
+		if err := dec.Decode(unst); err == nil {
+			k8sFiles[item.Name()] = unst
 		}
 	}
 
@@ -113,14 +128,20 @@ func GetMediaType(directory string) (string, error) {
 		return "", fmt.Errorf("The directory %s contains no yaml files", directory)
 	}
 
-	// Validate the file names to determine media type
-	for _, file := range files {
-		if file == "Chart.yaml" {
+	// Validate the files to determine media type
+	for _, fileName := range files {
+		// TODO: be more robust here, we should validate the format of helm charts
+		// instead of file name
+		fmt.Println(fileName)
+		if fileName == "Chart.yaml" {
 			return HelmType, nil
-		} else if strings.HasSuffix(file, "clusterserviceversion.yaml") {
-			return RegistryV1Type, nil
-		} else {
-			continue
+		}
+
+		// Check if one of the k8s files is a CSV
+		if k8sFile, ok := k8sFiles[fileName]; ok {
+			if k8sFile.GetObjectKind().GroupVersionKind().Kind == "ClusterServiceVersion" {
+				return RegistryV1Type, nil
+			}
 		}
 	}
 
@@ -167,7 +188,7 @@ func ValidateAnnotations(existing, expected []byte) error {
 	return nil
 }
 
-// ValidateAnnotations validates provided default channel to ensure it exists in
+// ValidateChannelDefault validates provided default channel to ensure it exists in
 // provided channel list.
 func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 	var chanDefault string

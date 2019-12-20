@@ -1,6 +1,9 @@
 package bundle
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -11,12 +14,10 @@ func newBundleValidateCmd() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate bundle image",
 		Long: `The "opm alpha bundle validate" command will validate bundle image
-    from a remote source to determine if its format and content information are
-    accurate.
-
-        $ opm alpha bundle validate --tag quay.io/test/test-operator:latest \
-		--image-builder docker`,
-		RunE: validateFunc,
+from a remote source to determine if its format and content information are
+accurate.`,
+		Example: `$ opm alpha bundle validate --tag quay.io/test/test-operator:latest --image-builder docker`,
+		RunE:    validateFunc,
 	}
 
 	bundleValidateCmd.Flags().StringVarP(&tagBuildArgs, "tag", "t", "",
@@ -31,10 +32,36 @@ func newBundleValidateCmd() *cobra.Command {
 }
 
 func validateFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.ValidateFunc(tagBuildArgs, imageBuilderArgs)
+	logger := log.WithFields(log.Fields{"container-tool": imageBuilderArgs})
+	log.SetLevel(log.DebugLevel)
+
+	imageValidator := bundle.NewImageValidator(imageBuilderArgs, logger)
+
+	dir, err := ioutil.TempDir("", "bundle-")
+	logger.Infof("Create a temp directory at %s", dir)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := os.RemoveAll(dir)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+	}()
+
+	err = imageValidator.PullBundleImage(tagBuildArgs, dir)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Unpacked image layers, validating bundle image contents")
+
+	err = imageValidator.ValidateBundle(dir)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("All validation tests have been completed successfully")
 
 	return nil
 }
