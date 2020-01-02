@@ -37,7 +37,7 @@ When loading manifests into the database, the following invariants are validated
  * If a ClusterServiceVersion `owns` a CRD, that CRD must exist in the bundle.
  * If a ClusterServiceVersion `replaces` another, both the old and the new must exist in the package.
 
-Bundle directories are identified soley by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
+Bundle directories are identified solely by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
 
 It's recommended to follow a layout that makes it clear which bundles are part of which package, as in [manifests](manifests):
 
