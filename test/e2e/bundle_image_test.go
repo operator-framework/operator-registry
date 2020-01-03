@@ -678,7 +678,7 @@ spec:
 }
 
 func buildContainer(tag, dockerfilePath, context string) {
-	err:= bundle.ValidateFunc(tag,builderCmd)
+	err := bundle.ValidateFunc(tag, builderCmd)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, context)

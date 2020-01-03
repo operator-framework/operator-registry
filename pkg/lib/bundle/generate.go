@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v2"
+	"helm.sh/helm/v3/pkg/chartutil"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -128,15 +130,13 @@ func GetMediaType(directory string) (string, error) {
 		return "", fmt.Errorf("The directory %s contains no yaml files", directory)
 	}
 
+	// Validate if bundle is helm chart type
+	if _, err := chartutil.IsChartDir(directory); err == nil {
+		return HelmType, nil
+	}
+
 	// Validate the files to determine media type
 	for _, fileName := range files {
-		// TODO: be more robust here, we should validate the format of helm charts
-		// instead of file name
-		fmt.Println(fileName)
-		if fileName == "Chart.yaml" {
-			return HelmType, nil
-		}
-
 		// Check if one of the k8s files is a CSV
 		if k8sFile, ok := k8sFiles[fileName]; ok {
 			if k8sFile.GetObjectKind().GroupVersionKind().Kind == "ClusterServiceVersion" {

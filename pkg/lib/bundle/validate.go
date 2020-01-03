@@ -74,6 +74,7 @@ func (i imageValidator) ValidateBundle(directory string) error {
 	if err != nil {
 		fmtErr := fmt.Errorf("Unable to read annotations.yaml file: %s", err.Error())
 		formatErrors = append(formatErrors, fmtErr)
+		return NewValidationError(annotationErrors, formatErrors)
 	}
 
 	var fileAnnotations AnnotationMetadata
