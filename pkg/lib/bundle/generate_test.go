@@ -10,46 +10,40 @@ import (
 )
 
 func TestGetMediaType(t *testing.T) {
-	setup("")
-	defer cleanup()
-
-	testDir := getTestDir()
 	tests := []struct {
 		directory string
 		mediaType string
 		errorMsg  string
 	}{
 		{
-			testDir,
+			"./testdata/get_mediatype/registry_v1_bundle",
 			RegistryV1Type,
 			"",
 		},
 		{
-			testDir,
+			"./testdata/get_mediatype/helm_bundle",
 			HelmType,
 			"",
 		},
 		{
-			testDir,
+			"./testdata/get_mediatype/plain_bundle",
 			PlainType,
 			"",
 		},
 		{
-			testDir,
+			"./testdata/get_mediatype/empty_bundle",
 			"",
-			fmt.Sprintf("The directory %s contains no yaml files", testDir),
+			fmt.Sprintf("The directory contains no files"),
 		},
 	}
 
 	for _, item := range tests {
-		createFiles(testDir, item.mediaType)
 		manifestType, err := GetMediaType(item.directory)
 		if item.errorMsg == "" {
 			require.Equal(t, item.mediaType, manifestType)
 		} else {
-			require.Equal(t, item.errorMsg, err.Error())
+			require.Error(t, err)
 		}
-		clearDir(testDir)
 	}
 }
 
