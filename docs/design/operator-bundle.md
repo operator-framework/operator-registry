@@ -209,3 +209,28 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 *Notes:*
 * If there is `Dockerfile` existing in the directory, it will be overwritten.
 * If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and returns any found errors. If the ``annotations.yaml`` is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow cli to overwrite the `annotations.yaml` if existed.
+
+### Validate Bundle Image
+
+Operator bundle image can validate bundle image that is publicly available in an image registry using `validate` command (see *Notes* below). The overall `bundle validate` command usage is:
+```bash
+Usage:
+  operator-SDK bundle validate [flags]
+
+Flags:
+  -t, --tag string             The name of the bundle image will be built
+  -b, --image-builder string   Tool to extract container images. One of: [docker, podman] (default "docker")
+  -h, --help                   help for build
+```
+
+The command for `validate` task is:
+```bash
+$ ./operator-sdk bundle build --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
+```
+
+The `validate` command will first extract the contents of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
+
+After the bundle image format is confirmed, the command will validate the bundle contents such as manifests and metadata files only if the bundle format is `RegistryV1` type meaning it contains `ClusterResourceVersion` and its associated Kubernetes objects that makes up an Operator. The content validation process will ensure the individual file in the bundle image is valid and can be applied to an OLM-enabled cluster provided all necessary permissions and configurations are met.
+
+*Notes:*
+* The bundle content validation is best effort which means it will not guarantee 100% accuracy due to nature of Kubernetes objects may need certain permissions and configurations, which users may not have, in order to be applied successfully in a cluster.

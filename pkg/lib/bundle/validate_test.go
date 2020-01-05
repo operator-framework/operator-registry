@@ -52,7 +52,7 @@ func TestPullBundle_Error(t *testing.T) {
 }
 
 func TestValidateBundle(t *testing.T) {
-	dir := "./testdata/validate/valid_bundle"
+	dir := "./testdata/validate/valid_bundle/"
 
 	logger := logrus.NewEntry(logrus.New())
 
@@ -79,4 +79,59 @@ func TestValidateBundle_InvalidRegistryVersion(t *testing.T) {
 	isValidationErr := errors.As(err, &validationError)
 	require.True(t, isValidationErr)
 	require.Equal(t, len(validationError.AnnotationErrors), 1)
+}
+
+func TestValidateBundleContents(t *testing.T) {
+	var table = []struct {
+		description string
+		mediaType   string
+		directory   string
+		numErrors   int
+		errString   string
+	}{
+		{
+			description: "registryv1 bundle/invalid csv",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_csv/",
+			numErrors:   1,
+			errString:   "install modes not found",
+		},
+		{
+			description: "registryv1 bundle/invalid crd",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_crd/",
+			numErrors:   1,
+			errString:   "cannot restore slice from string",
+		},
+		{
+			description: "registryv1 bundle/invalid sa",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_sa/",
+			numErrors:   1,
+			errString:   "json: cannot unmarshal number into Go struct field ObjectMeta.metadata.namespace of type string",
+		},
+		{
+			description: "registryv1 bundle/invalid type",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_type/",
+			numErrors:   1,
+			errString:   "ResourceQuota is not supported type for registryV1 bundle",
+		},
+		{
+			description: "valid registryv1 bundle",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/valid_bundle/manifests/",
+			numErrors:   0,
+		},
+	}
+
+	for i, tt := range table {
+		logger := logrus.NewEntry(logrus.New())
+		result := validateBundleContents(tt.directory, tt.mediaType, logger)
+		require.Len(t, result, tt.numErrors, table[i].description)
+		if len(result) > 0 {
+			e := result[0]
+			require.Contains(t, e.Error(), tt.errString)
+		}
+	}
 }
