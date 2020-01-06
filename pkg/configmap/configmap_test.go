@@ -25,6 +25,7 @@ func TestLoad(t *testing.T) {
 			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
+				assert.Equal(t, "etcdoperator.v0.6.1", bundleGot.GetCsvName())
 
 				crdListGot := bundleGot.GetObject()
 				// 1 CSV + 1 CRD = 2 objects

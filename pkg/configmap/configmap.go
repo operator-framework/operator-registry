@@ -78,6 +78,7 @@ func loadBundle(entry *logrus.Entry, data map[string]string) (bundle *api.Bundle
 				return nil, nil, err
 			}
 			bundle.CsvJson = string(csvBytes)
+			bundle.CsvName = resource.GetName()
 		}
 		bundle.Object = append(bundle.Object, content)
 		logger.Infof("added to bundle, Kind=%s", resource.GetKind())
