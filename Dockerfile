@@ -1,4 +1,4 @@
-FROM openshift/origin-release:golang-1.12 as builder
+FROM openshift/origin-release:golang-1.13 as builder
 
 RUN yum update -y && \
     yum install -y make git sqlite glibc-static openssl-static zlib-static && \
@@ -19,6 +19,7 @@ RUN make build
 RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
     cp -R vendor/github.com/grpc-ecosystem/grpc-health-probe /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
     cp -R vendor/ /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
+    rm -rf /go/src/github.com/grpc-ecosystem/grpc_health_probe/vendor/github.com/grpc-ecosystem/grpc-health-probe && \
     cd /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
     CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
@@ -32,7 +33,7 @@ COPY --from=builder /src/bin/registry-server /bin/registry-server
 COPY --from=builder /src/bin/configmap-server /bin/configmap-server
 COPY --from=builder /src/bin/appregistry-server /bin/appregistry-server
 COPY --from=builder /src/bin/opm /bin/opm
-COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
+COPY --from=builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
     chgrp -R 0 /dev && \
