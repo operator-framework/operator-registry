@@ -78,15 +78,15 @@ func (s *RegistryServer) GetChannelEntriesThatProvide(req *api.GetAllProvidersRe
 }
 
 func (s *RegistryServer) GetLatestChannelEntriesThatProvide(req *api.GetLatestProvidersRequest, stream api.Registry_GetLatestChannelEntriesThatProvideServer) error {
-	channelEntries, err := s.store.GetLatestChannelEntriesThatProvide(stream.Context(), req.GetGroup(), req.GetVersion(), req.GetKind())
-	if err != nil {
-		return err
-	}
-	for _, e := range channelEntries {
-		if err := stream.Send(registry.ChannelEntryToAPIChannelEntry(e)); err != nil {
-			return err
-		}
-	}
+	//channelEntries, err := s.store.GetLatestChannelEntriesThatProvide(stream.Context(), req.GetGroup(), req.GetVersion(), req.GetKind())
+	//if err != nil {
+	//	return err
+	//}
+	//for _, e := range channelEntries {
+	//	if err := stream.Send(registry.ChannelEntryToAPIChannelEntry(e)); err != nil {
+	//		return err
+	//	}
+	//}
 	return nil
 }
 

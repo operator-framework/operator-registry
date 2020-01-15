@@ -9,10 +9,11 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/sirupsen/logrus"
+	_ "modernc.org/ql/driver"
 )
 
 func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
-	db, err := sql.Open("sqlite3", dbName)
+	db, err := sql.Open("ql", dbName)
 	if err != nil {
 		return nil, err
 	}

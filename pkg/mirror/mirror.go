@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"k8s.io/apimachinery/pkg/util/errors"
+	_ "modernc.org/ql/driver"
 
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -71,7 +72,7 @@ func (b *IndexImageMirrorer) Mirror() (map[string]string, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("ql", dbPath)
 	if err != nil {
 		return nil, err
 	}

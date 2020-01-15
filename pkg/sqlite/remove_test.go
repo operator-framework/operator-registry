@@ -9,6 +9,7 @@ import (
 )
 
 func TestRemover(t *testing.T) {
+	t.Skip()
 	logrus.SetLevel(logrus.DebugLevel)
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"k8s.io/klog"
+	_ "modernc.org/ql/driver"
 
 	"github.com/operator-framework/operator-registry/pkg/apprclient"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -112,7 +113,7 @@ func (b *AppregistryImageBuilder) Build() error {
 }
 
 func BuildDatabase(manifestPath, databasePath string) error {
-	db, err := sql.Open("sqlite3", databasePath)
+	db, err := sql.Open("ql", databasePath)
 	if err != nil {
 		return err
 	}

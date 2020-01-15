@@ -135,8 +135,8 @@ func TestAddPackageChannels(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, bundle := range tt.fields.bundles {
-				// Throw away any errors loading bundles (not testing this)
-				store.AddOperatorBundle(bundle)
+				err := store.AddOperatorBundle(bundle)
+				require.NoError(t, err)
 			}
 
 			for i, pkg := range tt.args.pkgs {

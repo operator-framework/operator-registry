@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	_ "modernc.org/ql/driver"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -26,10 +26,6 @@ func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
 	options := defaultDBOptions()
 	for _, o := range opts {
 		o(options)
-	}
-
-	if _, err := db.Exec("PRAGMA foreign_keys = ON", nil); err != nil {
-		return nil, err
 	}
 
 	migrator, err := options.MigratorBuilder(db)
@@ -56,13 +52,13 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values(?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
+	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values($1,$2)")
 	if err != nil {
 		return err
 	}
@@ -113,31 +109,31 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		tx.Rollback()
 	}()
 
-	addPackage, err := tx.Prepare("insert into package(name) values(?)")
+	addPackage, err := tx.Prepare("insert into package(name) values($1)")
 	if err != nil {
 		return err
 	}
 	defer addPackage.Close()
 
-	addDefaultChannel, err := tx.Prepare("update package set default_channel = ? where name = ?")
+	addDefaultChannel, err := tx.Prepare("update package set default_channel = $1 where name = $2")
 	if err != nil {
 		return err
 	}
 	defer addDefaultChannel.Close()
 
-	addChannel, err := tx.Prepare("insert into channel(name, package_name, head_operatorbundle_name) values(?, ?, ?)")
+	addChannel, err := tx.Prepare("insert into channel(name, package_name, head_operatorbundle_name) values($1, $2, $3)")
 	if err != nil {
 		return err
 	}
 	defer addChannel.Close()
 
-	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
+	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values($1, $2, $3, $4)")
 	if err != nil {
 		return err
 	}
 	defer addChannelEntry.Close()
 
-	addReplaces, err := tx.Prepare("update channel_entry set replaces = ? where entry_id = ?")
+	addReplaces, err := tx.Prepare("update channel_entry set replaces = $1 where id() = $2")
 	if err != nil {
 		return err
 	}
@@ -186,6 +182,10 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		if err != nil {
 			errs = append(errs, err)
 			continue
+		}
+
+		if currentID == 0 {
+			panic(currentID)
 		}
 
 		channelEntryCSVName := c.CurrentCSVName
@@ -270,7 +270,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 			// If we find 'replaces' in the circuit list then we've seen it already, break out
 			if _, ok := replaceCycle[replaces]; ok {
-			        errs = append(errs, fmt.Errorf("Cycle detected, %s replaces %s", channelEntryCSVName, replaces))
+				errs = append(errs, fmt.Errorf("cycle detected, %s replaces %s", channelEntryCSVName, replaces))
 				break
 			}
 			replaceCycle[replaces] = true
@@ -312,13 +312,13 @@ func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
 	}()
 
 	// First find the default channel for the package
-	getDefChan, err := tx.Prepare(fmt.Sprintf("select default_channel from package where name='%s'", packageName))
+	getDefChan, err := tx.Prepare("select default_channel from package where name=$1")
 	if err != nil {
 		return err
 	}
 	defer getDefChan.Close()
 
-	defaultChannelRows, err := getDefChan.Query()
+	defaultChannelRows, err := getDefChan.Query(packageName)
 	if err != nil {
 		return err
 	}
@@ -333,13 +333,13 @@ func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
 	}
 
 	// Then get the head of the default channel
-	getChanHead, err := tx.Prepare(fmt.Sprintf("select head_operatorbundle_name from channel where name='%s'", defaultChannel.String))
+	getChanHead, err := tx.Prepare("select head_operatorbundle_name from channel where name=$1")
 	if err != nil {
 		return err
 	}
 	defer getChanHead.Close()
 
-	chanHeadRows, err := getChanHead.Query()
+	chanHeadRows, err := getChanHead.Query(defaultChannel.String)
 	if err != nil {
 		return err
 	}
@@ -354,13 +354,13 @@ func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
 	}
 
 	// Now get all the bundles that are not the head of the default channel
-	getChannelBundles, err := tx.Prepare(fmt.Sprintf("SELECT operatorbundle_name FROM channel_entry WHERE package_name='%s' AND operatorbundle_name!='%s'", packageName, defChanHead.String))
+	getChannelBundles, err := tx.Prepare("SELECT operatorbundle_name FROM channel_entry WHERE package_name=$1 AND operatorbundle_name!=$2")
 	if err != nil {
 		return err
 	}
 	defer getChanHead.Close()
 
-	chanBundleRows, err := getChannelBundles.Query()
+	chanBundleRows, err := getChannelBundles.Query(packageName, defChanHead.String)
 	if err != nil {
 		return err
 	}
@@ -376,26 +376,15 @@ func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
 	}
 
 	if len(bundles) > 0 {
-		bundlePredicates := []string{}
-		for bundle := range bundles {
-			bundlePredicates = append(bundlePredicates, fmt.Sprintf("name = '%s'", bundle))
-		}
-
-		var transactionPredicate string
-		if len(bundlePredicates) == 1 {
-			transactionPredicate = fmt.Sprintf("WHERE %s AND bundlepath != \"\"", bundlePredicates[0])
-		} else {
-			transactionPredicate = fmt.Sprintf("WHERE (%s) AND bundlepath != \"\"", strings.Join(bundlePredicates, " OR "))
-		}
-
-		removeOldBundles, err := tx.Prepare(fmt.Sprintf("UPDATE operatorbundle SET bundle = null, csv = null %s", transactionPredicate))
+		removeOldBundle, err := tx.Prepare("UPDATE operatorbundle SET bundle = null, csv = null WHERE name = $1")
 		if err != nil {
 			return err
 		}
-
-		_, err = removeOldBundles.Exec()
-		if err != nil {
-			return fmt.Errorf("Unable to remove previous bundles: %s", err)
+		for bundle := range bundles {
+			_, err = removeOldBundle.Exec(bundle)
+			if err != nil {
+				return fmt.Errorf("Unable to remove previous bundles: %s", err)
+			}
 		}
 	}
 
@@ -415,10 +404,7 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 }
 
 func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterServiceVersion, error) {
-	getCSV, err := tx.Prepare(`
-	  SELECT DISTINCT operatorbundle.csv 
-	  FROM operatorbundle
-	  WHERE operatorbundle.name=? LIMIT 1`)
+	getCSV, err := tx.Prepare(`SELECT csv FROM operatorbundle WHERE name=$1 LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
@@ -455,19 +441,13 @@ func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterService
 }
 
 func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, channelEntryId int64) error {
-	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer addAPI.Close()
-
-	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
+	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, plural, channel_entry_id) values($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
 	defer addAPIProvider.Close()
 
-	addApiRequirer, err := tx.Prepare("insert into api_requirer(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)")
+	addApiRequirer, err := tx.Prepare("insert into api_requirer(group_name, version, kind, plural, channel_entry_id) values($1, $2, $3, $4, $5)")
 	if err != nil {
 		return err
 	}
@@ -482,10 +462,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, cha
 		if err != nil {
 			return err
 		}
-		if _, err := addAPI.Exec(group, crd.Version, crd.Kind, plural); err != nil {
-			return err
-		}
-		if _, err := addAPIProvider.Exec(group, crd.Version, crd.Kind, channelEntryId); err != nil {
+		if _, err := addAPIProvider.Exec(group, crd.Version, crd.Kind, plural, channelEntryId); err != nil {
 			return err
 		}
 	}
@@ -494,10 +471,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, cha
 		if err != nil {
 			return err
 		}
-		if _, err := addAPI.Exec(group, crd.Version, crd.Kind, plural); err != nil {
-			return err
-		}
-		if _, err := addApiRequirer.Exec(group, crd.Version, crd.Kind, channelEntryId); err != nil {
+		if _, err := addApiRequirer.Exec(group, crd.Version, crd.Kind, plural, channelEntryId); err != nil {
 			return err
 		}
 	}
@@ -507,18 +481,12 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, cha
 		return err
 	}
 	for _, api := range ownedAPIs {
-		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Name); err != nil {
-			return err
-		}
-		if _, err := addAPIProvider.Exec(api.Group, api.Version, api.Kind, channelEntryId); err != nil {
+		if _, err := addAPIProvider.Exec(api.Group, api.Version, api.Kind, api.Name, channelEntryId); err != nil {
 			return err
 		}
 	}
 	for _, api := range requiredAPIs {
-		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Name); err != nil {
-			return err
-		}
-		if _, err := addApiRequirer.Exec(api.Group, api.Version, api.Kind, channelEntryId); err != nil {
+		if _, err := addApiRequirer.Exec(api.Group, api.Version, api.Kind, api.Name, channelEntryId); err != nil {
 			return err
 		}
 	}
@@ -528,7 +496,7 @@ func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	getID, err := tx.Prepare(`
 	  SELECT DISTINCT channel_entry.operatorbundle_name
 	  FROM channel_entry
-	  WHERE channel_entry.package_name=?`)
+	  WHERE channel_entry.package_name=$1`)
 
 	if err != nil {
 		return nil, err
@@ -558,7 +526,7 @@ func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 }
 
 func (s *SQLLoader) rmAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion) error {
-	rmAPI, err := tx.Prepare("delete from api where group_name=? AND version=? AND kind=?")
+	rmAPI, err := tx.Prepare("delete from api where group_name=$1 AND version=$2 AND kind=$3")
 	if err != nil {
 		return err
 	}
@@ -614,7 +582,7 @@ func (s *SQLLoader) RmPackageName(packageName string) error {
 }
 
 func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
-	stmt, err := tx.Prepare("DELETE FROM operatorbundle WHERE operatorbundle.name=?")
+	stmt, err := tx.Prepare("DELETE FROM operatorbundle WHERE name=$1")
 	if err != nil {
 		return err
 	}
@@ -637,13 +605,13 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values(?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
+	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values($1,$2)")
 	if err != nil {
 		return err
 	}
@@ -713,37 +681,37 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 }
 
 func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
-	updateDefaultChannel, err := tx.Prepare("update package set default_channel = ? where name = ?")
+	updateDefaultChannel, err := tx.Prepare("update package set default_channel = $1 where name = $2")
 	if err != nil {
 		return err
 	}
 	defer updateDefaultChannel.Close()
 
-	getDefaultChannel, err := tx.Prepare(`SELECT default_channel FROM package WHERE name = ? LIMIT 1`)
+	getDefaultChannel, err := tx.Prepare(`SELECT default_channel FROM package WHERE name = $1 LIMIT 1`)
 	if err != nil {
 		return err
 	}
 	defer getDefaultChannel.Close()
 
-	updateChannel, err := tx.Prepare("update channel set head_operatorbundle_name = ? where name = ? and package_name = ?")
+	updateChannel, err := tx.Prepare("update channel set head_operatorbundle_name = $1 where name = $2 and package_name = $3")
 	if err != nil {
 		return err
 	}
 	defer updateChannel.Close()
 
-	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
+	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values($1, $2, $3, $4)")
 	if err != nil {
 		return err
 	}
 	defer addChannelEntry.Close()
 
-	updateChannelEntry, err := tx.Prepare("update channel_entry set depth = ? where channel_name = ? and package_name = ? and operatorbundle_name = ?")
+	updateChannelEntry, err := tx.Prepare("update channel_entry set depth = $1 where channel_name = $2 and package_name = $3 and operatorbundle_name = $4")
 	if err != nil {
 		return err
 	}
 	defer updateChannelEntry.Close()
 
-	addReplaces, err := tx.Prepare("update channel_entry set replaces = ? where entry_id = ?")
+	addReplaces, err := tx.Prepare("update channel_entry set replaces = $1 where id() = $2")
 	if err != nil {
 		return err
 	}
@@ -752,7 +720,7 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 	getDepth, err := tx.Prepare(`
 	  SELECT channel_entry.depth, channel_entry.entry_id
 	  FROM channel_entry
-	  WHERE channel_name = ? and package_name = ? and operatorbundle_name =?
+	  WHERE channel_name = $1 and package_name = $2 and operatorbundle_name = $3
 	  LIMIT 1`)
 	if err != nil {
 		return err
@@ -762,20 +730,20 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 	getChannelEntryID, err := tx.Prepare(`
 	  SELECT channel_entry.entry_id
 	  FROM channel_entry
-	  WHERE channel_name = ? and package_name = ? and operatorbundle_name =?
+	  WHERE channel_name = $1 and package_name = $2 and operatorbundle_name = $3
 	  LIMIT 1`)
 	if err != nil {
 		return err
 	}
 	defer getChannelEntryID.Close()
 
-	updateDepth, err := tx.Prepare("update channel_entry set depth = depth + 1 where channel_name = ? and package_name = ? and operatorbundle_name = ?")
+	updateDepth, err := tx.Prepare("update channel_entry set depth = depth + 1 where channel_name = $1 and package_name = $2 and operatorbundle_name = $3")
 	if err != nil {
 		return err
 	}
 	defer updateDepth.Close()
 
-	removeSkipped, err := tx.Prepare("delete from channel_entry where channel_name = ? and package_name = ? and operatorbundle_name = ?")
+	removeSkipped, err := tx.Prepare("delete from channel_entry where channel_name = $1 and package_name = $2 and operatorbundle_name = $3")
 	if err != nil {
 		return err
 	}
@@ -784,7 +752,7 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 	getBundleIDNameFromDepthToHead, err := tx.Prepare(`
 	  SELECT entry_id, operatorbundle_name
 	  FROM channel_entry
-	  WHERE depth < ? and channel_name = ? and package_name = ?`)
+	  WHERE depth < $1 and channel_name = $2 and package_name = $3`)
 	if err != nil {
 		return err
 	}

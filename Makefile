@@ -1,5 +1,5 @@
 
-MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12)") && echo -mod=vendor)
+MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12|13)") && echo -mod=vendor)
 CMDS  := $(addprefix bin/, $(shell ls ./cmd))
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
 

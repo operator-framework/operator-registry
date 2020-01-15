@@ -150,8 +150,8 @@ func (m *SQLLiteMigrator) Down(ctx context.Context, migrations migrations.Migrat
 func (m *SQLLiteMigrator) ensureMigrationTable(ctx context.Context, tx *sql.Tx) error {
 	sql := fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
-		version bigint NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+		version int NOT NULL,
+        timestamp time
 	);
 	`, m.migrationsTable)
 	_, err := tx.ExecContext(ctx, sql)
@@ -160,8 +160,8 @@ func (m *SQLLiteMigrator) ensureMigrationTable(ctx context.Context, tx *sql.Tx) 
 
 func (m *SQLLiteMigrator) tableExists(tx *sql.Tx, table string) (bool, error) {
 	query := `SELECT count(*)
-		FROM sqlite_master
-		WHERE name = ?`
+		FROM __Table
+		WHERE Name = $1`
 	row := tx.QueryRow(query, table)
 
 	var count int
@@ -203,6 +203,6 @@ func (m *SQLLiteMigrator) setVersion(ctx context.Context, tx *sql.Tx, version in
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO "+m.migrationsTable+"(version) values(?)", version)
+	_, err = tx.ExecContext(ctx, "INSERT INTO "+m.migrationsTable+"(version) values($1)", version)
 	return err
 }

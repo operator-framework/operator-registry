@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/ql/driver"
 
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -16,7 +17,7 @@ import (
 func CreateTestDb(t *testing.T) (*sql.DB, string, func()) {
 	dbName := fmt.Sprintf("test-%d.db", rand.Int())
 
-	db, err := sql.Open("sqlite3", dbName)
+	db, err := sql.Open("ql", dbName)
 	require.NoError(t, err)
 
 	load, err := sqlite.NewSQLLiteLoader(db)
@@ -98,7 +99,7 @@ func TestIndexImageMirrorer_Mirror(t *testing.T) {
 			}
 			got, err := b.Mirror()
 			if err != nil {
-				require.Equal(t, tt.wantErr.Error(), err.Error())
+				require.Equal(t, tt.wantErr, err)
 			}
 			require.Equal(t, tt.want, got)
 		})
