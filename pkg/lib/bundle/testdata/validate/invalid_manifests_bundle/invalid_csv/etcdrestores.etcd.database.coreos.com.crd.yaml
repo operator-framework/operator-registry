@@ -10,10 +10,4 @@ spec:
     plural: etcdrestores
     singular: etcdrestore
   scope: Namespaced
-  versions:
-  - name: v1beta2
-    served: true
-    storage: true
-  - name: v1beta2
-    served: true
-    storage: true
+  version: v1beta2

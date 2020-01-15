@@ -51,7 +51,7 @@ func TestPullBundle_Error(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 }
 
-func TestValidateBundle(t *testing.T) {
+func TestValidateBundleFormat(t *testing.T) {
 	dir := "./testdata/validate/valid_bundle/"
 
 	logger := logrus.NewEntry(logrus.New())
@@ -60,7 +60,7 @@ func TestValidateBundle(t *testing.T) {
 		logger: logger,
 	}
 
-	err := validator.ValidateBundle(dir)
+	err := validator.ValidateBundleFormat(dir)
 	require.NoError(t, err)
 }
 
@@ -73,15 +73,21 @@ func TestValidateBundle_InvalidRegistryVersion(t *testing.T) {
 		logger: logger,
 	}
 
-	err := validator.ValidateBundle(dir)
+	err := validator.ValidateBundleFormat(dir)
 	require.Error(t, err)
 	var validationError ValidationError
 	isValidationErr := errors.As(err, &validationError)
 	require.True(t, isValidationErr)
-	require.Equal(t, len(validationError.AnnotationErrors), 1)
+	require.Equal(t, len(validationError.Errors), 1)
 }
 
-func TestValidateBundleContents(t *testing.T) {
+func TestValidateBundleContent(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	validator := imageValidator{
+		logger: logger,
+	}
+
 	var table = []struct {
 		description string
 		mediaType   string
@@ -126,11 +132,14 @@ func TestValidateBundleContents(t *testing.T) {
 	}
 
 	for i, tt := range table {
-		logger := logrus.NewEntry(logrus.New())
-		result := validateBundleContents(tt.directory, tt.mediaType, logger)
-		require.Len(t, result, tt.numErrors, table[i].description)
-		if len(result) > 0 {
-			e := result[0]
+		fmt.Println(tt.directory)
+		err := validator.ValidateBundleContent(tt.directory)
+		var validationError ValidationError
+		isValidationErr := errors.As(err, &validationError)
+		require.True(t, isValidationErr)
+		require.Len(t, validationError.Errors, tt.numErrors, table[i].description)
+		if len(validationError.Errors) > 0 {
+			e := validationError.Errors[0]
 			require.Contains(t, e.Error(), tt.errString)
 		}
 	}
