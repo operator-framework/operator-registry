@@ -14,7 +14,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
-	github.com/operator-framework/api v0.0.0-20191127212340-9066a6e95573
+	github.com/operator-framework/api v0.0.0-20200120235816-80fd2f1a09c9
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20191115003340-16619cd27fa5
 	github.com/otiai10/copy v1.0.1
 	github.com/pkg/errors v0.8.1

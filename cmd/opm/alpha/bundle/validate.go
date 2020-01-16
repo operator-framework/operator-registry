@@ -62,7 +62,7 @@ func validateFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = imageValidator.ValidateBundleFormat(filepath.Join(dir, bundle.ManifestsDir))
+	err = imageValidator.ValidateBundleContent(filepath.Join(dir, bundle.ManifestsDir))
 	if err != nil {
 		return err
 	}

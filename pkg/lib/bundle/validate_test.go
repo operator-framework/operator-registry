@@ -107,7 +107,7 @@ func TestValidateBundleContent(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_crd/",
 			numErrors:   1,
-			errString:   "cannot restore slice from string",
+			errString:   "must contain unique version name",
 		},
 		{
 			description: "registryv1 bundle/invalid sa",
@@ -135,8 +135,10 @@ func TestValidateBundleContent(t *testing.T) {
 		fmt.Println(tt.directory)
 		err := validator.ValidateBundleContent(tt.directory)
 		var validationError ValidationError
-		isValidationErr := errors.As(err, &validationError)
-		require.True(t, isValidationErr)
+		if err != nil {
+			isValidationErr := errors.As(err, &validationError)
+			require.True(t, isValidationErr)
+		}
 		require.Len(t, validationError.Errors, tt.numErrors, table[i].description)
 		if len(validationError.Errors) > 0 {
 			e := validationError.Errors[0]

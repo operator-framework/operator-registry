@@ -25,18 +25,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const (
-	csvKind                = "ClusterServiceVersion"
-	crdKind                = "CustomResourceDefinition"
-	secretKind             = "Secret"
-	clusterRoleKind        = "ClusterRole"
-	clusterRoleBindingKind = "ClusterRoleBinding"
-	serviceAccountKind     = "ServiceAccount"
-	serviceKind            = "Service"
-	roleKind               = "Role"
-	roleBindingKind        = "RoleBinding"
-)
-
 type Meta struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -73,7 +61,11 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	var annotationsDir, manifestsDir string
 	var validationErrors []error
 
-	items, _ := ioutil.ReadDir(directory)
+	items, err := ioutil.ReadDir(directory)
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
 	for _, item := range items {
 		if item.IsDir() {
 			switch s := item.Name(); s {
@@ -200,20 +192,8 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	}
 
 	switch mediaType {
-	case HelmType, PlainType:
+	case HelmType:
 		return nil
-	}
-
-	supportedTypes := map[string]string{
-		csvKind:                "",
-		crdKind:                "",
-		secretKind:             "",
-		clusterRoleKind:        "",
-		clusterRoleBindingKind: "",
-		serviceKind:            "",
-		serviceAccountKind:     "",
-		roleKind:               "",
-		roleBindingKind:        "",
 	}
 
 	var csvName string
@@ -222,7 +202,11 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	crdValidator := v.CustomResourceDefinitionValidator
 
 	// Read all files in manifests directory
-	items, _ := ioutil.ReadDir(manifestDir)
+	items, err := ioutil.ReadDir(manifestDir)
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
 	for _, item := range items {
 		fileWithPath := filepath.Join(manifestDir, item.Name())
 		data, err := ioutil.ReadFile(fileWithPath)
@@ -233,50 +217,56 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 
 		dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 30)
 		k8sFile := &unstructured.Unstructured{}
-		if err := dec.Decode(k8sFile); err == nil {
-			unstObjs = append(unstObjs, k8sFile)
-			kind := k8sFile.GetObjectKind().GroupVersionKind().Kind
-			i.logger.Debugf(`Validating file "%s" with type "%s"`, item.Name(), kind)
-			// Verify if the object kind is supported for registryV1 format
-			if _, ok := supportedTypes[kind]; !ok {
-				validationErrors = append(validationErrors, fmt.Errorf("%s is not supported type for registryV1 bundle: %s", kind, fileWithPath))
-			} else {
-				if kind == csvKind {
-					csv := &v1.ClusterServiceVersion{}
-					err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, csv)
-					if err != nil {
-						validationErrors = append(validationErrors, err)
-					}
+		err = dec.Decode(k8sFile)
+		if err != nil {
+			validationErrors = append(validationErrors, err)
+			continue
+		}
 
-					csvName = csv.GetName()
-					results := csvValidator.Validate(csv)
-					if len(results) > 0 {
-						for _, err := range results[0].Errors {
-							validationErrors = append(validationErrors, err)
-						}
-					}
-				} else if kind == crdKind {
-					crd := &v1beta1.CustomResourceDefinition{}
-					err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, crd)
-					if err != nil {
-						validationErrors = append(validationErrors, err)
-					}
+		unstObjs = append(unstObjs, k8sFile)
+		gvk := k8sFile.GetObjectKind().GroupVersionKind()
+		i.logger.Debugf(`Validating "%s" from file "%s"`, gvk.String(), item.Name())
+		// Verify if the object kind is supported for RegistryV1 format
+		ok, _ := IsSupported(gvk.Kind)
+		if mediaType == RegistryV1Type && !ok {
+			validationErrors = append(validationErrors, fmt.Errorf("%s is not supported type for registryV1 bundle: %s", gvk.Kind, fileWithPath))
+			continue
+		}
 
-					results := crdValidator.Validate(crd)
-					if len(results) > 0 {
-						for _, err := range results[0].Errors {
-							validationErrors = append(validationErrors, err)
-						}
-					}
-				} else {
-					err := validateKubectlable(data)
-					if err != nil {
-						validationErrors = append(validationErrors, err)
-					}
+		if gvk.Kind == CSVKind {
+			csv := &v1.ClusterServiceVersion{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, csv)
+			if err != nil {
+				validationErrors = append(validationErrors, err)
+				continue
+			}
+
+			csvName = csv.GetName()
+			results := csvValidator.Validate(csv)
+			if len(results) > 0 {
+				for _, err := range results[0].Errors {
+					validationErrors = append(validationErrors, err)
+				}
+			}
+		} else if gvk.Kind == CRDKind {
+			crd := &v1beta1.CustomResourceDefinition{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, crd)
+			if err != nil {
+				validationErrors = append(validationErrors, err)
+				continue
+			}
+
+			results := crdValidator.Validate(crd)
+			if len(results) > 0 {
+				for _, err := range results[0].Errors {
+					validationErrors = append(validationErrors, err)
 				}
 			}
 		} else {
-			validationErrors = append(validationErrors, err)
+			err := validateKubectlable(data)
+			if err != nil {
+				validationErrors = append(validationErrors, err)
+			}
 		}
 	}
 
@@ -301,13 +291,13 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 
 // Validate if the file is kubecle-able
 func validateKubectlable(fileBytes []byte) error {
-	exampleFileBytesJson, err := y.YAMLToJSON(fileBytes)
+	exampleFileBytesJSON, err := y.YAMLToJSON(fileBytes)
 	if err != nil {
 		return err
 	}
 
 	parsedMeta := &Meta{}
-	err = json.Unmarshal(exampleFileBytesJson, parsedMeta)
+	err = json.Unmarshal(exampleFileBytesJSON, parsedMeta)
 	if err != nil {
 		return err
 	}
@@ -322,7 +312,7 @@ func validateKubectlable(fileBytes []byte) error {
 	)
 
 	if len(errs) > 0 {
-		return fmt.Errorf("error validating object metadata: %s. %v", errs, parsedMeta)
+		return fmt.Errorf("error validating object metadata: %s. %v", errs.ToAggregate(), parsedMeta)
 	}
 
 	return nil

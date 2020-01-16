@@ -16,4 +16,4 @@ spec:
     storage: true
   - name: v1beta2
     served: true
-    storage: true
+    storage: false

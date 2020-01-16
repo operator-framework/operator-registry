@@ -160,7 +160,7 @@ github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
-# github.com/operator-framework/api v0.0.0-20191127212340-9066a6e95573
+# github.com/operator-framework/api v0.0.0-20200120235816-80fd2f1a09c9
 github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
