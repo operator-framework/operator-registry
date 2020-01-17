@@ -23,7 +23,7 @@ And libraries:
 # Manifest format
 
 
-We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle typically includes a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV in its manifest directory, though additional objects may be included. It also includes an annotations file in its metadata folder which defines some higher level aggregate data that helps describe the format and package information about how the bundle should be added into an index of bundles.
+We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle typically includes a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV in its manifest directory, though additional objects may be included. It also includes an annotations file in its metadata folder which defines some higher level aggregate data that helps to describe the format and package information about how the bundle should be added into an index of bundles.
 
 ```
  # example bundle
@@ -54,8 +54,6 @@ Using [OCI spec](https://github.com/opencontainers/image-spec/blob/master/spec.m
 podman build -t quay.io/my-container-registry-namespace/my-manifest-bundle:latest -f bundle.Dockerfile .
 ```
 
-The operator-sdk also provides tooling to generate the metadata, Dockerfile, and even build the container image itself. Some basic documentation on how this works is located in [this repository's documentation](docs/design/operator-bundle.md#Operator-SDK-CLI).
-
 Once you have built the container, you can publish it like any other container image:
 
 ```sh
@@ -73,6 +71,8 @@ opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bund
 podman push quay.io/my-container-registry-namespace/my-index:1.0.0
 ```
 
+The resulting image is referred to as an "Index". It is an image which contains a database of pointers to operator manifest content that is easily queriable via an included API that is served when the container image is run.
+
 Now that image is available for clusters to use and reference with CatalogSources on their cluster.
 
 Index images are additive, so you can add a new version of your operator bundle when you publish a new version:
@@ -83,7 +83,7 @@ opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bund
 
 For more detail on using `opm` to generate index images, take a look at the [documentation](docs/design/opm-tooling.md).
 
-# Using the catalog index with Operator Lifecycle Manager
+# Using the index with Operator Lifecycle Manager
 
 To add an index packaged with `operator-registry` to your cluster for use with [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) (OLM) create a `CatalogSource` referencing the image you created and pushed above:
 
