@@ -187,7 +187,7 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 	}
 	// Create result annotations struct
 	resultAnnotations := AnnotationMetadata{}
-	data, err := GenerateAnnotations("test1", "test2", "test3", "test4", "test5", "test5")
+	data, err := GenerateAnnotations("test1", "test2", "test3", "test4", "test5", "test5", map[string]string{"test6": "test7"})
 	require.NoError(t, err)
 
 	err = yaml.Unmarshal(data, &resultAnnotations)
@@ -205,12 +205,13 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.metadata.v1=%s\n"+
 		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
-		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
+		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n"+
+		"LABEL test6=test7\n\n"+
 		"COPY /*.yaml /manifests/\n"+
 		"COPY %s/annotations.yaml /metadata/annotations.yaml\n", MetadataDir,
 		filepath.Join("/", MetadataDir))
 
-	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test4", "test5", "")
+	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test4", "test5", "", map[string]string{"test6": "test7"})
 	require.NoError(t, err)
 	require.Equal(t, output, string(content))
 }

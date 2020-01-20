@@ -41,11 +41,13 @@ func newBundleGenerateCmd() *cobra.Command {
 
 	bundleGenerateCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "", "The default channel for the bundle image")
 
+	bundleGenerateCmd.Flags().StringArrayVarP(&labelsArgs, "labels", "l", make([]string, 0), "Additional labels for the bundle image. These must be specified as key-value pairs separated by `:`. For example: `-l=\"key:value\"`.")
+
 	return bundleGenerateCmd
 }
 
 func generateFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.GenerateFunc(dirBuildArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true)
+	err := bundle.GenerateFunc(dirBuildArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true, labelsArgs)
 	if err != nil {
 		return err
 	}

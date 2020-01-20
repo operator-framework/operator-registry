@@ -14,6 +14,7 @@ var (
 	channelsArgs       string
 	channelDefaultArgs string
 	overwriteArgs      bool
+	labelsArgs         []string
 )
 
 // newBundleBuildCmd returns a command that will build operator bundle image.
@@ -69,12 +70,14 @@ func newBundleBuildCmd() *cobra.Command {
 
 	bundleBuildCmd.Flags().BoolVarP(&overwriteArgs, "overwrite", "o", false, "To overwrite annotations.yaml locally if existed. By default, overwrite is set to `false`.")
 
+	bundleBuildCmd.Flags().StringArrayVarP(&labelsArgs, "labels", "l", make([]string, 0), "Additional labels for the bundle image. These must be specified as key-value pairs separated by `:`. For example: `-l=\"key:value\"`.")
+
 	return bundleBuildCmd
 }
 
 func buildFunc(cmd *cobra.Command, args []string) error {
 	err := bundle.BuildFunc(dirBuildArgs, tagBuildArgs, imageBuilderArgs,
-		packageNameArgs, channelsArgs, channelDefaultArgs, overwriteArgs)
+		packageNameArgs, channelsArgs, channelDefaultArgs, overwriteArgs, labelsArgs)
 	if err != nil {
 		return err
 	}

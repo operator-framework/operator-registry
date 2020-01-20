@@ -46,7 +46,7 @@ type AnnotationMetadata struct {
 // @channels: The list of channels that bundle image belongs to
 // @channelDefault: The default channel for the bundle image
 // @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
-func GenerateFunc(directory, packageName, channels, channelDefault string, overwrite bool) error {
+func GenerateFunc(directory, packageName, channels, channelDefault string, overwrite bool, labels []string) error {
 	_, err := os.Stat(directory)
 	if os.IsNotExist(err) {
 		return err
@@ -60,8 +60,13 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 
 	log.Info("Building annotations.yaml")
 
+	customLabels, err := generateLabels(labels)
+	if err != nil {
+		return err
+	}
+
 	// Generate annotations.yaml
-	content, err := GenerateAnnotations(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
+	content, err := GenerateAnnotations(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault, customLabels)
 	if err != nil {
 		return err
 	}
@@ -84,7 +89,7 @@ func GenerateFunc(directory, packageName, channels, channelDefault string, overw
 	log.Info("Building Dockerfile")
 
 	// Generate Dockerfile
-	content, err = GenerateDockerfile(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
+	content, err = GenerateDockerfile(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault, customLabels)
 	if err != nil {
 		return err
 	}
@@ -220,7 +225,7 @@ func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 // GenerateAnnotations builds annotations.yaml with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information.
-func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
+func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string, labels map[string]string) ([]byte, error) {
 	annotations := &AnnotationMetadata{
 		Annotations: map[string]string{
 			MediatypeLabel:      mediaType,
@@ -230,6 +235,9 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 			ChannelsLabel:       channels,
 			ChannelDefaultLabel: channelDefault,
 		},
+	}
+	for k, v := range labels {
+		annotations.Annotations[k] = v
 	}
 
 	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
@@ -250,7 +258,7 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 // GenerateDockerfile builds Dockerfile with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information in LABEL section.
-func GenerateDockerfile(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
+func GenerateDockerfile(mediaType, manifests, metadata, packageName, channels, channelDefault string, labels map[string]string) ([]byte, error) {
 	var fileContent string
 
 	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
@@ -267,7 +275,12 @@ func GenerateDockerfile(mediaType, manifests, metadata, packageName, channels, c
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", MetadataLabel, metadata)
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", PackageLabel, packageName)
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", ChannelsLabel, channels)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, chanDefault)
+	fileContent += fmt.Sprintf("LABEL %s=%s\n", ChannelDefaultLabel, chanDefault)
+	for k, v := range labels {
+		fileContent += fmt.Sprintf("LABEL %s=%s\n", k, v)
+	}
+
+	fileContent += fmt.Sprintf("\n")
 
 	// CONTENT
 	fileContent += fmt.Sprintf("COPY %s %s\n", "/*.yaml", "/manifests/")
@@ -288,4 +301,16 @@ func WriteFile(fileName, directory string, content []byte) error {
 		return err
 	}
 	return nil
+}
+
+func generateLabels(labels []string) (map[string]string, error) {
+	customLabels := map[string]string{}
+	for _, lab := range labels {
+		kvPair := strings.Split(lab, ":")
+		if len(kvPair) != 2 {
+			return nil, fmt.Errorf("%s malformatted label. Please use \":\" as separator between label and value", lab)
+		}
+		customLabels[kvPair[0]] = kvPair[1]
+	}
+	return customLabels, nil
 }
