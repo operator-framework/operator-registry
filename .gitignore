@@ -449,6 +449,7 @@ bin
 
 # Ignore sqlite
 *.db
+*.db-journal
 
 # Ignore vscode
 .vscode

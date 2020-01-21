@@ -3,6 +3,7 @@ package bundle
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
@@ -54,9 +55,14 @@ func validateFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	logger.Info("Unpacked image layers, validating bundle image contents")
+	logger.Info("Unpacked image layers, validating bundle image format & contents")
 
-	err = imageValidator.ValidateBundle(dir)
+	err = imageValidator.ValidateBundleFormat(dir)
+	if err != nil {
+		return err
+	}
+
+	err = imageValidator.ValidateBundleContent(filepath.Join(dir, bundle.ManifestsDir))
 	if err != nil {
 		return err
 	}

@@ -91,40 +91,34 @@ $ tree
 
 ## Operator Bundle Commands
 
-Operator SDK CLI is available to generate Bundle annotations and Dockerfile based on provided operator manifests.
+`opm` (Operator Package Manager) is a CLI tool to generate bundle annotations, build bundle manifests image, validate bundle manifests image and other functionalities. Please note that the `generate`, `build` and `validate` features of `opm` CLI are currently in alpha and only meant for development use.
 
-### Operator SDK CLI
+### `opm` (Operator Package Manager)
 
-In order to use Operator SDK CLI, follow the operator-SDK installation instruction:
+In order to use `opm` CLI, follow the `opm` build instruction:
 
-1. Install the [Operator SDK CLI](https://github.com/operator-framework/operator-sdk/blob/master/doc/user/install-operator-sdk.md)
+1. Clone the operator registry repository:
 
-Now, a binary named `operator-sdk` is available in OLM's directory to use.
 ```bash
-$ ./operator-sdk
-An SDK for building operators with ease
-
-Usage:
-  operator-sdk [command]
-
-Available Commands:
-    bundle      Operator bundle commands
-
-Flags:
-  -h, --help      help for operator-sdk
-      --verbose   Enable verbose logging
-
-Use "operator-sdk [command] --help" for more information about a command.
+$ git clone https://github.com/operator-framework/operator-registry
 ```
+
+2. Build `opm` binary using this command:
+
+```bash
+$ go build ./cmd/opm/
+```
+
+Now, a binary named `opm` is now built in current directory and ready to be used.
 
 ### Generate Bundle Annotations and DockerFile
 *Notes:*
 * If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
 
-Using `operator-sdk` CLI, bundle annotations can be generated from provided operator manifests. The overall `bundle generate` command usage is:
+Using `opm` CLI, bundle annotations can be generated from provided operator manifests. The overall `bundle generate` command usage is:
 ```bash
 Usage:
-  operator-sdk bundle generate [flags]
+  opm alpha bundle generate [flags]
 
 Flags:
   -c, --channels string    The list of channels that bundle image belongs to
@@ -141,7 +135,7 @@ The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `
 
 The command for `generate` task is:
 ```bash
-$ ./operator-sdk bundle generate --directory /test --package test-operator \
+$ ./opm alpha bundle generate --directory /test --package test-operator \
 --channels stable,beta --default stable
 ```
 
@@ -173,7 +167,7 @@ $ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path
 Operator bundle image can be built from provided operator manifests using `build` command (see *Notes* below). The overall `bundle build` command usage is:
 ```bash
 Usage:
-  operator-SDK bundle build [flags]
+  opm alpha bundle build [flags]
 
 Flags:
   -c, --channels string        The list of channels that bundle image belongs to
@@ -192,7 +186,7 @@ Flags:
 
 The command for `build` task is:
 ```bash
-$ ./operator-sdk bundle build --directory /test --tag quay.io/coreos/test-operator.v0.1.0:latest \
+$ ./opm alpha bundle build --directory /test --tag quay.io/coreos/test-operator.v0.1.0:latest \
 --package test-operator --channels stable,beta --default stable
 ```
 
@@ -200,7 +194,7 @@ The `--directory` or `-d` specifies the directory where the operator manifests f
 
 The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
 ```bash
-$ ./operator-sdk bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
+$ ./opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
 --image-builder podman --package test-operator --channels stable,beta --default stable
 ```
 
@@ -209,3 +203,28 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 *Notes:*
 * If there is `Dockerfile` existing in the directory, it will be overwritten.
 * If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and returns any found errors. If the ``annotations.yaml`` is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow cli to overwrite the `annotations.yaml` if existed.
+
+### Validate Bundle Image
+
+Operator bundle image can validate bundle image that is publicly available in an image registry using `validate` command (see *Notes* below). The overall `bundle validate` command usage is:
+```bash
+Usage:
+  opm alpha bundle validate [flags]
+
+Flags:
+  -t, --tag string             The name of the bundle image will be built
+  -b, --image-builder string   Tool to extract container images. One of: [docker, podman] (default "docker")
+  -h, --help                   help for build
+```
+
+The command for `validate` task is:
+```bash
+$ ./opm alpha bundle build --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
+```
+
+The `validate` command will first extract the contents of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
+
+After the bundle image format is confirmed, the command will validate the bundle contents such as manifests and metadata files if the bundle format is `RegistryV1` or "Plain" type. "RegistryV1" format means it contains `ClusterResourceVersion` and its associated Kubernetes objects while `PlainType` means it contains all Kubernetes objects. The content validation process will ensure the individual file in the bundle image is valid and can be applied to an OLM-enabled cluster provided all necessary permissions and configurations are met.
+
+*Notes:*
+* The bundle content validation is best effort which means it will not guarantee 100% accuracy due to nature of Kubernetes objects may need certain permissions and configurations, which users may not have, in order to be applied successfully in a cluster.
