@@ -45,4 +45,5 @@ EXPOSE 50051
 
 LABEL io.k8s.display-name="OpenShift Operator Registry" \
     io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
-    maintainer="Odin Team <aos-odin@redhat.com>"
+    maintainer="Odin Team <aos-odin@redhat.com>" \
+    summary="Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator catalog data to Operator Lifecycle Manager."
