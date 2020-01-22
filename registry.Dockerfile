@@ -1,6 +1,6 @@
-FROM golang:1.12-alpine as builder
+FROM golang:1.13-alpine as builder
 
-RUN apk update && apk add sqlite build-base git mercurial
+RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /build
 
 COPY vendor vendor
@@ -14,7 +14,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.1 && \
     chmod +x /bin/grpc_health_probe
 
 FROM scratch
-COPY --from=builder /build/bin/registry-server /registry-server
+COPY --from=builder /build/bin/linux/registry-server /registry-server
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051
 ENTRYPOINT ["/registry-server"]

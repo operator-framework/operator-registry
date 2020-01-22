@@ -28,11 +28,11 @@ FROM openshift/origin-base
 RUN mkdir /registry
 WORKDIR /registry
 
-COPY --from=builder /src/bin/initializer /bin/initializer
-COPY --from=builder /src/bin/registry-server /bin/registry-server
-COPY --from=builder /src/bin/configmap-server /bin/configmap-server
-COPY --from=builder /src/bin/appregistry-server /bin/appregistry-server
-COPY --from=builder /src/bin/opm /bin/opm
+COPY --from=builder /src/bin/linux/initializer /bin/initializer
+COPY --from=builder /src/bin/linux/registry-server /bin/registry-server
+COPY --from=builder /src/bin/linux/configmap-server /bin/configmap-server
+COPY --from=builder /src/bin/linux/appregistry-server /bin/appregistry-server
+COPY --from=builder /src/bin/linux/opm /bin/opm
 COPY --from=builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
@@ -46,5 +46,5 @@ USER 1001
 EXPOSE 50051
 
 LABEL io.k8s.display-name="OpenShift Operator Registry" \
-    io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
-    maintainer="Odin Team <aos-odin@redhat.com>"
+      io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
+      maintainer="Odin Team <aos-odin@redhat.com>"
