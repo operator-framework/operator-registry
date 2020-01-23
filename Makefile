@@ -1,11 +1,12 @@
-
-MOD_FLAGS := $(shell (go version | grep -q -E "1\.(11|12)") && echo -mod=vendor)
-CMDS  := $(addprefix bin/, $(shell ls ./cmd))
+GOOS := $(shell go env GOOS)
+OS := $(shell bash -c 'if [[ $(GOOS) == darwin ]]; then echo osx; else echo $(GOOS); fi')
+CMDS  := $(addprefix bin/$(OS)/, $(shell ls ./cmd))
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
+MOD_FLAGS := $(shell bash -c 'if [[ "$(shell go env GOFLAGS)" == "-mod=vendor" ]]; then echo ""; else echo "-mod=vendor"; fi')
 
 .PHONY: build test vendor clean
 
-all: clean install-go-bindata test build
+all: clean test build
 
 $(CMDS):
 	go build $(MOD_FLAGS) $(extra_flags) -o $@ ./cmd/$(shell basename $@)
@@ -26,12 +27,6 @@ image-upstream:
 
 vendor:
 	go mod vendor
-
-install-go-bindata:
-	go get -u github.com/go-bindata/go-bindata/...
-
-generate-migration-bundle:
-	go-bindata -pkg sqlite -o ./pkg/sqlite/migrations.go ./pkg/sqlite/db_migrations/
 
 codegen:
 	protoc -I pkg/api/ --go_out=plugins=grpc:pkg/api pkg/api/*.proto
