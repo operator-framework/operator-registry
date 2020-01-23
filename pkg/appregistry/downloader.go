@@ -20,10 +20,13 @@ type downloadItem struct {
 
 	// Source refers to the remote appregistry URL and remote registry namespace.
 	Source *Source
+
+	// Release refers to the release number the user requested
+	Release string
 }
 
 func (d *downloadItem) String() string {
-	return fmt.Sprintf("%s", d.RepositoryMetadata)
+	return fmt.Sprintf("%s:%s", d.RepositoryMetadata.Name, d.Release)
 }
 
 type registryOptionsGetter interface {
@@ -73,11 +76,18 @@ func (d *downloader) Download(input *Input) (manifests []*apprclient.OperatorMet
 		d.logger.Errorf("the following error(s) occurred while preparing the download list: %v", err)
 
 		if len(items) == 0 {
-			d.logger.Infof("download list is empty, bailing out: %s", input.Packages)
+			d.logger.Infof("download list is empty, bailing out: %v", input.Packages)
 			return
 		}
 	}
 
+	for _, item := range items {
+		d.logger.Infof(
+			"the following releases are available for package %s -> %s",
+			item.RepositoryMetadata.Name,
+			item.RepositoryMetadata.Releases,
+		)
+	}
 	d.logger.Infof("resolved the following packages: %s", items)
 
 	manifests, err = d.DownloadRepositories(items)
@@ -95,7 +105,7 @@ func (d *downloader) Download(input *Input) (manifests []*apprclient.OperatorMet
 // log it and move on.
 func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 	packageMap := input.PackagesToMap()
-	itemMap := map[string]*downloadItem{}
+	itemMap := map[Package]*downloadItem{}
 	allErrors := []error{}
 
 	for _, source := range input.Sources {
@@ -112,22 +122,36 @@ func (d *downloader) Prepare(input *Input) (items []*downloadItem, err error) {
 			continue
 		}
 
+		repositoryMap := map[string]*apprclient.RegistryMetadata{}
 		for _, metadata := range repositoryList {
-			// Repository name has a one to one mapping to operator/package name.
-			// We use this as the key.
-			key := metadata.Name
+			repositoryMap[metadata.Name] = metadata
+		}
 
-			if _, ok := packageMap[key]; ok {
-				// The package specified has been resolved to this repository
-				// name in remote registry.
-				itemMap[key] = &downloadItem{
-					RepositoryMetadata: metadata,
-					Source:             source,
-				}
-
-				// Remove the package specified since it has been resolved.
-				delete(packageMap, key)
+		for _, pkg := range input.Packages {
+			metadata, ok := repositoryMap[pkg.Name]
+			if !ok {
+				// The package is not in the current source
+				continue
 			}
+			// If a specific release was requrested, download it
+			release := pkg.Release
+			if release != "" {
+				releaseMap := metadata.ReleaseMap()
+				if _, ok := releaseMap[pkg.Release]; !ok {
+					// We have the package, but not the requested release
+					continue
+				}
+			} else {
+				// default to the latest
+				release = metadata.Release
+			}
+
+			itemMap[*pkg] = &downloadItem{
+				RepositoryMetadata: metadata,
+				Release:            release,
+				Source:             source,
+			}
+			delete(packageMap, *pkg)
 		}
 	}
 
@@ -154,12 +178,12 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 	for _, item := range items {
 		endpoint := item.Source.Endpoint
 
-		d.logger.Infof("downloading repository: %s from %s", item.RepositoryMetadata, endpoint)
+		d.logger.Infof("downloading repository: %s from %s", item, endpoint)
 
 		options, err := d.regOptionGetter.GetRegistryOptions(item.Source)
 		if err != nil {
 			allErrors = append(allErrors, err)
-			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
+			d.logger.Infof("skipping repository: %s", item)
 
 			continue
 		}
@@ -167,15 +191,15 @@ func (d *downloader) DownloadRepositories(items []*downloadItem) (manifests []*a
 		client, err := apprclient.New(*options)
 		if err != nil {
 			allErrors = append(allErrors, err)
-			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
+			d.logger.Infof("skipping repository: %s", item)
 
 			continue
 		}
 
-		manifest, err := client.RetrieveOne(item.RepositoryMetadata.ID(), item.RepositoryMetadata.Release)
+		manifest, err := client.RetrieveOne(item.RepositoryMetadata.ID(), item.Release)
 		if err != nil {
 			allErrors = append(allErrors, err)
-			d.logger.Infof("skipping repository: %s", item.RepositoryMetadata)
+			d.logger.Infof("skipping repository: %s", item)
 
 			continue
 		}
