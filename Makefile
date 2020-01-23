@@ -1,6 +1,6 @@
 GOOS := $(shell go env GOOS)
-OS := $(shell bash -c 'if [[ $(GOOS) == darwin ]]; then echo osx; else echo $(GOOS); fi')
-CMDS  := $(addprefix bin/$(OS)/, $(shell ls ./cmd))
+GOARCH := $(shell go env GOARCH)
+CMDS  := $(addprefix bin/$(GOOS)-$(GOARCH)-, $(shell ls ./cmd))
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
 MOD_FLAGS := $(shell bash -c 'if [[ "$(shell go env GOFLAGS)" == "-mod=vendor" ]]; then echo ""; else echo "-mod=vendor"; fi')
 
@@ -9,7 +9,7 @@ MOD_FLAGS := $(shell bash -c 'if [[ "$(shell go env GOFLAGS)" == "-mod=vendor" ]
 all: clean test build
 
 $(CMDS):
-	go build $(MOD_FLAGS) $(extra_flags) -o $@ ./cmd/$(shell basename $@)
+	go build $(MOD_FLAGS) $(extra_flags) -o $@ ./cmd/$(shell basename $@ | cut -d- -f3-)
 
 build: clean $(CMDS)
 

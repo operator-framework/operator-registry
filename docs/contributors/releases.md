@@ -21,3 +21,20 @@ Builds are also triggered for the following docker images. The tags in Quay.io w
  - [quay.io/operator-framework/upstream-registry-builder](https://quay.io/repository/operator-framework/upstream-registry-builder?tab=tags)
  
  Images are also built to track master with `latest` tags. It is recommended that you always pull by digest, and only use images that are tagged with a version.
+ 
+ 
+## Generating Travis API keys
+
+This requires the travis CLI tool to be installed.
+
+First, backup the existing deploy config in `.travis.yml` - the prompts will overwrite some of the config, and 
+we only need the generated api token. This can be done by renaming the `deploy` yaml key to something else.
+
+```sh
+$ travis setup releases -r operator-framework/operator-registry --force --pro
+```
+
+When prompted, enter credentials for the of-deploy-robot account. Copy the api key from the newly generated `deploy` section in .travis.yml, place
+it in the right place in the actual deploy config, and delete the generated deploy section.
+
+You mean need to `travis login --pro` first.
