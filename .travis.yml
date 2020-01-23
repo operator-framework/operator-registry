@@ -2,28 +2,24 @@ language: go
 go:
 - 1.13
 sudo: true
-
 os:
 - linux
 - osx
 - windows
-
 install:
 - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install make; fi
 - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install make; fi
-
 script:
 - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then mingw32-make build; fi
 - if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then make unit build; fi
-
 notifications:
   email: false
-
 deploy:
   provider: releases
   api_key:
-    secure: CMJ3KGhwuB7YRCYsJMe0cWAY/gkj2BVGorW9G1awxOyR2+Dv9G5PhItVkVfti0P2LzX8K2rplDp4O8b976wWzWJlJ6MQsSkFId0wYJSXRwNGdqnGhTLdDXB4FmPKapTBqTaYQgumrfvSOMiZ3tAwCD9AjW2fqYnBWnJXJ3yv8cpmN+TOZLJAKG+wAqb2foD9mS3HEQ9ItcoBqqEg8eRedzLuLGKVROLdFweLpi9gWdC22xLNomySwITTXX4kVs35MS0iwZE2cpTNDR8tLLIirHNgkiCCVYdiY0AB77Ikp5AF458UA064yr1b8TjAC3oyi4h6ddFaXo6CT9PZmsc41Te7cguSm2J9Ok2OdxLGitce7oty38QeY0QaG0oolcbXYw6QeiUXJ3BScAzVQBveDYgIACkSlsXAFEgdmR9YLOjYcw1MmquhmDbEuvaHi5T85aqsL8v5PUTMZq9+X/wOTqzR6D+8nQGqvqodxnopAFKpiR7UyiCl16VqrTJnkpWnYEerlx1i3Y7JLEiEK9O8UKL13J65cumCHPbcPNXbIsV6cFM+WXV8XhzKNOenrI5LZS9ske73wN9mOlgJKPwzEzP1H5hw1DTgm7gH/T+0bPCUdg7vh+dGavunjHEth1HmD2F8p6dvMC7+JG7Fjyw2PU76yl9DDm611p69A5auQ14=
-  file: bin/$TRAVIS_OS_NAME/opm
+    secure: tGR2GnmidR2yDiajtooER0lZZkeWI6+Dbv7ctOq7fzyK+u+LdP4Xmw/aM+qfC26ylx1IFTW43pHhVCi1m5yH4Vb4sjdh4Okjkc0ZkwQzAzHFiBQ/LCHFxTBKMIdKWRsI1rNQ1wlJnFDorlVhEO2xqN59gguE33RR13H8zeFyGdtVy9TtCwhfiEj0XqlIqEeB7NQm6nn1/I0d0c9THX+URM7jMRy47jS0fQbDQUmDkgGqybgMg9f/dpPAPoaf79/5kcPhZgmeNeeL0/IaUCgzYx3EPmwSo3E34uyCRXM8rJbb5uPZ2eTeX6y+p3NwD2LrNd6Rr8QzozoKafsher0EvHqJBi8Y+YqEh7va9UfosDj1xWoni1fqXt28k7fAcpqgQW6ynwvSi/aJ9PymKXZ5yz0d8iModI+9MIQcpdAuNCOTJuN7H2b334vgMvQQZR0VG5ACBxUXdQ3QrfYJlDc/nJ7z/HCckn2B4vvjFeysiBqsAlaVJC+R+cr75u1DZWhyMio2sYNCA21EYaBCs3GmiX/B+3NU0WT/b4Ub01JQZm9xNKARcvw1xXpnnclyanZ5//nEu7/my4pwZRGca6RjHEetSQLzgRjlOS6QBIX3odTrBA+x9oyutQMgTBJ83nSvfPudndwu/C0mAqyAghYd4kVqZK/7UCyUjPD9ZvEd40o=
+  file_glob: true
+  file: bin/**/*
   skip_cleanup: true
   on:
     repo: operator-framework/operator-registry

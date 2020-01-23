@@ -20,9 +20,6 @@ WORKDIR /go/src/$PROJECT
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/vendor/$ORG/grpc-health-probe .
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/vendor .
 RUN CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
-RUN ls /go/bin
-RUN ls .
-
 
 FROM scratch
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/linux/appregistry-server /bin/appregistry-server
