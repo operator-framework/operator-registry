@@ -14,7 +14,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.1 && \
     chmod +x /bin/grpc_health_probe
 
 FROM scratch
-COPY --from=builder /build/bin/linux/registry-server /registry-server
+COPY --from=builder /build/bin/linux-amd64-registry-server /registry-server
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051
 ENTRYPOINT ["/registry-server"]

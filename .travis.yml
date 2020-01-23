@@ -1,7 +1,7 @@
 language: go
+
 go:
 - 1.13
-sudo: true
 
 os:
 - linux
@@ -21,10 +21,12 @@ notifications:
 
 deploy:
   provider: releases
-  api_key:
-    secure: CMJ3KGhwuB7YRCYsJMe0cWAY/gkj2BVGorW9G1awxOyR2+Dv9G5PhItVkVfti0P2LzX8K2rplDp4O8b976wWzWJlJ6MQsSkFId0wYJSXRwNGdqnGhTLdDXB4FmPKapTBqTaYQgumrfvSOMiZ3tAwCD9AjW2fqYnBWnJXJ3yv8cpmN+TOZLJAKG+wAqb2foD9mS3HEQ9ItcoBqqEg8eRedzLuLGKVROLdFweLpi9gWdC22xLNomySwITTXX4kVs35MS0iwZE2cpTNDR8tLLIirHNgkiCCVYdiY0AB77Ikp5AF458UA064yr1b8TjAC3oyi4h6ddFaXo6CT9PZmsc41Te7cguSm2J9Ok2OdxLGitce7oty38QeY0QaG0oolcbXYw6QeiUXJ3BScAzVQBveDYgIACkSlsXAFEgdmR9YLOjYcw1MmquhmDbEuvaHi5T85aqsL8v5PUTMZq9+X/wOTqzR6D+8nQGqvqodxnopAFKpiR7UyiCl16VqrTJnkpWnYEerlx1i3Y7JLEiEK9O8UKL13J65cumCHPbcPNXbIsV6cFM+WXV8XhzKNOenrI5LZS9ske73wN9mOlgJKPwzEzP1H5hw1DTgm7gH/T+0bPCUdg7vh+dGavunjHEth1HmD2F8p6dvMC7+JG7Fjyw2PU76yl9DDm611p69A5auQ14=
-  file: bin/$TRAVIS_OS_NAME/opm
-  skip_cleanup: true
+  edge: true
+  token:
+    secure: 1mcUdIu9BBQloKWHEXIum9XFunDVDtWvbL5HuebsSJOlePTRnccBnhwwyxytkxO8bkWlB7RXRwa2JRKAOtrB2sgyvG4zthQeiyuq3qNRuZPyl/KxcHT5swYhwXaFy2kSmsG3WJy6Yx+Rw82yDelnyUkv2XcJODcU3Sf0CZIaYmCHmT9dFJ97yGd5x/Xbw+ApBIjRYQgL/NCXcvR/7ftIMUGcYc6zSMG9U6eWCvY28gZGhElvywbm51UuwOzK37jNKrp9xe4c+Fbp+7EqEUY4ooxCxX82PmJRDEcdjY0NLdafmPN40TA6oDB1873OEIWCa7+Lfn5k+X+JTcV/rPOfOIRB0vS04m5HWJONu4gNHB5lYl3DRHonbhF4X/hzkujlFGkWB/3XDwSj9X88McL0P7mwZsXV5KsiH7kqH3FTzlH2Fm3OTHhBOEJ1s+OEcwRlBRahh8LfzD6Da7BNncSWi2zdc7erD5WVmeiJngZXzGquo3Ly3GWB9Pfkd0rriclHC0CmIj5EeD7NBnrCu18dwdlKRR5L18dUmoLV1I/IUh0BIn0i7CNt3iw15LVX4Lk6wz2JzEfytGQ3GzfIf4cPjmGqIYwlOUuyiht7AyEUg3QIBiqTbU/PL+krvFhAtf3RkD7/5+NZF6VF4p4hYXJN0sGq3XOsN7Ol1nVvc6RpAlk=
+  file_glob: true
+  file: bin/**/*-opm
+  cleanup: false
   on:
     repo: operator-framework/operator-registry
     tags: true
