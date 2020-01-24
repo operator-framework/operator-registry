@@ -164,6 +164,23 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
   customresourcedefinitions:
+    required:
+      - name: etcdclusters.etcd.database.coreos.com
+        version: v1beta2
+        kind: EtcdCluster
+        displayName: etcd Cluster
+        description: Represents a cluster of etcd nodes.
+        resources:
+          - kind: Service
+            version: v1
+          - kind: Pod
+            version: v1
+        specDescriptors:
+          - description: The desired number of member Pods for the etcd cluster.
+            displayName: Size
+            path: size
+            x-descriptors:
+              - 'urn:alm:descriptor:com.tectonic.ui:podCount'
     owned:
     - name: etcdclusters.etcd.database.coreos.com
       version: v1beta2

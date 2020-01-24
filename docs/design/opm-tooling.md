@@ -93,6 +93,41 @@ Like `opm registry rm`, this command will remove all versions an entire operator
 
 This will result in the tagged container image `quay.io/operator-framework/monitoring-index:1.0.2` with a registry that no longer contains the `prometheus` operator at all.
 
+#### export
+
+`opm index export` will export a package from an index image into a directory. The format of this directory will match the appregistry manifest format: containing all versions of the package in the index along with a `package.yaml` file. This command takes an `--index` flag that points to an index image, a `--package` flag that states a package name, an optional `--download-folder` as the export location (default is `./downloaded`), and just as the other index commands it takes a `--container-tool` flag. Ex:
+
+`opm index export --index="quay.io/operator-framework/monitoring:1.0.0" --package="prometheus" -c="podman"`
+
+This will result in the following `downloaded` folder directory structure:
+
+```bash
+downloaded
+├── 0.14.0
+│   ├── alertmanager.crd.yaml
+│   ├── prometheus.crd.yaml
+│   ├── prometheusoperator.0.14.0.clusterserviceversion.yaml
+│   ├── prometheusrule.crd.yaml
+│   └── servicemonitor.crd.yaml
+├── 0.15.0
+│   ├── alertmanager.crd.yaml
+│   ├── prometheus.crd.yaml
+│   ├── prometheusoperator.0.15.0.clusterserviceversion.yaml
+│   ├── prometheusrule.crd.yaml
+│   └── servicemonitor.crd.yaml
+├── 0.22.2
+│   ├── alertmanager.crd.yaml
+│   ├── prometheus.crd.yaml
+│   ├── prometheusoperator.0.22.2.clusterserviceversion.yaml
+│   ├── prometheusrule.crd.yaml
+│   └── servicemonitor.crd.yaml
+└── package.yaml
+```
+
+which can be pushed to appregistry.
+
+**Note**: the appregistry format is being deprecated in favor of the new index image and image bundle format.
+
 ### Container Tooling
 
 Of note, many of these commands require some form of shelling to common container tooling (in the general case at least to pull the bundle image and extract the contents to update the registry). By default, the container tool that `opm` shells to is [podman](https://podman.io/). However, we also support overriding this via the `--container-tool` flag in all of these commands:

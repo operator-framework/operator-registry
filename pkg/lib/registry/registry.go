@@ -10,16 +10,15 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-
 type RegistryUpdater struct {
 	Logger *logrus.Entry
 }
 
 type AddToRegistryRequest struct {
-	Permissive bool
+	Permissive    bool
 	InputDatabase string
 	ContainerTool string
-	Bundles []string
+	Bundles       []string
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
@@ -55,9 +54,9 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 }
 
 type DeleteFromRegistryRequest struct {
-	Permissive bool
+	Permissive    bool
 	InputDatabase string
-	Packages []string
+	Packages      []string
 }
 
 func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) error {
