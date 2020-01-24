@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver"
 	_ "github.com/mattn/go-sqlite3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -104,7 +105,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	return tx.Commit()
 }
 
-func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error {
+func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest, updateMode registry.Mode, opts ...registry.ChannelUpdateOption) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -112,6 +113,11 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	defer func() {
 		tx.Rollback()
 	}()
+
+	options := registry.ChannelUpdateOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
 
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
@@ -145,8 +151,9 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 	var errs []error
 
+	// Try to add the package. If it's not new, just update the existing entries
 	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
-		err = s.updatePackageChannels(tx, manifest)
+		err = s.updatePackageChannels(tx, manifest, updateMode, options.CSVToInsert)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -203,6 +210,13 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 			if err := s.addAPIs(tx, channelEntryCSV, currentID); err != nil {
 				errs = append(errs, err)
+			}
+
+			// If we aren't in `replaces` mode, then we already know this is the first entry into the channel
+			// otherwise we would have gone into the update function. No need to trace back and update
+			// previous entries
+			if updateMode != registry.ReplacesMode {
+				break
 			}
 
 			skips, err := channelEntryCSV.GetSkips()
@@ -270,7 +284,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 
 			// If we find 'replaces' in the circuit list then we've seen it already, break out
 			if _, ok := replaceCycle[replaces]; ok {
-			        errs = append(errs, fmt.Errorf("Cycle detected, %s replaces %s", channelEntryCSVName, replaces))
+				errs = append(errs, fmt.Errorf("Cycle detected, %s replaces %s", channelEntryCSVName, replaces))
 				break
 			}
 			replaceCycle[replaces] = true
@@ -627,7 +641,7 @@ func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
 	return nil
 }
 
-func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle registry.Bundle) error {
+func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle registry.Bundle, updateMode registry.Mode) error {
 	var errs []error
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -682,11 +696,12 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 		}
 	}
 
+	// Insert operator bundles and related images
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 
-	if err := s.AddPackageChannels(manifest); err != nil {
+	if err := s.AddPackageChannels(manifest, updateMode, registry.WithCSVToInsert(csvName)); err != nil {
 		errs = append(errs, err)
 		tx, err := s.db.Begin()
 		if err != nil {
@@ -712,7 +727,7 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 	return nil
 }
 
-func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
+func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageManifest, updateMode registry.Mode, csvToUpdate string) error {
 	updateDefaultChannel, err := tx.Prepare("update package set default_channel = ? where name = ?")
 	if err != nil {
 		return err
@@ -775,6 +790,18 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 	}
 	defer updateDepth.Close()
 
+	updateDepthById, err := tx.Prepare("update channel_entry set depth = depth + 1 where entry_id = ?")
+	if err != nil {
+		return err
+	}
+	defer updateDepth.Close()
+
+	updateDepthByIdToValue, err := tx.Prepare("update channel_entry set depth = ? where entry_id = ?")
+	if err != nil {
+		return err
+	}
+	defer updateDepth.Close()
+
 	removeSkipped, err := tx.Prepare("delete from channel_entry where channel_name = ? and package_name = ? and operatorbundle_name = ?")
 	if err != nil {
 		return err
@@ -790,213 +817,412 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 	}
 	defer getBundleIDNameFromDepthToHead.Close()
 
+	channelExists, err := tx.Prepare("select 1 from channel where name = ? and package_name = ?")
+	if err != nil {
+		return err
+	}
+	defer channelExists.Close()
+
+	addChannel, err := tx.Prepare("insert or ignore into channel(name, package_name, head_operatorbundle_name) values(?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addChannel.Close()
+
 	var errs []error
 
-	// update head bundle name in channel table
 	for _, c := range manifest.Channels {
-		if _, err := updateChannel.Exec(c.CurrentCSVName, c.Name, manifest.PackageName); err != nil {
+		// check if channel exists
+		rows, err := channelExists.Query(c.Name, manifest.PackageName)
+		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-	}
 
-	// insert/replace default channel
-	defaultChannelName := manifest.GetDefaultChannel()
-	if defaultChannelName != "" {
-		if _, err := updateDefaultChannel.Exec(defaultChannelName, manifest.PackageName); err != nil {
-			errs = append(errs, err)
+		// if it doesn't, add it
+		if !rows.Next() {
+			if _, err := addChannel.Exec(c.Name, manifest.PackageName, csvToUpdate); err != nil {
+				errs = append(errs, err)
+				continue
+			}
 		}
-	} // else assume default channel is already in db and need not be changed
+	}
 
 	// For each channel, check where in update graph
 	// the bundle is attempted to be inserted.
 	// If not at the head of the channel then error
 	for _, c := range manifest.Channels {
-		// don't need to check if version has been inserted for a given channel
-		// because this is caught by primary key of operatorbundle table
+		if updateMode == registry.SemVerMode || updateMode == registry.SkipPatchMode {
+			// get all of the existing channel entries and versions for this package and channel
+			bundleChannelEntries, err := s.getBundlEntriesForChannel(tx, c.Name, manifest.PackageName)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
 
-		channelEntryCSV, err := s.getCSV(tx, c.CurrentCSVName)
-		if err != nil {
-			errs = append(errs, err)
-			break
-		}
-		
-		// check replaces
-		replaces, err := channelEntryCSV.GetReplaces()
-		if err != nil {
-			errs = append(errs, err)
-			break
-		}
+			// what version of the bundle are we adding?
+			newCSV, err := s.getCSV(tx, csvToUpdate)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
 
-		// where does the replaces fall in the update graph
-		rows, err := getDepth.Query(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
+			v, err := newCSV.GetVersion()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("Unable to retrieve Version from CSV %s", csvToUpdate))
+				break
+			}
+			versionToAdd, err := semver.Make(v)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("Version in new CSV %s is not valid %s", csvToUpdate, v))
+			}
 
-		var depth int64
-		var currentID int64
-		var replacedIDs []int64
-		skips, err := channelEntryCSV.GetSkips()
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if rows.Next() {
-			err := rows.Scan(&depth, &currentID)
+			// insert the new entry with some default values to generate an id
+			res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, csvToUpdate, 0)
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			// check if replaces not at the head of the channel
-			if depth != 0 {
-				// if not at the head of the channel, need to specify appropriate skips
-				if len(skips) != int(depth) {
-					errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by another version", c.CurrentCSVName, replaces))
-					return utilerrors.NewAggregate(errs)
+			currentID, err := res.LastInsertId()
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// add APIs
+			if err := s.addAPIs(tx, newCSV, currentID); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			newEntry := bundleChannelEntry{
+				version: versionToAdd,
+				entryId: int(currentID),
+			}
+
+			// keep track of whether or not we are pushing out an existing minor version
+			// we don't want to increase the depth of lower entries if we are just fanning out
+			skipPatchFoundVersion := false
+
+			// Iterate over all entries to sort and determine where the new version fits into the graph
+			behindEntries := make(map[int]bundleChannelEntry, 0)
+			aheadEntries := make(map[int]bundleChannelEntry, 0)
+			for _, entry := range bundleChannelEntries {
+				// compare the existing entry to the one we want to add
+				comparison := entry.version.Compare(versionToAdd)
+
+				// if the version matches, throw an error. the bundle entry should have caught this already
+				if comparison == 0 {
+					errs = append(errs, fmt.Errorf("Attempting to add an existing version"))
 				}
-				skipmap := make(map[string]struct{}, 0)
-				for _, sk := range skips {
-					skipmap[sk] = struct{}{}
+
+				// now let's see if the version is higher or lower than the new entry
+				if updateMode == registry.SkipPatchMode {
+					// if we are in skippatch mode, ignore entries that have the same major and minor version
+					if entry.version.Major == versionToAdd.Major && entry.version.Minor == versionToAdd.Minor {
+						skipPatchFoundVersion = true
+						continue
+					}
 				}
-				// get csv from depth to head for channel
-				skipped, err := getBundleIDNameFromDepthToHead.Query(depth, c.Name, manifest.PackageName)
+
+				// greater than
+				if comparison == 1 {
+					aheadEntries[entry.entryId] = entry
+				}
+
+				// less than
+				if comparison == -1 {
+					behindEntries[entry.entryId] = entry
+				}
+			}
+
+			// first entry in this channel. depth is already 0 and replaces is nil
+			if len(aheadEntries) == 0 && len(behindEntries) == 0 {
+				continue
+			}
+
+			// the new entry is not being added to the head, so address the entries in front of the new entry
+			if len(aheadEntries) != 0 {
+				// keep track of the deepest entry ahead of the new one.
+				depth := 0
+				// iterate over all of the entries ahead of the new one to update the replaces field where necessary
+				for _, ahead := range aheadEntries {
+					// if the graph already has the replacement chain defined (i.e. we are inserting into the middle of an existing chain)
+					if ahead.replaces != 0 {
+						// if there are any entries semantically higher than the new version AND they replace
+						// a lower version, insert the new entry into that part of the graph and write
+						if behind, isBehind := behindEntries[ahead.replaces]; isBehind {
+							ahead.replaces = newEntry.entryId
+							newEntry.replaces = behind.entryId // due to synthetic entries, it's possible this may happen more than once and the newEntry's replace field will select randomly
+
+							// write the higher node's new replaces field
+							if _, err := addReplaces.Exec(ahead.replaces, ahead.entryId); err != nil {
+								errs = append(errs, err)
+								continue
+							}
+						}
+					} else { // if the older version didn't replace anything, assume that the new version necessarily can be replaced by it
+						ahead.replaces = newEntry.entryId
+
+						if _, err := addReplaces.Exec(ahead.replaces, ahead.entryId); err != nil {
+							errs = append(errs, err)
+							continue
+						}
+					}
+					if depth < ahead.depth {
+						depth = ahead.depth
+					}
+				}
+				newEntry.depth = depth + 1
+			} else {
+				// set the channel head to the bundle we are adding
+				if _, err := updateChannel.Exec(csvToUpdate, c.Name, manifest.PackageName); err != nil {
+					errs = append(errs, err)
+					continue
+				}
+
+				// insert/replace default channel. only trust when package is added to the front
+				defaultChannelName := manifest.GetDefaultChannel()
+				if defaultChannelName != "" {
+					if _, err := updateDefaultChannel.Exec(defaultChannelName, manifest.PackageName); err != nil {
+						errs = append(errs, err)
+					}
+				}
+			}
+
+			// the new entry is not being added to the tail, so address the entries behind the new entry
+			if len(behindEntries) != 0 {
+				tipId := 0
+				tipVersion, _ := semver.Make("0")
+				// iterate over all the entries below the new entry and push them down the graph
+				for _, behind := range behindEntries {
+					// don't increase the depth if the new version is just fanning out an existing one
+					if !(updateMode == registry.SkipPatchMode && skipPatchFoundVersion) {
+						behind.depth++
+
+						if _, err := updateDepthById.Exec(behind.entryId); err != nil {
+							errs = append(errs, err)
+							continue
+						}
+					}
+
+					// find highest version below new version
+					if behind.version.GT(tipVersion) {
+						tipId = behind.entryId
+						tipVersion = behind.version
+					}
+				}
+
+				if newEntry.replaces == 0 {
+					newEntry.replaces = tipId
+				}
+			}
+
+			// update the new entry to set the depth and replaces
+			// set the new entry to one node deeper than the deepest ahead of it
+			if _, err := updateDepthByIdToValue.Exec(newEntry.depth, newEntry.entryId); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if newEntry.replaces != 0 {
+				if _, err := addReplaces.Exec(newEntry.replaces, newEntry.entryId); err != nil {
+					errs = append(errs, err)
+					continue
+				}
+			}
+		} else {
+			// set the channel head to the bundle we are adding
+			if _, err := updateChannel.Exec(c.CurrentCSVName, c.Name, manifest.PackageName); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// don't need to check if version has been inserted for a given channel
+			// because this is caught by primary key of operatorbundle table
+
+			channelEntryCSV, err := s.getCSV(tx, c.CurrentCSVName)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+
+			// check replaces
+			replaces, err := channelEntryCSV.GetReplaces()
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+
+			// where does the replaces fall in the update graph
+			rows, err := getDepth.Query(c.Name, manifest.PackageName, replaces)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			var depth int64
+			var currentID int64
+			var replacedIDs []int64
+			skips, err := channelEntryCSV.GetSkips()
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			if rows.Next() {
+				err := rows.Scan(&depth, &currentID)
 				if err != nil {
 					errs = append(errs, err)
 					continue
 				}
-				defer skipped.Close()
-
-				// see if csvs match skips
-				var skip string
-				var replacedID int64
-				for skipped.Next() {
-					err := skipped.Scan(&replacedID, &skip)
-					if err != nil {
-						errs = append(errs, err)
+				// check if replaces not at the head of the channel
+				if depth != 0 {
+					// if not at the head of the channel, need to specify appropriate skips
+					if len(skips) != int(depth) {
+						errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by another version", c.CurrentCSVName, replaces))
 						return utilerrors.NewAggregate(errs)
 					}
-					replacedIDs = append(replacedIDs, replacedID)
-					if _, ok := skipmap[skip]; !ok {
-						errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by %s without specifying a skip", c.CurrentCSVName, replaces, skip))
+					skipmap := make(map[string]struct{}, 0)
+					for _, sk := range skips {
+						skipmap[sk] = struct{}{}
+					}
+					// get csv from depth to head for channel
+					skipped, err := getBundleIDNameFromDepthToHead.Query(depth, c.Name, manifest.PackageName)
+					if err != nil {
+						errs = append(errs, err)
+						continue
+					}
+					defer skipped.Close()
+
+					// see if csvs match skips
+					var skip string
+					var replacedID int64
+					for skipped.Next() {
+						err := skipped.Scan(&replacedID, &skip)
+						if err != nil {
+							errs = append(errs, err)
+							return utilerrors.NewAggregate(errs)
+						}
+						replacedIDs = append(replacedIDs, replacedID)
+						if _, ok := skipmap[skip]; !ok {
+							errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by %s without specifying a skip", c.CurrentCSVName, replaces, skip))
+						}
+					}
+					// aggregate all the errors instead of returning on first error
+					if len(errs) > 0 {
+						return utilerrors.NewAggregate(errs)
 					}
 				}
-				// aggregate all the errors instead of returning on first error
-				if len(errs) > 0 {
-					return utilerrors.NewAggregate(errs)
+			} else {
+				// specifies a replacement that is not in db
+				errs = append(errs, fmt.Errorf("%s specifies a replacement %s that cannot be found", c.CurrentCSVName, replaces))
+				return utilerrors.NewAggregate(errs)
+			}
+
+			if err := rows.Close(); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// insert version into head of channel
+			res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			currentID, err = res.LastInsertId()
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// update replacement to point to new head of channel
+			var replacedID int64
+			rows, err = getChannelEntryID.Query(c.Name, manifest.PackageName, replaces)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if rows.Next() {
+				err := rows.Scan(&replacedID)
+				if err != nil {
+					errs = append(errs, err)
+				}
+			} // else is not possible by previous SELECT statement on replaces
+
+			if err := rows.Close(); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			if _, err = addReplaces.Exec(replacedID, currentID); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+
+			// remove skips from graph
+			for _, skip := range skips {
+				if _, err := removeSkipped.Exec(c.Name, manifest.PackageName, skip); err != nil {
+					errs = append(errs, err)
+					continue
 				}
 			}
-		} else {
-			// specifies a replacement that is not in db
-			errs = append(errs, fmt.Errorf("%s specifies a replacement %s that cannot be found", c.CurrentCSVName, replaces))
-			return utilerrors.NewAggregate(errs)
-		}
 
-		if err := rows.Close(); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// insert version into head of channel
-		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		currentID, err = res.LastInsertId()
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// update replacement to point to new head of channel
-		var replacedID int64
-		rows, err = getChannelEntryID.Query(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		if rows.Next() {
-			err := rows.Scan(&replacedID)
-			if err != nil {
-				errs = append(errs, err)
-			}
-		} // else is not possible by previous SELECT statement on replaces
-
-		if err := rows.Close(); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if _, err = addReplaces.Exec(replacedID, currentID); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// remove skips from graph
-		for _, skip := range skips {
-			if _, err := removeSkipped.Exec(c.Name, manifest.PackageName, skip); err != nil {
+			// add APIs
+			if err := s.addAPIs(tx, channelEntryCSV, currentID); err != nil {
 				errs = append(errs, err)
 				continue
 			}
-		}
 
-		// add APIs
-		if err := s.addAPIs(tx, channelEntryCSV, currentID); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// update depth to depth + 1 for replaced entry
-		_, err = updateDepth.Exec(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// insert dummy skips entries if needed or update the graph based on skips
-		depth = 1
-		for _, skip := range skips {
-			// add dummy channel entry for the skipped version
-			skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
+			// update depth to depth + 1 for replaced entry
+			_, err = updateDepth.Exec(c.Name, manifest.PackageName, replaces)
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
 
-			skippedID, err := skippedChannelEntry.LastInsertId()
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
+			// insert dummy skips entries if needed or update the graph based on skips
+			depth = 1
+			for _, skip := range skips {
+				// add dummy channel entry for the skipped version
+				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
 
-			// add another channel entry for the parent, which replaces the skipped
-			synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, depth)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
+				skippedID, err := skippedChannelEntry.LastInsertId()
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
 
-			synthesizedID, err := synthesizedChannelEntry.LastInsertId()
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
+				// add another channel entry for the parent, which replaces the skipped
+				synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, depth)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
 
-			if _, err = addReplaces.Exec(skippedID, synthesizedID); err != nil {
-				errs = append(errs, err)
-				continue
-			}
+				synthesizedID, err := synthesizedChannelEntry.LastInsertId()
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
 
-			if err := s.addAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
-				errs = append(errs, err)
-				continue
-			}
+				if _, err = addReplaces.Exec(skippedID, synthesizedID); err != nil {
+					errs = append(errs, err)
+					continue
+				}
 
-			depth++
+				if err := s.addAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
+					errs = append(errs, err)
+					continue
+				}
+
+				depth++
+			}
 		}
 	}
 
@@ -1004,4 +1230,55 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 		return utilerrors.NewAggregate(errs)
 	}
 	return nil
+}
+
+type bundleChannelEntry struct {
+	version  semver.Version
+	entryId  int
+	replaces int
+	depth    int
+}
+
+func (s *SQLLoader) getBundlEntriesForChannel(tx *sql.Tx, channel, pkg string) (map[int]bundleChannelEntry, error) {
+	getEntryIdsAndVersionsForChannel, err := tx.Prepare(`
+		SELECT channel_entry.entry_id, channel_entry.replaces, channel_entry.depth, operatorbundle.version
+		FROM operatorbundle JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name 
+		WHERE channel_entry.channel_name = ? AND channel_entry.package_name = ?`)
+	if err != nil {
+		return nil, err
+	}
+	defer getEntryIdsAndVersionsForChannel.Close()
+
+	rows, err := getEntryIdsAndVersionsForChannel.Query(channel, pkg)
+	if err != nil {
+		return nil, err
+	}
+
+	var entryid, replaces, depth sql.NullInt32
+	var version sql.NullString
+	entries := make(map[int]bundleChannelEntry, 0)
+	for rows.Next() {
+		if err := rows.Scan(&entryid, &replaces, &depth, &version); err != nil {
+			return nil, fmt.Errorf("Unable to get existing entry ids and versions for channel %s in package %s", channel, pkg)
+		}
+		entry := bundleChannelEntry{}
+		if entryid.Valid && depth.Valid && version.Valid {
+			entry.entryId = int(entryid.Int32)
+			entry.depth = int(depth.Int32)
+
+			parsedVersion, err := semver.Make(version.String)
+			if err != nil {
+				return nil, err
+			}
+			entry.version = parsedVersion
+		} else {
+			return nil, fmt.Errorf("Unable to get channel entries for the package %s's channel %s", pkg, channel)
+		}
+		if replaces.Valid {
+			entry.replaces = int(replaces.Int32)
+		}
+		entries[entry.entryId] = entry
+	}
+
+	return entries, nil
 }

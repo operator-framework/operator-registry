@@ -8,38 +8,40 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
+	reg "github.com/operator-framework/operator-registry/pkg/registry"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	defaultDockerfileName = "index.Dockerfile"
-	defaultImageTag = "operator-registry-index:latest"
+	defaultImageTag       = "operator-registry-index:latest"
 	defaultDatabaseFolder = "database"
-	defaultDatabaseFile = "index.db"
+	defaultDatabaseFile   = "index.db"
 )
 
 // ImageIndexer is a struct implementation of the Indexer interface
 type ImageIndexer struct {
 	DockerfileGenerator containertools.DockerfileGenerator
-	CommandRunner containertools.CommandRunner
-	LabelReader containertools.LabelReader
-	ImageReader containertools.ImageReader
-	RegistryAdder registry.RegistryAdder
-	RegistryDeleter registry.RegistryDeleter
-	ContainerTool string
-	Logger *logrus.Entry
+	CommandRunner       containertools.CommandRunner
+	LabelReader         containertools.LabelReader
+	ImageReader         containertools.ImageReader
+	RegistryAdder       registry.RegistryAdder
+	RegistryDeleter     registry.RegistryDeleter
+	ContainerTool       string
+	Logger              *logrus.Entry
 }
 
 // AddToIndexRequest defines the parameters to send to the AddToIndex API
 type AddToIndexRequest struct {
-	Generate bool
-	Permissive bool
+	Generate          bool
+	Permissive        bool
 	BinarySourceImage string
-	FromIndex string
-	OutDockerfile string
-	Bundles []string
-	Tag string
+	FromIndex         string
+	OutDockerfile     string
+	Bundles           []string
+	Tag               string
+	Mode              reg.Mode
 }
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
@@ -77,10 +79,11 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 
 	// Run opm registry add on the database
 	addToRegistryReq := registry.AddToRegistryRequest{
-		Bundles: request.Bundles,
+		Bundles:       request.Bundles,
 		InputDatabase: databaseFile,
-		Permissive: request.Permissive,
+		Permissive:    request.Permissive,
 		ContainerTool: i.ContainerTool,
+		Mode:          request.Mode,
 	}
 
 	// Add the bundles to the registry
@@ -107,16 +110,16 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 
 // DeleteFromIndexRequest defines the parameters to send to the DeleteFromIndex API
 type DeleteFromIndexRequest struct {
-	Generate bool
-	Permissive bool
+	Generate          bool
+	Permissive        bool
 	BinarySourceImage string
-	FromIndex string
-	OutDockerfile string
-	Tag string
-	Operators []string
+	FromIndex         string
+	OutDockerfile     string
+	Tag               string
+	Operators         []string
 }
 
-// DeleteFromIndex is an aggregate API used to generate a registry index image 
+// DeleteFromIndex is an aggregate API used to generate a registry index image
 // without specific operators
 func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	databaseFile := defaultDatabaseFile
@@ -154,9 +157,9 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 
 	// Run opm registry add on the database
 	deleteFromRegistryReq := registry.DeleteFromRegistryRequest{
-		Packages: request.Operators,
+		Packages:      request.Operators,
 		InputDatabase: databaseFile,
-		Permissive: request.Permissive,
+		Permissive:    request.Permissive,
 	}
 
 	// Add the bundles to the registry

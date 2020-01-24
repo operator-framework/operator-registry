@@ -8,6 +8,7 @@ import (
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 var (
@@ -55,6 +56,7 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
+	indexCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
@@ -107,6 +109,13 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	mode, err := cmd.Flags().GetString("mode")
+	if err != nil {
+		return err
+	}
+
+	modeEnum := registry.GetModeFromString(mode)
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("building the index")
@@ -121,6 +130,7 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		Tag:               tag,
 		Bundles:           bundles,
 		Permissive:        permissive,
+		Mode:              modeEnum,
 	}
 
 	err = indexAdder.AddToIndex(request)

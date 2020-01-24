@@ -18,18 +18,20 @@ import (
 
 // ImageLoader loads a bundle image of resources into the database
 type ImageLoader struct {
-	store     registry.Load
-	image     string
-	directory string
+	store         registry.Load
+	image         string
+	directory     string
 	containerTool string
+	mode          registry.Mode
 }
 
-func NewSQLLoaderForImage(store registry.Load, image, containerTool string) *ImageLoader {
+func NewSQLLoaderForImage(store registry.Load, image, containerTool string, mode registry.Mode) *ImageLoader {
 	return &ImageLoader{
-		store:     store,
-		image:     image,
-		directory: "",
+		store:         store,
+		image:         image,
+		directory:     "",
 		containerTool: containerTool,
+		mode:          mode,
 	}
 }
 
@@ -141,6 +143,7 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 		return fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
 	}
 
+	// This isn't necessarily right anymore, because the head of the channels may not be what we are adding
 	packageManifest, err := translateAnnotationsIntoPackage(annotationsFile, bcsv)
 	if err != nil {
 		return fmt.Errorf("Could not translate annotations file into packageManifest %s", err)
@@ -211,7 +214,7 @@ func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bund
 		return nil
 	}
 
-	if err := i.store.AddBundlePackageChannels(manifest, bundle); err != nil {
+	if err := i.store.AddBundlePackageChannels(manifest, bundle, i.mode); err != nil {
 		return fmt.Errorf("error loading bundle into db: %s", err)
 	}
 

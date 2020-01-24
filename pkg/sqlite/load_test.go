@@ -140,7 +140,7 @@ func TestAddPackageChannels(t *testing.T) {
 			}
 
 			for i, pkg := range tt.args.pkgs {
-				errs := store.AddPackageChannels(pkg)
+				errs := store.AddPackageChannels(pkg, registry.ReplacesMode)
 				require.Equal(t, tt.expected.errs[i], errs, "expected %v, got %v", tt.expected.errs[i], errs)
 			}
 
@@ -153,11 +153,228 @@ func TestAddPackageChannels(t *testing.T) {
 	}
 }
 
+func TestAddPackageChannels_SemVer(t *testing.T) {
+	type bundleImageBlob struct {
+		bundle *registry.Bundle
+		pkg    registry.PackageManifest
+	}
+	type replace struct {
+		from    string
+		to      string
+		channel string
+		pkg     string
+	}
+	type expected struct {
+		errs     []error
+		pkgs     []string
+		replaces []replace
+	}
+	tests := []struct {
+		description      string
+		bundleImageBlobs []bundleImageBlob
+		expected         expected
+	}{
+		{
+			description: "AddOneBundleWithReplacesSet",
+			bundleImageBlobs: []bundleImageBlob{
+				{
+					bundle: newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSV(t, "csv-a", "csv-b")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+			},
+			expected: expected{
+				errs: make([]error, 2),
+				pkgs: []string{
+					"pkg-0",
+				},
+			},
+		},
+		{
+			description: "AddMultipleBundlesInOrder",
+			bundleImageBlobs: []bundleImageBlob{
+				{
+					bundle: newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSVWithVersion(t, "csv-a", "0.6.0")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				}, {
+					bundle: newBundle(t, "csv-b", "pkg-0", "stable", newUnstructuredCSVWithVersion(t, "csv-b", "0.6.1")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-b",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+			},
+			expected: expected{
+				errs: make([]error, 2),
+				pkgs: []string{
+					"pkg-0",
+				},
+				replaces: []replace{
+					{
+						from:    "csv-a",
+						to:      "csv-b",
+						pkg:     "pkg-0",
+						channel: "stable",
+					},
+				},
+			},
+		},
+		{
+			description: "AddMultipleBundlesOutOfOrder",
+			bundleImageBlobs: []bundleImageBlob{
+				{
+					bundle: newBundle(t, "csv-b", "pkg-0", "stable", newUnstructuredCSVWithVersion(t, "csv-b", "0.6.1")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-b",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-b",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				}, {
+					bundle: newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSVWithVersion(t, "csv-a", "0.6.0")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				}, {
+					bundle: newBundle(t, "csv-c", "pkg-0", "stable", newUnstructuredCSVWithVersion(t, "csv-c", "0.6.2")),
+					pkg: registry.PackageManifest{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-c",
+							},
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+			},
+			expected: expected{
+				errs: make([]error, 2),
+				pkgs: []string{
+					"pkg-0",
+				},
+				replaces: []replace{
+					{
+						from:    "csv-a",
+						to:      "csv-b",
+						pkg:     "pkg-0",
+						channel: "stable",
+					},
+					{
+						from:    "csv-b",
+						to:      "csv-c",
+						pkg:     "pkg-0",
+						channel: "stable",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			err = store.Migrate(context.TODO())
+			require.NoError(t, err)
+
+			for _, blob := range tt.bundleImageBlobs {
+				err := store.AddBundlePackageChannels(blob.pkg, *blob.bundle, registry.SemVerMode)
+				require.NoError(t, err)
+			}
+
+			// Ensure expected packages were loaded
+			querier := NewSQLLiteQuerierFromDb(db)
+			pkgs, err := querier.ListPackages(context.Background())
+			require.NoError(t, err)
+			require.ElementsMatch(t, tt.expected.pkgs, pkgs)
+
+			for _, replace := range tt.expected.replaces {
+				r, err := querier.GetBundleThatReplaces(context.Background(), replace.from, replace.pkg, replace.channel)
+				require.NoError(t, err)
+				require.Equal(t, replace.to, r.CsvName)
+			}
+		})
+	}
+}
+
 func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
 	csv.TypeMeta.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
 	csv.Spec = json.RawMessage(fmt.Sprintf(`{"replaces": "%s"}`, replaces))
+
+	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
+	require.NoError(t, err)
+	return &unstructured.Unstructured{Object: out}
+}
+
+func newUnstructuredCSVWithVersion(t *testing.T, name, version string) *unstructured.Unstructured {
+	csv := &registry.ClusterServiceVersion{}
+	csv.TypeMeta.Kind = "ClusterServiceVersion"
+	csv.SetName(name)
+	csv.Spec = json.RawMessage(fmt.Sprintf(`{"version": "%s"}`, version))
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
 	require.NoError(t, err)

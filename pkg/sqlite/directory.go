@@ -167,7 +167,7 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return nil
 	}
 
-	if err := d.store.AddPackageChannels(manifest); err != nil {
+	if err := d.store.AddPackageChannels(manifest, registry.ReplacesMode); err != nil {
 		return fmt.Errorf("error loading package into db: %s", err)
 	}
 

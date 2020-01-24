@@ -2,6 +2,7 @@ package registry
 
 import (
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
+	reg "github.com/operator-framework/operator-registry/pkg/registry"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,6 +29,7 @@ func newRegistryAddCmd() *cobra.Command {
 	rootCmd.Flags().StringSliceP("bundle-images", "b", []string{}, "comma separated list of links to bundle image")
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	rootCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	rootCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
 	return rootCmd
 }
@@ -52,11 +54,19 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	mode, err := cmd.Flags().GetString("mode")
+	if err != nil {
+		return err
+	}
+
+	modeEnum := reg.GetModeFromString(mode)
+
 	request := registry.AddToRegistryRequest{
-		Bundles: bundleImages,
+		Bundles:       bundleImages,
 		InputDatabase: fromFilename,
-		Permissive: permissive,
+		Permissive:    permissive,
 		ContainerTool: containerTool,
+		Mode:          modeEnum,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
