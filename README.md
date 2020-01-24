@@ -7,6 +7,7 @@ Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator 
 
 This project provides the following binaries:
 
+ * `opm`, which generates and updates registry databases as well as the index images that encapsulate them.
  * `initializer`, which takes as an input a directory of operator manifests and outputs a sqlite database containing the same data for querying.
  * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it.
  * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing it via the same interface as `registry-server`.
@@ -17,82 +18,75 @@ And libraries:
  * `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`.
  * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles.
  * `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
+ * `pkg/lib` - providing external interfaces for interacting with this project as an api that defines a set of standards for operator bundles and indexes.
+ * `pkg/containertools` - providing an interface to interact with and shell out to common container tooling binaries (if installed on the environment)
 
 # Manifest format
 
 
-We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle is typically just a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV, though additional objects may be included.
+We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle typically includes a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV in its manifest directory, though additional objects may be included. It also includes an annotations file in its metadata folder which defines some higher level aggregate data that helps to describe the format and package information about how the bundle should be added into an index of bundles.
 
 ```
  # example bundle
- 0.6.1
- ├── etcdcluster.crd.yaml
- └── etcdoperator.clusterserviceversion.yaml
+ etcd
+ ├── manifests
+ │   ├── etcdcluster.crd.yaml
+ │   └── etcdoperator.clusterserviceversion.yaml
+ └── metadata
+     └── annotations.yaml
 ```
 
 When loading manifests into the database, the following invariants are validated:
 
- * Every package has at least one channel
- * Every ClusterServiceVersion pointed to by a channel in a package exists
+ * The bundle must have at least one channel defined in the annotations.
  * Every bundle has exactly one ClusterServiceVersion.
  * If a ClusterServiceVersion `owns` a CRD, that CRD must exist in the bundle.
- * If a ClusterServiceVersion `replaces` another, both the old and the new must exist in the package.
 
 Bundle directories are identified solely by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
 
-It's recommended to follow a layout that makes it clear which bundles are part of which package, as in [manifests](manifests):
+Check out the [operator bundle design](docs/design/operator-bundle.md) for more detail on the bundle format.
 
-```
-manifests
-├── etcd
-│   ├── 0.6.1
-│   │   ├── etcdcluster.crd.yaml
-│   │   └── etcdoperator.clusterserviceversion.yaml
-│   ├── 0.9.0
-│   │   ├── etcdbackup.crd.yaml
-│   │   ├── etcdcluster.crd.yaml
-│   │   ├── etcdoperator.v0.9.0.clusterserviceversion.yaml
-│   │   └── etcdrestore.crd.yaml
-│   ├── 0.9.2
-│   │   ├── etcdbackup.crd.yaml
-│   │   ├── etcdcluster.crd.yaml
-│   │   ├── etcdoperator.v0.9.2.clusterserviceversion.yaml
-│   │   └── etcdrestore.crd.yaml
-│   └── etcd.package.yaml
-└── prometheus
-    ├── 0.14.0
-    │   ├── alertmanager.crd.yaml
-    │   ├── prometheus.crd.yaml
-    │   ├── prometheusoperator.0.14.0.clusterserviceversion.yaml
-    │   ├── prometheusrule.crd.yaml
-    │   └── servicemonitor.crd.yaml
-    ├── 0.15.0
-    │   ├── alertmanager.crd.yaml
-    │   ├── prometheus.crd.yaml
-    │   ├── prometheusoperator.0.15.0.clusterserviceversion.yaml
-    │   ├── prometheusrule.crd.yaml
-    │   └── servicemonitor.crd.yaml
-    ├── 0.22.2
-    │   ├── alertmanager.crd.yaml
-    │   ├── prometheus.crd.yaml
-    │   ├── prometheusoperator.0.22.2.clusterserviceversion.yaml
-    │   ├── prometheusrule.crd.yaml
-    │   └── servicemonitor.crd.yaml
-    └── prometheus.package.yaml
-```
+# Bundle images
 
-# Building a catalog of Operators using `operator-registry`
+Using [OCI spec](https://github.com/opencontainers/image-spec/blob/master/spec.md) container images as a method of storing the manifest and metadata contents of individual bundles, `opm` interacts directly with these images to generate and incrementally update the database. Once you have your [manifests defined](https://operator-framework.github.io/olm-book/docs/packaging-an-operator.html#writing-your-operator-manifests) and have created a directory in the format defined above, building the image is as simple as defining a [Dockerfile](docs/design/operator-bundle.md#Bundle-Dockerfile) and building that image:
 
-The [Dockerfile](upstream-example.Dockerfile) provides an example of using the `initializer` and `registry-server` to build a minimal container that provides a `gRPC` API over the example manifests in [manifests](manifests).
 
 ```sh
-docker build -t example-registry:latest -f upstream-example.Dockerfile .
-docker push example-registry:latest
+podman build -t quay.io/my-container-registry-namespace/my-manifest-bundle:latest -f bundle.Dockerfile .
 ```
 
-# Using the catalog with Operator Lifecycle Manager
+Once you have built the container, you can publish it like any other container image:
 
-To add a catalog packaged with `operator-registry` to your cluster for use with [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) (OLM) create a `CatalogSource` referencing the image you created and pushed above:
+```sh
+podman push quay.io/my-container-registry-namespace/my-manifest-bundle:latest
+```
+
+Of course, this build step can be done with any other OCI spec container tools like `docker`, `buildah`, `libpod`, etc.
+
+# Building an index of Operators using `opm`
+
+Now that you have published the container image containing your manifests, how do you actually make that bundle available to other users' Kubernetes clusters so that the Operator Lifecycle Manager can install the operator? This is where the meat of the `operator-registry` project comes in. OLM has the concept of [CatalogSources](https://operator-framework.github.io/olm-book/docs/glossary.html#catalogsources) which define a reference to what packages are available to install onto a cluster. To make your bundle available, you can add the bundle to a container image which the CatalogSource points to. This image contains a database of pointers to bundle images that OLM can pull and extract the manifests from in order to install an operator. So, to make your operator available to OLM, you can generate an index image via opm with your bundle reference included:
+
+```sh
+opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bundle:0.0.1 --tag quay.io/my-container-registry-namespace/my-index:1.0.0
+podman push quay.io/my-container-registry-namespace/my-index:1.0.0
+```
+
+The resulting image is referred to as an "Index". It is an image which contains a database of pointers to operator manifest content that is easily queriable via an included API that is served when the container image is run.
+
+Now that image is available for clusters to use and reference with CatalogSources on their cluster.
+
+Index images are additive, so you can add a new version of your operator bundle when you publish a new version:
+
+```sh
+opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bundle:0.0.2 --from-index quay.io/my-container-registry-namespace/my-index:1.0.0 --tag quay.io/my-container-registry-namespace/my-index:1.0.1
+```
+
+For more detail on using `opm` to generate index images, take a look at the [documentation](docs/design/opm-tooling.md).
+
+# Using the index with Operator Lifecycle Manager
+
+To add an index packaged with `operator-registry` to your cluster for use with [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager) (OLM) create a `CatalogSource` referencing the image you created and pushed above:
 
 ```yaml
 apiVersion: operators.coreos.com/v1alpha1
