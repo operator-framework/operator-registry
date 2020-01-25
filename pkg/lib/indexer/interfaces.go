@@ -47,3 +47,20 @@ func NewIndexDeleter(containerTool string, logger *logrus.Entry) IndexDeleter {
 		Logger:              logger,
 	}
 }
+
+//counterfeiter:generate . IndexExporter
+type IndexExporter interface {
+	ExportFromIndex(ExportFromIndexRequest) error
+}
+
+// NewIndexExporter is a constructor that returns an IndexExporter
+func NewIndexExporter(containerTool string, logger *logrus.Entry) IndexExporter {
+	return ImageIndexer{
+		DockerfileGenerator: containertools.NewDockerfileGenerator(containerTool, logger),
+		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
+		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		ImageReader:         containertools.NewImageReader(containerTool, logger),
+		ContainerTool:       containerTool,
+		Logger:              logger,
+	}
+}

@@ -44,3 +44,5 @@ generate-fakes:
 clean:
 	@rm -rf ./bin
 
+opm-test:
+	 $(shell ./opm-test.sh || echo "opm-test FAIL")
