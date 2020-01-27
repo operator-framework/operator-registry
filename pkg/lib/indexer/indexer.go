@@ -304,14 +304,18 @@ type ExportFromIndexRequest struct {
 // ExportFromIndex is an aggregate API used to specify operators from
 // an index image
 func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
-	databaseFile := defaultDatabaseFile
-
 	// set a temp directory
 	workingDir, err := ioutil.TempDir("./", "index_tmp")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(workingDir)
+
+	// extract the index database to the file
+	databaseFile, err := i.WriteIndexDBFile(request.Index, workingDir, defaultDatabaseFile)
+	if err != nil {
+		return err
+	}
 
 	db, err := sql.Open("sqlite3", databaseFile)
 	if err != nil {
@@ -320,12 +324,6 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer db.Close()
 
 	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
-	if err != nil {
-		return err
-	}
-
-	// extract the index database to the file
-	databaseFile, err = i.WriteIndexDBFile(request.Index, workingDir, databaseFile)
 	if err != nil {
 		return err
 	}
