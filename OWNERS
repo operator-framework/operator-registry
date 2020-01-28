@@ -2,11 +2,17 @@
 approvers:
   - ecordell
   - njhale
-  - jpeeler
-  - dinhxuanvu 
+  - dinhxuanvu
+  - kevinrizza
 # review == this code is good /lgtm
 reviewers:
   - ecordell
   - njhale
-  - jpeeler
   - dinhxuanvu
+  - kevinrizza
+  - gallettilance
+  - anik120
+  - exdx
+  - awgreene
+  - Bowenislandsong
+  - benluddy
