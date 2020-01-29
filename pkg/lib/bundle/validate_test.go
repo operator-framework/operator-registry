@@ -129,6 +129,20 @@ func TestValidateBundleContent(t *testing.T) {
 			directory:   "./testdata/validate/valid_bundle/manifests/",
 			numErrors:   0,
 		},
+		{
+			description: "invalid registryv1 bundle/missing crd",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle/",
+			numErrors:   1,
+			errString:   `owned CRD "etcdclusters.etcd.database.coreos.com" not found in bundle`,
+		},
+		{
+			description: "invalid registryv1 bundle/extra crd",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle_2/",
+			numErrors:   1,
+			errString:   `owned CRD "etcdclusters.etcd.database.coreos.com" is present in bundle "etcdoperator.v0.9.4" but not defined in CSV`,
+		},
 	}
 
 	for i, tt := range table {
