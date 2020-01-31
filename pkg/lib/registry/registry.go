@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -43,14 +44,15 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		if err := loader.Populate(); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {
-				r.Logger.WithError(err).Fatal("permissive mode disabled")
+				r.Logger.WithError(err).Error("permissive mode disabled")
 				errs = append(errs, err)
+			} else {
+				r.Logger.WithError(err).Warn("permissive mode enabled")
 			}
-			r.Logger.WithError(err).Warn("permissive mode enabled")
 		}
 	}
 
-	return nil
+	return utilerrors.NewAggregate(errs) // nil if no errors
 }
 
 type DeleteFromRegistryRequest struct {
