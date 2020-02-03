@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6
+	github.com/asdine/storm/v3 v3.1.0
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.6.2
@@ -21,7 +22,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/net v0.0.0-20191028085509-fe3aa8a45271
+	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.2.4
