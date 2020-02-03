@@ -33,7 +33,7 @@ func TestEnsureBolt(t *testing.T) {
 	sqliteLoader, err := sqlite.NewSQLLiteLoader(db)
 	require.NoError(t, err)
 	require.NoError(t, sqliteLoader.Migrate(context.TODO()))
-	require.NoError(t, registry.NewDirectoryPopulator(sqliteLoader, "../../manifests").Populate())
+	require.NoError(t, registry.NewDirectoryPopulator(sqliteLoader, "../../../manifests").Populate())
 	require.NoError(t, db.Close())
 
 	require.NoError(t, EnsureBolt(dbName, backupName))

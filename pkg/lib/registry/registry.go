@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 
 	"github.com/sirupsen/logrus"
 
@@ -39,7 +40,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	}
 
 	for _, bundleImage := range request.Bundles {
-		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage, request.ContainerTool)
+		loader := registry.NewImagePopulator(dbLoader, bundleImage,"", request.ContainerTool)
 		if err := loader.Populate(); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {
@@ -75,7 +76,7 @@ func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) e
 	}
 
 	for _, pkg := range request.Packages {
-		remover := sqlite.NewSQLRemoverForPackages(dbLoader, pkg)
+		remover := registry.NewRemoverForPackages(dbLoader, pkg)
 		if err := remover.Remove(); err != nil {
 			err = fmt.Errorf("error deleting packages from database: %s", err)
 			if !request.Permissive {

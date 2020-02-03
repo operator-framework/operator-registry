@@ -54,7 +54,7 @@ func (l *dbLoader) LoadFlattenedToSQLite(manifest *RawOperatorManifestData) erro
 		"packages":                  manifest.Packages,
 	}
 
-	configMapPopulator := sqlite.NewSQLLoaderForConfigMapData(l.logger, l.loader, data)
+	configMapPopulator := registry.NewConfigMapPopulatorFromData(l.logger, l.loader, data)
 	if err := configMapPopulator.Populate(); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (l *dbLoader) LoadBundleDirectoryToSQLite(directory string) error {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(l.loader, directory)
+	loader := registry.NewDirectoryPopulator(l.loader, directory)
 	if err := loader.Populate(); err != nil {
 		return err
 	}

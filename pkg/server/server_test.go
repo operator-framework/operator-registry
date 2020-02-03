@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"io"
 	"net"
 	"os"
@@ -42,7 +43,7 @@ func server() {
 		logrus.Fatal(err)
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(load, "../../manifests")
+	loader := registry.NewDirectoryPopulator(load, "../../manifests")
 	if err := loader.Populate(); err != nil {
 		logrus.Fatal(err)
 	}

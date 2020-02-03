@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"math/rand"
 	"os"
 	"testing"
@@ -23,7 +24,7 @@ func CreateTestDb(t *testing.T) (*sql.DB, string, func()) {
 	require.NoError(t, err)
 	require.NoError(t, load.Migrate(context.TODO()))
 
-	loader := sqlite.NewSQLLoaderForDirectory(load, "../../manifests")
+	loader := registry.NewDirectoryPopulator(load, "../../manifests")
 	require.NoError(t, loader.Populate())
 
 	return db, dbName, func() {
