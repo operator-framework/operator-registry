@@ -147,9 +147,9 @@ func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName strin
 
 		entry := ChannelEntry{
 			ChannelReplacement: ChannelReplacement{
-				PackageChannel:     pkgChannel,
-				OperatorBundleName: o.Name,
-				Replaces:           o.Replaces,
+				PackageChannel: pkgChannel,
+				BundleName:     o.Name,
+				Replaces:       o.Replaces,
 			},
 		}
 		entries = append(entries, entry)
@@ -235,7 +235,7 @@ func newOperatorBundle(bundle *registry.Bundle) (*OperatorBundle, error) {
 	for api := range requiredApis {
 		requirements = append(requirements, Requirement{
 			Optional: false,
-			Name:  GvkCapability,
+			Name:     GvkCapability,
 			Selector: api.String(),
 		})
 	}

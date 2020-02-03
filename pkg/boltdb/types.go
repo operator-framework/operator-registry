@@ -7,27 +7,27 @@ import (
 
 const (
 	KubeApiNamespace = "io.operators."
-	GvkCapability = KubeApiNamespace+"gvk"
+	GvkCapability    = KubeApiNamespace + "gvk"
 )
 
 type OperatorBundle struct {
-	Name       string `storm:"id"`
-	Version    string
-	Replaces   string
-	SkipRange  string
-	Skips      []string
-	CSV        []byte
-	Bundle     []byte
-	BundlePath string
+	Name         string `storm:"id"`
+	Version      string
+	Replaces     string
+	SkipRange    string
+	Skips        []string
+	CSV          []byte
+	Bundle       []byte
+	BundlePath   string
 	Capabilities []Capability
 	Requirements []Requirement
 }
 
 type Api struct {
-	Group string
+	Group   string
 	Version string
-	Kind string
-	Plural string
+	Kind    string
+	Plural  string
 }
 
 func (a Api) String() string {
@@ -48,13 +48,13 @@ func ApiFromString(s string) (*Api, error) {
 }
 
 type Capability struct {
-	Name  string           `storm:"id"`
+	Name  string `storm:"id"`
 	Value string
 }
 
 type Requirement struct {
 	Optional bool
-	Name string
+	Name     string
 	Selector string
 }
 
@@ -76,8 +76,8 @@ type Channel struct {
 
 type ChannelReplacement struct {
 	PackageChannel
-	OperatorBundleName string
-	Replaces           string
+	BundleName string
+	Replaces   string
 }
 
 type ChannelEntry struct {

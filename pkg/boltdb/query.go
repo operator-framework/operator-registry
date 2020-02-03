@@ -81,14 +81,14 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 		return nil, err
 	}
 	bundle := &api.Bundle{
-		CsvName:    opBundle.Name,
-		CsvJson:    string(opBundle.CSV),
-		Object:     objs,
-		BundlePath: opBundle.BundlePath,
-		Version:    opBundle.Version,
-		SkipRange:  opBundle.SkipRange,
-		PackageName: pkgName,
-		ChannelName: channelName,
+		CsvName:      opBundle.Name,
+		CsvJson:      string(opBundle.CSV),
+		Object:       objs,
+		BundlePath:   opBundle.BundlePath,
+		Version:      opBundle.Version,
+		SkipRange:    opBundle.SkipRange,
+		PackageName:  pkgName,
+		ChannelName:  channelName,
 		ProvidedApis: []*api.GroupVersionKind{},
 		RequiredApis: []*api.GroupVersionKind{},
 	}
@@ -158,7 +158,7 @@ func (s *StormQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName,
 		return nil, err
 	}
 
-	return s.GetBundle(ctx, pkgName, channelName, name)
+	return s.GetBundle(ctx, entry.PackageName, entry.ChannelName, entry.BundleName)
 }
 
 func (s *StormQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
@@ -273,7 +273,7 @@ func (s *StormQuerier) ListImages(ctx context.Context) ([]string, error) {
 
 func (s *StormQuerier) GetImagesForBundle(ctx context.Context, bundleName string) ([]string, error) {
 	var related []RelatedImage
-	if err := s.db.Find("OperatorBundleName", bundleName, related); err != nil {
+	if err := s.db.Find("OperatorBundleName", bundleName, &related); err != nil {
 		return nil, err
 	}
 
