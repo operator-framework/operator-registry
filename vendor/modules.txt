@@ -9,6 +9,10 @@ github.com/Masterminds/semver/v3
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
+# github.com/alicebob/sqlittle v1.2.0
+github.com/alicebob/sqlittle
+github.com/alicebob/sqlittle/db
+github.com/alicebob/sqlittle/sql
 # github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6
 github.com/antihax/optional
 # github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
@@ -203,6 +207,8 @@ github.com/xeipuuv/gojsonschema
 go.etcd.io/bbolt
 # golang.org/x/crypto v0.0.0-20191028145041-f83a4685e152
 golang.org/x/crypto/ssh/terminal
+# golang.org/x/exp v0.0.0-20190419195159-b8972e603456
+golang.org/x/exp/mmap
 # golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp

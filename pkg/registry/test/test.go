@@ -1,23 +1,10 @@
 package test
 
 import (
-	"os"
-	"path"
-	"runtime"
 	"testing"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
-
-func init() {
-	// Make file paths relative to this package
-	_, filename, _, _ := runtime.Caller(0)
-	dir := path.Join(path.Dir(filename))
-	err := os.Chdir(dir)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type Setup func(*testing.T) (loader registry.Load, querier registry.Query, teardown func(*testing.T))
 

@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"github.com/operator-framework/operator-registry/pkg/api"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -78,33 +78,41 @@ func directoryLoadedContentQueriable(t *testing.T, loader registry.Load, querier
 	populator := registry.NewDirectoryPopulator(loader, "../../../manifests")
 	require.NoError(t, populator.Populate())
 
-	foundPackages, err := querier.ListPackages(context.TODO())
-	require.NoError(t, err)
-	require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, foundPackages)
+	t.Run("queriable", func(t *testing.T) {
+		ContentQueriable(t, querier)
+	})
+}
 
-	etcdPackage, err := querier.GetPackage(context.TODO(), "etcd")
-	require.NoError(t, err)
-	require.EqualValues(t, &registry.PackageManifest{
-		PackageName:        "etcd",
-		DefaultChannelName: "alpha",
-		Channels: []registry.PackageChannel{
-			{
-				Name:           "alpha",
-				CurrentCSVName: "etcdoperator.v0.9.2",
-			},
-			{
-				Name:           "beta",
-				CurrentCSVName: "etcdoperator.v0.9.0",
-			},
-			{
-				Name:           "stable",
-				CurrentCSVName: "etcdoperator.v0.9.2",
-			},
-		},
-	}, etcdPackage)
+func ContentQueriable(t *testing.T, querier registry.Query) {
+	t.Run("list packages", func(t *testing.T) {
+		foundPackages, err := querier.ListPackages(context.TODO())
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, foundPackages)
+	})
 
-	etcdBundleByChannel, err := querier.GetBundleForChannel(context.TODO(), "etcd", "alpha")
-	require.NoError(t, err)
+	t.Run("get etcd package", func(t *testing.T) {
+		etcdPackage, err := querier.GetPackage(context.TODO(), "etcd")
+		require.NoError(t, err)
+		require.EqualValues(t, &registry.PackageManifest{
+			PackageName:        "etcd",
+			DefaultChannelName: "alpha",
+			Channels: []registry.PackageChannel{
+				{
+					Name:           "alpha",
+					CurrentCSVName: "etcdoperator.v0.9.2",
+				},
+				{
+					Name:           "beta",
+					CurrentCSVName: "etcdoperator.v0.9.0",
+				},
+				{
+					Name:           "stable",
+					CurrentCSVName: "etcdoperator.v0.9.2",
+				},
+			},
+		}, etcdPackage)
+	})
+
 	expectedBundle := &api.Bundle{
 		CsvName:     "etcdoperator.v0.9.2",
 		PackageName: "etcd",
@@ -128,8 +136,15 @@ func directoryLoadedContentQueriable(t *testing.T, loader registry.Load, querier
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	require.Equal(t, expectedBundle, etcdBundleByChannel)
 
+	t.Run("get etcd bundle for channel", func(t *testing.T) {
+		etcdBundleByChannel, err := querier.GetBundleForChannel(context.TODO(), "etcd", "alpha")
+		require.NoError(t, err)
+		require.Equal(t, expectedBundle.ProvidedApis, etcdBundleByChannel.ProvidedApis)
+		require.Equal(t, expectedBundle, etcdBundleByChannel)
+	})
+
+	// TODO: make separate tests
 	etcdBundle, err := querier.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
 	require.Equal(t, expectedBundle, etcdBundle)

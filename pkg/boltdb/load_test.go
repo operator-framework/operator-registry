@@ -101,33 +101,6 @@ func TestStormLoader_AddOperatorBundle(t *testing.T) {
 	}
 }
 
-// func TestStormLoader_AddPackageChannels(t *testing.T) {
-// 	type fields struct {
-// 		db *storm.DB
-// 	}
-// 	type args struct {
-// 		manifest registry.PackageManifest
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		fields  fields
-// 		args    args
-// 		wantErr bool
-// 	}{
-// 		// TODO: Add test cases.
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			s := &StormLoader{
-// 				db: tt.fields.db,
-// 			}
-// 			if err := s.AddPackageChannels(tt.args.manifest); (err != nil) != tt.wantErr {
-// 				t.Errorf("AddPackageChannels() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
-
 func TestStormLoader_TestAddPackageChannels(t *testing.T) {
 	type fields struct {
 		bundles []*registry.Bundle

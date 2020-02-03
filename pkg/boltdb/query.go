@@ -3,6 +3,7 @@ package boltdb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
@@ -45,14 +46,12 @@ func (s *StormQuerier) ListPackages(ctx context.Context) ([]string, error) {
 func (s *StormQuerier) GetPackage(ctx context.Context, name string) (*registry.PackageManifest, error) {
 	var pkg Package
 	if err := s.db.One("Name", name, &pkg); err != nil {
-		// TODO(njhale): Check behavior of sqlite querier when no package is found -- do we return an error for this case?
 		return nil, err
 	}
 
 	var channels []Channel
 	if err := s.db.Find("PackageName", name, &channels); err != nil {
-		// TODO(njhale): Check behavior of sqlite querier when no package channels are found -- do we return an error for this case?
-		return nil, err
+		return nil, fmt.Errorf("couldn't get channels for package %s: %v", name, err)
 	}
 
 	pkgManifest := &registry.PackageManifest{
@@ -73,8 +72,7 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 	// We only need the csvName to query for the OperatorBundle, since their names are 1:1
 	var opBundle OperatorBundle
 	if err := s.db.One("Name", csvName, &opBundle); err != nil {
-		// TODO(njhale): Check behavior of sqlite querier when no bundle is found -- do we return an error for this case?
-		return nil, err
+		return nil, fmt.Errorf("couldn't find bundle for %s, %s, %s: %v", pkgName, channelName, csvName, err)
 	}
 
 	// Convert raw bytes into individual bundle JSON strings
@@ -89,31 +87,49 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 		BundlePath: opBundle.BundlePath,
 		Version:    opBundle.Version,
 		SkipRange:  opBundle.SkipRange,
+		PackageName: pkgName,
+		ChannelName: channelName,
+		ProvidedApis: []*api.GroupVersionKind{},
+		RequiredApis: []*api.GroupVersionKind{},
 	}
 
-	// Collect provided and required APIs
-	err = s.db.Select().Each(new(RelatedAPI), func(record interface{}) error {
-		related, ok := record.(RelatedAPI)
-		if !ok {
-			return fmt.Errorf("bad related api record")
+	// provided apis
+	for _, cap := range opBundle.Capabilities {
+		fmt.Printf("%#v", cap)
+		gvkp := strings.Split(cap.Value, "/")
+		if len(gvkp) < 4 {
+			return nil, fmt.Errorf("malformed gvk storage: %v", gvkp)
 		}
+		if cap.Name != GvkCapability {
+			continue
+		}
+		gvk, err := ApiFromString(cap.Value)
+		if err != nil {
+			return nil, err
+		}
+		bundle.ProvidedApis = append(bundle.ProvidedApis, &api.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind,
+			Plural:  gvk.Plural,
+		})
+	}
 
-		gvk := &api.GroupVersionKind{
-			Group:   related.Group,
-			Version: related.Version,
-			Kind:    related.Kind,
-			Plural:  related.Plural,
+	// required apis
+	for _, req := range opBundle.Requirements {
+		if req.Name != GvkCapability {
+			continue
 		}
-		if related.Provides {
-			bundle.ProvidedApis = append(bundle.ProvidedApis, gvk)
-		} else {
-			bundle.RequiredApis = append(bundle.RequiredApis, gvk)
+		gvk, err := ApiFromString(req.Selector)
+		if err != nil {
+			return nil, err
 		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		bundle.RequiredApis = append(bundle.RequiredApis, &api.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind,
+			Plural:  gvk.Plural,
+		})
 	}
 
 	return bundle, nil
@@ -122,7 +138,7 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 func (s *StormQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error) {
 	var channel Channel
 	if err := s.db.Select(q.Eq("PackageName", pkgName), q.Eq("ChannelName", channelName)).First(&channel); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't fetch bundle for %s %s: %v", pkgName, channelName, err)
 	}
 
 	return s.GetBundle(ctx, pkgName, channelName, channel.HeadOperatorBundleName)
@@ -146,54 +162,54 @@ func (s *StormQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName,
 }
 
 func (s *StormQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
-	var providers []RelatedAPI
-	err = s.db.Select(
-		q.Eq("GVK", GVK{Group: group, Version: version, Kind: kind}),
-		q.Eq("Provides", true),
-	).Find(&providers)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, provider := range providers {
-		var providerEntries []ChannelEntry
-		if err = s.db.Find("OperatorBundleName", provider.OperatorBundleName, &providerEntries); err != nil {
-			return
-		}
-
-		for _, entry := range providerEntries {
-			entries = append(entries, &registry.ChannelEntry{
-				PackageName: entry.PackageName,
-				ChannelName: entry.ChannelName,
-				BundleName:  entry.OperatorBundleName,
-				Replaces:    entry.OperatorBundleName,
-			})
-		}
-	}
+	//var providers []RelatedAPI
+	//err = s.db.Select(
+	//	q.Eq("GVK", GVK{Group: group, Version: version, Kind: kind}),
+	//	q.Eq("Provides", true),
+	//).Find(&providers)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//for _, provider := range providers {
+	//	var providerEntries []ChannelEntry
+	//	if err = s.db.Find("OperatorBundleName", provider.OperatorBundleName, &providerEntries); err != nil {
+	//		return
+	//	}
+	//
+	//	for _, entry := range providerEntries {
+	//		entries = append(entries, &registry.ChannelEntry{
+	//			PackageName: entry.PackageName,
+	//			ChannelName: entry.ChannelName,
+	//			BundleName:  entry.OperatorBundleName,
+	//			Replaces:    entry.OperatorBundleName,
+	//		})
+	//	}
+	//}
 
 	return
 }
 
 // Get latest channel entries that provide an API.
 func (s *StormQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
-	var latest LatestGVKProvider
-	if err = s.db.One("GVK", GVK{Group: group, Version: version, Kind: kind}, &latest); err != nil {
-		return
-	}
-
-	var providerEntries []ChannelEntry
-	if err = s.db.Find("OperatorBundleName", latest.OperatorBundleName, &providerEntries); err != nil {
-		return
-	}
-
-	for _, entry := range providerEntries {
-		entries = append(entries, &registry.ChannelEntry{
-			PackageName: entry.PackageName,
-			ChannelName: entry.ChannelName,
-			BundleName:  entry.OperatorBundleName,
-			Replaces:    entry.Replaces,
-		})
-	}
+	//var latest LatestGVKProvider
+	//if err = s.db.One("GVK", GVK{Group: group, Version: version, Kind: kind}, &latest); err != nil {
+	//	return
+	//}
+	//
+	//var providerEntries []ChannelEntry
+	//if err = s.db.Find("OperatorBundleName", latest.OperatorBundleName, &providerEntries); err != nil {
+	//	return
+	//}
+	//
+	//for _, entry := range providerEntries {
+	//	entries = append(entries, &registry.ChannelEntry{
+	//		PackageName: entry.PackageName,
+	//		ChannelName: entry.ChannelName,
+	//		BundleName:  entry.OperatorBundleName,
+	//		Replaces:    entry.Replaces,
+	//	})
+	//}
 
 	return
 }

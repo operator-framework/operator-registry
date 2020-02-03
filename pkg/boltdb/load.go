@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/asdine/storm/v3"
-	"github.com/asdine/storm/v3/q"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -37,14 +36,8 @@ func (s *StormLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		return err
 	}
 
-	// Add provided and required APIs
-	apis, err := relatedAPIs(bundle)
-	if err != nil {
-		return err
-	}
-
-	for _, api := range apis {
-		if err = tx.Save(api); err != nil {
+	for _, c := range opBundle.Capabilities {
+		if err := tx.From("operatorbundle").Save(c); err != nil {
 			return err
 		}
 	}
@@ -116,25 +109,6 @@ func (s *StormLoader) AddPackageChannels(manifest registry.PackageManifest) erro
 				continue
 			}
 
-			// Store the latest provided
-			provided, err := s.providedAPIs(entry.OperatorBundleName)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			for _, provider := range provided {
-				err = tx.Save(&LatestGVKProvider{
-					PackageChannelGVK: PackageChannelGVK{
-						PackageChannel: pkgChannel,
-						GVK:            provider.GVK,
-					},
-				})
-
-				if err != nil && err != storm.ErrAlreadyExists {
-					errs = append(errs, err)
-				}
-			}
 		}
 
 	}
@@ -215,15 +189,6 @@ func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName strin
 	return
 }
 
-func (s *StormLoader) providedAPIs(operatorBundleName string) (provided []RelatedAPI, err error) {
-	err = s.db.Select(q.Eq("OperatorBundleName", operatorBundleName), q.Eq("Provides", true)).Find(&provided)
-	if err == storm.ErrNotFound {
-		err = nil
-	}
-
-	return
-}
-
 func newOperatorBundle(bundle *registry.Bundle) (*OperatorBundle, error) {
 	// Add the core bundle
 	csvName, bundleImage, csvBytes, bundleBytes, err := bundle.Serialize()
@@ -249,50 +214,44 @@ func newOperatorBundle(bundle *registry.Bundle) (*OperatorBundle, error) {
 	if err != nil {
 		return nil, err
 	}
+	providedApis, err := bundle.ProvidedAPIs()
+	if err != nil {
+		return nil, err
+	}
+	requiredApis, err := bundle.ProvidedAPIs()
+	if err != nil {
+		return nil, err
+	}
+
+	capabilities := make([]Capability, 0)
+	for api := range providedApis {
+		capabilities = append(capabilities, Capability{
+			Name:  GvkCapability,
+			Value: api.String(),
+		})
+	}
+
+	requirements := make([]Requirement, 0)
+	for api := range requiredApis {
+		requirements = append(requirements, Requirement{
+			Optional: false,
+			Name:  GvkCapability,
+			Selector: api.String(),
+		})
+	}
 
 	opBundle := &OperatorBundle{
-		Name:       csvName,
-		Version:    version,
-		Replaces:   replaces,
-		SkipRange:  skipRange,
-		Skips:      skips,
-		CSV:        csvBytes,
-		Bundle:     bundleBytes,
-		BundlePath: bundleImage,
+		Name:         csvName,
+		Version:      version,
+		Replaces:     replaces,
+		SkipRange:    skipRange,
+		Skips:        skips,
+		CSV:          csvBytes,
+		Bundle:       bundleBytes,
+		BundlePath:   bundleImage,
+		Capabilities: capabilities,
+		Requirements: requirements,
 	}
 
 	return opBundle, nil
-}
-
-func relatedAPIs(bundle *registry.Bundle) (apis []RelatedAPI, err error) {
-	addAPIs := func(keys map[registry.APIKey]struct{}, provides bool) {
-		for k := range keys {
-			apis = append(apis, RelatedAPI{
-				GVKUser: GVKUser{
-					GVK: GVK{
-						Group:   k.Group,
-						Version: k.Version,
-						Kind:    k.Kind,
-					},
-					OperatorBundleName: bundle.Name,
-				},
-				Plural:   k.Plural,
-				Provides: provides,
-			})
-		}
-	}
-	var providedAPIs map[registry.APIKey]struct{}
-	providedAPIs, err = bundle.ProvidedAPIs()
-	if err != nil {
-		return
-	}
-	addAPIs(providedAPIs, true)
-
-	var requiredAPIs map[registry.APIKey]struct{}
-	if requiredAPIs, err = bundle.RequiredAPIs(); err != nil {
-		return
-	}
-	addAPIs(requiredAPIs, false)
-
-	return
 }
