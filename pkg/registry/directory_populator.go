@@ -1,4 +1,4 @@
-package sqlite
+package registry
 
 import (
 	"fmt"
@@ -11,42 +11,36 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
-
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 const ClusterServiceVersionKind = "ClusterServiceVersion"
 
-type SQLPopulator interface {
-	Populate() error
-}
-
-// DirectoryLoader loads a directory of resources into the database
-type DirectoryLoader struct {
-	store     registry.Load
+// DirectoryPopulator loads a directory of resources into the database
+type DirectoryPopulator struct {
+	loader    Load
 	directory string
 }
 
-var _ SQLPopulator = &DirectoryLoader{}
+var _ RegistryPopulator = &DirectoryPopulator{}
 
-func NewSQLLoaderForDirectory(store registry.Load, directory string) *DirectoryLoader {
-	return &DirectoryLoader{
-		store:     store,
+func NewDirectoryPopulator(loader Load, directory string) *DirectoryPopulator {
+	return &DirectoryPopulator{
+		loader:    loader,
 		directory: directory,
 	}
 }
 
-func (d *DirectoryLoader) Populate() error {
+func (d *DirectoryPopulator) Populate() error {
 	log := logrus.WithField("dir", d.directory)
 
 	log.Info("loading Bundles")
 	errs := make([]error, 0)
-	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadBundleWalkFunc, &errs)); err != nil {
+	if err := filepath.Walk(d.directory, collectWalkErrs(d.loadBundleWalkFunc, &errs)); err != nil {
 		errs = append(errs, err)
 	}
 
 	log.Info("loading Packages and Entries")
-	if err := filepath.Walk(d.directory, collectWalkErrs(d.LoadPackagesWalkFunc, &errs)); err != nil {
+	if err := filepath.Walk(d.directory, collectWalkErrs(d.loadPackagesWalkFunc, &errs)); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -68,7 +62,7 @@ func collectWalkErrs(walk filepath.WalkFunc, errs *[]error) filepath.WalkFunc {
 // LoadBundleWalkFunc walks the directory. When it sees a `.clusterserviceversion.yaml` file, it
 // attempts to load the surrounding files in the same directory as a bundle, and stores them in the
 // db for querying
-func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err error) error {
+func (d *DirectoryPopulator) loadBundleWalkFunc(path string, f os.FileInfo, _ error) error {
 	if f == nil {
 		return fmt.Errorf("invalid file: %v", f)
 	}
@@ -121,7 +115,7 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 		errs = append(errs, fmt.Errorf("error checking provided apis in bundle %s: %s", bundle.Name, err))
 	}
 
-	if err := d.store.AddOperatorBundle(bundle); err != nil {
+	if err := d.loader.AddOperatorBundle(bundle); err != nil {
 		errs = append(errs, fmt.Errorf("error adding operator bundle %s: %s", bundle.Name, err))
 	}
 
@@ -129,8 +123,8 @@ func (d *DirectoryLoader) LoadBundleWalkFunc(path string, f os.FileInfo, err err
 }
 
 // LoadPackagesWalkFunc attempts to unmarshal the file at the given path into a PackageManifest resource.
-// If unmarshaling is successful, the PackageManifest is added to the loader's store.
-func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err error) error {
+// If unmarshaling is successful, the PackageManifest is added to the loader's loader.
+func (d *DirectoryPopulator) loadPackagesWalkFunc(path string, f os.FileInfo, _ error) error {
 	if f == nil {
 		return fmt.Errorf("invalid file: %v", f)
 	}
@@ -156,7 +150,7 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 	}
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-	manifest := registry.PackageManifest{}
+	manifest := PackageManifest{}
 	if err = decoder.Decode(&manifest); err != nil {
 		if err != nil {
 			return fmt.Errorf("could not decode contents of file %s into package: %s", path, err)
@@ -167,7 +161,7 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		return nil
 	}
 
-	if err := d.store.AddPackageChannels(manifest); err != nil {
+	if err := d.loader.AddPackageChannels(manifest); err != nil {
 		return fmt.Errorf("error loading package into db: %s", err)
 	}
 
@@ -176,7 +170,7 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 
 // loadBundle takes the directory that a CSV is in and assumes the rest of the objects in that directory
 // are part of the bundle.
-func loadBundle(csvName string, dir string) (*registry.Bundle, error) {
+func loadBundle(csvName string, dir string) (*Bundle, error) {
 	log := logrus.WithFields(logrus.Fields{"dir": dir, "load": "bundle"})
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -184,7 +178,7 @@ func loadBundle(csvName string, dir string) (*registry.Bundle, error) {
 	}
 
 	var errs []error
-	bundle := &registry.Bundle{}
+	bundle := &Bundle{}
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {

@@ -1,4 +1,4 @@
-package sqlite
+package test
 
 import (
 	"context"
@@ -16,27 +16,24 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-func TestDirectoryLoader(t *testing.T) {
+func RunDirectoryLoadSuite(t *testing.T, setup Setup) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
-	defer cleanup()
-	store, err := NewSQLLiteLoader(db)
-	require.NoError(t, err)
-	require.NoError(t, store.Migrate(context.TODO()))
 
-	loader := NewSQLLoaderForDirectory(store, "../../manifests")
-	require.NoError(t, loader.Populate())
+	tests := []struct {
+		description  string
+		registryTest registryTest
+	}{
+		{"LoadsDirectoryWithBadPackageData", loadsDirectoryWithBadPackageData},
+		{"LoadsDirectoryWithBadBundleData", loadsDirectoryWithBadBundleData},
+		{"DirectoryLoadedContentQueriable", directoryLoadedContentQueriable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, curryRegistryTest(tt.registryTest, setup))
+	}
 }
 
-func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
-	db, cleanup := CreateTestDb(t)
-	defer cleanup()
-	store, err := NewSQLLiteLoader(db)
-	require.NoError(t, err)
-	require.NoError(t, store.Migrate(context.TODO()))
-
+func loadsDirectoryWithBadPackageData(t *testing.T, loader registry.Load, _ registry.Query) {
 	// Copy golden manifests to a temp dir
 	dir, err := ioutil.TempDir("testdata", "manifests-")
 	require.NoError(t, err)
@@ -45,7 +42,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	require.NoError(t, copy.Copy("../../manifests", dir))
+	require.NoError(t, copy.Copy("../../../manifests", dir))
 
 	// Point the first channel at a CSV that doesn't exist
 	path := filepath.Join(dir, "etcd/etcd.package.yaml")
@@ -63,41 +60,29 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 	require.NoError(t, yaml.NewEncoder(w).Encode(pkg))
 
 	// Load and expect error
-	loader := NewSQLLoaderForDirectory(store, dir)
-	require.Error(t, loader.Populate(), "error loading package into db: no bundle found for csv imaginary")
+	populator := registry.NewDirectoryPopulator(loader, dir)
+	require.Error(t, populator.Populate(), "error loading package into db: no bundle found for csv imaginary")
 }
 
-func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
+func loadsDirectoryWithBadBundleData(t *testing.T, loader registry.Load, _ registry.Query) {
 	logrus.SetLevel(logrus.DebugLevel)
-
-	db, cleanup := CreateTestDb(t)
-	defer cleanup()
-	store, err := NewSQLLiteLoader(db)
-	require.NoError(t, err)
-	require.NoError(t, store.Migrate(context.TODO()))
 
 	// Load and expect error
 	// incorrectbundle has an operator which has incorrect data
 	// (a number where a string is expected) in it's CSV
-	loader := NewSQLLoaderForDirectory(store, "pkg/sqlite/testdata/incorrectbundle")
-	require.Error(t, loader.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
+	populator := registry.NewDirectoryPopulator(loader, "pkg/registry/test/testdata/incorrectbundle")
+	require.Error(t, populator.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
 }
-func TestQuerierForDirectory(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
-	defer cleanup()
-	load, err := NewSQLLiteLoader(db)
-	require.NoError(t, err)
-	require.NoError(t, load.Migrate(context.TODO()))
 
-	loader := NewSQLLoaderForDirectory(load, "../../manifests")
-	require.NoError(t, loader.Populate())
+func directoryLoadedContentQueriable(t *testing.T, loader registry.Load, querier registry.Query) {
+	populator := registry.NewDirectoryPopulator(loader, "../../../manifests")
+	require.NoError(t, populator.Populate())
 
-	store := NewSQLLiteQuerierFromDb(db)
-	foundPackages, err := store.ListPackages(context.TODO())
+	foundPackages, err := querier.ListPackages(context.TODO())
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"etcd", "prometheus", "strimzi-kafka-operator"}, foundPackages)
 
-	etcdPackage, err := store.GetPackage(context.TODO(), "etcd")
+	etcdPackage, err := querier.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
 	require.EqualValues(t, &registry.PackageManifest{
 		PackageName:        "etcd",
@@ -118,7 +103,7 @@ func TestQuerierForDirectory(t *testing.T) {
 		},
 	}, etcdPackage)
 
-	etcdBundleByChannel, err := store.GetBundleForChannel(context.TODO(), "etcd", "alpha")
+	etcdBundleByChannel, err := querier.GetBundleForChannel(context.TODO(), "etcd", "alpha")
 	require.NoError(t, err)
 	expectedBundle := &api.Bundle{
 		CsvName:     "etcdoperator.v0.9.2",
@@ -145,19 +130,19 @@ func TestQuerierForDirectory(t *testing.T) {
 	}
 	require.Equal(t, expectedBundle, etcdBundleByChannel)
 
-	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
+	etcdBundle, err := querier.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
 	require.Equal(t, expectedBundle, etcdBundle)
 
-	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
+	etcdChannelEntries, err := querier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}, {"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntries)
 
-	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
+	etcdBundleByReplaces, err := querier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
 	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
 
-	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdChannelEntriesThatProvide, err := querier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
@@ -170,17 +155,17 @@ func TestQuerierForDirectory(t *testing.T) {
 		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
 		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
 
-	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdLatestChannelEntriesThatProvide, err := querier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
 		{"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
 		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
-	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	etcdBundleByProvides, err := querier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.Equal(t, expectedBundle, etcdBundleByProvides)
 
-	kafkaPackage, err := store.GetPackage(context.TODO(), "strimzi-kafka-operator")
+	kafkaPackage, err := querier.GetPackage(context.TODO(), "strimzi-kafka-operator")
 	require.NoError(t, err)
 	expectedKafkaPackage := &registry.PackageManifest{
 		PackageName:        "strimzi-kafka-operator",
@@ -209,7 +194,7 @@ func TestQuerierForDirectory(t *testing.T) {
 		"quay.io/coreos/etcd@sha256:3816b6daf9b66d6ced6f0f966314e2d4f894982c6b1493061502f8c2bf86ac84",
 		"quay.io/coreos/etcd@sha256:49d3d4a81e0d030d3f689e7167f23e120abf955f7d08dbedf3ea246485acee9f",
 	}
-	etcdImages, err := store.GetImagesForBundle(context.TODO(), "etcdoperator.v0.9.2")
+	etcdImages, err := querier.GetImagesForBundle(context.TODO(), "etcdoperator.v0.9.2")
 	require.NoError(t, err)
 	require.ElementsMatch(t, expectedEtcdImages, etcdImages)
 
@@ -227,7 +212,7 @@ func TestQuerierForDirectory(t *testing.T) {
 		"strimzi/operator:0.12.1",
 		"strimzi/operator:0.12.2",
 	}
-	dbImages, err := store.ListImages(context.TODO())
+	dbImages, err := querier.ListImages(context.TODO())
 	require.NoError(t, err)
 	require.ElementsMatch(t, expectedDatabaseImages, dbImages)
 }

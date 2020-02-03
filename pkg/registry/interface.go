@@ -47,3 +47,11 @@ type Query interface {
 	// Get CurrentCSV name for channel and package
 	GetCurrentCSVNameForChannel(ctx context.Context, pkgName, channel string) (string, error)
 }
+
+type RegistryPopulator interface {
+	Populate() error
+}
+
+type Remover interface {
+	Remove() error
+}

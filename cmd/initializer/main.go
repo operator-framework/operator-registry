@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
@@ -61,16 +62,16 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	loader, err := sqlite.NewSQLLiteLoader(db)
 	if err != nil {
 		return err
 	}
-	if err := dbLoader.Migrate(context.TODO()); err != nil {
+	if err := loader.Migrate(context.TODO()); err != nil {
 		return err
 	}
 
-	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, manifestDir)
-	if err := loader.Populate(); err != nil {
+	populator := registry.NewDirectoryPopulator(loader, manifestDir)
+	if err := populator.Populate(); err != nil {
 		err = fmt.Errorf("error loading manifests from directory: %s", err)
 		if !permissive {
 			logrus.WithError(err).Fatal("permissive mode disabled")

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -26,7 +28,7 @@ func TestNewSQLLiteMigrator(t *testing.T) {
 		{
 			name: "uses default table",
 			args: args{&sql.DB{}},
-			want: &SQLLiteMigrator{db: &sql.DB{}, migrationsTable: DefaultMigrationsTable, migrations:migrations.All()},
+			want: &SQLLiteMigrator{db: &sql.DB{}, migrationsTable: DefaultMigrationsTable, migrations: migrations.All()},
 		},
 	}
 	for _, tt := range tests {
@@ -429,5 +431,23 @@ func TestSQLLiteMigrator_Migrate(t *testing.T) {
 			}
 			require.Equal(t, tt.wantVersion, version)
 		})
+	}
+}
+
+func CreateTestDb(t *testing.T) (*sql.DB, func()) {
+	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+
+	db, err := sql.Open("sqlite3", dbName)
+	require.NoError(t, err)
+
+	return db, func() {
+		defer func() {
+			if err := os.Remove(dbName); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

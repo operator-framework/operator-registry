@@ -104,16 +104,16 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sqlLoader, err := sqlite.NewSQLLiteLoader(db)
+	loader, err := sqlite.NewSQLLiteLoader(db)
 	if err != nil {
 		return err
 	}
-	if err := sqlLoader.Migrate(context.TODO()); err != nil {
+	if err := loader.Migrate(context.TODO()); err != nil {
 		return err
 	}
 
-	configMapPopulator := sqlite.NewSQLLoaderForConfigMap(sqlLoader, *configMap)
-	if err := configMapPopulator.Populate(); err != nil {
+	populator := registry.NewConfigMapPopulator(loader, *configMap)
+	if err := populator.Populate(); err != nil {
 		err = fmt.Errorf("error loading manifests from configmap: %s", err)
 		if !permissive {
 			logger.WithError(err).Fatal("permissive mode disabled")

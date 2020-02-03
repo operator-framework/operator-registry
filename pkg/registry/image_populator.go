@@ -1,4 +1,4 @@
-package sqlite
+package registry
 
 import (
 	"fmt"
@@ -13,27 +13,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-// ImageLoader loads a bundle image of resources into the database
-type ImageLoader struct {
-	store         registry.Load
+// ImagePopulator loads a bundle image of resources into the database
+type ImagePopulator struct {
+	loader        Load
 	image         string
 	directory     string
 	containerTool string
 }
 
-func NewSQLLoaderForImage(store registry.Load, image, containerTool string) *ImageLoader {
-	return &ImageLoader{
-		store:         store,
+func NewImagePopulator(loader Load, image, directory, containerTool string) *ImagePopulator {
+	return &ImagePopulator{
+		loader:        loader,
 		image:         image,
-		directory:     "",
+		directory:     directory,
 		containerTool: containerTool,
 	}
 }
 
-func (i *ImageLoader) Populate() error {
+func (i *ImagePopulator) Populate() error {
 
 	log := logrus.WithField("img", i.image)
 
@@ -65,7 +64,7 @@ func (i *ImageLoader) Populate() error {
 // LoadBundleFunc walks the bundle directory. Looks for the metadata and manifests
 // sub-directories to find the annotations.yaml file that will inform how the
 // manifests of the bundle should be loaded into the database.
-func (i *ImageLoader) LoadBundleFunc() error {
+func (i *ImagePopulator) LoadBundleFunc() error {
 	path := i.directory
 	manifests := filepath.Join(path, "manifests")
 	metadata := filepath.Join(path, "metadata")
@@ -77,7 +76,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 		return fmt.Errorf("unable to read directory %s: %s", metadata, err)
 	}
 
-	annotationsFile := &registry.AnnotationsFile{}
+	annotationsFile := &AnnotationsFile{}
 	for _, f := range files {
 		fileReader, err := os.Open(filepath.Join(metadata, f.Name()))
 		if err != nil {
@@ -85,14 +84,14 @@ func (i *ImageLoader) LoadBundleFunc() error {
 		}
 		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 		err = decoder.Decode(&annotationsFile)
-		if err != nil || *annotationsFile == (registry.AnnotationsFile{}) {
+		if err != nil || *annotationsFile == (AnnotationsFile{}) {
 			continue
 		} else {
 			log.Info("found annotations file searching for csv")
 		}
 	}
 
-	if *annotationsFile == (registry.AnnotationsFile{}) {
+	if *annotationsFile == (AnnotationsFile{}) {
 		return fmt.Errorf("Could not find annotations.yaml file")
 	}
 
@@ -104,7 +103,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 	return nil
 }
 
-func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.AnnotationsFile) error {
+func (i *ImagePopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile) error {
 	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
@@ -151,7 +150,7 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 	}
 
 	// Finally let's delete all the old bundles
-	if err = i.store.ClearNonDefaultBundles(packageManifest.PackageName); err != nil {
+	if err = i.loader.ClearNonDefaultBundles(packageManifest.PackageName); err != nil {
 		return fmt.Errorf("Error deleting previous bundles: %s", err)
 	}
 
@@ -159,7 +158,7 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 }
 
 // findCSV looks through the bundle directory to find a csv
-func (i *ImageLoader) findCSV(manifests string) (*unstructured.Unstructured, error) {
+func (i *ImagePopulator) findCSV(manifests string) (*unstructured.Unstructured, error) {
 	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "find": "csv"})
 
 	files, err := ioutil.ReadDir(manifests)
@@ -206,12 +205,12 @@ func (i *ImageLoader) findCSV(manifests string) (*unstructured.Unstructured, err
 }
 
 // loadOperatorBundle adds the package information to the loader's store
-func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bundle registry.Bundle) error {
+func (i *ImagePopulator) loadOperatorBundle(manifest PackageManifest, bundle Bundle) error {
 	if manifest.PackageName == "" {
 		return nil
 	}
 
-	if err := i.store.AddBundlePackageChannels(manifest, bundle); err != nil {
+	if err := i.loader.AddBundlePackageChannels(manifest, bundle); err != nil {
 		return fmt.Errorf("error loading bundle into db: %s", err)
 	}
 
@@ -219,19 +218,19 @@ func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bund
 }
 
 // translateAnnotationsIntoPackage attempts to translate the channels.yaml file at the given path into a package.yaml
-func translateAnnotationsIntoPackage(annotations *registry.AnnotationsFile, csv *registry.ClusterServiceVersion) (registry.PackageManifest, error) {
-	manifest := registry.PackageManifest{}
+func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterServiceVersion) (PackageManifest, error) {
+	manifest := PackageManifest{}
 
-	channels := []registry.PackageChannel{}
+	channels := []PackageChannel{}
 	for _, ch := range annotations.GetChannels() {
 		channels = append(channels,
-			registry.PackageChannel{
+			PackageChannel{
 				Name:           ch,
 				CurrentCSVName: csv.GetName(),
 			})
 	}
 
-	manifest = registry.PackageManifest{
+	manifest = PackageManifest{
 		PackageName:        annotations.GetName(),
 		DefaultChannelName: annotations.GetDefaultChannelName(),
 		Channels:           channels,

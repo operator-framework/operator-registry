@@ -1,4 +1,4 @@
-package sqlite
+package registry
 
 import (
 	"encoding/json"
@@ -7,13 +7,11 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 const (
@@ -22,42 +20,37 @@ const (
 	ConfigMapPackageName = "packages"
 )
 
-// ConfigMapLoader loads a configmap of resources into the database
+// ConfigMapPopulator loads a configmap of resources into the database
 // entries under "customResourceDefinitions" will be parsed as CRDs
 // entries under "clusterServiceVersions"  will be parsed as CSVs
 // entries under "packages" will be parsed as Packages
-type ConfigMapLoader struct {
+type ConfigMapPopulator struct {
 	log           *logrus.Entry
-	store         registry.Load
+	loader        Load
 	configMapData map[string]string
-	crds          map[registry.APIKey]*unstructured.Unstructured
+	crds          map[APIKey]*unstructured.Unstructured
 }
 
-var _ SQLPopulator = &ConfigMapLoader{}
+var _ RegistryPopulator = &ConfigMapPopulator{}
 
-// NewSQLLoaderForConfigMapData is useful when the operator manifest(s)
+// NewConfigMapPopulatorFromData is useful when the operator manifest(s)
 // originate from a different source than a configMap. For example, operator
 // manifest(s) can be downloaded from a remote registry like quay.io.
-func NewSQLLoaderForConfigMapData(logger *logrus.Entry, store registry.Load, configMapData map[string]string) *ConfigMapLoader {
-	return &ConfigMapLoader{
+func NewConfigMapPopulatorFromData(logger *logrus.Entry, loader Load, configMapData map[string]string) *ConfigMapPopulator {
+	return &ConfigMapPopulator{
 		log:           logger,
-		store:         store,
+		loader:        loader,
 		configMapData: configMapData,
-		crds:          map[registry.APIKey]*unstructured.Unstructured{},
+		crds:          map[APIKey]*unstructured.Unstructured{},
 	}
 }
 
-func NewSQLLoaderForConfigMap(store registry.Load, configMap v1.ConfigMap) *ConfigMapLoader {
+func NewConfigMapPopulator(loader Load, configMap v1.ConfigMap) *ConfigMapPopulator {
 	logger := logrus.WithFields(logrus.Fields{"configmap": configMap.GetName(), "ns": configMap.GetNamespace()})
-	return &ConfigMapLoader{
-		log:           logger,
-		store:         store,
-		configMapData: configMap.Data,
-		crds:          map[registry.APIKey]*unstructured.Unstructured{},
-	}
+	return NewConfigMapPopulatorFromData(logger, loader, configMap.Data)
 }
 
-func (c *ConfigMapLoader) Populate() error {
+func (c *ConfigMapPopulator) Populate() error {
 	c.log.Info("loading CRDs")
 
 	// first load CRDs into memory; these will be added to the bundle that owns them
@@ -84,7 +77,7 @@ func (c *ConfigMapLoader) Populate() error {
 			crd.Spec.Versions = []v1beta1.CustomResourceDefinitionVersion{{Name: crd.Spec.Version, Served: true, Storage: true}}
 		}
 		for _, version := range crd.Spec.Versions {
-			gvk := registry.APIKey{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}
+			gvk := APIKey{Group: crd.Spec.Group, Version: version.Name, Kind: crd.Spec.Names.Kind, Plural: crd.Spec.Names.Plural}
 			c.log.WithField("gvk", gvk).Debug("loading CRD")
 			if _, ok := c.crds[gvk]; ok {
 				c.log.WithField("gvk", gvk).Debug("crd added twice")
@@ -112,7 +105,7 @@ func (c *ConfigMapLoader) Populate() error {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	var parsedCSVList []registry.ClusterServiceVersion
+	var parsedCSVList []ClusterServiceVersion
 	err = json.Unmarshal(csvListJson, &parsedCSVList)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error parsing CSV list: %s", err))
@@ -127,7 +120,7 @@ func (c *ConfigMapLoader) Populate() error {
 			continue
 		}
 
-		bundle := registry.NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
+		bundle := NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
 		ownedCRDs, _, err := csv.GetCustomResourceDefintions()
 		if err != nil {
 			errs = append(errs, err)
@@ -141,7 +134,7 @@ func (c *ConfigMapLoader) Populate() error {
 				continue
 			}
 
-			gvk := registry.APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
+			gvk := APIKey{Group: split[1], Version: owned.Version, Kind: owned.Kind, Plural: split[0]}
 			crdUnst, ok := c.crds[gvk]
 			if !ok {
 				errs = append(errs, fmt.Errorf("couldn't find owned CRD in crd list %v: %s", gvk, err))
@@ -151,7 +144,7 @@ func (c *ConfigMapLoader) Populate() error {
 			bundle.Add(crdUnst)
 		}
 
-		if err := c.store.AddOperatorBundle(bundle); err != nil {
+		if err := c.loader.AddOperatorBundle(bundle); err != nil {
 			errs = append(errs, fmt.Errorf("error adding operator bundle %s: %s", bundle.Name, err))
 		}
 	}
@@ -169,7 +162,7 @@ func (c *ConfigMapLoader) Populate() error {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	var parsedPackageManifests []registry.PackageManifest
+	var parsedPackageManifests []PackageManifest
 	err = json.Unmarshal(packageListJson, &parsedPackageManifests)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error parsing package list: %s", err))
@@ -177,7 +170,7 @@ func (c *ConfigMapLoader) Populate() error {
 	}
 	for _, packageManifest := range parsedPackageManifests {
 		c.log.WithField("package", packageManifest.PackageName).Debug("loading package")
-		if err := c.store.AddPackageChannels(packageManifest); err != nil {
+		if err := c.loader.AddPackageChannels(packageManifest); err != nil {
 			errs = append(errs, fmt.Errorf("error loading package %s: %s", packageManifest.PackageName, err))
 		}
 	}

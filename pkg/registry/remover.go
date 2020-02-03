@@ -1,4 +1,4 @@
-package sqlite
+package registry
 
 import (
 	"fmt"
@@ -6,25 +6,19 @@ import (
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
-
-type SQLRemover interface {
-	Remove() error
-}
 
 // PackageRemover removes a package from the database
 type PackageRemover struct {
-	store    registry.Load
+	loader   Load
 	packages string
 }
 
-var _ SQLRemover = &PackageRemover{}
+var _ Remover = &PackageRemover{}
 
-func NewSQLRemoverForPackages(store registry.Load, packages string) *PackageRemover {
+func NewRemoverForPackages(loader Load, packages string) *PackageRemover {
 	return &PackageRemover{
-		store:    store,
+		loader:   loader,
 		packages: packages,
 	}
 }
@@ -40,7 +34,7 @@ func (d *PackageRemover) Remove() error {
 	log.Infof("packages: %s", packages)
 
 	for _, pkg := range packages {
-		if err := d.store.RmPackageName(pkg); err != nil {
+		if err := d.loader.RmPackageName(pkg); err != nil {
 			errs = append(errs, fmt.Errorf("error removing operator package %s: %s", pkg, err))
 		}
 	}
