@@ -15,12 +15,30 @@ The operator manifests refers to a set of Kubernetes manifest(s) the defines the
 
 An `Operator Bundle` is built as a scratch (non-runnable) container image that contains operator manifests and specific metadata in designated directories inside the image. Then, it can be pushed and pulled from an OCI-compliant container registry. Ultimately, an operator bundle will be used by [Operator Registry](https://github.com/operator-framework/operator-registry) and [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) to install an operator in OLM-enabled clusters.
 
+### Bundle Manifest Format
+
+The standard bundle format requires two directories named `manifests` and `metatdata`. The `manifests` directory is where all operator manifests are resided including ClusterServiceVersion (CSV), CustomResourceDefinition (CRD) and other supported Kubernetes types. The `metadata` directory is where operator metadata is located including `annotations.yaml` which contains additional information such as package name, channels and media type.
+
+Below is the directory layout of an operator bundle inside a bundle image:
+```bash
+$ tree
+/
+├── manifests
+│   ├── etcdcluster.crd.yaml
+│   └── etcdoperator.clusterserviceversion.yaml
+└── metadata
+    └── annotations.yaml
+```
+
+*Notes:*
+* The names of manifests and metadata directories must match the bundle annotations that are provided in `annotations.yaml` file. Currently, those names are set to `manifests` and `metadata`.
+
 ### Bundle Annotations
 
 We use the following labels to annotate the operator bundle image.
 * The label `operators.operatorframework.io.bundle.mediatype.v1` reflects the media type or format of the operator bundle. It could be helm charts, plain Kubernetes manifests etc.
-* The label `operators.operatorframework.io.bundle.manifests.v1 `reflects the path in the image to the directory that contains the operator manifests.
-* The label `operators.operatorframework.io.bundle.metadata.v1` reflects the path in the image to the directory that contains metadata files about the bundle.
+* The label `operators.operatorframework.io.bundle.manifests.v1 `reflects the path in the image to the directory that contains the operator manifests. This label is reserved for the future use and is set to `manifests/` for the time being.
+* The label `operators.operatorframework.io.bundle.metadata.v1` reflects the path in the image to the directory that contains metadata files about the bundle. This label is reserved for the future use and is set to `metadata/` for the time being.
 * The `manifests.v1` and `metadata.v1` labels imply the bundle type:
     * The value `manifests.v1` implies that this bundle contains operator manifests.
     * The value `metadata.v1` implies that this bundle has operator metadata.
@@ -44,18 +62,7 @@ annotations:
 *Notes:*
 * In case of a mismatch, the `annotations.yaml` file is authoritative because the on-cluster operator-registry that relies on these annotations has access to the yaml file only.
 * The potential use case for the `LABELS` is - an external off-cluster tool can inspect the image to check the type of a given bundle image without downloading the content.
-
-This example uses [Operator Registry Manifests](https://github.com/operator-framework/operator-registry#manifest-format) format to build an operator bundle image. The source directory of an operator registry bundle has the following layout.
-```
-$ tree test
-test
-├── testbackup.crd.yaml
-├── testcluster.crd.yaml
-├── testoperator.v0.1.0.clusterserviceversion.yaml
-├── testrestore.crd.yaml
-└── metadata
-    └── annotations.yaml
-```
+* The annotations for bundle manifests and metadata are reserved for future use. They are set to be `manifests/` and `metadata/` for the time being.
 
 ### Bundle Dockerfile
 
@@ -74,19 +81,6 @@ LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
 
 ADD test/*.yaml /manifests
 ADD test/metadata/annotations.yaml /metadata/annotations.yaml
-```
-
-Below is the directory layout of the operator bundle inside the image:
-```bash
-$ tree
-/
-├── manifests
-│   ├── testbackup.crd.yaml
-│   ├── testcluster.crd.yaml
-│   ├── testoperator.v0.1.0.clusterserviceversion.yaml
-│   └── testrestore.crd.yaml
-└── metadata
-    └── annotations.yaml
 ```
 
 ## Operator Bundle Commands
@@ -139,22 +133,28 @@ $ ./opm alpha bundle generate --directory /test --package test-operator \
 --channels stable,beta --default stable
 ```
 
-The `--directory` or `-d` specifies the directory where the operator manifests are located. The `Dockerfile` is generated in the same directory where the YAML manifests are located while the `annotations.yaml` file is located in a folder named `metadata`. For example:
+The `--directory` or `-d` specifies the directory where the operator manifests, including CSVs and CRDs, are located. For example:
 ```bash
 $ tree test
 test
-├── testbackup.crd.yaml
-├── testcluster.crd.yaml
-├── testoperator.v0.1.0.clusterserviceversion.yaml
-├── testrestore.crd.yaml
-├── metadata
-│   └── annotations.yaml
-└── Dockerfile
+├── etcdcluster.crd.yaml
+└── etcdoperator.clusterserviceversion.yaml
 ```
 
 The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
 
 All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
+
+After the generate command is executed, the `Dockerfile` is generated in the same directory where the YAML manifests are located while the `annotations.yaml` file is located in a folder named `metadata`. For example:
+```bash
+$ tree test
+test
+├── etcdcluster.crd.yaml
+├── etcdoperator.clusterserviceversion.yaml
+├── metadata
+│   └── annotations.yaml
+└── Dockerfile
+```
 
 The `Dockerfile` can be used manually to build the bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
 
