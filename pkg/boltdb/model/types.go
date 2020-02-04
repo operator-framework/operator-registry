@@ -1,14 +1,6 @@
-package boltdb
+package model
 
-import (
-	"fmt"
-	"strings"
-)
-
-const (
-	KubeApiNamespace = "io.operators."
-	GvkCapability    = KubeApiNamespace + "gvk"
-)
+const OperatorsNamespace = "io.operators."
 
 type OperatorBundle struct {
 	Name         string `storm:"id"`
@@ -23,39 +15,15 @@ type OperatorBundle struct {
 	Requirements []Requirement
 }
 
-type Api struct {
-	Group   string
-	Version string
-	Kind    string
-	Plural  string
-}
-
-func (a Api) String() string {
-	return fmt.Sprintf("%s/%s/%s/%s", a.Group, a.Version, a.Kind, a.Plural)
-}
-
-func ApiFromString(s string) (*Api, error) {
-	split := strings.Split(s, "/")
-	if len(split) < 4 {
-		return nil, fmt.Errorf("invalid gvk encoding")
-	}
-	return &Api{
-		Group:   split[0],
-		Version: split[1],
-		Kind:    split[2],
-		Plural:  split[3],
-	}, nil
-}
-
 type Capability struct {
 	Name  string `storm:"id"`
-	Value string
+	Value interface{}
 }
 
 type Requirement struct {
 	Optional bool
 	Name     string
-	Selector string
+	Selector interface{}
 }
 
 type Package struct {

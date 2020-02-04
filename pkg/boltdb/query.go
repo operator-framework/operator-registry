@@ -3,10 +3,9 @@ package boltdb
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
+	"github.com/operator-framework/operator-registry/pkg/boltdb/model"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -31,7 +30,7 @@ func (*StormQuerier) ListTables(ctx context.Context) ([]string, error) {
 }
 
 func (s *StormQuerier) ListPackages(ctx context.Context) ([]string, error) {
-	var pkgs []Package
+	var pkgs []model.Package
 	if err := s.db.All(&pkgs); err != nil {
 		return nil, err
 	}
@@ -45,12 +44,12 @@ func (s *StormQuerier) ListPackages(ctx context.Context) ([]string, error) {
 }
 
 func (s *StormQuerier) GetPackage(ctx context.Context, name string) (*registry.PackageManifest, error) {
-	var pkg Package
+	var pkg model.Package
 	if err := s.db.One("Name", name, &pkg); err != nil {
 		return nil, err
 	}
 
-	var channels []Channel
+	var channels []model.Channel
 	if err := s.db.Find("PackageName", name, &channels); err != nil {
 		return nil, fmt.Errorf("couldn't get channels for package %s: %v", name, err)
 	}
@@ -71,7 +70,7 @@ func (s *StormQuerier) GetPackage(ctx context.Context, name string) (*registry.P
 
 func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error) {
 	// We only need the csvName to query for the OperatorBundle, since their names are 1:1
-	var opBundle OperatorBundle
+	var opBundle model.OperatorBundle
 	if err := s.db.One("Name", csvName, &opBundle); err != nil {
 		return nil, fmt.Errorf("couldn't find bundle for %s, %s, %s: %v", pkgName, channelName, csvName, err)
 	}
@@ -97,14 +96,14 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 	// provided apis
 	for _, cap := range opBundle.Capabilities {
 		fmt.Printf("%#v", cap)
-		gvkp := strings.Split(cap.Value, "/")
-		if len(gvkp) < 4 {
-			return nil, fmt.Errorf("malformed gvk storage: %v", gvkp)
-		}
-		if cap.Name != GvkCapability {
+
+		if cap.Name != model.GvkCapability {
 			continue
 		}
-		gvk, err := ApiFromString(cap.Value)
+		gvk, ok := cap.Value.(*model.Api)
+		if !ok {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -118,10 +117,13 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 
 	// required apis
 	for _, req := range opBundle.Requirements {
-		if req.Name != GvkCapability {
+		if req.Name != model.GvkCapability {
 			continue
 		}
-		gvk, err := ApiFromString(req.Selector)
+		gvk, ok := req.Selector.(*model.ApiEqualitySelector)
+		if !ok {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +139,7 @@ func (s *StormQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvN
 }
 
 func (s *StormQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error) {
-	var channel Channel
+	var channel model.Channel
 	if err := s.db.Select(q.Eq("PackageName", pkgName), q.Eq("ChannelName", channelName)).First(&channel); err != nil {
 		return nil, fmt.Errorf("couldn't fetch bundle for %s %s: %v", pkgName, channelName, err)
 	}
@@ -154,7 +156,7 @@ func (s *StormQuerier) GetChannelEntriesThatReplace(ctx context.Context, name st
 }
 
 func (s *StormQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (*api.Bundle, error) {
-	var entry ChannelEntry
+	var entry model.ChannelEntry
 	if err := s.db.Select(q.Eq("PackageName", pkgName), q.Eq("ChannelName", channelName), q.Eq("Replaces", name)).First(&entry); err != nil {
 		return nil, err
 	}
@@ -169,18 +171,18 @@ type GVKMatcher struct {
 }
 
 func (m GVKMatcher) MatchField(v interface{}) (bool, error) {
-	caps, ok := v.([]Capability)
+	caps, ok := v.([]model.Capability)
 	if !ok {
 		return false, fmt.Errorf("not a capability list")
 	}
 
 	for _, c := range caps {
-		if c.Name != GvkCapability {
+		if c.Name != model.GvkCapability {
 			continue
 		}
-		api, err := ApiFromString(c.Value)
-		if err != nil {
-			return false, err
+		api, ok := c.Value.(*model.Api)
+		if !ok {
+			continue
 		}
 		if api.Group == m.Group && api.Kind == m.Kind && api.Version == m.Version {
 			return true, nil
@@ -190,7 +192,7 @@ func (m GVKMatcher) MatchField(v interface{}) (bool, error) {
 }
 
 func (s *StormQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
-	var bundles []OperatorBundle
+	var bundles []model.OperatorBundle
 	if err := s.db.Select(q.NewFieldMatcher("Capabilities", GVKMatcher{
 		Group:   group,
 		Version: version,
@@ -203,7 +205,7 @@ func (s *StormQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, 
 	for i, b := range bundles {
 		bundleNames[i] = b.Name
 	}
-	var ents []ChannelEntry
+	var ents []model.ChannelEntry
 	if err := s.db.Select(q.In("BundleName", bundleNames)).Find(&ents); err != nil {
 		return nil, err
 	}
@@ -222,7 +224,7 @@ func (s *StormQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, 
 
 // Get latest channel entries that provide an API.
 func (s *StormQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
-	var bundles []OperatorBundle
+	var bundles []model.OperatorBundle
 	if err := s.db.Select(q.NewFieldMatcher("Capabilities", GVKMatcher{
 		Group:   group,
 		Version: version,
@@ -235,15 +237,15 @@ func (s *StormQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, g
 	for i, b := range bundles {
 		bundleNames[i] = b.Name
 	}
-	var ents []ChannelEntry
+	var ents []model.ChannelEntry
 	if err := s.db.Select(q.In("BundleName", bundleNames)).Find(&ents); err != nil {
 		return nil, err
 	}
 
-	pkgChannelToLatest := map[PackageChannel]*registry.ChannelEntry{}
+	pkgChannelToLatest := map[model.PackageChannel]*registry.ChannelEntry{}
 	// record which packagechannels we have entries in
 	for _, e := range ents {
-		pkgChannelToLatest[PackageChannel{
+		pkgChannelToLatest[model.PackageChannel{
 			PackageName: e.PackageName,
 			ChannelName: e.ChannelName,
 		}] = nil
@@ -295,7 +297,7 @@ func (s *StormQuerier) GetBundleThatProvides(ctx context.Context, group, version
 	}
 
 	// We will have 1 entry per package/channel
-	pkgChannelToLatest := map[PackageChannel]*registry.ChannelEntry{}
+	pkgChannelToLatest := map[model.PackageChannel]*registry.ChannelEntry{}
 	pkgName := ""
 	// record which packagechannels we have entries in
 	for _, e := range entries {
@@ -304,7 +306,7 @@ func (s *StormQuerier) GetBundleThatProvides(ctx context.Context, group, version
 		} else if pkgName != e.PackageName {
 			return nil, fmt.Errorf("more than one entry found that provides %s %s %s", group, version, kind)
 		}
-		pkgChannelToLatest[PackageChannel{
+		pkgChannelToLatest[model.PackageChannel{
 			PackageName: e.PackageName,
 			ChannelName: e.ChannelName,
 		}] = e
@@ -314,7 +316,7 @@ func (s *StormQuerier) GetBundleThatProvides(ctx context.Context, group, version
 	if err != nil {
 		return nil, err
 	}
-	provider, ok := pkgChannelToLatest[PackageChannel{
+	provider, ok := pkgChannelToLatest[model.PackageChannel{
 		PackageName: pkgName,
 		ChannelName: pkg.GetDefaultChannel(),
 	}]
@@ -326,7 +328,7 @@ func (s *StormQuerier) GetBundleThatProvides(ctx context.Context, group, version
 }
 
 func (s *StormQuerier) ListImages(ctx context.Context) ([]string, error) {
-	var related []RelatedImage
+	var related []model.RelatedImage
 	if err := s.db.All(&related); err != nil {
 		return nil, err
 	}
@@ -345,7 +347,7 @@ func (s *StormQuerier) ListImages(ctx context.Context) ([]string, error) {
 }
 
 func (s *StormQuerier) GetImagesForBundle(ctx context.Context, bundleName string) ([]string, error) {
-	var related []RelatedImage
+	var related []model.RelatedImage
 	if err := s.db.Find("OperatorBundleName", bundleName, &related); err != nil {
 		return nil, err
 	}

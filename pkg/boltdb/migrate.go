@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/alicebob/sqlittle"
 	"github.com/asdine/storm/v3"
+	"github.com/operator-framework/operator-registry/pkg/boltdb/model"
 	bolt "go.etcd.io/bbolt"
 	"os"
 )
@@ -35,9 +36,9 @@ func EnsureBolt(file string, backupFile string) error {
 
 	// TODO: check if sqlite file is at latest migration
 
-	bdb, err := storm.Open(file)
+	bdb, err := storm.Open(file, storm.Codec(model.Codec))
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if err := migrateSqliteToBolt(sqlDb, bdb); err != nil {
@@ -83,10 +84,10 @@ func migrateSqliteToBolt(sqlDb *sqlittle.DB, bdb *storm.DB) error {
 	return tx.Commit()
 }
 
-func migrate(node storm.Node, sqlDb *sqlittle.DB, rowMigrator rowMigrator) error {
+func migrate(node storm.Node, sqlDb *sqlittle.DB, rm rowMigrator) error {
 	// migrate package table
 	migrateError := make([]error, 0)
-	migrator, table, columns := rowMigrator(node, migrateError)
+	migrator, table, columns := rm(node, migrateError)
 	if err := sqlDb.Select(table, migrator, columns...); err != nil {
 		return err
 	}
@@ -110,7 +111,7 @@ func migratePackageRow(node storm.Node, errs []error) (sqlittle.RowCB, string, [
 			errs = append(errs, err)
 			return
 		}
-		pkg := Package{
+		pkg := model.Package{
 			Name:           name,
 			DefaultChannel: defaultChannel,
 		}
@@ -135,8 +136,8 @@ func migrateChannelRow(node storm.Node, errs []error) (sqlittle.RowCB, string, [
 			return
 		}
 		fmt.Printf("migrating channel %s %s %s\n", name, pkgName, headBundleName)
-		ch := Channel{
-			PackageChannel: PackageChannel{
+		ch := model.Channel{
+			PackageChannel: model.PackageChannel{
 				ChannelName: name,
 				PackageName: pkgName,
 			},
@@ -169,7 +170,7 @@ func migrateBundleRow(node storm.Node, errs []error) (sqlittle.RowCB, string, []
 
 		// TODO: replaces
 		// TODO: skips
-		ob := OperatorBundle{
+		ob := model.OperatorBundle{
 			Name:    name,
 			Version: version,
 			//Replaces:   ,
@@ -205,8 +206,8 @@ func migrateRelatedImageRow(node storm.Node, errs []error) (sqlittle.RowCB, stri
 			errs = append(errs, err)
 			return
 		}
-		relatedImg := RelatedImage{
-			ImageUser: ImageUser{
+		relatedImg := model.RelatedImage{
+			ImageUser: model.ImageUser{
 				Image:              image,
 				OperatorBundleName: operatorbundle_name,
 			},
@@ -223,7 +224,7 @@ func migrateChannelEntries(sqlDb *sqlittle.DB, node storm.Node) error {
 	table := "channel_entry"
 
 	type unpack struct {
-		ChannelEntry
+		model.ChannelEntry
 		replaces int64
 	}
 	unpacks := make(map[int64]unpack, 0)
@@ -241,9 +242,9 @@ func migrateChannelEntries(sqlDb *sqlittle.DB, node storm.Node) error {
 			return
 		}
 		unpacks[entry_id] = unpack{
-			ChannelEntry: ChannelEntry{
-				ChannelReplacement: ChannelReplacement{
-					PackageChannel: PackageChannel{
+			ChannelEntry: model.ChannelEntry{
+				ChannelReplacement: model.ChannelReplacement{
+					PackageChannel: model.PackageChannel{
 						PackageName: package_name,
 						ChannelName: channel_name,
 					},
@@ -282,7 +283,7 @@ func migrateApiProviders(sqlDb *sqlittle.DB, node storm.Node) error {
 	table := "api_provider"
 
 	type unpack struct {
-		Capability
+		model.Capability
 		channel_entry_id    int64
 		operatorbundle_name string
 	}
@@ -300,14 +301,11 @@ func migrateApiProviders(sqlDb *sqlittle.DB, node storm.Node) error {
 			return
 		}
 		unpacks = append(unpacks, unpack{
-			Capability: Capability{
-				Name: GvkCapability,
-				Value: Api{
-					Group:   groupName,
-					Version: version,
-					Kind:    kind,
-				}.String(),
-			},
+			Capability: model.NewApiCapability(&model.Api{
+				Group:   groupName,
+				Version: version,
+				Kind:    kind,
+			}),
 			channel_entry_id: channel_entry_id,
 		})
 	}
@@ -349,15 +347,15 @@ func migrateApiProviders(sqlDb *sqlittle.DB, node storm.Node) error {
 				errs = append(errs, err)
 				return
 			}
-			capValue, err := ApiFromString(u.Value)
-			if err != nil {
-				errs = append(errs, err)
+			api, ok := u.Capability.Value.(*model.Api)
+			if !ok {
+				errs = append(errs, fmt.Errorf("couldn't parse gvk"))
 				return
 			}
-			if u.Name == GvkCapability && capValue.Group == groupName && capValue.Version == version && capValue.Kind == kind {
-				capValue.Plural = plural
+			if u.Name == model.GvkCapability && api.Group == groupName && api.Version == version && api.Kind == kind {
+				api.Plural = plural
 			}
-			u.Value = capValue.String()
+			u.Value = api
 			unpacks[i] = u
 		}, "group_name", "version", "kind", "plural")
 		if err != nil {
@@ -370,25 +368,25 @@ func migrateApiProviders(sqlDb *sqlittle.DB, node storm.Node) error {
 	}
 
 	// connect provided apis to their owner operator bundles
-	bundleCapabilityFilter := make(map[string]map[string]struct{})
+	bundleCapabilityFilter := make(map[string]map[model.Api]struct{})
 	for _, u := range unpacks {
 		// Filter out duplicates
 		if capabilities, ok := bundleCapabilityFilter[u.operatorbundle_name]; ok {
-			if _, ok := capabilities[u.Capability.Value]; ok {
+			if _, ok := capabilities[*u.Capability.Value.(*model.Api)]; ok {
 				continue
 			}
 		} else { // initialize the set
-			capabilitySet := make(map[string]struct{})
+			capabilitySet := make(map[model.Api]struct{})
 			bundleCapabilityFilter[u.operatorbundle_name] = capabilitySet
 		}
 
-		var ob OperatorBundle
+		var ob model.OperatorBundle
 		err := node.One("Name", u.operatorbundle_name, &ob)
 		if err != nil {
 			return err
 		}
 		if ob.Capabilities == nil {
-			ob.Capabilities = make([]Capability, 0)
+			ob.Capabilities = make([]model.Capability, 0)
 		}
 		ob.Capabilities = append(ob.Capabilities, u.Capability)
 		if err := node.Save(&ob); err != nil {
@@ -396,7 +394,7 @@ func migrateApiProviders(sqlDb *sqlittle.DB, node storm.Node) error {
 		}
 
 		// add unique item to filter once it's added to the set
-		bundleCapabilityFilter[u.operatorbundle_name][u.Capability.Value] = struct{}{}
+		bundleCapabilityFilter[u.operatorbundle_name][*u.Capability.Value.(*model.Api)] = struct{}{}
 	}
 
 	return nil
@@ -407,7 +405,7 @@ func migrateApiRequirers(sqlDb *sqlittle.DB, node storm.Node) error {
 	table := "api_requirer"
 
 	type unpack struct {
-		Requirement
+		model.Requirement
 		channel_entry_id    int64
 		operatorbundle_name string
 	}
@@ -425,15 +423,11 @@ func migrateApiRequirers(sqlDb *sqlittle.DB, node storm.Node) error {
 			return
 		}
 		unpacks = append(unpacks, unpack{
-			Requirement: Requirement{
-				Name: GvkCapability,
-				Selector: Api{
-					Group:   groupName,
-					Version: version,
-					Kind:    kind,
-				}.String(),
-				Optional: false,
-			},
+			Requirement: model.NewApiEqualityRequirement(&model.ApiEqualitySelector{
+				Group:   groupName,
+				Version: version,
+				Kind:    kind,
+			}),
 			channel_entry_id: channel_entry_id,
 		})
 	}
@@ -475,16 +469,16 @@ func migrateApiRequirers(sqlDb *sqlittle.DB, node storm.Node) error {
 				errs = append(errs, err)
 				return
 			}
-			if u.Name == GvkCapability {
-				reqSelector, err := ApiFromString(u.Selector)
-				if err != nil {
-					errs = append(errs, err)
+			if u.Name == model.GvkCapability {
+				reqSelector, ok := u.Selector.(*model.ApiEqualitySelector)
+				if !ok {
+					errs = append(errs, fmt.Errorf("couldn't parse gvk selector"))
 					return
 				}
 				if reqSelector.Group == groupName && reqSelector.Version == version && reqSelector.Kind == kind {
 					reqSelector.Plural = plural
 				}
-				u.Selector = reqSelector.String()
+				u.Selector = reqSelector
 				unpacks[i] = u
 			} else {
 				err := fmt.Errorf("Unsupported requirement type: %s", u.Name)
@@ -502,25 +496,25 @@ func migrateApiRequirers(sqlDb *sqlittle.DB, node storm.Node) error {
 	}
 
 	// connect required apis to their owner operator bundles
-	bundleRequirementFilter := make(map[string]map[string]struct{})
+	bundleRequirementFilter := make(map[string]map[model.ApiEqualitySelector]struct{})
 	for _, u := range unpacks {
 		// Filter out duplicates
 		if capabilities, ok := bundleRequirementFilter[u.operatorbundle_name]; ok {
-			if _, ok := capabilities[u.Requirement.Selector]; ok {
+			if _, ok := capabilities[*u.Requirement.Selector.(*model.ApiEqualitySelector)]; ok {
 				continue
 			}
 		} else { // initialize the set
-			capabilitySet := make(map[string]struct{})
+			capabilitySet := make(map[model.ApiEqualitySelector]struct{})
 			bundleRequirementFilter[u.operatorbundle_name] = capabilitySet
 		}
 
-		var ob OperatorBundle
+		var ob model.OperatorBundle
 		err := node.One("Name", u.operatorbundle_name, &ob)
 		if err != nil {
 			return err
 		}
 		if ob.Requirements == nil {
-			ob.Requirements = make([]Requirement, 0)
+			ob.Requirements = make([]model.Requirement, 0)
 		}
 		ob.Requirements = append(ob.Requirements, u.Requirement)
 		if err := node.Save(&ob); err != nil {
@@ -528,7 +522,7 @@ func migrateApiRequirers(sqlDb *sqlittle.DB, node storm.Node) error {
 		}
 
 		// add unique item to filter once it's added to the set
-		bundleRequirementFilter[u.operatorbundle_name][u.Requirement.Selector] = struct{}{}
+		bundleRequirementFilter[u.operatorbundle_name][*u.Requirement.Selector.(*model.ApiEqualitySelector)] = struct{}{}
 	}
 
 	return nil

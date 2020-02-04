@@ -2,6 +2,7 @@ package boltdb
 
 import (
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/boltdb/model"
 
 	"github.com/asdine/storm/v3"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -49,8 +50,8 @@ func (s *StormLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	}
 
 	for image := range images {
-		err = tx.Save(&RelatedImage{
-			ImageUser: ImageUser{
+		err = tx.Save(&model.RelatedImage{
+			ImageUser: model.ImageUser{
 				OperatorBundleName: opBundle.Name,
 				Image:              image,
 			},
@@ -75,7 +76,7 @@ func (s *StormLoader) AddPackageChannels(manifest registry.PackageManifest) erro
 	}
 	defer tx.Rollback()
 
-	pkg := Package{
+	pkg := model.Package{
 		Name:           manifest.PackageName,
 		DefaultChannel: manifest.DefaultChannelName,
 	}
@@ -86,11 +87,11 @@ func (s *StormLoader) AddPackageChannels(manifest registry.PackageManifest) erro
 	var errs []error
 	for _, channel := range manifest.Channels {
 		// Get and store the update graph starting at the channel head
-		pkgChannel := PackageChannel{
+		pkgChannel := model.PackageChannel{
 			ChannelName: channel.Name,
 			PackageName: pkg.Name,
 		}
-		err = tx.Save(&Channel{
+		err = tx.Save(&model.Channel{
 			PackageChannel:         pkgChannel,
 			HeadOperatorBundleName: channel.CurrentCSVName,
 		})
@@ -126,13 +127,13 @@ func (s *StormLoader) ClearNonDefaultBundles(packageName string) error {
 	panic("implement me")
 }
 
-func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName string) (entries []ChannelEntry, err error) {
-	var head OperatorBundle
+func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName string) (entries []model.ChannelEntry, err error) {
+	var head model.OperatorBundle
 	if err = s.db.One("Name", operatorBundleName, &head); err != nil {
 		return
 	}
 
-	pkgChannel := PackageChannel{
+	pkgChannel := model.PackageChannel{
 		PackageName: pkgName,
 		ChannelName: channelName,
 	}
@@ -145,8 +146,8 @@ func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName strin
 			return
 		}
 
-		entry := ChannelEntry{
-			ChannelReplacement: ChannelReplacement{
+		entry := model.ChannelEntry{
+			ChannelReplacement: model.ChannelReplacement{
 				PackageChannel: pkgChannel,
 				BundleName:     o.Name,
 				Replaces:       o.Replaces,
@@ -189,7 +190,7 @@ func (s *StormLoader) updateGraph(pkgName, channelName, operatorBundleName strin
 	return
 }
 
-func newOperatorBundle(bundle *registry.Bundle) (*OperatorBundle, error) {
+func newOperatorBundle(bundle *registry.Bundle) (*model.OperatorBundle, error) {
 	// Add the core bundle
 	csvName, bundleImage, csvBytes, bundleBytes, err := bundle.Serialize()
 	if err != nil {
@@ -223,24 +224,24 @@ func newOperatorBundle(bundle *registry.Bundle) (*OperatorBundle, error) {
 		return nil, err
 	}
 
-	capabilities := make([]Capability, 0)
+	capabilities := make([]model.Capability, 0)
 	for api := range providedApis {
-		capabilities = append(capabilities, Capability{
-			Name:  GvkCapability,
+		capabilities = append(capabilities, model.Capability{
+			Name:  model.GvkCapability,
 			Value: api.String(),
 		})
 	}
 
-	requirements := make([]Requirement, 0)
+	requirements := make([]model.Requirement, 0)
 	for api := range requiredApis {
-		requirements = append(requirements, Requirement{
+		requirements = append(requirements, model.Requirement{
 			Optional: false,
-			Name:     GvkCapability,
+			Name:     model.GvkCapability,
 			Selector: api.String(),
 		})
 	}
 
-	opBundle := &OperatorBundle{
+	opBundle := &model.OperatorBundle{
 		Name:         csvName,
 		Version:      version,
 		Replaces:     replaces,
