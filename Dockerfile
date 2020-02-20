@@ -45,6 +45,9 @@ USER 1001
 
 EXPOSE 50051
 
+ENTRYPOINT ["/bin/registry-server"]
+CMD ["--database", "/bundles.db"]
+
 LABEL io.k8s.display-name="OpenShift Operator Registry" \
     io.k8s.description="This is a component of OpenShift Operator Lifecycle Manager and is the base for operator catalog API containers." \
     maintainer="Odin Team <aos-odin@redhat.com>" \
