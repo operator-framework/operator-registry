@@ -28,11 +28,11 @@ FROM openshift/origin-base
 RUN mkdir /registry
 WORKDIR /registry
 
-COPY --from=builder /src/bin/linux-amd64-initializer /bin/initializer
-COPY --from=builder /src/bin/linux-amd64-registry-server /bin/registry-server
-COPY --from=builder /src/bin/linux-amd64-configmap-server /bin/configmap-server
-COPY --from=builder /src/bin/linux-amd64-appregistry-server /bin/appregistry-server
-COPY --from=builder /src/bin/linux-amd64-opm /bin/opm
+COPY --from=builder /src/bin/linux-$(go env GOARCH)-initializer /bin/initializer
+COPY --from=builder /src/bin/linux-$(go env GOARCH)-registry-server /bin/registry-server
+COPY --from=builder /src/bin/linux-$(go env GOARCH)-configmap-server /bin/configmap-server
+COPY --from=builder /src/bin/linux-$(go env GOARCH)-appregistry-server /bin/appregistry-server
+COPY --from=builder /src/bin/linux-$(go env GOARCH)-opm /bin/opm
 COPY --from=builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
