@@ -10,11 +10,11 @@ COPY Makefile Makefile
 COPY go.mod go.mod
 RUN make static
 RUN GRPC_HEALTH_PROBE_VERSION=v0.2.1 && \
-    wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
+    wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-$(go env GOARCH) && \
     chmod +x /bin/grpc_health_probe
 
 FROM scratch
-COPY --from=builder /build/bin/linux-amd64-registry-server /registry-server
+COPY --from=builder /build/bin/registry-server /registry-server
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051
 ENTRYPOINT ["/registry-server"]
