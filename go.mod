@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.7.0
 	github.com/operator-framework/api v0.0.0-20200120235816-80fd2f1a09c9
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20191115003340-16619cd27fa5
-	github.com/otiai10/copy v1.0.1
+	github.com/otiai10/copy v1.0.2
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
@@ -34,6 +34,8 @@ require (
 )
 
 replace (
+	github.com/otiai10/copy => github.com/otiai10/copy v1.0.2
+	github.com/otiai10/mint => github.com/otiai10/mint v1.3.0
 	k8s.io/api => k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655
