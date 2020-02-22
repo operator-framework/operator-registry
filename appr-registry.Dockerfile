@@ -22,7 +22,7 @@ COPY --from=builder /go/src/github.com/operator-framework/operator-registry/vend
 RUN CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM scratch
-COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/linux-amd64-appregistry-server /bin/appregistry-server
+COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/appregistry-server /bin/appregistry-server
 COPY --from=probe-builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 EXPOSE 50051
 ENTRYPOINT ["/bin/appregistry-server"]
