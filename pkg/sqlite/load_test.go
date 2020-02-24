@@ -153,6 +153,63 @@ func TestAddPackageChannels(t *testing.T) {
 	}
 }
 
+func TestClearNonDefaultBundles(t *testing.T) {
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(t, err)
+	err = store.Migrate(context.TODO())
+	require.NoError(t, err)
+
+	// Create a replaces chain that contains bundles with no bundle path
+	pkg, channel := "pkg", "stable"
+	withoutPath := newBundle(t, "without-path", pkg, channel, newUnstructuredCSV(t, "without-path", ""))
+	withPathInternal := newBundle(t, "with-path-internal", pkg, channel, newUnstructuredCSV(t, "with-path-internal", withoutPath.Name))
+	withPathInternal.BundleImage = "this.is/agood@sha256:path"
+	withPath := newBundle(t, "with-path", pkg, channel, newUnstructuredCSV(t, "with-path", withPathInternal.Name))
+	withPath.BundleImage = "this.is/abetter@sha256:path"
+
+	require.NoError(t, store.AddOperatorBundle(withoutPath))
+	require.NoError(t, store.AddOperatorBundle(withPathInternal))
+	require.NoError(t, store.AddOperatorBundle(withPath))
+	err = store.AddPackageChannels(registry.PackageManifest{
+		PackageName: pkg,
+		Channels: []registry.PackageChannel{
+			{
+				Name:           channel,
+				CurrentCSVName: withPath.Name,
+			},
+		},
+		DefaultChannelName: channel,
+	})
+	require.NoError(t, err)
+
+	// Clear everything but the default bundle
+	require.NoError(t, store.ClearNonDefaultBundles(pkg))
+
+	// Internal node without bundle path should keep its manifests
+	querier := NewSQLLiteQuerierFromDb(db)
+	bundle, err := querier.GetBundle(context.Background(), pkg, channel, withoutPath.Name)
+	require.NoError(t, err)
+	require.NotNil(t, bundle)
+	require.NotNil(t, bundle.Object)
+	require.NotEmpty(t, bundle.CsvJson)
+
+	// Internal node with bundle path should be cleared
+	bundle, err = querier.GetBundle(context.Background(), pkg, channel, withPathInternal.Name)
+	require.NoError(t, err)
+	require.NotNil(t, bundle)
+	require.Nil(t, bundle.Object)
+	require.Empty(t, bundle.CsvJson)
+
+	// Head of the default channel should keep its manifests
+	bundle, err = querier.GetBundle(context.Background(), pkg, channel, withPath.Name)
+	require.NoError(t, err)
+	require.NotNil(t, bundle)
+	require.NotNil(t, bundle.Object)
+	require.NotEmpty(t, bundle.CsvJson)
+}
+
 func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
 	csv.TypeMeta.Kind = "ClusterServiceVersion"
