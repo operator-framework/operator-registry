@@ -19,6 +19,8 @@ script:
 notifications:
   email: false
 
+before_deploy:
+- ls bin | xargs -n1 -I{} mv bin/{} "bin/$(go env GOOS)-$(go env GOARCH)-{}"
 deploy:
   provider: releases
   edge: true
