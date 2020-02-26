@@ -16,16 +16,12 @@ func TestGenerateDockerfile(t *testing.T) {
 
 	binarySourceImage := "quay.io/operator-framework/builder"
 	databaseFolder := "database"
-	expectedDockerfile := `FROM quay.io/operator-framework/builder AS builder
-
-FROM scratch
-LABEL operators.operatorframework.io.index.database.v1=./index.db
-COPY database ./
-COPY --from=builder /bin/opm /opm
-COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
+	expectedDockerfile := `FROM quay.io/operator-framework/builder
+LABEL operators.operatorframework.io.index.database.v1=/database/index.db
+ADD database /database
 EXPOSE 50051
-ENTRYPOINT ["/opm"]
-CMD ["registry", "serve", "--database", "index.db"]
+ENTRYPOINT ["/bin/opm"]
+CMD ["registry", "serve", "--database", "/database/index.db"]
 `
 
 	logger := logrus.NewEntry(logrus.New())
@@ -43,16 +39,12 @@ func TestGenerateDockerfile_EmptyBaseImage(t *testing.T) {
 	defer controller.Finish()
 
 	databaseFolder := "database"
-	expectedDockerfile := `FROM quay.io/operator-framework/upstream-registry-builder AS builder
-
-FROM scratch
-LABEL operators.operatorframework.io.index.database.v1=./index.db
-COPY database ./
-COPY --from=builder /bin/opm /opm
-COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
+	expectedDockerfile := `FROM quay.io/operator-framework/upstream-registry-builder
+LABEL operators.operatorframework.io.index.database.v1=/database/index.db
+ADD database /database
 EXPOSE 50051
-ENTRYPOINT ["/opm"]
-CMD ["registry", "serve", "--database", "index.db"]
+ENTRYPOINT ["/bin/opm"]
+CMD ["registry", "serve", "--database", "/database/index.db"]
 `
 
 	logger := logrus.NewEntry(logrus.New())
