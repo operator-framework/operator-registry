@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/api/pkg/sqlite"
 )
 
 func CreateTestDb(t *testing.T) (*sql.DB, string, func()) {

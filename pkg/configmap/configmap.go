@@ -8,8 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/api/pkg/registry/api"
+	"github.com/operator-framework/api/pkg/registry"
 )
 
 func NewBundleLoader() *BundleLoader {

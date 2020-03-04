@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/api/pkg/registry/containertools"
 
 	"github.com/sirupsen/logrus"
 )

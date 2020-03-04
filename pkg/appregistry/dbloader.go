@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/api/pkg/registry"
+	"github.com/operator-framework/api/pkg/sqlite"
 	"github.com/sirupsen/logrus"
 )
 

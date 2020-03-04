@@ -8,7 +8,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/api/pkg/registry/containertools"
 )
 
 // BundleExporter exports the manifests of a bundle image into a directory

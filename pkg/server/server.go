@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/api/pkg/registry/api"
+	"github.com/operator-framework/api/pkg/registry"
 
 	"golang.org/x/net/context"
 )

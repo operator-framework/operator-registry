@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools/containertoolsfakes"
+	"github.com/operator-framework/api/pkg/registry/containertools/containertoolsfakes"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

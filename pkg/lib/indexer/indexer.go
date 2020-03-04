@@ -10,11 +10,11 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/api/pkg/registry/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
-	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	pregistry "github.com/operator-framework/api/pkg/registry"
+	"github.com/operator-framework/api/pkg/sqlite"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"

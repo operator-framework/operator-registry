@@ -1,5 +1,0 @@
-apiVersion: fake.com/v1alpha1
-kind: FooKind
-metadata:
-  name: foo
-  namespace: placeholder

@@ -7,8 +7,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
+	"github.com/operator-framework/api/pkg/registry/api"
+	"github.com/operator-framework/api/pkg/registry/api/grpc_health_v1"
 )
 
 type Interface interface {

@@ -2,7 +2,7 @@
 package indexer
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/api/pkg/registry/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 
 	"github.com/sirupsen/logrus"

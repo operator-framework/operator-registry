@@ -1,4 +1,0 @@
-apiVersion: fake.com/v1alpha1
-metadata:
-  name: foo
-  namespace: placeholder

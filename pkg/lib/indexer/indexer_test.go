@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/api/pkg/sqlite"
 
-	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
+	pregistry "github.com/operator-framework/api/pkg/registry"
 )
 
 func TestGetBundlesToExport(t *testing.T) {

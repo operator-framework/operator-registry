@@ -7,7 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/operator-framework/api/pkg/sqlite"
 )
 
 type RegistryUpdater struct {
