@@ -41,11 +41,13 @@ func newBundleGenerateCmd() *cobra.Command {
 
 	bundleGenerateCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "", "The default channel for the bundle image")
 
+	bundleGenerateCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "", "Optional output directory for operator manifests")
+
 	return bundleGenerateCmd
 }
 
 func generateFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.GenerateFunc(dirBuildArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true)
+	err := bundle.GenerateFunc(dirBuildArgs, outputDirArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true)
 	if err != nil {
 		return err
 	}
