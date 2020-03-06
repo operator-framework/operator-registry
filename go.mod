@@ -15,7 +15,7 @@ require (
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
 	github.com/operator-framework/api v0.1.1
-	github.com/otiai10/copy v1.0.1
+	github.com/otiai10/copy v1.0.2
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
@@ -30,4 +30,9 @@ require (
 	k8s.io/client-go v0.16.7
 	k8s.io/klog v1.0.0
 	k8s.io/kubectl v0.16.7
+)
+
+replace (
+	github.com/otiai10/copy => github.com/otiai10/copy v1.0.2
+	github.com/otiai10/mint => github.com/otiai10/mint v1.3.0
 )

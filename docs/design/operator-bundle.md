@@ -119,13 +119,14 @@ Flags:
   -e, --default string     The default channel for the bundle image
   -d, --directory string   The directory where bundle manifests for a specific version are located.
   -h, --help               help for generate
+  -u, --output-dir string  Optional output directory for operator manifests
   -p, --package string     The name of the package that bundle image belongs to
 
   Note:
   * All manifests yaml must be in the same directory.
 ```
 
-The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `--default/-e` is optional.
+The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `--default/-e` and `--output-dir/-u` are optional.
 
 The command for `generate` task is:
 ```bash
@@ -145,14 +146,32 @@ The `--package` or `-p` is the name of package fo the operator such as `etcd` wh
 
 All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
 
-After the generate command is executed, the `Dockerfile` is generated in the same directory where the YAML manifests are located while the `annotations.yaml` file is located in a folder named `metadata`. For example:
+After the generate command is executed, the `Dockerfile` is generated in the directory where command is run. By default, the `annotations.yaml` file is located in a folder named `metadata` in the same root directory as the input directory containing manifests. For example:
 ```bash
 $ tree test
 test
-├── etcdcluster.crd.yaml
-├── etcdoperator.clusterserviceversion.yaml
+├── my-manifests
+│   ├── etcdcluster.crd.yaml
+│   └── etcdoperator.clusterserviceversion.yaml
 ├── metadata
 │   └── annotations.yaml
+└── Dockerfile
+```
+
+If the `--output-dir` parameter is specified, that directory becomes the parent for a new pair of folders `manifests/` and `metadata/`, where `manifests/` is a copy of the passed in directory of manifests and `metadata/` is the folder containing annotations.yaml:
+
+```bash
+$ tree test
+test
+├── my-manifests
+│   ├── etcdcluster.crd.yaml
+│   └── etcdoperator.clusterserviceversion.yaml
+├── my-output-manifest-dir
+│   ├── manifests
+│   │   ├── etcdoperator.clusterserviceversion.yaml
+│   │   └── etcdoperator.clusterserviceversion.yaml
+│   └── metadata
+│       └── annotations.yaml
 └── Dockerfile
 ```
 
@@ -175,7 +194,8 @@ Flags:
   -d, --directory string       The directory where bundle manifests for a specific version are located
   -h, --help                   help for build
   -b, --image-builder string   Tool to build container images. One of: [docker, podman, buildah] (default "docker")
-  -0, --overwrite               To overwrite annotations.yaml if existing
+  -u, --output-dir string      Optional output directory for operator manifests
+  -0, --overwrite              To overwrite annotations.yaml if existing
   -p, --package string         The name of the package that bundle image belongs to
   -t, --tag string             The name of the bundle image will be built
 
