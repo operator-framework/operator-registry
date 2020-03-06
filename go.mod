@@ -31,5 +31,3 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kubectl v0.16.7
 )
-
-replace github.com/operator-framework/api => ../operator-framework_api
