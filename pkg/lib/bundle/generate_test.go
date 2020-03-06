@@ -2,6 +2,8 @@ package bundle
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -206,11 +208,77 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
 		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
-		"COPY /*.yaml /manifests/\n"+
-		"COPY %s/annotations.yaml /metadata/annotations.yaml\n", MetadataDir,
-		filepath.Join("/", MetadataDir))
+		"COPY test2/*.yaml /manifests/\n"+
+		"COPY metadata/annotations.yaml /metadata/annotations.yaml\n", MetadataDir)
 
-	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test4", "test5", "")
+	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test2/", "metadata/", "./", "test4", "test5", "")
 	require.NoError(t, err)
 	require.Equal(t, output, string(content))
+}
+
+func TestCopyYamlOutput(t *testing.T) {
+	testOutputDir, _ := ioutil.TempDir("./", "test-generate")
+	defer os.RemoveAll(testOutputDir)
+
+	testContent := []byte{0, 1, 0, 0}
+	testManifestDir := "./testdata/generate/manifests"
+	testWorkingDir := "./"
+	testOverwrite := true
+
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testWorkingDir, testOverwrite)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(testOutputDir, "manifests/"), resultManifestDir)
+	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
+
+	outputAnnotationsFile := filepath.Join(testOutputDir, "metadata/", "annotations.yaml")
+	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	require.NoError(t, err)
+	require.Equal(t, testContent, annotationsBlob)
+
+	csvFile := filepath.Join(testOutputDir, "manifests/", "prometheusoperator.0.14.0.clusterserviceversion.yaml")
+	_, err = ioutil.ReadFile(csvFile)
+	require.NoError(t, err)
+}
+
+func TestCopyYamlOutput_NoOutputDir(t *testing.T) {
+	testContent := []byte{0, 1, 0, 0}
+	testManifestDir := "./testdata/generate/manifests"
+	testWorkingDir := "./"
+	testOverwrite := true
+
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, "", testWorkingDir, testOverwrite)
+	require.NoError(t, err)
+	require.Equal(t, testManifestDir, resultManifestDir)
+	require.Equal(t, filepath.Join(filepath.Dir(testManifestDir), "metadata/"), resultMetadataDir)
+
+	outputAnnotationsFile := filepath.Join(resultMetadataDir, "annotations.yaml")
+	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	require.NoError(t, err)
+	require.Equal(t, testContent, annotationsBlob)
+
+	os.RemoveAll(filepath.Dir(outputAnnotationsFile))
+}
+
+func TestCopyYamlOutput_NestedCopy(t *testing.T) {
+	testOutputDir, _ := ioutil.TempDir("./", "test-generate")
+	defer os.RemoveAll(testOutputDir)
+
+	testContent := []byte{0, 1, 0, 0}
+	testManifestDir := "./testdata/generate/nested_manifests"
+	testWorkingDir := "./"
+	testOverwrite := true
+
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testWorkingDir, testOverwrite)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(testOutputDir, "manifests/"), resultManifestDir)
+	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
+
+	outputAnnotationsFile := filepath.Join(testOutputDir, "metadata/", "annotations.yaml")
+	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	require.NoError(t, err)
+	require.Equal(t, testContent, annotationsBlob)
+
+	csvFile := filepath.Join(testOutputDir, "manifests/nested_manifests/", "prometheusoperator.0.14.0.clusterserviceversion.yaml")
+	_, err = ioutil.ReadFile(csvFile)
+	require.NoError(t, err)
 }

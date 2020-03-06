@@ -13,6 +13,7 @@ var (
 	packageNameArgs    string
 	channelsArgs       string
 	channelDefaultArgs string
+	outputDirArgs      string
 	overwriteArgs      bool
 )
 
@@ -69,11 +70,13 @@ func newBundleBuildCmd() *cobra.Command {
 
 	bundleBuildCmd.Flags().BoolVarP(&overwriteArgs, "overwrite", "o", false, "To overwrite annotations.yaml locally if existed. By default, overwrite is set to `false`.")
 
+	bundleBuildCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "", "Optional output directory for operator manifests")
+
 	return bundleBuildCmd
 }
 
 func buildFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.BuildFunc(dirBuildArgs, tagBuildArgs, imageBuilderArgs,
+	err := bundle.BuildFunc(dirBuildArgs, outputDirArgs, tagBuildArgs, imageBuilderArgs,
 		packageNameArgs, channelsArgs, channelDefaultArgs, overwriteArgs)
 	if err != nil {
 		return err
