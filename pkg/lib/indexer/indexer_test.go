@@ -19,7 +19,7 @@ func TestGetBundlesToExport(t *testing.T) {
 		"quay.io/olmtest/example-bundle:etcdoperator.v0.6.1"}
 	sort.Strings(expected)
 
-	db, err := sql.Open("sqlite3", "./test/bundles.db")
+	db, err := sql.Open("sqlite3", "./testdata/bundles.db")
 	if err != nil {
 		t.Fatalf("opening db: %s", err)
 	}
@@ -42,7 +42,7 @@ func TestGetBundlesToExport(t *testing.T) {
 }
 
 func TestGeneratePackageYaml(t *testing.T) {
-	db, err := sql.Open("sqlite3", "./test/bundles.db")
+	db, err := sql.Open("sqlite3", "./testdata/bundles.db")
 	if err != nil {
 		t.Fatalf("opening db: %s", err)
 	}
@@ -59,7 +59,7 @@ func TestGeneratePackageYaml(t *testing.T) {
 	}
 
 	var expected pregistry.PackageManifest
-	expectedBytes, _ := ioutil.ReadFile("./test/package.yaml")
+	expectedBytes, _ := ioutil.ReadFile("./testdata/package.yaml")
 	err = yaml.Unmarshal(expectedBytes, &expected)
 	if err != nil {
 		t.Fatalf("unmarshaling: %s", err)

@@ -4,10 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/unprivileged"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
@@ -17,8 +22,8 @@ type RegistryUpdater struct {
 
 type AddToRegistryRequest struct {
 	Permissive    bool
+	SkipTLS       bool
 	InputDatabase string
-	ContainerTool string
 	Bundles       []string
 }
 
@@ -39,9 +44,21 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
-	for _, bundleImage := range request.Bundles {
-		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage, request.ContainerTool)
-		if err := loader.Populate(); err != nil {
+	reg, err := unprivileged.NewRegistry(
+		unprivileged.SkipTLS(request.SkipTLS),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := reg.Close(); err != nil {
+			r.Logger.WithError(err).Warn("error closing local image registry")
+		}
+	}()
+
+	// TODO(njhale): Parallelize this once bundle add is commutative
+	for _, ref := range request.Bundles {
+		if err := populate(context.TODO(), dbLoader, reg, ref); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {
 				r.Logger.WithError(err).Error("permissive mode disabled")
@@ -53,6 +70,26 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	}
 
 	return utilerrors.NewAggregate(errs) // nil if no errors
+}
+
+func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref string) error {
+	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(workingDir)
+
+	if err = reg.Pull(ctx, ref); err != nil {
+		return err
+	}
+
+	if err = reg.Unpack(ctx, ref, workingDir); err != nil {
+		return err
+	}
+
+	populator := registry.NewDirectoryPopulator(loader, workingDir, ref)
+
+	return populator.Populate()
 }
 
 type DeleteFromRegistryRequest struct {

@@ -1,10 +1,10 @@
 package registry
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/registry"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 )
 
 func newRegistryAddCmd() *cobra.Command {
@@ -27,7 +27,12 @@ func newRegistryAddCmd() *cobra.Command {
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to database file")
 	rootCmd.Flags().StringSliceP("bundle-images", "b", []string{}, "comma separated list of links to bundle image")
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
-	rootCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	rootCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
+
+	rootCmd.Flags().StringP("container-tool", "c", "", "")
+	if err := rootCmd.Flags().MarkDeprecated("container-tool", "ignored in favor of standalone image manipulation"); err != nil {
+		logrus.Panic(err.Error())
+	}
 
 	return rootCmd
 }
@@ -37,7 +42,6 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	fromFilename, err := cmd.Flags().GetString("database")
 	if err != nil {
 		return err
@@ -46,8 +50,7 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	containerTool, err := cmd.Flags().GetString("container-tool")
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
 	if err != nil {
 		return err
 	}
@@ -56,7 +59,7 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		Bundles:       bundleImages,
 		InputDatabase: fromFilename,
 		Permissive:    permissive,
-		ContainerTool: containerTool,
+		SkipTLS:       skipTLS,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
