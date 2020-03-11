@@ -177,7 +177,6 @@ func (c *CatalogSource) Update() bool {
 		logrus.WithField("CatalogSource", c.Name).Debugf("latest poll %v", *c.Status.LatestImageRegistryPoll)
 	}
 
-
 	if c.Status.LatestImageRegistryPoll.IsZero() {
 		logrus.WithField("CatalogSource", c.Name).Debugf("creation timestamp plus interval before now %t", c.CreationTimestamp.Add(interval).Before(time.Now()))
 		if c.CreationTimestamp.Add(interval).Before(time.Now()) {
