@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 echo "Setting Variables"
-read -p "Bunlde image: " bundleImage
+read -p "Bundle image: " bundleImage
 read -p "Index image tag: " indexImage
 read -p "docker or podman: " containerTool
 
