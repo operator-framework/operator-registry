@@ -1,24 +1,41 @@
 language: go
-
 go:
 - 1.13
-
-os:
-- linux
-- osx
-- windows
-
-install:
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install make; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install make; fi
-
-script:
-- if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then mingw32-make build; fi
-- if [[ "$TRAVIS_OS_NAME" != "windows" ]]; then make unit build; fi
-
+jobs:
+  include:
+  - os: linux
+    dist: xenial
+    env:
+      MAKE: make
+    install: |
+      curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
+      chmod +x minikube
+      sudo mv minikube /bin/
+      minikube config set vm-driver none
+  - os: osx
+    install: |
+      brew install make
+    env:
+      MAKE: make
+  - os: windows
+    env:
+      MAKE: mingw32-make
+addons:
+  apt:
+    sources:
+    - sourceline: 'ppa:projectatomic/ppa'
+    update: true
+    packages:
+    - podman
+script: |
+  "${MAKE}" unit build
+  if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+    sudo minikube start # vm-driver=none requires root
+    sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
+    KUBECONFIG="$HOME/.kube/config" make e2e
+  fi
 notifications:
   email: false
-
 before_deploy:
 - ls bin | xargs -n1 -I{} mv bin/{} "bin/$(go env GOOS)-$(go env GOARCH)-{}"
 deploy:

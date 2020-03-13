@@ -678,11 +678,8 @@ spec:
 }
 
 func buildContainer(tag, dockerfilePath, context string) {
-	err := bundle.ValidateFunc(tag, builderCmd)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
 	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, context)
-	err = cmd.Run()
+	err := cmd.Run()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
@@ -708,8 +705,9 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 	}
 
 	ginkgo.Context("Deploy bundle job", func() {
-		// these permissions are only necessary for the e2e (and not OLM using the feature)
-		ginkgo.It("should apply necessary RBAC", func() {
+		ginkgo.It("should populate specified configmap", func() {
+			// these permissions are only necessary for the e2e (and not OLM using the feature)
+			ginkgo.By("configuring configmap service account")
 			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -747,17 +745,13 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 					Name:     "olm-dev-configmap-access",
 				},
 			})
-		})
-
-		ginkgo.It("should build required images", func() {
-			buildContainer(initImage, imageDirectory+"Dockerfile.serve", "../../bin")
-			buildContainer(bundleImage, imageDirectory+"Dockerfile.bundle", imageDirectory)
-		})
-
-		ginkgo.It("should populate specified configmap", func() {
-			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+			ginkgo.By("building required images")
+			buildContainer(initImage, imageDirectory+"Dockerfile.serve", "../../bin")
+			buildContainer(bundleImage, imageDirectory+"Dockerfile.bundle", imageDirectory)
+
+			ginkgo.By("creating a batch job")
 			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, bundleImage, initImage, namespace)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
