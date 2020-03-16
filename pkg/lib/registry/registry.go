@@ -39,8 +39,8 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
-	for _, bundleImage := range request.Bundles {
-		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage, request.ContainerTool)
+	for i, bundleImage := range request.Bundles {
+		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage, request.ContainerTool, len(request.Bundles)-(i+1))
 		if err := loader.Populate(); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {

@@ -22,19 +22,28 @@ type ImageLoader struct {
 	image         string
 	directory     string
 	containerTool string
+	bundles       int
 }
 
-func NewSQLLoaderForImage(store registry.Load, image, containerTool string) *ImageLoader {
+type bundleData struct {
+	annotationsFile *registry.AnnotationsFile
+	bcsv            *registry.ClusterServiceVersion
+	bundle          *registry.Bundle
+}
+
+var addedBundles []bundleData
+
+func NewSQLLoaderForImage(store registry.Load, image, containerTool string, numBundles int) *ImageLoader {
 	return &ImageLoader{
 		store:         store,
 		image:         image,
 		directory:     "",
 		containerTool: containerTool,
+		bundles:       numBundles,
 	}
 }
 
 func (i *ImageLoader) Populate() error {
-
 	log := logrus.WithField("img", i.image)
 
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
@@ -96,7 +105,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 		return fmt.Errorf("Could not find annotations.yaml file")
 	}
 
-	err = i.loadManifests(manifests, annotationsFile)
+	err = i.loadCSV(manifests, annotationsFile)
 	if err != nil {
 		return err
 	}
@@ -104,7 +113,7 @@ func (i *ImageLoader) LoadBundleFunc() error {
 	return nil
 }
 
-func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.AnnotationsFile) error {
+func (i *ImageLoader) loadCSV(manifests string, annotationsFile *registry.AnnotationsFile) error {
 	log := logrus.WithFields(logrus.Fields{"dir": i.directory, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
@@ -141,12 +150,60 @@ func (i *ImageLoader) loadManifests(manifests string, annotationsFile *registry.
 		return fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
 	}
 
+	// before generating synthetic package manifest file and loading bundle - check to see if bundles provided
+	// to add command are related - if so bundle commutativity must be ensured. we get this for free with semver based bundles.
+
+	// get array of all bundle types
+	// check if related
+	// if so order them properly
+	// if not, or only 1 , do nothing
+	bdata := bundleData{
+		annotationsFile: annotationsFile,
+		bcsv:            bcsv,
+		bundle:          bundle,
+	}
+	addedBundles = append(addedBundles, bdata)
+
+	var sortedBundles []bundleData
+	if i.bundles > 0 {
+		// we are still cycling through the provided bundles - return early
+		return nil
+	} else {
+		// there are no bundles left provided to the add arg
+
+		// check to see if bundle types are related
+		// TODO do we have code that does this already somewhere?
+		sortedBundles = checkRelatedBundles(addedBundles)
+
+		// clear array
+		addedBundles = nil
+	}
+
+	// then call loadBundleData in the correct order to ensure that the DB propagation is in the right order
+	// we get this for free with semver bundles
+	for _, bdata := range sortedBundles {
+		err := i.loadBundleData(bdata.annotationsFile, bdata.bcsv, bdata.bundle)
+		if err != nil {
+			return fmt.Errorf("error loading data from bundle %s: %s", bundle.Name, err)
+		}
+	}
+	return nil
+}
+
+func checkRelatedBundles(bundles []bundleData) []bundleData {
+	// TODO
+	return []bundleData{}
+}
+
+func (i *ImageLoader) loadBundleData(annotationsFile *registry.AnnotationsFile, bcsv *registry.ClusterServiceVersion,
+	bundle *registry.Bundle) error {
+
 	packageManifest, err := translateAnnotationsIntoPackage(annotationsFile, bcsv)
 	if err != nil {
 		return fmt.Errorf("Could not translate annotations file into packageManifest %s", err)
 	}
 
-	if err := i.loadOperatorBundle(packageManifest, *bundle); err != nil {
+	if err := i.loadOperatorBundle(packageManifest, bundle); err != nil {
 		return fmt.Errorf("Error adding package %s", err)
 	}
 
@@ -206,12 +263,12 @@ func (i *ImageLoader) findCSV(manifests string) (*unstructured.Unstructured, err
 }
 
 // loadOperatorBundle adds the package information to the loader's store
-func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bundle registry.Bundle) error {
+func (i *ImageLoader) loadOperatorBundle(manifest registry.PackageManifest, bundle *registry.Bundle) error {
 	if manifest.PackageName == "" {
 		return nil
 	}
 
-	if err := i.store.AddBundlePackageChannels(manifest, bundle); err != nil {
+	if err := i.store.AddBundlePackageChannels(manifest, *bundle); err != nil {
 		return fmt.Errorf("error loading bundle into db: %s", err)
 	}
 
