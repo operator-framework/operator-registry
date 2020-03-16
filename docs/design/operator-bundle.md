@@ -60,8 +60,8 @@ annotations:
 ```
 
 *Notes:*
-* In case of a mismatch, the `annotations.yaml` file is authoritative because the on-cluster operator-registry that relies on these annotations has access to the yaml file only.
-* The potential use case for the `LABELS` is - an external off-cluster tool can inspect the image to check the type of a given bundle image without downloading the content.
+* In case of a mismatch, the `annotations.yaml` file is authoritative because the on-cluster operator-registry that relies on these annotations have access to the yaml file only.
+* The potential use case for the `LABELS` is - an external off-cluster tool that can inspect the image to check the type of a given bundle image without downloading the content.
 * The annotations for bundle manifests and metadata are reserved for future use. They are set to be `manifests/` and `metadata/` for the time being.
 
 ### Bundle Dockerfile
@@ -85,7 +85,7 @@ ADD test/metadata/annotations.yaml /metadata/annotations.yaml
 
 ## Operator Bundle Commands
 
-`opm` (Operator Package Manager) is a CLI tool to generate bundle annotations, build bundle manifests image, validate bundle manifests image and other functionalities. Please note that the `generate`, `build` and `validate` features of `opm` CLI are currently in alpha and only meant for development use.
+`opm` (Operator Package Manager) is a CLI tool to generate bundle annotations, build bundle manifests image, validate bundle manifests image and other functionalities. Please note that the `generate`, `build`, and `validate` features of `opm` CLI are currently in alpha and only meant for development use.
 
 ### `opm` (Operator Package Manager)
 
@@ -103,11 +103,11 @@ $ git clone https://github.com/operator-framework/operator-registry
 $ go build ./cmd/opm/
 ```
 
-Now, a binary named `opm` is now built in current directory and ready to be used.
+Now, a binary named `opm` is now built in the current directory and ready to be used.
 
 ### Generate Bundle Annotations and DockerFile
 *Notes:*
-* If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
+* If there are `annotations.yaml` or `Dockerfile` files existing in the directory, they will be overwritten.
 
 Using `opm` CLI, bundle annotations can be generated from provided operator manifests. The overall `bundle generate` command usage is:
 ```bash
@@ -126,7 +126,7 @@ Flags:
   * All manifests yaml must be in the same directory.
 ```
 
-The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `--default/-e` and `--output-dir/-u` are optional.
+The `--directory/-d`, `--channels/-c`, and `--package/-p` flags are required while `--default/-e` and `--output-dir/-u` are optional.
 
 The command for `generate` task is:
 ```bash
@@ -134,7 +134,7 @@ $ ./opm alpha bundle generate --directory /test --package test-operator \
 --channels stable,beta --default stable
 ```
 
-The `--directory` or `-d` specifies the directory where the operator manifests, including CSVs and CRDs, are located. For example:
+The `--directory` or `-d` flag specifies the directory where the operator manifests, including CSVs and CRDs, are located. For example:
 ```bash
 $ tree test
 test
@@ -142,11 +142,11 @@ test
 └── etcdoperator.clusterserviceversion.yaml
 ```
 
-The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
+The `--package` or `-p` is the name of package for the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in the channel list is selected as the default.
 
-All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
+All information in `annotations.yaml` also exists in the `LABEL` section of the `Dockerfile`.
 
-After the generate command is executed, the `Dockerfile` is generated in the directory where command is run. By default, the `annotations.yaml` file is located in a folder named `metadata` in the same root directory as the input directory containing manifests. For example:
+After the generate command is executed, the `Dockerfile` is generated in the working directory. By default, the `annotations.yaml` file is located in a folder named `metadata` in the same root directory as the input directory containing manifests. For example:
 ```bash
 $ tree test
 test
@@ -175,7 +175,7 @@ test
 └── Dockerfile
 ```
 
-The `Dockerfile` can be used manually to build the bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
+The `Dockerfile` can be used manually to build the bundle image using container image tools such as Docker, Podman, or Buildah. For example, the Docker build command would be:
 
 ```bash
 $ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path/to/manifests/
@@ -183,7 +183,7 @@ $ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path
 
 ### Build Bundle Image
 
-Operator bundle image can be built from provided operator manifests using `build` command (see *Notes* below). The overall `bundle build` command usage is:
+Operator bundle image can be built from provided operator manifests using the `build` command (see *Notes* below). The overall `bundle build` command usage is:
 ```bash
 Usage:
   opm alpha bundle build [flags]
@@ -210,23 +210,23 @@ $ ./opm alpha bundle build --directory /test --tag quay.io/coreos/test-operator.
 --package test-operator --channels stable,beta --default stable
 ```
 
-The `--directory` or `-d` specifies the directory where the operator manifests for a specific version are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
+The `--directory` or `-d` flag specifies the directory where the operator manifests for a specific version are located. The `--tag` or `-t` flag specifies the image tag that you want the operator bundle image to have. By using the `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
-The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
+The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can be specified via the optional `--image-builder` or `-b` flags. For example:
 ```bash
 $ ./opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
 --image-builder podman --package test-operator --channels stable,beta --default stable
 ```
 
-The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
+The `--package` or `-p` flag is the name of the package for the operator such as `etcd` which which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided using the `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via the `--default` or `-e` flag. If the default channel is not provided, the first channel in the channel list is selected as the default.
 
 *Notes:*
-* If there is `Dockerfile` existing in the directory, it will be overwritten.
-* If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and returns any found errors. If the ``annotations.yaml`` is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow cli to overwrite the `annotations.yaml` if existed.
+* If there is an existing `Dockerfile` in the directory, it will be overwritten.
+* If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and it will return any errors found. If the ``annotations.yaml`` file is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow the cli to overwrite the `annotations.yaml` if it exists.
 
 ### Validate Bundle Image
 
-Operator bundle image can validate bundle image that is publicly available in an image registry using `validate` command (see *Notes* below). The overall `bundle validate` command usage is:
+Operator bundle image can validate a bundle image that is publicly available in an image registry using `validate` command (see *Notes* below). The overall `bundle validate` command usage is:
 ```bash
 Usage:
   opm alpha bundle validate [flags]
@@ -239,7 +239,7 @@ Flags:
 
 The command for `validate` task is:
 ```bash
-$ ./opm alpha bundle build --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
+$ ./opm alpha bundle validate --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
 ```
 
 The `validate` command will first extract the contents of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
