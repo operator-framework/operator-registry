@@ -39,6 +39,21 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
+	// use multi-image loader for add request with multiple image bundles
+	if len(request.Bundles) > 1 {
+		multiLoader := sqlite.NewSQLLoaderForMultiImage(dbLoader, request.Bundles, request.ContainerTool)
+		if err := multiLoader.Populate(); err != nil {
+			err = fmt.Errorf("error loading provided bundles %s: %s", request.Bundles, err)
+			if !request.Permissive {
+				r.Logger.WithError(err).Error("permissive mode disabled")
+				errs = append(errs, err)
+			} else {
+				r.Logger.WithError(err).Warn("permissive mode enabled")
+			}
+		}
+		return utilerrors.NewAggregate(errs) // nil if no errors
+	}
+
 	for _, bundleImage := range request.Bundles {
 		loader := sqlite.NewSQLLoaderForImage(dbLoader, bundleImage, request.ContainerTool)
 		if err := loader.Populate(); err != nil {
