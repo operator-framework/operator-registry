@@ -34,7 +34,6 @@ func NewSQLLoaderForImage(store registry.Load, image, containerTool string) *Ima
 }
 
 func (i *ImageLoader) Populate() error {
-
 	log := logrus.WithField("img", i.image)
 
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
