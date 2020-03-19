@@ -113,6 +113,65 @@ func (s *SQLQuerier) GetPackage(ctx context.Context, name string) (*registry.Pac
 	return pkg, nil
 }
 
+func (s *SQLQuerier) GetDefaultPackage(ctx context.Context, name string) (string, error) {
+	query := `SELECT default_channel
+              FROM package WHERE package.name=?`
+	rows, err := s.db.QueryContext(ctx, query, name)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var defaultChannel sql.NullString
+	if !rows.Next() {
+		return "", fmt.Errorf("package %s not found", name)
+	}
+	if err := rows.Scan(&defaultChannel); err != nil {
+		return "", err
+	}
+
+	if !defaultChannel.Valid {
+		return "", fmt.Errorf("default channel not valid")
+	}
+
+	return defaultChannel.String, nil
+}
+
+func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntry, error) {
+	query := `SELECT channel_entry.channel_name, channel_entry.package_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
+			  FROM channel_entry
+			  LEFT JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
+              WHERE channel_entry.package_name = ?;`
+
+	var entries []registry.ChannelEntry
+	rows, err := s.db.QueryContext(ctx, query, packageName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var pkgName sql.NullString
+	var channelName sql.NullString
+	var bundleName sql.NullString
+	var replaces sql.NullString
+
+	for rows.Next() {
+		if err := rows.Scan(&pkgName, &channelName, &bundleName, &replaces); err != nil {
+			return nil, err
+		}
+
+		channelEntry := registry.ChannelEntry{
+			PackageName: pkgName.String,
+			ChannelName: channelName.String,
+			BundleName:  bundleName.String,
+			Replaces:    replaces.String,
+		}
+		entries = append(entries, channelEntry)
+	}
+
+	return entries, nil
+}
+
 func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange
 			  FROM operatorbundle INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
