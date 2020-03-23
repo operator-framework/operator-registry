@@ -75,28 +75,28 @@ func (m *MultiImageLoader) Populate() error {
 	log.Infof("unpacking bundles %s", m.images.String())
 	errs := make([]error, 0)
 
-	annotations, err := m.loadAnnotations()
-	if err != nil {
-		errs = append(errs, err)
-	}
+	// annotations, err := m.loadAnnotations()
+	// if err != nil {
+	// 	errs = append(errs, err)
+	// }
 
 	// then get bundle data out by using the annotations
-	bundles, err := m.loadBundles()
-	if err != nil {
-		errs = append(errs, err)
-	}
+	// bundles, err := m.loadBundles()
+	// if err != nil {
+	// 	errs = append(errs, err)
+	// }
 
 	// get csvs from the bundles
-	csvs, err := m.loadCSV(bundles)
-	if err != nil {
-		errs = append(errs, err)
-	}
+	// csvs, err := m.loadCSV(bundles)
+	// if err != nil {
+	// 	errs = append(errs, err)
+	// }
 
 	// get packagemanifests
-	packageManifests, err := m.loadPackageManifests(annotations, csvs)
-	if err != nil {
-		errs = append(errs, err)
-	}
+	// packageManifests, err := m.loadPackageManifests(annotations, csvs)
+	// if err != nil {
+	// 	errs = append(errs, err)
+	// }
 
 	// start analyzing data to build graph
 	// if bundle images are unrelated - insert into DB

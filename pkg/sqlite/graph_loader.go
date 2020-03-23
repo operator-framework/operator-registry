@@ -17,6 +17,18 @@ type SQLGraphLoader struct {
 	PackageName string
 }
 
+// TODO
+type ChannelEntryNode struct {
+	PackageName        string
+	ChannelName        string
+	BundleName         string
+	BundlePath         string
+	Version            string
+	Replaces           string
+	ReplacesVersion    string
+	ReplacesBundlePath string
+}
+
 func NewSQLGraphLoader(dbFilename, name string) (*SQLGraphLoader, error) {
 	querier, err := NewSQLLiteQuerier(dbFilename)
 	if err != nil {
@@ -55,61 +67,93 @@ func (g *SQLGraphLoader) Generate() (*registry.Package, error) {
 
 // TODO get bundle path and version
 
-
 // GraphFromEntries builds the graph from a set of channel entries
-func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntry) ([]registry.Channel, error) {
+func (g *SQLGraphLoader) GraphFromEntries(channelEntries []ChannelEntryNode) ([]registry.Channel, error) {
 	var channels []registry.Channel
-	var channelToBundle = make(map[string][]registry.OperatorBundle)
+	var channelToBundles = make(map[string][]registry.OperatorBundle)
 
 	for _, entry := range channelEntries {
-		replace := registry.Replace{
-			Version: "",
-			Name:    entry.BundleName,
+		replaces := registry.BundleRef{
+			BundlePath: entry.BundlePath,
+			Version:    entry.ReplacesVersion,
+			CsvName:    entry.Replaces,
 		}
 		newBundle := registry.OperatorBundle{
-			Version:    "",
-			Name:       entry.BundleName,
-			BundlePath: "",
-			Replaces: []registry.Replace{replace},
+			Version:         entry.Version,
+			CsvName:         entry.BundleName,
+			BundlePath:      entry.BundlePath,
+			ReplacesBundles: []registry.OperatorBundle{},
+			Replaces:        []registry.BundleRef{replaces},
 		}
 
-		if bundles, ok := channelToBundle[entry.ChannelName]; !ok {
-			channelToBundle[entry.ChannelName] = []registry.OperatorBundle{newBundle}
+		if bundles, ok := channelToBundles[entry.ChannelName]; !ok {
+			channelToBundles[entry.ChannelName] = []registry.OperatorBundle{newBundle}
 		} else {
 			// if newBundle is in the channel then append replaces to that newBundle
 			// else insert newBundle
 			bundle := getBundle(bundles, entry.BundleName)
 			if bundle != nil {
-				bundle.Replaces = append(bundle.Replaces, replace)
+				bundle.Replaces = append(bundle.Replaces, replaces)
 			} else {
 				bundles = append(bundles, newBundle)
 			}
 		}
 	}
 
-	// TODO
-	// 1
-	// create channel struct and package struct that we are returning
-	// create slice of channels one for each channel to bundle in the map
-	// value in each channel is the value of the map
+	// bundleref to operatorbundle
+	for _, bundles := range channelToBundles {
+		for _, bundle := range bundles {
+			for _, ref := range bundle.Replaces {
+				replacesBundle := getBundle(bundles, ref.CsvName)
+				if replacesBundle != nil {
+					bundle.ReplacesBundles = append(bundle.ReplacesBundles, *replacesBundle)
+				}
+			}
+		}
+	}
 
-	// 2
-	// write DB query to version number and bundle path for the bundles
-	// use query to fill-in version value for the replaces we are creating
+	for chName, bundles := range channelToBundles {
+		head := getHeadBundleRefForChannel(bundles)
 
-	// 3
-	// fill in value of HEAD in the channel struct via query
-	// write query to find head of channel 
+		channel := registry.Channel{
+			Name:            chName,
+			OperatorBundles: bundles,
+			Head:            *head,
+		}
 
+		channels = append(channels, channel)
+	}
 
 	return channels, nil
 }
 
 func getBundle(bundles []registry.OperatorBundle, name string) *registry.OperatorBundle {
 	for _, b := range bundles {
-		if b.Name == name {
+		if b.CsvName == name {
 			return &b
 		}
 	}
 	return nil
+}
+
+func getHeadBundleRefForChannel(bundles []registry.OperatorBundle) *registry.BundleRef {
+	b, bundles := bundles[0], bundles[1:]
+	candidate := registry.BundleRef{
+		CsvName:    b.CsvName,
+		BundlePath: b.BundlePath,
+		Version:    b.Version,
+	}
+	for _, b := range bundles {
+		for _, ref := range b.Replaces {
+			if ref.CsvName == candidate.CsvName {
+				candidate = registry.BundleRef{
+					CsvName:    b.CsvName,
+					BundlePath: b.BundlePath,
+					Version:    b.Version,
+				}
+			}
+		}
+	}
+
+	return &candidate
 }

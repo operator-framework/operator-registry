@@ -137,13 +137,13 @@ func (s *SQLQuerier) GetDefaultPackage(ctx context.Context, name string) (string
 	return defaultChannel.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntry, error) {
-	query := `SELECT channel_entry.channel_name, channel_entry.package_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
+func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]ChannelEntryNode, error) {
+	query := `SELECT channel_entry.channel_name, channel_entry.package_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name, operatorbundle.version, operatorbundle.bundlepath, rep.version, rep.bundlepath
 			  FROM channel_entry
 			  LEFT JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
               WHERE channel_entry.package_name = ?;`
 
-	var entries []registry.ChannelEntry
+	var entries []ChannelEntryNode
 	rows, err := s.db.QueryContext(ctx, query, packageName)
 	if err != nil {
 		return nil, err
@@ -154,19 +154,27 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 	var channelName sql.NullString
 	var bundleName sql.NullString
 	var replaces sql.NullString
+	var version sql.NullString
+	var bundlePath sql.NullString
+	var replacesVersion sql.NullString
+	var replacesBundlePath sql.NullString
 
 	for rows.Next() {
-		if err := rows.Scan(&pkgName, &channelName, &bundleName, &replaces); err != nil {
+		if err := rows.Scan(&pkgName, &channelName, &bundleName, &replaces, &version, &bundlePath, &replacesVersion, &replacesBundlePath); err != nil {
 			return nil, err
 		}
 
-		channelEntry := registry.ChannelEntry{
-			PackageName: pkgName.String,
-			ChannelName: channelName.String,
-			BundleName:  bundleName.String,
-			Replaces:    replaces.String,
+		channelEntryNode := ChannelEntryNode{
+			PackageName:        pkgName.String,
+			ChannelName:        channelName.String,
+			BundleName:         bundleName.String,
+			BundlePath:         bundlePath.String,
+			Replaces:           replaces.String,
+			ReplacesVersion:    replacesVersion.String,
+			ReplacesBundlePath: replacesBundlePath.String,
 		}
-		entries = append(entries, channelEntry)
+
+		entries = append(entries, channelEntryNode)
 	}
 
 	return entries, nil

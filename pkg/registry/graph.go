@@ -9,20 +9,21 @@ type Package struct {
 }
 
 type Channel struct {
-	Name           string
-	OperatorBundle []OperatorBundle
-	Head           string // csv name of head of channel
+	Name            string
+	OperatorBundles []OperatorBundle
+	Head            BundleRef
 }
 
 type OperatorBundle struct {
-	Version    string // semver string
-	Name       string // csv name of bundle
-	BundlePath string
-	Replaces   []Replace
-	//Replacements not implemented
+	BundlePath      string
+	Version         string // semver string
+	CsvName         string
+	ReplacesBundles []OperatorBundle
+	Replaces        []BundleRef
 }
 
-type Replace struct {
-	Version string //semver string
-	Name    string //csv name
+type BundleRef struct {
+	BundlePath string
+	Version    string //semver string
+	CsvName    string //csv name
 }
