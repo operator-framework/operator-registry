@@ -113,6 +113,76 @@ func (s *SQLQuerier) GetPackage(ctx context.Context, name string) (*registry.Pac
 	return pkg, nil
 }
 
+func (s *SQLQuerier) GetDefaultPackage(ctx context.Context, name string) (string, error) {
+	query := `SELECT default_channel
+              FROM package WHERE package.name=?`
+	rows, err := s.db.QueryContext(ctx, query, name)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var defaultChannel sql.NullString
+	if !rows.Next() {
+		return "", fmt.Errorf("package %s not found", name)
+	}
+	if err := rows.Scan(&defaultChannel); err != nil {
+		return "", err
+	}
+
+	if !defaultChannel.Valid {
+		return "", fmt.Errorf("default channel not valid")
+	}
+
+	return defaultChannel.String, nil
+}
+
+func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntryAnnotated, error) {
+	query := `SELECT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, op_bundle.version, op_bundle.bundlepath, replaces.operatorbundle_name, replacesbundle.version, replacesbundle.bundlepath
+			  FROM channel_entry
+			  LEFT JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
+			  LEFT JOIN operatorbundle op_bundle ON channel_entry.operatorbundle_name = op_bundle.name
+			  LEFT JOIN operatorbundle replacesbundle ON replaces.operatorbundle_name = replacesbundle.name
+              WHERE channel_entry.package_name = ?;`
+
+	var entries []registry.ChannelEntryAnnotated
+	rows, err := s.db.QueryContext(ctx, query, packageName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var pkgName sql.NullString
+	var channelName sql.NullString
+	var bundleName sql.NullString
+	var replaces sql.NullString
+	var version sql.NullString
+	var bundlePath sql.NullString
+	var replacesVersion sql.NullString
+	var replacesBundlePath sql.NullString
+
+	for rows.Next() {
+		if err := rows.Scan(&pkgName, &channelName, &bundleName, &version, &bundlePath, &replaces, &replacesVersion, &replacesBundlePath); err != nil {
+			return nil, err
+		}
+
+		channelEntryNode := registry.ChannelEntryAnnotated{
+			PackageName:        pkgName.String,
+			ChannelName:        channelName.String,
+			BundleName:         bundleName.String,
+			Version:            version.String,
+			BundlePath:         bundlePath.String,
+			Replaces:           replaces.String,
+			ReplacesVersion:    replacesVersion.String,
+			ReplacesBundlePath: replacesBundlePath.String,
+		}
+
+		entries = append(entries, channelEntryNode)
+	}
+
+	return entries, nil
+}
+
 func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange
 			  FROM operatorbundle INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
