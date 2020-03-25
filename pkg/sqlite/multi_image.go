@@ -25,7 +25,9 @@ type MultiImageLoader struct {
 	images        bundleImages
 	directories   map[string]string // maps images to directories on the filesystem - for unpacking
 	bundles       map[string]string // maps bundle.Name to images- for setting bundle.BundleImage
+	bundleToCSV   map[*registry.Bundle]*registry.ClusterServiceVersion
 	containerTool string
+	graph         map[string]registry.Channel
 }
 
 type bundleImages []string
@@ -75,7 +77,7 @@ func (m *MultiImageLoader) Populate() error {
 	log.Infof("unpacking bundles %s", m.images.String())
 	errs := make([]error, 0)
 
-	annotations, err := m.loadAnnotations()
+	_, err := m.loadAnnotations()
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -87,21 +89,51 @@ func (m *MultiImageLoader) Populate() error {
 	}
 
 	// get csvs from the bundles
-	csvs, err := m.loadCSV(bundles)
+	_, err = m.loadCSV(bundles)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	// get packagemanifests
-	packageManifests, err := m.loadPackageManifests(annotations, csvs)
-	if err != nil {
-		errs = append(errs, err)
+	bundleCh := make(chan *registry.Bundle, len(bundles))
+	for _, bundle := range bundles {
+		bundleCh <- bundle
 	}
+	errCh := make(chan error)
 
-	// start analyzing data to build graph
-	// if bundle images are unrelated - insert into DB
-	// if bundle images are semver - insert into DB
-	// TODO
+	select {
+	case <-errCh:
+		errs = append(errs, err)
+		break
+	case bundle := <-bundleCh:
+		bundlePath := bundle.BundleImage
+		csv, err := bundle.ClusterServiceVersion()
+		if err != nil {
+			errCh <- err
+		}
+
+		replacesCSV, err := csv.GetReplaces()
+		if err != nil {
+			errCh <- err
+		}
+
+		// checks if replaces CSV is already in the index
+		// or if the replaces CSV is provided via the add invocation
+		isCSVThere := m.checkCSV(replacesCSV)
+		if err != nil {
+			errCh <- err
+		}
+
+		if !isCSVThere {
+			return fmt.Errorf("checking replacement CSV: CSV not present")
+		}
+
+		// insert bundle
+		err = m.insert(bundlePath)
+		if err != nil {
+			errCh <- err
+		}
+		// bundle removed from channel
+	}
 
 	// cleanup bundles afterwards
 	for _, image := range m.images {
@@ -256,6 +288,7 @@ func (m *MultiImageLoader) loadCSV(bundles []*registry.Bundle) ([]*registry.Clus
 			return nil, fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
 		}
 
+		m.bundleToCSV[bundle] = bcsv
 		csvs = append(csvs, bcsv)
 	}
 
@@ -287,4 +320,19 @@ func (m *MultiImageLoader) loadPackageManifests(annotations []*registry.Annotati
 	}
 
 	return manifests, nil
+}
+
+func (m *MultiImageLoader) generateChannels() ([]*registry.Channel, error) {
+	// TODO
+	return nil, nil
+}
+
+func (m *MultiImageLoader) checkCSV(csvName string) bool {
+	return true
+}
+
+func (m *MultiImageLoader) insert(bundlePath string) error {
+	//type bundlePath string
+	//var lookup map[bundlePath][]bundlePath
+	return nil
 }
