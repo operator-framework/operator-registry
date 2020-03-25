@@ -11,7 +11,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/unprivileged"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -44,8 +44,8 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
-	reg, err := unprivileged.NewRegistry(
-		unprivileged.SkipTLS(request.SkipTLS),
+	reg, err := containerdregistry.NewRegistry(
+		containerdregistry.SkipTLS(request.SkipTLS),
 	)
 	if err != nil {
 		return err

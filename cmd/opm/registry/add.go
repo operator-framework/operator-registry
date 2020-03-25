@@ -38,14 +38,6 @@ func newRegistryAddCmd() *cobra.Command {
 }
 
 func addFunc(cmd *cobra.Command, args []string) error {
-	bundleImages, err := cmd.Flags().GetStringSlice("bundle-images")
-	if err != nil {
-		return err
-	}
-	fromFilename, err := cmd.Flags().GetString("database")
-	if err != nil {
-		return err
-	}
 	permissive, err := cmd.Flags().GetBool("permissive")
 	if err != nil {
 		return err
@@ -54,12 +46,20 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	fromFilename, err := cmd.Flags().GetString("database")
+	if err != nil {
+		return err
+	}
+	bundleImages, err := cmd.Flags().GetStringSlice("bundle-images")
+	if err != nil {
+		return err
+	}
 
 	request := registry.AddToRegistryRequest{
-		Bundles:       bundleImages,
-		InputDatabase: fromFilename,
 		Permissive:    permissive,
 		SkipTLS:       skipTLS,
+		InputDatabase: fromFilename,
+		Bundles:       bundleImages,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
