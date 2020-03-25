@@ -3,8 +3,6 @@ package registry
 import (
 	"fmt"
 	"strings"
-
-	"github.com/blang/semver"
 )
 
 // APIKey stores GroupVersionKind for use as map keys
@@ -84,9 +82,9 @@ type ChannelEntryNode struct {
 	ChannelName        string
 	BundleName         string
 	BundlePath         string
-	Version            semver.Version
+	Version            string
 	Replaces           string
-	ReplacesVersion    semver.Version
+	ReplacesVersion    string
 	ReplacesBundlePath string
 }
 

@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -63,97 +64,71 @@ func (g *SQLGraphLoader) Generate() (*registry.Package, error) {
 }
 
 // GraphFromEntries builds the graph from a set of channel entries
-func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntryNode) ([]registry.Channel, error) {
-	var channels []registry.Channel
-	var channelToBundles = make(map[string][]registry.OperatorBundle)
+func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntryNode) (map[string]registry.Channel, error) {
+	channels := map[string]registry.Channel{}
 
+	type replaces map[registry.BundleKey]map[registry.BundleKey]struct{}
+
+	channelGraph := map[string]replaces{}
+	channelHeadCandidates := map[string]map[registry.BundleKey]struct{}{}
+
+	// add all channels and nodes to the graph
 	for _, entry := range channelEntries {
-		newBundle := registry.OperatorBundle{
-			Version:         entry.Version,
-			CsvName:         entry.BundleName,
-			BundlePath:      entry.BundlePath,
-			ReplacesBundles: []registry.OperatorBundle{},
-			Replaces:        []registry.BundleRef{},
+		// create channel if we haven't seen it yet
+		if _, ok := channelGraph[entry.ChannelName]; !ok {
+			channelGraph[entry.ChannelName] = replaces{}
 		}
 
-		replaces := registry.BundleRef{
+		key := registry.BundleKey{
+			BundlePath: entry.BundlePath,
+			Version:    entry.Version,
+			CsvName:    entry.BundleName,
+		}
+		channelGraph[entry.ChannelName][key] = map[registry.BundleKey]struct{}{}
+
+		// every bundle in a channel is a potential head of that channel
+		if _, ok := channelHeadCandidates[entry.ChannelName]; !ok {
+			channelHeadCandidates[entry.ChannelName] = map[registry.BundleKey]struct{}{key: {}}
+		} else {
+			channelHeadCandidates[entry.ChannelName][key] = struct{}{}
+		}
+	}
+
+	for _, entry := range channelEntries {
+		key := registry.BundleKey{
+			BundlePath: entry.BundlePath,
+			Version:    entry.Version,
+			CsvName:    entry.BundleName,
+		}
+		replacesKey := registry.BundleKey{
 			BundlePath: entry.BundlePath,
 			Version:    entry.ReplacesVersion,
 			CsvName:    entry.Replaces,
 		}
 
-		if !replaces.IsEmptyRef() {
-			newBundle.Replaces = append(newBundle.Replaces, replaces)
+		if !replacesKey.IsEmpty() {
+			channelGraph[entry.ChannelName][key][replacesKey] = struct{}{}
 		}
 
-		if bundles, ok := channelToBundles[entry.ChannelName]; !ok {
-			channelToBundles[entry.ChannelName] = []registry.OperatorBundle{newBundle}
-		} else {
-			// if newBundle is in the channel then append replaces to that newBundle
-			// else insert newBundle
-			bundle := getBundle(bundles, entry.BundleName)
-			if bundle != nil {
-				bundle.Replaces = append(bundle.Replaces, replaces)
-			} else {
-				channelToBundles[entry.ChannelName] = append(channelToBundles[entry.ChannelName], newBundle)
-			}
-		}
+		delete(channelHeadCandidates[entry.ChannelName], replacesKey)
 	}
 
-	// bundleref to operatorbundle
-	for _, bundles := range channelToBundles {
-		for _, bundle := range bundles {
-			for _, ref := range bundle.Replaces {
-				replacesBundle := getBundle(bundles, ref.CsvName)
-				if replacesBundle != nil {
-					bundle.ReplacesBundles = append(bundle.ReplacesBundles, *replacesBundle)
-				}
+	for channelName, candidates := range channelHeadCandidates {
+		if len(candidates) == 0 {
+			return nil, fmt.Errorf("no channel head found for %s", channelName)
+		}
+		if len(candidates) > 1 {
+			return nil, fmt.Errorf("multiple candidate channel heads found for %s: %v", channelName, candidates)
+		}
+
+		for head := range candidates {
+			channel := registry.Channel{
+				Head:     head,
+				Replaces: channelGraph[channelName],
 			}
+			channels[channelName] = channel
 		}
-	}
-
-	for chName, bundles := range channelToBundles {
-		head := getHeadBundleRefForChannel(bundles)
-
-		channel := registry.Channel{
-			Name:            chName,
-			OperatorBundles: bundles,
-			Head:            *head,
-		}
-
-		channels = append(channels, channel)
 	}
 
 	return channels, nil
-}
-
-func getBundle(bundles []registry.OperatorBundle, name string) *registry.OperatorBundle {
-	for _, b := range bundles {
-		if b.CsvName == name {
-			return &b
-		}
-	}
-	return nil
-}
-
-func getHeadBundleRefForChannel(bundles []registry.OperatorBundle) *registry.BundleRef {
-	b, bundles := bundles[0], bundles[1:]
-	candidate := registry.BundleRef{
-		CsvName:    b.CsvName,
-		BundlePath: b.BundlePath,
-		Version:    b.Version,
-	}
-	for _, b := range bundles {
-		for _, ref := range b.Replaces {
-			if ref.CsvName == candidate.CsvName {
-				candidate = registry.BundleRef{
-					CsvName:    b.CsvName,
-					BundlePath: b.BundlePath,
-					Version:    b.Version,
-				}
-			}
-		}
-	}
-
-	return &candidate
 }

@@ -4,14 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"math/rand"
 	"os"
 	"testing"
 
-	"github.com/blang/semver"
 	"github.com/stretchr/testify/require"
-
-	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func createLoadedTestDb(t *testing.T) (*sql.DB, func()) {
@@ -43,119 +41,46 @@ func createLoadedTestDb(t *testing.T) (*sql.DB, func()) {
 }
 
 func TestLoadPackageGraph_Etcd(t *testing.T) {
-	version092, _ := semver.Make("0.9.2")
-	version090, _ := semver.Make("0.9.0")
-	version061, _ := semver.Make("0.6.1")
-
-	expectedChannels := map[string]registry.Channel{
-		"alpha": registry.Channel{
-			Name: "alpha",
-			OperatorBundles: []registry.OperatorBundle{
-				registry.OperatorBundle{
-					Version: version092,
-					CsvName: "etcdoperator.v0.9.2",
-					Replaces: []registry.BundleRef{
-						registry.BundleRef{
-							Version: version090,
-							CsvName: "etcdoperator.v0.9.0",
-						},
+	expectedGraph := &registry.Package{
+		Name:           "etcd",
+		DefaultChannel: "alpha",
+		Channels: map[string]registry.Channel{
+			"alpha": {
+				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
+				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
+					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					CsvName:         "etcdoperator.v0.9.1",
-					Replaces:        []registry.BundleRef{},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					Version: version090,
-					CsvName: "etcdoperator.v0.9.0",
-					Replaces: []registry.BundleRef{
-						registry.BundleRef{
-							Version: version061,
-							CsvName: "etcdoperator.v0.6.1",
-						},
+					registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
+						registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      struct{}{},
+						registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: struct{}{},
 					},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					Version:         version061,
-					CsvName:         "etcdoperator.v0.6.1",
-					Replaces:        []registry.BundleRef{},
-					ReplacesBundles: []registry.OperatorBundle{},
 				},
 			},
-			Head: registry.BundleRef{
-				Version: version092,
-				CsvName: "etcdoperator.v0.9.2",
-			},
-		},
-		"beta": registry.Channel{
-			Name: "beta",
-			OperatorBundles: []registry.OperatorBundle{
-				registry.OperatorBundle{
-					Version: version090,
-					CsvName: "etcdoperator.v0.9.0",
-					Replaces: []registry.BundleRef{
-						registry.BundleRef{
-							Version: version061,
-							CsvName: "etcdoperator.v0.6.1",
-						},
+			"beta": {
+				Head: registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"},
+				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					Version:         version061,
-					CsvName:         "etcdoperator.v0.6.1",
-					Replaces:        []registry.BundleRef{},
-					ReplacesBundles: []registry.OperatorBundle{},
 				},
 			},
-			Head: registry.BundleRef{
-				Version: version090,
-				CsvName: "etcdoperator.v0.9.0",
-			},
-		},
-		"stable": registry.Channel{
-			Name: "stable",
-			OperatorBundles: []registry.OperatorBundle{
-				registry.OperatorBundle{
-					Version: version092,
-					CsvName: "etcdoperator.v0.9.2",
-					Replaces: []registry.BundleRef{
-						registry.BundleRef{
-							Version: version090,
-							CsvName: "etcdoperator.v0.9.0",
-						},
+			"stable": {
+				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
+				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
+					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					CsvName:         "etcdoperator.v0.9.1",
-					Replaces:        []registry.BundleRef{},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-				registry.OperatorBundle{
-					Version: version090,
-					CsvName: "etcdoperator.v0.9.0",
-					Replaces: []registry.BundleRef{
-						registry.BundleRef{
-							Version: version061,
-							CsvName: "etcdoperator.v0.6.1",
-						},
+					registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
+						registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      struct{}{},
+						registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: struct{}{},
 					},
-					ReplacesBundles: []registry.OperatorBundle{},
 				},
-				registry.OperatorBundle{
-					Version:         version061,
-					CsvName:         "etcdoperator.v0.6.1",
-					Replaces:        []registry.BundleRef{},
-					ReplacesBundles: []registry.OperatorBundle{},
-				},
-			},
-			Head: registry.BundleRef{
-				Version: version092,
-				CsvName: "etcdoperator.v0.9.2",
 			},
 		},
 	}
@@ -172,10 +97,9 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 	require.Equal(t, "etcd", result.Name)
 	require.Equal(t, 3, len(result.Channels))
 
-	for _, channel := range result.Channels {
-		expectedChannel := expectedChannels[channel.Name]
+	for channelName, channel := range result.Channels {
+		expectedChannel := expectedGraph.Channels[channelName]
 		require.Equal(t, expectedChannel.Head, channel.Head)
-		require.Equal(t, len(expectedChannel.OperatorBundles), len(channel.OperatorBundles))
-		require.Equal(t, expectedChannel.OperatorBundles, channel.OperatorBundles)
+		require.EqualValues(t, expectedChannel.Replaces, channel.Replaces)
 	}
 }

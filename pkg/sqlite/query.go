@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/blang/semver"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
@@ -171,16 +170,11 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 			PackageName:        pkgName.String,
 			ChannelName:        channelName.String,
 			BundleName:         bundleName.String,
+			Version:            version.String,
 			BundlePath:         bundlePath.String,
 			Replaces:           replaces.String,
+			ReplacesVersion:    replacesVersion.String,
 			ReplacesBundlePath: replacesBundlePath.String,
-		}
-
-		if version, err := semver.Make(version.String); err == nil {
-			channelEntryNode.Version = version
-		}
-		if replacesVersion, err := semver.Make(replacesVersion.String); err == nil {
-			channelEntryNode.ReplacesVersion = replacesVersion
 		}
 
 		entries = append(entries, channelEntryNode)

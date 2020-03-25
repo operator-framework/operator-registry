@@ -1,39 +1,22 @@
 package registry
 
-import (
-	"github.com/blang/semver"
-)
-
 type Package struct {
 	Name           string
 	DefaultChannel string
-	Channels       []Channel
+	Channels       map[string]Channel
 }
 
 type Channel struct {
-	Name            string
-	OperatorBundles []OperatorBundle
-	Head            BundleRef
+	Head     BundleKey
+	Replaces map[BundleKey]map[BundleKey]struct{}
 }
 
-type OperatorBundle struct {
-	BundlePath      string
-	Version         semver.Version
-	CsvName         string
-	ReplacesBundles []OperatorBundle
-	Replaces        []BundleRef
-}
-
-type BundleRef struct {
+type BundleKey struct {
 	BundlePath string
-	Version    semver.Version
+	Version    string //semver string
 	CsvName    string
 }
 
-func (b *BundleRef) IsEmptyRef() bool {
-	emptyVersion, _ := semver.Make("")
-	if b.BundlePath == "" && b.Version.Equals(emptyVersion) && b.CsvName == "" {
-		return true
-	}
-	return false
+func (b *BundleKey) IsEmpty() bool {
+	return b.BundlePath == "" && b.Version == "" && b.CsvName == ""
 }
