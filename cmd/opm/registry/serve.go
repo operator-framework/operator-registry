@@ -13,6 +13,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
+	"github.com/operator-framework/operator-registry/pkg/lib/dns"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -53,6 +54,12 @@ func serveFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logrus.WithError(err).Warn("unable to set termination log path")
 	}
+
+	// Ensure there is a default nsswitch config
+	if err := dns.EnsureNsswitch(); err != nil {
+		return err
+	}
+
 	dbName, err := cmd.Flags().GetString("database")
 	if err != nil {
 		return err
