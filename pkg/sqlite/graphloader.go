@@ -8,13 +8,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-// GraphLoader generates a graph
-// GraphLoader supports multiple different loading schemes
-// GraphLoader from SQL, GraphLoader from old format (filesystem), GraphLoader from SQL + input bundles
-type GraphLoader interface {
-	Generate() (*registry.Package, error)
-}
-
 type SQLGraphLoader struct {
 	Querier     *SQLQuerier
 	PackageName string
@@ -64,7 +57,7 @@ func (g *SQLGraphLoader) Generate() (*registry.Package, error) {
 }
 
 // GraphFromEntries builds the graph from a set of channel entries
-func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntryNode) (map[string]registry.Channel, error) {
+func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntryAnnotated) (map[string]registry.Channel, error) {
 	channels := map[string]registry.Channel{}
 
 	type replaces map[registry.BundleKey]map[registry.BundleKey]struct{}
@@ -123,8 +116,8 @@ func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntry
 
 		for head := range candidates {
 			channel := registry.Channel{
-				Head:     head,
-				Replaces: channelGraph[channelName],
+				Head:  head,
+				Nodes: channelGraph[channelName],
 			}
 			channels[channelName] = channel
 		}

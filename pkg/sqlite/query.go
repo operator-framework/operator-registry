@@ -137,7 +137,7 @@ func (s *SQLQuerier) GetDefaultPackage(ctx context.Context, name string) (string
 	return defaultChannel.String, nil
 }
 
-func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntryNode, error) {
+func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntryAnnotated, error) {
 	query := `SELECT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, op_bundle.version, op_bundle.bundlepath, replaces.operatorbundle_name, replacesbundle.version, replacesbundle.bundlepath
 			  FROM channel_entry
 			  LEFT JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
@@ -145,7 +145,7 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 			  LEFT JOIN operatorbundle replacesbundle ON replaces.operatorbundle_name = replacesbundle.name
               WHERE channel_entry.package_name = ?;`
 
-	var entries []registry.ChannelEntryNode
+	var entries []registry.ChannelEntryAnnotated
 	rows, err := s.db.QueryContext(ctx, query, packageName)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 			return nil, err
 		}
 
-		channelEntryNode := registry.ChannelEntryNode{
+		channelEntryNode := registry.ChannelEntryAnnotated{
 			PackageName:        pkgName.String,
 			ChannelName:        channelName.String,
 			BundleName:         bundleName.String,

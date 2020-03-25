@@ -76,8 +76,8 @@ type ChannelEntry struct {
 	Replaces    string
 }
 
-// ChannelEntryNode is a denormalized node in a channel graph annotated with additional entry level info
-type ChannelEntryNode struct {
+// ChannelEntryAnnotated is a denormalized node in a channel graph annotated with additional entry level info
+type ChannelEntryAnnotated struct {
 	PackageName        string
 	ChannelName        string
 	BundleName         string

@@ -7,8 +7,8 @@ type Package struct {
 }
 
 type Channel struct {
-	Head     BundleKey
-	Replaces map[BundleKey]map[BundleKey]struct{}
+	Head  BundleKey
+	Nodes map[BundleKey]map[BundleKey]struct{}
 }
 
 type BundleKey struct {

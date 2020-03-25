@@ -28,7 +28,7 @@ func (EmptyQuery) GetDefaultPackage(ctx context.Context, name string) (string, e
 	return "", errors.New("empty querier: cannot get default package")
 }
 
-func (EmptyQuery) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]ChannelEntryNode, error) {
+func (EmptyQuery) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]ChannelEntryAnnotated, error) {
 	return nil, errors.New("empty querier: cannot get all channel entries for package")
 }
 

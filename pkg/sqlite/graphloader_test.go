@@ -47,7 +47,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 		Channels: map[string]registry.Channel{
 			"alpha": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
-				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
 					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
 					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
@@ -61,7 +61,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			},
 			"beta": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"},
-				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
 					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
@@ -70,7 +70,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			},
 			"stable": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
-				Replaces: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
 					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
 					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
@@ -100,6 +100,6 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 	for channelName, channel := range result.Channels {
 		expectedChannel := expectedGraph.Channels[channelName]
 		require.Equal(t, expectedChannel.Head, channel.Head)
-		require.EqualValues(t, expectedChannel.Replaces, channel.Replaces)
+		require.EqualValues(t, expectedChannel.Nodes, channel.Nodes)
 	}
 }
