@@ -44,7 +44,7 @@ func (g *SQLGraphLoader) Generate() (*registry.Package, error) {
 		return nil, err
 	}
 
-	channels, err := g.GraphFromEntries(channelEntries)
+	channels, err := graphFromEntries(channelEntries)
 	if err != nil {
 		return nil, err
 	}
@@ -56,8 +56,8 @@ func (g *SQLGraphLoader) Generate() (*registry.Package, error) {
 	}, nil
 }
 
-// GraphFromEntries builds the graph from a set of channel entries
-func (g *SQLGraphLoader) GraphFromEntries(channelEntries []registry.ChannelEntryAnnotated) (map[string]registry.Channel, error) {
+// graphFromEntries builds the graph from a set of channel entries
+func graphFromEntries(channelEntries []registry.ChannelEntryAnnotated) (map[string]registry.Channel, error) {
 	channels := map[string]registry.Channel{}
 
 	type replaces map[registry.BundleKey]map[registry.BundleKey]struct{}
