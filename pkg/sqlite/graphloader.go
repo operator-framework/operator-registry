@@ -9,7 +9,7 @@ import (
 )
 
 type SQLGraphLoader struct {
-	Querier     *SQLQuerier
+	Querier     registry.Query
 	PackageName string
 }
 
