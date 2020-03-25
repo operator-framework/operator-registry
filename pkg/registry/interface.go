@@ -18,6 +18,8 @@ type Query interface {
 	ListTables(ctx context.Context) ([]string, error)
 	ListPackages(ctx context.Context) ([]string, error)
 	GetPackage(ctx context.Context, name string) (*PackageManifest, error)
+	GetDefaultPackage(ctx context.Context, name string) (string, error)
+	GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]ChannelEntryNode, error)
 	GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error)
 	GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error)
 	// Get all channel entries that say they replace this one

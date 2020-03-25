@@ -3,6 +3,8 @@ package registry
 import (
 	"fmt"
 	"strings"
+
+	"github.com/blang/semver"
 )
 
 // APIKey stores GroupVersionKind for use as map keys
@@ -74,6 +76,18 @@ type ChannelEntry struct {
 	ChannelName string
 	BundleName  string
 	Replaces    string
+}
+
+// ChannelEntryNode is a denormalized node in a channel graph annotated with additional entry level info
+type ChannelEntryNode struct {
+	PackageName        string
+	ChannelName        string
+	BundleName         string
+	BundlePath         string
+	Version            semver.Version
+	Replaces           string
+	ReplacesVersion    semver.Version
+	ReplacesBundlePath string
 }
 
 // AnnotationsFile holds annotation information about a bundle
