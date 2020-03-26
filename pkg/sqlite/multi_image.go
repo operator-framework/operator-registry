@@ -32,6 +32,12 @@ type MultiImageLoader struct {
 
 type bundleImages []string
 
+// fatalError stops the loading of bundles into the index: it is terminal
+type fatalError error
+// nonFatalError are errors that are not critical to the loading of additional bundles: subsequent bundles still loaded
+// after loading a bundle encounters a nonFatalError
+type nonFatalError error
+
 func (b bundleImages) String() string {
 	var output string
 	for _, bundle := range b {
@@ -79,19 +85,13 @@ func (m *MultiImageLoader) Populate() error {
 
 	_, err := m.loadAnnotations()
 	if err != nil {
-		errs = append(errs, err)
+		return err
 	}
 
 	// then get bundle data out by using the annotations
 	bundles, err := m.loadBundles()
 	if err != nil {
-		errs = append(errs, err)
-	}
-
-	// get csvs from the bundles
-	_, err = m.loadCSV(bundles)
-	if err != nil {
-		errs = append(errs, err)
+		return err
 	}
 
 	bundleCh := make(chan *registry.Bundle, len(bundles))
@@ -101,11 +101,16 @@ func (m *MultiImageLoader) Populate() error {
 	errCh := make(chan error)
 
 	select {
-	case <-errCh:
-		errs = append(errs, err)
-		break
+	case err := <-errCh:
+		if e, ok := err.(fatalError); ok {
+			log.Fatalf("unpacking bundle encountered  %s", e)
+			return e
+		}
+		if e, ok := err.(nonFatalError); ok {
+			errs = append(errs, e)
+			break
+		}
 	case bundle := <-bundleCh:
-		bundlePath := bundle.BundleImage
 		csv, err := bundle.ClusterServiceVersion()
 		if err != nil {
 			errCh <- err
@@ -116,18 +121,20 @@ func (m *MultiImageLoader) Populate() error {
 			errCh <- err
 		}
 
+
 		// checks if replaces CSV is already in the index
 		// or if the replaces CSV is provided via the add invocation
-		isCSVThere := m.checkCSV(replacesCSV)
+		isCSVThere, err := m.checkCSV(bundle.Package)
 		if err != nil {
 			errCh <- err
 		}
 
 		if !isCSVThere {
-			return fmt.Errorf("checking replacement CSV: CSV not present")
+			errCh <- fatalError(fmt.Errorf("checking replacement CSV %s: CSV not present", replacesCSV))
 		}
 
 		// insert bundle
+		bundlePath := bundle.BundleImage
 		err = m.insert(bundlePath)
 		if err != nil {
 			errCh <- err
@@ -295,40 +302,37 @@ func (m *MultiImageLoader) loadCSV(bundles []*registry.Bundle) ([]*registry.Clus
 	return csvs, nil
 }
 
-// loadPackageManifests takes in annotations and csvs and returns package manifest files
-func (m *MultiImageLoader) loadPackageManifests(annotations []*registry.AnnotationsFile, csvs []*registry.ClusterServiceVersion) ([]*registry.PackageManifest, error) {
-	manifests := []*registry.PackageManifest{}
-
-	// TODO this is probably not correct
-	for _, annotation := range annotations {
-		for _, csv := range csvs {
-			channels := []registry.PackageChannel{}
-			for _, ch := range annotation.GetChannels() {
-				channels = append(channels,
-					registry.PackageChannel{
-						Name:           ch,
-						CurrentCSVName: csv.GetName(),
-					})
-			}
-			manifest := registry.PackageManifest{
-				PackageName:        annotation.GetName(),
-				DefaultChannelName: annotation.GetDefaultChannelName(),
-				Channels:           channels,
-			}
-			manifests = append(manifests, &manifest)
-		}
-	}
-
-	return manifests, nil
-}
-
 func (m *MultiImageLoader) generateChannels() ([]*registry.Channel, error) {
 	// TODO
 	return nil, nil
 }
 
-func (m *MultiImageLoader) checkCSV(csvName string) bool {
-	return true
+// checkCSV first checks the DB to see if the csv is already present - if so return true
+// if not, it checks the list of arguments (the list of bundlePaths) to see it the csv is potentially there instead
+// if so return true with an error
+// if the csv provided is not in the DB or provided as an argument false with no error is returned - csv is not found.
+func (m *MultiImageLoader) checkCSV(csvName string) (bool, error) {
+	// first check if CSV is present in the DB
+	exists, err := m.store.CheckCSV(csvName)
+	if err != nil {
+		log.Errorf("checking for csv in db: %s", err)
+		return false, err
+	}
+
+	if exists {
+		return true, nil
+	}
+
+	// then check provided args to see if CSV could potentially be provided later on in the arg list
+	// if so, process that csv first before checking this csv again
+
+	for _, csv := range m.bundleToCSV {
+		if csv.Name == csvName {
+			return true, fmt.Errorf("replaces csv provided later in bundle image argument list")
+		}
+	}
+
+	return false, nil
 }
 
 func (m *MultiImageLoader) insert(bundlePath string) error {

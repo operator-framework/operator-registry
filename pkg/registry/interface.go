@@ -12,6 +12,7 @@ type Load interface {
 	AddPackageChannels(manifest PackageManifest) error
 	RmPackageName(packageName string) error
 	ClearNonDefaultBundles(packageName string) error
+	CheckCSV(csvName string) (bool, error)
 }
 
 type Query interface {

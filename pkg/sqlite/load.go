@@ -414,6 +414,22 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 	return
 }
 
+func (s *SQLLoader) CheckCSV(csvName string) (bool, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	_, err = s.getCSV(tx, csvName)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterServiceVersion, error) {
 	getCSV, err := tx.Prepare(`
 	  SELECT DISTINCT operatorbundle.csv 
