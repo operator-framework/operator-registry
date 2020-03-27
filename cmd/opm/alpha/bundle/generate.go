@@ -24,24 +24,25 @@ func newBundleGenerateCmd() *cobra.Command {
 		RunE: generateFunc,
 	}
 
-	bundleGenerateCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "", "The directory where bundle manifests for a specific version are located.")
+	bundleGenerateCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "",
+		"The directory where bundle manifests for a specific version are located.")
 	if err := bundleGenerateCmd.MarkFlagRequired("directory"); err != nil {
 		log.Fatalf("Failed to mark `directory` flag for `generate` subcommand as required")
 	}
 
-	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "", "The name of the package that bundle image belongs to")
-	if err := bundleGenerateCmd.MarkFlagRequired("package"); err != nil {
-		log.Fatalf("Failed to mark `package` flag for `generate` subcommand as required")
-	}
+	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
+		"The name of the package that bundle image belongs to")
 
-	bundleGenerateCmd.Flags().StringVarP(&channelsArgs, "channels", "c", "", "The list of channels that bundle image belongs to")
-	if err := bundleGenerateCmd.MarkFlagRequired("channels"); err != nil {
-		log.Fatalf("Failed to mark `channels` flag for `generate` subcommand as required")
-	}
+	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
+		"The name of the package that bundle image belongs to "+
+			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleGenerateCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "", "The default channel for the bundle image")
+	bundleGenerateCmd.Flags().StringVarP(&channelsArgs, "channels", "c", "",
+		"The list of channels that bundle image belongs to"+
+			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleGenerateCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "", "Optional output directory for operator manifests")
+	bundleGenerateCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "",
+		"Optional output directory for operator manifests")
 
 	return bundleGenerateCmd
 }
