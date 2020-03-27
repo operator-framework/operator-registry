@@ -12,6 +12,7 @@ jobs:
       chmod +x minikube
       sudo mv minikube /bin/
       minikube config set vm-driver none
+      minikube config set kubernetes-version $(go list -f '{{.Version}}' -m k8s.io/api | sed 's/^v0\./v1./')
   - os: osx
     install: |
       brew install make
