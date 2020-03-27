@@ -12,6 +12,7 @@ jobs:
       chmod +x minikube
       sudo mv minikube /bin/
       minikube config set vm-driver none
+      minikube config set kubernetes-version v1.17.3
   - os: osx
     install: |
       brew install make
