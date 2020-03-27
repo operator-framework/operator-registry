@@ -201,7 +201,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 				break
 			}
 
-			if err := s.addAPIs(tx, channelEntryCSV, currentID); err != nil {
+			if err := s.addAPIs(tx, manifest.PackageName, c.Name, channelEntryCSV.GetName(), currentID); err != nil {
 				errs = append(errs, err)
 			}
 
@@ -242,7 +242,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 					continue
 				}
 
-				if err := s.addAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
+				if err := s.addAPIs(tx, manifest.PackageName, c.Name, channelEntryCSV.GetName(), synthesizedID); err != nil {
 					errs = append(errs, err)
 					continue
 				}
@@ -416,7 +416,7 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 
 func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterServiceVersion, error) {
 	getCSV, err := tx.Prepare(`
-	  SELECT DISTINCT operatorbundle.csv 
+	  SELECT DISTINCT operatorbundle.csv
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	if err != nil {
@@ -454,7 +454,52 @@ func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterService
 	return csv, nil
 }
 
-func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, channelEntryId int64) error {
+func (s *SQLLoader) getBundle(tx *sql.Tx, pkgName, channelName, csvName string) (*registry.Bundle, error) {
+	getBundle, err := tx.Prepare(`
+		SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange
+		FROM operatorbundle INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
+		WHERE channel_entry.package_name=? AND channel_entry.channel_name=? AND operatorbundle_name=? LIMIT 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer getBundle.Close()
+
+	rows, err := getBundle.Query(pkgName, channelName, csvName)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("no entry found for %s %s %s", pkgName, channelName, csvName)
+	}
+
+	var entryId sql.NullInt64
+	var name sql.NullString
+	var bundle sql.NullString
+	var bundlePath sql.NullString
+	var version sql.NullString
+	var skipRange sql.NullString
+	if err := rows.Scan(&entryId, &name, &bundle, &bundlePath, &version, &skipRange); err != nil {
+		return nil, err
+	}
+
+	out := &registry.Bundle{}
+	bundleObjects := []string{}
+	if bundle.Valid && bundle.String != "" {
+		bundleObjects, err = registry.BundleStringToObjectStrings(bundle.String)
+		if err != nil {
+			return nil, err
+		}
+
+		out, err = registry.NewBundleFromStrings(csvName, pkgName, channelName, bundleObjects)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
+}
+
+func (s *SQLLoader) addAPIs(tx *sql.Tx, pkgName, channelName, csvName string, channelEntryId int64) error {
 	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -473,55 +518,37 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion, cha
 	}
 	defer addApiRequirer.Close()
 
-	ownedCRDs, requiredCRDs, err := csv.GetCustomResourceDefintions()
+	bundle, err := s.getBundle(tx, pkgName, channelName, csvName)
 	if err != nil {
 		return err
 	}
-	for _, crd := range ownedCRDs {
-		plural, group, err := SplitCRDName(crd.Name)
-		if err != nil {
-			return err
-		}
-		if _, err := addAPI.Exec(group, crd.Version, crd.Kind, plural); err != nil {
-			return err
-		}
-		if _, err := addAPIProvider.Exec(group, crd.Version, crd.Kind, channelEntryId); err != nil {
-			return err
-		}
+
+	ownedAPIs, err := bundle.ProvidedAPIs()
+	if err != nil {
+		return err
 	}
-	for _, crd := range requiredCRDs {
-		plural, group, err := SplitCRDName(crd.Name)
-		if err != nil {
+	for k, _ := range ownedAPIs {
+		if _, err := addAPI.Exec(k.Group, k.Version, k.Kind, k.Plural); err != nil {
 			return err
 		}
-		if _, err := addAPI.Exec(group, crd.Version, crd.Kind, plural); err != nil {
-			return err
-		}
-		if _, err := addApiRequirer.Exec(group, crd.Version, crd.Kind, channelEntryId); err != nil {
+		if _, err := addAPIProvider.Exec(k.Group, k.Version, k.Kind, channelEntryId); err != nil {
 			return err
 		}
 	}
 
-	ownedAPIs, requiredAPIs, err := csv.GetApiServiceDefinitions()
+	requiredAPIs, err := bundle.RequiredAPIs()
 	if err != nil {
 		return err
 	}
-	for _, api := range ownedAPIs {
-		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Name); err != nil {
+	for k, _ := range requiredAPIs {
+		if _, err := addAPI.Exec(k.Group, k.Version, k.Kind, k.Plural); err != nil {
 			return err
 		}
-		if _, err := addAPIProvider.Exec(api.Group, api.Version, api.Kind, channelEntryId); err != nil {
-			return err
-		}
-	}
-	for _, api := range requiredAPIs {
-		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Name); err != nil {
-			return err
-		}
-		if _, err := addApiRequirer.Exec(api.Group, api.Version, api.Kind, channelEntryId); err != nil {
+		if _, err := addApiRequirer.Exec(k.Group, k.Version, k.Kind, channelEntryId); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error) {
@@ -945,7 +972,7 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 		}
 
 		// add APIs
-		if err := s.addAPIs(tx, channelEntryCSV, currentID); err != nil {
+		if err := s.addAPIs(tx, manifest.PackageName, c.Name, channelEntryCSV.GetName(), currentID); err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -991,7 +1018,7 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 				continue
 			}
 
-			if err := s.addAPIs(tx, channelEntryCSV, synthesizedID); err != nil {
+			if err := s.addAPIs(tx, manifest.PackageName, c.Name, channelEntryCSV.GetName(), synthesizedID); err != nil {
 				errs = append(errs, err)
 				continue
 			}
