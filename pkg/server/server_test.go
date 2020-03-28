@@ -159,8 +159,7 @@ func TestGetBundle(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 	}
-
-	require.Equal(t, expected, bundle)
+	compareBundle(t, expected, bundle)
 }
 
 func TestGetBundleForChannel(t *testing.T) {
@@ -192,7 +191,7 @@ func TestGetBundleForChannel(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 	}
-	require.Equal(t, expected, bundle)
+	compareBundle(t, expected, bundle)
 }
 
 func TestGetChannelEntriesThatReplace(t *testing.T) {
@@ -275,7 +274,7 @@ func TestGetBundleThatReplaces(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 	}
-	require.Equal(t, expected, bundle)
+	compareBundle(t, expected, bundle)
 }
 
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
@@ -308,7 +307,7 @@ func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 	}
-	require.Equal(t, expected, bundle)
+	compareBundle(t, expected, bundle)
 }
 
 func TestGetChannelEntriesThatProvide(t *testing.T) {
@@ -484,5 +483,5 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 	}
-	require.Equal(t, expected, bundle)
+	compareBundle(t, expected, bundle)
 }

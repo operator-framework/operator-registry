@@ -143,11 +143,11 @@ func TestQuerierForDirectory(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	require.Equal(t, expectedBundle, etcdBundleByChannel)
+	compareBundle(t, expectedBundle, etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundle)
+	compareBundle(t, expectedBundle, etcdBundle)
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
-	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
+	compareBundle(t, expectedBundle, etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
@@ -178,7 +178,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundleByProvides)
+	compareBundle(t, expectedBundle, etcdBundleByProvides)
 
 	kafkaPackage, err := store.GetPackage(context.TODO(), "strimzi-kafka-operator")
 	require.NoError(t, err)
