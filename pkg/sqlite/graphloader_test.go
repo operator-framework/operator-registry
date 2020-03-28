@@ -3,41 +3,22 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func createLoadedTestDb(t *testing.T) (*sql.DB, func()) {
-	dbName := fmt.Sprintf("test-%d.db", rand.Int())
-
-	db, err := sql.Open("sqlite3", dbName)
+	db, cleanup := CreateTestDb(t)
+	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
+	require.NoError(t, store.Migrate(context.TODO()))
 
-	dbLoader, err := NewSQLLiteLoader(db)
-	require.NoError(t, err)
+	loader := NewSQLLoaderForDirectory(store, "./testdata/loader_data")
+	require.NoError(t, loader.Populate())
 
-	err = dbLoader.Migrate(context.TODO())
-	require.NoError(t, err)
-
-	loader := NewSQLLoaderForDirectory(dbLoader, "./testdata/loader_data")
-	err = loader.Populate()
-	require.NoError(t, err)
-
-	return db, func() {
-		defer func() {
-			if err := os.Remove(dbName); err != nil {
-				t.Fatal(err)
-			}
-		}()
-		if err := db.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
+	return db, cleanup
 }
 
 func TestLoadPackageGraph_Etcd(t *testing.T) {

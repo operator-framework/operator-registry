@@ -138,7 +138,6 @@ func TestQuerierForConfigmap(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdRestore", Plural: "etcdrestores"},
-			// {Group: "etcd.database.coreos.com", Version:"v1beta2", Kind:"FakeEtcdObject", Plural:"fakeetcds"},
 		},
 		RequiredApis: []*api.GroupVersionKind{},
 		Version:      "0.9.2",
@@ -151,11 +150,11 @@ func TestQuerierForConfigmap(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"creationTimestamp\":null,\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\",\"versions\":[{\"name\":\"v1beta2\",\"served\":true,\"storage\":true}]},\"status\":{\"acceptedNames\":{\"kind\":\"\",\"plural\":\"\"},\"conditions\":null,\"storedVersions\":null}}",
 		},
 	}
-	require.EqualValues(t, expectedBundle, etcdBundleByChannel)
+	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundle)
+	EqualBundles(t, *expectedBundle, *etcdBundle)
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
@@ -163,7 +162,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
-	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
+	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
@@ -178,10 +177,9 @@ func TestQuerierForConfigmap(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
-	// etcdBundleByProvides, entry, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
-	// require.NoError(t, err)
-	// require.Equal(t, expectedBundle, etcdBundleByProvides)
-	// require.Equal(t, &registry.ChannelEntry{"etcd", "alpha", "etcdoperator.v0.9.2", ""}, entry)
+	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	require.NoError(t, err)
+	EqualBundles(t, *expectedBundle, *etcdBundleByProvides)
 
 	expectedEtcdImages := []string{
 		"quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943",

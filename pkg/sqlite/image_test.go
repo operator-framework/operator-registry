@@ -131,11 +131,11 @@ func TestQuerierForImage(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	require.Equal(t, expectedBundle, etcdBundleByChannel)
+	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundle)
+	EqualBundles(t, *expectedBundle, *etcdBundle)
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestQuerierForImage(t *testing.T) {
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
-	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
+	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
@@ -161,7 +161,7 @@ func TestQuerierForImage(t *testing.T) {
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundleByProvides)
+	EqualBundles(t, *expectedBundle, *etcdBundleByProvides)
 
 	expectedEtcdImages := []string{
 		"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",

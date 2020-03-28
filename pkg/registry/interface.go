@@ -8,7 +8,7 @@ import (
 
 type Load interface {
 	AddOperatorBundle(bundle *Bundle) error
-	AddBundlePackageChannels(manifest PackageManifest, bundle Bundle) error
+	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	AddPackageChannels(manifest PackageManifest) error
 	RmPackageName(packageName string) error
 	ClearNonDefaultBundles(packageName string) error
