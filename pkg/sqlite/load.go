@@ -53,6 +53,14 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
+	if err := s.addOperatorBundle(tx, bundle); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error {
 	addBundle, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -105,11 +113,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		}
 	}
 
-	if err := s.addAPIs(tx, bundle); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return s.addAPIs(tx, bundle)
 }
 
 func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error {
@@ -121,6 +125,14 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		tx.Rollback()
 	}()
 
+	if err := s.addPackageChannels(tx, manifest); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
 		return err
@@ -151,18 +163,16 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	}
 	defer addReplaces.Close()
 
+	getReplaces, err := tx.Prepare(`
+	  SELECT DISTINCT operatorbundle.csv 
+	  FROM operatorbundle
+	  WHERE operatorbundle.name=? LIMIT 1`)
+	defer getReplaces.Close()
+
 	var errs []error
 
 	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
-		err = s.updatePackageChannels(tx, manifest)
-		if err != nil {
-			errs = append(errs, err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			errs = append(errs, err)
-		}
-
+		errs = append(errs, err)
 		return utilerrors.NewAggregate(errs)
 	}
 
@@ -282,11 +292,6 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			depth++
 		}
 	}
-
-	if err := tx.Commit(); err != nil {
-		errs = append(errs, err)
-	}
-
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -442,7 +447,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	if bundle.Name == "" {
 		return fmt.Errorf("cannot add apis for bundle with no name: %#v", bundle)
 	}
-	addAPI, err := tx.Prepare("insert or replace into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
+	addAPI, err := tx.Prepare("insert or ignore into api(group_name, version, kind, plural) values(?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -493,6 +498,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 
 	return nil
 }
+
 func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error) {
 	getID, err := tx.Prepare(`
 	  SELECT DISTINCT channel_entry.operatorbundle_name
@@ -526,28 +532,7 @@ func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
-func (s *SQLLoader) rmAPIs(tx *sql.Tx, csv *registry.ClusterServiceVersion) error {
-	rmAPI, err := tx.Prepare("delete from api where group_name=? AND version=? AND kind=?")
-	if err != nil {
-		return err
-	}
-	defer rmAPI.Close()
-
-	ownedCRDs, _, err := csv.GetCustomResourceDefintions()
-	for _, crd := range ownedCRDs {
-		_, group, err := SplitCRDName(crd.Name)
-		if err != nil {
-			return err
-		}
-		if _, err := rmAPI.Exec(group, crd.Version, crd.Kind); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *SQLLoader) RmPackageName(packageName string) error {
+func (s *SQLLoader) RemovePackage(packageName string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -561,22 +546,10 @@ func (s *SQLLoader) RmPackageName(packageName string) error {
 		return err
 	}
 	for _, csvName := range csvNames {
-		//csv, err := s.getBundleSkipsReplaces(tx, csvName)
-		//if csv != nil {
-		//	err = s.rmBundle(tx, csvName)
-		//	if err != nil {
-		//		return err
-		//	}
-		//	err = s.rmAPIs(tx, csv)
-		//	if err != nil {
-		//		return err
-		//	}
-		//} else {
-			err = s.rmBundle(tx, csvName)
-			if err != nil {
-				return err
-			}
-		//}
+		err = s.rmBundle(tx, csvName)
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -597,7 +570,6 @@ func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
 }
 
 func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle *registry.Bundle) error {
-	var errs []error
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -606,360 +578,33 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
-	if err != nil {
-		return err
-	}
-	defer addImage.Close()
-
-	csvName, bundleImage, csvBytes, bundleBytes, err := bundle.Serialize()
-	if err != nil {
+	if err := s.addOperatorBundle(tx, bundle); err != nil {
 		return err
 	}
 
-	if csvName == "" {
-		return fmt.Errorf("csv name not found")
-	}
-
-	version, err := bundle.Version()
+	// Delete package and channels (entries will cascade) - they will be recalculated
+	deletePkg, err := tx.Prepare("delete from package where name = ?")
 	if err != nil {
 		return err
 	}
-	skiprange, err := bundle.SkipRange()
+	defer deletePkg.Close()
+	_, err = deletePkg.Exec(manifest.PackageName)
 	if err != nil {
 		return err
 	}
-	replaces, err := bundle.Replaces()
+	deleteChan, err := tx.Prepare("delete from channel where package_name = ?")
 	if err != nil {
 		return err
 	}
-	skips, err := bundle.Skips()
+	defer deleteChan.Close()
+	_, err = deleteChan.Exec(manifest.PackageName)
 	if err != nil {
 		return err
 	}
 
-	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ",")); err != nil {
+	if err := s.addPackageChannels(tx, manifest); err != nil {
 		return err
 	}
 
-	imgs, err := bundle.Images()
-	if err != nil {
-		return err
-	}
-	// TODO: bulk insert
-	for img := range imgs {
-		if _, err := addImage.Exec(img, csvName); err != nil {
-			return err
-		}
-	}
-
-	if err := s.addAPIs(tx, bundle); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	if err := s.AddPackageChannels(manifest); err != nil {
-		errs = append(errs, err)
-		tx, err := s.db.Begin()
-		if err != nil {
-			errs = append(errs, err)
-			return utilerrors.NewAggregate(errs)
-		}
-		defer func() {
-			tx.Rollback()
-		}()
-
-		if err := s.rmBundle(tx, csvName); err != nil {
-			errs = append(errs, err)
-			return utilerrors.NewAggregate(errs)
-		}
-
-		if err := tx.Commit(); err != nil {
-			errs = append(errs, err)
-		}
-
-		return utilerrors.NewAggregate(errs)
-	}
-
-	return nil
-}
-
-func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
-	updateDefaultChannel, err := tx.Prepare("update package set default_channel = ? where name = ?")
-	if err != nil {
-		return err
-	}
-	defer updateDefaultChannel.Close()
-
-	getDefaultChannel, err := tx.Prepare(`SELECT default_channel FROM package WHERE name = ? LIMIT 1`)
-	if err != nil {
-		return err
-	}
-	defer getDefaultChannel.Close()
-
-	updateChannel, err := tx.Prepare("update channel set head_operatorbundle_name = ? where name = ? and package_name = ?")
-	if err != nil {
-		return err
-	}
-	defer updateChannel.Close()
-
-	addChannelEntry, err := tx.Prepare("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer addChannelEntry.Close()
-
-	updateChannelEntry, err := tx.Prepare("update channel_entry set depth = ? where channel_name = ? and package_name = ? and operatorbundle_name = ?")
-	if err != nil {
-		return err
-	}
-	defer updateChannelEntry.Close()
-
-	addReplaces, err := tx.Prepare("update channel_entry set replaces = ? where entry_id = ?")
-	if err != nil {
-		return err
-	}
-	defer addReplaces.Close()
-
-	getDepth, err := tx.Prepare(`
-	  SELECT channel_entry.depth, channel_entry.entry_id
-	  FROM channel_entry
-	  WHERE channel_name = ? and package_name = ? and operatorbundle_name =?
-	  LIMIT 1`)
-	if err != nil {
-		return err
-	}
-	defer getDepth.Close()
-
-	getChannelEntryID, err := tx.Prepare(`
-	  SELECT channel_entry.entry_id
-	  FROM channel_entry
-	  WHERE channel_name = ? and package_name = ? and operatorbundle_name =?
-	  LIMIT 1`)
-	if err != nil {
-		return err
-	}
-	defer getChannelEntryID.Close()
-
-	updateDepth, err := tx.Prepare("update channel_entry set depth = depth + 1 where channel_name = ? and package_name = ? and operatorbundle_name = ?")
-	if err != nil {
-		return err
-	}
-	defer updateDepth.Close()
-
-	removeSkipped, err := tx.Prepare("delete from channel_entry where channel_name = ? and package_name = ? and operatorbundle_name = ?")
-	if err != nil {
-		return err
-	}
-	defer removeSkipped.Close()
-
-	getBundleIDNameFromDepthToHead, err := tx.Prepare(`
-	  SELECT entry_id, operatorbundle_name
-	  FROM channel_entry
-	  WHERE depth < ? and channel_name = ? and package_name = ?`)
-	if err != nil {
-		return err
-	}
-	defer getBundleIDNameFromDepthToHead.Close()
-
-	var errs []error
-
-	// update head bundle name in channel table
-	for _, c := range manifest.Channels {
-		if _, err := updateChannel.Exec(c.CurrentCSVName, c.Name, manifest.PackageName); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-	}
-
-	// insert/replace default channel
-	defaultChannelName := manifest.GetDefaultChannel()
-	if defaultChannelName != "" {
-		if _, err := updateDefaultChannel.Exec(defaultChannelName, manifest.PackageName); err != nil {
-			errs = append(errs, err)
-		}
-	} // else assume default channel is already in db and need not be changed
-
-	// For each channel, check where in update graph
-	// the bundle is attempted to be inserted.
-	// If not at the head of the channel then error
-	for _, c := range manifest.Channels {
-		// don't need to check if version has been inserted for a given channel
-		// because this is caught by primary key of operatorbundle table
-
-		replaces, skips, err := s.getBundleSkipsReplaces(tx, c.CurrentCSVName)
-		if err != nil {
-			errs = append(errs, err)
-			break
-		}
-
-		// where does the replaces fall in the update graph
-		rows, err := getDepth.Query(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		var depth int64
-		var currentID int64
-		var replacedIDs []int64
-
-		if rows.Next() {
-			err := rows.Scan(&depth, &currentID)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// check if replaces not at the head of the channel
-			if depth != 0 {
-				// if not at the head of the channel, need to specify appropriate skips
-				if len(skips) != int(depth) {
-					errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by another version", c.CurrentCSVName, replaces))
-					return utilerrors.NewAggregate(errs)
-				}
-				skipmap := make(map[string]struct{}, 0)
-				for _, sk := range skips {
-					skipmap[sk] = struct{}{}
-				}
-				// get csv from depth to head for channel
-				skipped, err := getBundleIDNameFromDepthToHead.Query(depth, c.Name, manifest.PackageName)
-				if err != nil {
-					errs = append(errs, err)
-					continue
-				}
-				defer skipped.Close()
-
-				// see if csvs match skips
-				var skip string
-				var replacedID int64
-				for skipped.Next() {
-					err := skipped.Scan(&replacedID, &skip)
-					if err != nil {
-						errs = append(errs, err)
-						return utilerrors.NewAggregate(errs)
-					}
-					replacedIDs = append(replacedIDs, replacedID)
-					if _, ok := skipmap[skip]; !ok {
-						errs = append(errs, fmt.Errorf("%s attempts to replace %s that is already replaced by %s without specifying a skip", c.CurrentCSVName, replaces, skip))
-					}
-				}
-				// aggregate all the errors instead of returning on first error
-				if len(errs) > 0 {
-					return utilerrors.NewAggregate(errs)
-				}
-			}
-		} else {
-			// specifies a replacement that is not in db
-			errs = append(errs, fmt.Errorf("%s specifies a replacement %s that cannot be found", c.CurrentCSVName, replaces))
-			return utilerrors.NewAggregate(errs)
-		}
-
-		if err := rows.Close(); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// insert version into head of channel
-		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		currentID, err = res.LastInsertId()
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// update replacement to point to new head of channel
-		var replacedID int64
-		rows, err = getChannelEntryID.Query(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		if rows.Next() {
-			err := rows.Scan(&replacedID)
-			if err != nil {
-				errs = append(errs, err)
-			}
-		} // else is not possible by previous SELECT statement on replaces
-
-		if err := rows.Close(); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if _, err = addReplaces.Exec(replacedID, currentID); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// remove skips from graph
-		for _, skip := range skips {
-			if _, err := removeSkipped.Exec(c.Name, manifest.PackageName, skip); err != nil {
-				errs = append(errs, err)
-				continue
-			}
-		}
-
-		// update depth to depth + 1 for replaced entry
-		_, err = updateDepth.Exec(c.Name, manifest.PackageName, replaces)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// insert dummy skips entries if needed or update the graph based on skips
-		depth = 1
-		for _, skip := range skips {
-			// add dummy channel entry for the skipped version
-			skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			skippedID, err := skippedChannelEntry.LastInsertId()
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			// add another channel entry for the parent, which replaces the skipped
-			synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, depth)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			synthesizedID, err := synthesizedChannelEntry.LastInsertId()
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			if _, err = addReplaces.Exec(skippedID, synthesizedID); err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			depth++
-		}
-	}
-
-	if errs != nil {
-		return utilerrors.NewAggregate(errs)
-	}
-	return nil
+	return tx.Commit()
 }

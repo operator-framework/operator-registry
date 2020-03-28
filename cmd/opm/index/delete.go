@@ -95,13 +95,13 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 	indexDeleter := indexer.NewIndexDeleter(containerTool, logger)
 
 	request := indexer.DeleteFromIndexRequest{
-		Generate: generate,
-		FromIndex: fromIndex,
+		Generate:          generate,
+		FromIndex:         fromIndex,
 		BinarySourceImage: binaryImage,
-		OutDockerfile: outDockerfile,
-		Operators: operators,
-		Tag: tag,
-		Permissive: permissive,
+		OutDockerfile:     outDockerfile,
+		Operators:         operators,
+		Tag:               tag,
+		Permissive:        permissive,
 	}
 
 	err = indexDeleter.DeleteFromIndex(request)

@@ -40,7 +40,7 @@ func MirrorCmd() *cobra.Command {
 	flags := cmd.Flags()
 
 	cmd.Flags().Bool("debug", false, "Enable debug logging.")
-	flags.StringVar(&o.ManifestDir, "--to-manifests",  "manifests", "Local path to store manifests.")
+	flags.StringVar(&o.ManifestDir, "--to-manifests", "manifests", "Local path to store manifests.")
 
 	return cmd
 }

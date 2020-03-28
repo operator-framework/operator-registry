@@ -13,7 +13,6 @@ func init() {
 	registerMigration(AssociateApisWithBundleMigrationKey, bundleApiMigration)
 }
 
-
 // This migration moves the link between the provided and required apis table from the channel_entry to the
 // bundle itself. This simplifies loading and minimizes changes that need to happen when a new bundle is
 // inserted into an existing database.
@@ -35,8 +34,8 @@ var bundleApiMigration = &Migration{
 			operatorbundle_name TEXT,
 			operatorbundle_version TEXT,
 			operatorbundle_path TEXT,
-			FOREIGN KEY (operatorbundle_name) REFERENCES operatorbundle(name)  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-			FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind)
+			FOREIGN KEY(operatorbundle_name, operatorbundle_version, operatorbundle_path) REFERENCES operatorbundle(name, version, bundlepath) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+			FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) ON DELETE CASCADE
 		);
 		CREATE TABLE api_requirer_new (
 			group_name TEXT,
@@ -45,9 +44,10 @@ var bundleApiMigration = &Migration{
 			operatorbundle_name TEXT,
 			operatorbundle_version TEXT,
 			operatorbundle_path TEXT,
-			FOREIGN KEY (operatorbundle_name) REFERENCES operatorbundle(name)  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-			FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind)
+			FOREIGN KEY(operatorbundle_name, operatorbundle_version, operatorbundle_path) REFERENCES operatorbundle(name, version, bundlepath) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+			FOREIGN KEY(group_name, version, kind) REFERENCES api(group_name, version, kind) ON DELETE CASCADE
 		);
+		CREATE UNIQUE INDEX pk ON operatorbundle(name, version, bundlepath);
 		`
 		_, err := tx.ExecContext(ctx, createNew)
 		if err != nil {
@@ -147,7 +147,7 @@ func getApisForBundles(ctx context.Context, tx *sql.Tx) (map[registry.BundleKey]
 			Group:   group.String,
 			Version: apiVersion.String,
 			Kind:    kind.String,
-		}] = struct {}{}
+		}] = struct{}{}
 
 		bundles[key] = bundleApis
 	}
@@ -186,14 +186,13 @@ func getApisForBundles(ctx context.Context, tx *sql.Tx) (map[registry.BundleKey]
 			Group:   group.String,
 			Version: apiVersion.String,
 			Kind:    kind.String,
-		}] = struct {}{}
+		}] = struct{}{}
 
 		bundles[key] = bundleApis
 	}
 
 	return bundles, nil
 }
-
 
 // OLD queries
 //

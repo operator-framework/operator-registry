@@ -118,7 +118,6 @@ func TestAddPackageChannels(t *testing.T) {
 					nil,
 				},
 				pkgs: []string{
-					"pkg-0",
 					"pkg-1",
 				},
 			},
@@ -148,6 +147,8 @@ func TestAddPackageChannels(t *testing.T) {
 			querier := NewSQLLiteQuerierFromDb(db)
 			pkgs, err := querier.ListPackages(context.Background())
 			require.NoError(t, err)
+			t.Logf("%#v", tt.expected.pkgs)
+			t.Logf("%#v", pkgs)
 			require.ElementsMatch(t, tt.expected.pkgs, pkgs)
 		})
 	}

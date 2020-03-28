@@ -76,8 +76,8 @@ func TestReplaceCycle(t *testing.T) {
 
 	// Make etcdoperator.v0.9.0 in the example replace 0.9.2 to create a loop
 	sReader := strings.NewReader(string(bytes.Replace(cmap,
-			[]byte("replaces: etcdoperator.v0.6.1"),
-			[]byte("replaces: etcdoperator.v0.9.2"), 1)))
+		[]byte("replaces: etcdoperator.v0.6.1"),
+		[]byte("replaces: etcdoperator.v0.9.2"), 1)))
 
 	decoder := yaml.NewYAMLOrJSONDecoder(sReader, 30)
 	manifest := v1.ConfigMap{}

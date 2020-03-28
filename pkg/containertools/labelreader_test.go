@@ -1,11 +1,11 @@
 package containertools_test
 
 import (
-    "fmt"
+	"fmt"
 	"testing"
 
-    "github.com/operator-framework/operator-registry/pkg/containertools"
-    "github.com/operator-framework/operator-registry/pkg/containertools/containertoolsfakes"
+	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/containertools/containertoolsfakes"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -18,41 +18,40 @@ func TestReadDockerLabels(t *testing.T) {
 	expectedLabelVal := "./index.db"
 	containerTool := "docker"
 
-    logger := logrus.NewEntry(logrus.New())
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns([]byte(imageData), nil)
-    mockCmd.GetToolNameReturns(containerTool)
+	logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	mockCmd.PullReturns(nil)
+	mockCmd.InspectReturns([]byte(imageData), nil)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
 	require.Equal(t, labels[expectedLabelKey], expectedLabelVal)
 }
 
-
 func TestReadDockerLabelsNoLabels(t *testing.T) {
 	image := "quay.io/operator-framework/example"
 	imageData := exampleInspectResultDockerNoLabels
 	containerTool := "docker"
 
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	logger := logrus.NewEntry(logrus.New())
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns([]byte(imageData), nil)
-    mockCmd.GetToolNameReturns(containerTool)
+	mockCmd.InspectReturns([]byte(imageData), nil)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
@@ -66,18 +65,18 @@ func TestReadPodmanLabels(t *testing.T) {
 	expectedLabelVal := "./index.db"
 	containerTool := "podman"
 
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	logger := logrus.NewEntry(logrus.New())
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns([]byte(imageData), nil)
-    mockCmd.GetToolNameReturns(containerTool)
+	mockCmd.InspectReturns([]byte(imageData), nil)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
@@ -89,18 +88,18 @@ func TestReadPodmanLabelsNoLabels(t *testing.T) {
 	imageData := exampleInspectResultPodmanNoLabels
 	containerTool := "podman"
 
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
 
-    logger := logrus.NewEntry(logrus.New())
+	logger := logrus.NewEntry(logrus.New())
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns([]byte(imageData), nil)
-    mockCmd.GetToolNameReturns(containerTool)
+	mockCmd.InspectReturns([]byte(imageData), nil)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
@@ -109,64 +108,64 @@ func TestReadPodmanLabelsNoLabels(t *testing.T) {
 
 func TestReadDockerLabels_PullError(t *testing.T) {
 	image := "quay.io/operator-framework/example"
-    pullErr := fmt.Errorf("Error pulling image")
+	pullErr := fmt.Errorf("Error pulling image")
 
-    logger := logrus.NewEntry(logrus.New())
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    mockCmd.PullReturns(pullErr)
+	logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	mockCmd.PullReturns(pullErr)
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	_, err := labelReader.GetLabelsFromImage(image)
-    require.Error(t, err)
-    require.EqualError(t, err, pullErr.Error())
+	require.Error(t, err)
+	require.EqualError(t, err, pullErr.Error())
 }
 
 func TestReadDockerLabels_InspectError(t *testing.T) {
 	image := "quay.io/operator-framework/example"
-    containerTool := "docker"
-    inspectErr := fmt.Errorf("Error inspecting image")
+	containerTool := "docker"
+	inspectErr := fmt.Errorf("Error inspecting image")
 
-    logger := logrus.NewEntry(logrus.New())
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns(nil, inspectErr)
-    mockCmd.GetToolNameReturns(containerTool)
+	logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	mockCmd.PullReturns(nil)
+	mockCmd.InspectReturns(nil, inspectErr)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	_, err := labelReader.GetLabelsFromImage(image)
 	require.Error(t, err)
-    require.EqualError(t, err, inspectErr.Error())
+	require.EqualError(t, err, inspectErr.Error())
 }
 
 func TestReadDockerLabels_InvalidData_Error(t *testing.T) {
 	image := "quay.io/operator-framework/example"
 	imageData := "invalidJson"
-    containerTool := "docker"
+	containerTool := "docker"
 
-    logger := logrus.NewEntry(logrus.New())
-    mockCmd := containertoolsfakes.FakeCommandRunner{}
-    
-    mockCmd.PullReturns(nil)
-    mockCmd.InspectReturns([]byte(imageData), nil)
-    mockCmd.GetToolNameReturns(containerTool)
+	logger := logrus.NewEntry(logrus.New())
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
+
+	mockCmd.PullReturns(nil)
+	mockCmd.InspectReturns([]byte(imageData), nil)
+	mockCmd.GetToolNameReturns(containerTool)
 
 	labelReader := containertools.ImageLabelReader{
-        Cmd: &mockCmd,
-        Logger: logger,
-    }
+		Cmd:    &mockCmd,
+		Logger: logger,
+	}
 
 	_, err := labelReader.GetLabelsFromImage(image)
-    require.Error(t, err)
+	require.Error(t, err)
 }
 
 const exampleInspectResultDocker = `

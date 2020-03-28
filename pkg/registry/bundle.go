@@ -103,7 +103,6 @@ func (b *Bundle) Skips() ([]string, error) {
 	return b.csv.GetSkips()
 }
 
-
 func (b *Bundle) CustomResourceDefinitions() ([]*v1beta1.CustomResourceDefinition, error) {
 	if err := b.cache(); err != nil {
 		return nil, err

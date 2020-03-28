@@ -26,7 +26,7 @@ func TestNewSQLLiteMigrator(t *testing.T) {
 		{
 			name: "uses default table",
 			args: args{&sql.DB{}},
-			want: &SQLLiteMigrator{db: &sql.DB{}, migrationsTable: DefaultMigrationsTable, migrations:migrations.All()},
+			want: &SQLLiteMigrator{db: &sql.DB{}, migrationsTable: DefaultMigrationsTable, migrations: migrations.All()},
 		},
 	}
 	for _, tt := range tests {
