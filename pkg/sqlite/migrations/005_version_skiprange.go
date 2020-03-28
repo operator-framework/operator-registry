@@ -36,7 +36,7 @@ var versionSkipRangeMigration = &Migration{
 		}
 		for _, bundle := range bundles {
 			if err := extractVersioning(ctx, tx, bundle); err != nil {
-				logrus.Warnf("error backfilling related images: %v", err)
+				logrus.Warnf("error backfilling versioning: %v", err)
 				continue
 			}
 		}

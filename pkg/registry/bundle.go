@@ -89,6 +89,21 @@ func (b *Bundle) SkipRange() (string, error) {
 	return b.csv.GetSkipRange(), nil
 }
 
+func (b *Bundle) Replaces() (string, error) {
+	if err := b.cache(); err != nil {
+		return "", err
+	}
+	return b.csv.GetReplaces()
+}
+
+func (b *Bundle) Skips() ([]string, error) {
+	if err := b.cache(); err != nil {
+		return []string{}, err
+	}
+	return b.csv.GetSkips()
+}
+
+
 func (b *Bundle) CustomResourceDefinitions() ([]*v1beta1.CustomResourceDefinition, error) {
 	if err := b.cache(); err != nil {
 		return nil, err

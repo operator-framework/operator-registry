@@ -159,6 +159,9 @@ func TestQuerierForDirectory(t *testing.T) {
 	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	for _, c := range etcdChannelEntriesThatProvide {
+		t.Logf("%#v", c)
+	}
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},

@@ -7,10 +7,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -56,11 +53,11 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values(?, ?, ?, ?, ?, ?)")
+	addBundle, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer addBundle.Close()
 
 	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
 	if err != nil {
@@ -85,8 +82,16 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	if err != nil {
 		return err
 	}
+	replaces, err := bundle.Replaces()
+	if err != nil {
+		return err
+	}
+	skips, err := bundle.Skips()
+	if err != nil {
+		return err
+	}
 
-	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange); err != nil {
+	if _, err := addBundle.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ",")); err != nil {
 		return err
 	}
 
@@ -94,7 +99,6 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	if err != nil {
 		return err
 	}
-	// TODO: bulk insert
 	for img := range imgs {
 		if _, err := addImage.Exec(img, csvName); err != nil {
 			return err
@@ -199,15 +203,10 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		replaceCycle := map[string]bool{channelEntryCSVName: true}
 		for {
 			// Get CSV for current entry
-			channelEntryCSV, err := s.getCSV(tx, channelEntryCSVName)
+			replaces, skips, err := s.getBundleSkipsReplaces(tx, channelEntryCSVName)
 			if err != nil {
 				errs = append(errs, err)
 				break
-			}
-
-			skips, err := channelEntryCSV.GetSkips()
-			if err != nil {
-				errs = append(errs, err)
 			}
 
 			for _, skip := range skips {
@@ -246,12 +245,6 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 			}
 
 			// create real replacement chain
-			replaces, err := channelEntryCSV.GetReplaces()
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-
 			if replaces == "" {
 				// we've walked the channel until there was no replacement
 				break
@@ -279,7 +272,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 				errs = append(errs, err)
 				break
 			}
-			if _, err := s.getCSV(tx, replaces); err != nil {
+			if _, _, err := s.getBundleSkipsReplaces(tx, replaces); err != nil {
 				errs = append(errs, fmt.Errorf("%s specifies replacement that couldn't be found", c.CurrentCSVName))
 				break
 			}
@@ -409,44 +402,40 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 	return
 }
 
-func (s *SQLLoader) getCSV(tx *sql.Tx, csvName string) (*registry.ClusterServiceVersion, error) {
-	getCSV, err := tx.Prepare(`
-	  SELECT DISTINCT operatorbundle.csv 
+func (s *SQLLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (replaces string, skips []string, err error) {
+	getReplacesAndSkips, err := tx.Prepare(`
+	  SELECT replaces, skips 
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	if err != nil {
-		return nil, err
+		return
 	}
-	defer getCSV.Close()
+	defer getReplacesAndSkips.Close()
 
-	rows, err := getCSV.Query(csvName)
+	rows, rerr := getReplacesAndSkips.Query(bundleName)
 	if err != nil {
-		return nil, err
+		err = rerr
+		return
 	}
 	if !rows.Next() {
-		return nil, fmt.Errorf("no bundle found for csv %s", csvName)
-	}
-	var csvStringSQL sql.NullString
-	if err := rows.Scan(&csvStringSQL); err != nil {
-		return nil, err
+		err = fmt.Errorf("no bundle found for bundlename %s", bundleName)
+		return
 	}
 
-	if !csvStringSQL.Valid {
-		return nil, fmt.Errorf("csv %s not stored for non-latest versions", csvName)
+	var replacesStringSQL sql.NullString
+	var skipsStringSql sql.NullString
+	if err = rows.Scan(&replacesStringSQL, &skipsStringSql); err != nil {
+		return
 	}
 
-	dec := yaml.NewYAMLOrJSONDecoder(strings.NewReader(csvStringSQL.String), 10)
-	unst := &unstructured.Unstructured{}
-	if err := dec.Decode(unst); err != nil {
-		return nil, fmt.Errorf("can't decode %s: %s", csvStringSQL.String, err)
+	if replacesStringSQL.Valid {
+		replaces = replacesStringSQL.String
+	}
+	if skipsStringSql.Valid && len(skipsStringSql.String) > 0 {
+		skips = strings.Split(skipsStringSql.String, ",")
 	}
 
-	csv := &registry.ClusterServiceVersion{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unst.UnstructuredContent(), csv); err != nil {
-		return nil, err
-	}
-
-	return csv, nil
+	return
 }
 
 func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
@@ -572,22 +561,22 @@ func (s *SQLLoader) RmPackageName(packageName string) error {
 		return err
 	}
 	for _, csvName := range csvNames {
-		csv, err := s.getCSV(tx, csvName)
-		if csv != nil {
+		//csv, err := s.getBundleSkipsReplaces(tx, csvName)
+		//if csv != nil {
+		//	err = s.rmBundle(tx, csvName)
+		//	if err != nil {
+		//		return err
+		//	}
+		//	err = s.rmAPIs(tx, csv)
+		//	if err != nil {
+		//		return err
+		//	}
+		//} else {
 			err = s.rmBundle(tx, csvName)
 			if err != nil {
 				return err
 			}
-			err = s.rmAPIs(tx, csv)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = s.rmBundle(tx, csvName)
-			if err != nil {
-				return err
-			}
-		}
+		//}
 	}
 
 	return tx.Commit()
@@ -617,7 +606,7 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 		tx.Rollback()
 	}()
 
-	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange) values(?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -646,8 +635,16 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 	if err != nil {
 		return err
 	}
+	replaces, err := bundle.Replaces()
+	if err != nil {
+		return err
+	}
+	skips, err := bundle.Skips()
+	if err != nil {
+		return err
+	}
 
-	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange); err != nil {
+	if _, err := stmt.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ",")); err != nil {
 		return err
 	}
 
@@ -799,14 +796,7 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 		// don't need to check if version has been inserted for a given channel
 		// because this is caught by primary key of operatorbundle table
 
-		channelEntryCSV, err := s.getCSV(tx, c.CurrentCSVName)
-		if err != nil {
-			errs = append(errs, err)
-			break
-		}
-
-		// check replaces
-		replaces, err := channelEntryCSV.GetReplaces()
+		replaces, skips, err := s.getBundleSkipsReplaces(tx, c.CurrentCSVName)
 		if err != nil {
 			errs = append(errs, err)
 			break
@@ -822,11 +812,6 @@ func (s *SQLLoader) updatePackageChannels(tx *sql.Tx, manifest registry.PackageM
 		var depth int64
 		var currentID int64
 		var replacedIDs []int64
-		skips, err := channelEntryCSV.GetSkips()
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
 
 		if rows.Next() {
 			err := rows.Scan(&depth, &currentID)
