@@ -80,13 +80,16 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 	// and that either of the required field is missing. We are interpreting the bundle information through
 	// bundle directory embedded in the package folder.
 	if channels == "" || packageName == "" {
-		i, err := NewBundleDirInterperter(filepath.Join(directory, ".."))
+		i, err := NewBundleDirInterperter(directory)
 		if err != nil {
 			return fmt.Errorf("please manually input channels and packageName, "+
 				"error interpreting bundle from directory %s, %v", directory, err)
 		}
 		if channels == "" {
 			channels = strings.Join(i.GetBundleChannels(), ",")
+			if channels == "" {
+				return fmt.Errorf("error interpreting channels, please manually input channels instead")
+			}
 		}
 
 		if packageName == "" {

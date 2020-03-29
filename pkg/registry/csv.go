@@ -88,7 +88,7 @@ func ReadCSVFromBundleDirectory(bundleDir string) (*ClusterServiceVersion, error
 
 		decoder := yaml.NewYAMLOrJSONDecoder(yamlReader, 30)
 		if err = decoder.Decode(&unstructuredCSV); err != nil {
-			return nil, fmt.Errorf("error unmarshalling CSV, %v", err)
+			continue
 		}
 
 		if unstructuredCSV.GetKind() != operators.ClusterServiceVersionKind {

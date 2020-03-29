@@ -31,9 +31,6 @@ func newBundleGenerateCmd() *cobra.Command {
 	}
 
 	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
-		"The name of the package that bundle image belongs to")
-
-	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
 		"The name of the package that bundle image belongs to "+
 			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
