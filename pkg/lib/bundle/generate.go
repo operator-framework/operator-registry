@@ -76,28 +76,6 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 		return err
 	}
 
-	// Channels and packageName are required fields where as default channel is automatically filled if unspecified
-	// and that either of the required field is missing. We are interpreting the bundle information through
-	// bundle directory embedded in the package folder.
-	if channels == "" || packageName == "" {
-		i, err := NewBundleDirInterperter(filepath.Join(directory, ".."))
-		if err != nil {
-			return fmt.Errorf("please manually input channels and packageName, "+
-				"error interpreting bundle from directory %s, %v", directory, err)
-		}
-		if channels == "" {
-			channels = strings.Join(i.GetBundleChannels(), ",")
-		}
-
-		if packageName == "" {
-			packageName = i.GetPackageName()
-		}
-
-		if channelDefault == "" {
-			channelDefault = i.GetDefaultChannel()
-		}
-	}
-
 	log.Info("Building annotations.yaml")
 
 	// Generate annotations.yaml
