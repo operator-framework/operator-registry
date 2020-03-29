@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -756,78 +755,6 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 				return
 			}
 			require.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestLoadingCsvFromBundleDirectory(t *testing.T) {
-	tests := []struct {
-		dir       string
-		fail      bool
-		name      string
-		version   string
-		replace   string
-		skips     []string
-		skipRange string
-	}{
-		{
-			dir:     "./testdata/validPackages/etcd/0.6.1",
-			fail:    false,
-			name:    "etcdoperator.v0.6.1",
-			version: "0.6.1",
-		},
-		{
-			dir:     "./testdata/validPackages/etcd/0.9.0",
-			fail:    false,
-			name:    "etcdoperator.v0.9.0",
-			version: "0.9.0",
-			replace: "etcdoperator.v0.6.1",
-		},
-		{
-			dir:       "./testdata/validPackages/etcd/0.9.2",
-			fail:      false,
-			name:      "etcdoperator.v0.9.2",
-			skipRange: "< 0.6.0",
-			version:   "0.9.2",
-			skips:     []string{"etcdoperator.v0.9.1"},
-			replace:   "etcdoperator.v0.9.0",
-		},
-		{
-			dir:     "./testdata/validPackages/prometheus/0.14.0",
-			fail:    false,
-			name:    "prometheusoperator.0.14.0",
-			version: "0.14.0",
-		},
-		{
-			dir:  "testdata/invalidPackges/3scale-community-operator/0.3.0",
-			fail: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run("Loading Package Graph from "+tt.dir, func(t *testing.T) {
-			csv, err := ReadCSVFromBundleDirectory(tt.dir)
-			if tt.fail {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			assert.EqualValues(t, tt.name, csv.GetName())
-
-			csvVersion, err := csv.GetVersion()
-			assert.NoError(t, err)
-			assert.EqualValues(t, tt.version, csvVersion)
-
-			assert.EqualValues(t, tt.skipRange, csv.GetSkipRange())
-
-			csvReplace, err := csv.GetReplaces()
-			assert.NoError(t, err)
-			assert.EqualValues(t, tt.replace, csvReplace)
-
-			csvSkips, err := csv.GetSkips()
-			assert.NoError(t, err)
-			assert.EqualValues(t, tt.skips, csvSkips)
 		})
 	}
 }
