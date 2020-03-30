@@ -367,7 +367,7 @@ func WriteFile(fileName, directory string, content []byte) error {
 	return nil
 }
 
-// copy the contents of a flat manifest dir into an output dir
+// copy the contents of a potentially nested manifest dir into an output dir.
 func copyManifestDir(from, to string, overwrite bool) error {
 	fromFiles, err := ioutil.ReadDir(from)
 	if err != nil {
@@ -375,7 +375,9 @@ func copyManifestDir(from, to string, overwrite bool) error {
 	}
 
 	if _, err := os.Stat(to); os.IsNotExist(err) {
-		os.MkdirAll(to, os.ModePerm)
+		if err = os.MkdirAll(to, os.ModePerm); err != nil {
+			return err
+		}
 	}
 
 	for _, fromFile := range fromFiles {
@@ -393,6 +395,11 @@ func copyManifestDir(from, to string, overwrite bool) error {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := contents.Close(); err != nil {
+				log.Fatal(err)
+			}
+		}()
 
 		toFilePath := filepath.Join(to, fromFile.Name())
 		_, err = os.Stat(toFilePath)
@@ -406,8 +413,13 @@ func copyManifestDir(from, to string, overwrite bool) error {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := toFile.Close(); err != nil {
+				log.Fatal(err)
+			}
+		}()
 
-		_, err = io.Copy(contents, toFile)
+		_, err = io.Copy(toFile, contents)
 		if err != nil {
 			return err
 		}
