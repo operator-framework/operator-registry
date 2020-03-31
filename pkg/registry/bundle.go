@@ -98,7 +98,7 @@ func (b *Bundle) Replaces() (string, error) {
 
 func (b *Bundle) Skips() ([]string, error) {
 	if err := b.cache(); err != nil {
-		return []string{}, err
+		return nil, err
 	}
 	return b.csv.GetSkips()
 }

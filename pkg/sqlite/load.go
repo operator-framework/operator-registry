@@ -453,17 +453,17 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	}
 	defer addAPI.Close()
 
-	addApiProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?)")
+	addAPIProvider, err := tx.Prepare("insert into api_provider(group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer addApiProvider.Close()
+	defer addAPIProvider.Close()
 
-	addApiRequirer, err := tx.Prepare("insert into api_requirer(group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?)")
+	addAPIRequirer, err := tx.Prepare("insert into api_requirer(group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer addApiRequirer.Close()
+	defer addAPIRequirer.Close()
 
 	providedApis, err := bundle.ProvidedAPIs()
 	if err != nil {
@@ -477,12 +477,16 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	if err != nil {
 		return err
 	}
+
+	sqlString := func(s string) sql.NullString {
+		return sql.NullString{String: s, Valid: s != ""}
+	}
 	for api := range providedApis {
 		if _, err := addAPI.Exec(api.Group, api.Version, api.Kind, api.Plural); err != nil {
 			return err
 		}
 
-		if _, err := addApiProvider.Exec(api.Group, api.Version, api.Kind, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+		if _, err := addAPIProvider.Exec(api.Group, api.Version, api.Kind, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
 			return err
 		}
 	}
@@ -491,7 +495,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 			return err
 		}
 
-		if _, err := addApiRequirer.Exec(api.Group, api.Version, api.Kind, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+		if _, err := addAPIRequirer.Exec(api.Group, api.Version, api.Kind, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
 			return err
 		}
 	}

@@ -3,10 +3,11 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func createLoadedTestDb(t *testing.T) (*sql.DB, func()) {
