@@ -31,10 +31,12 @@ var (
 	bundleTag1 = rand.String(6)
 	bundleTag2 = rand.String(6)
 	bundleTag3 = rand.String(6)
-	indexTag   = rand.String(6)
+	indexTag1  = rand.String(6)
+	indexTag2  = rand.String(6)
 
 	bundleImage = "quay.io/olmtest/e2e-bundle"
-	indexImage  = "quay.io/olmtest/e2e-index:" + indexTag
+	indexImage1 = "quay.io/olmtest/e2e-index:" + indexTag1
+	indexImage2 = "quay.io/olmtest/e2e-index:" + indexTag2
 )
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
@@ -82,7 +84,6 @@ func buildIndexWith(containerTool string) error {
 	bundles := []string{
 		bundleImage + ":" + bundleTag1,
 		bundleImage + ":" + bundleTag2,
-		bundleImage + ":" + bundleTag3,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 	indexAdder := indexer.NewIndexAdder(containerTool, logger)
@@ -92,7 +93,27 @@ func buildIndexWith(containerTool string) error {
 		FromIndex:         "",
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage,
+		Tag:               indexImage1,
+		Bundles:           bundles,
+		Permissive:        false,
+	}
+
+	return indexAdder.AddToIndex(request)
+}
+
+func buildFromIndexWith(containerTool string) error {
+	bundles := []string{
+		bundleImage + ":" + bundleTag3,
+	}
+	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
+	indexAdder := indexer.NewIndexAdder(containerTool, logger)
+
+	request := indexer.AddToIndexRequest{
+		Generate:          false,
+		FromIndex:         indexImage1,
+		BinarySourceImage: "",
+		OutDockerfile:     "",
+		Tag:               indexImage2,
 		Bundles:           bundles,
 		Permissive:        false,
 	}
@@ -123,7 +144,7 @@ func exportWith(containerTool string) error {
 	indexExporter := indexer.NewIndexExporter(containerTool, logger)
 
 	request := indexer.ExportFromIndexRequest{
-		Index:         indexImage,
+		Index:         indexImage2,
 		Package:       packageName,
 		DownloadPath:  "downloaded",
 		ContainerTool: containerTool,
@@ -186,7 +207,15 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
-			err = pushWith(containerTool, indexImage)
+			err = pushWith(containerTool, indexImage1)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("building from an index")
+			err = buildFromIndexWith(containerTool)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pushing an index")
+			err = pushWith(containerTool, indexImage2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk")
