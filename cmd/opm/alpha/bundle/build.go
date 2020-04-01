@@ -44,33 +44,37 @@ func newBundleBuildCmd() *cobra.Command {
 		RunE: buildFunc,
 	}
 
-	bundleBuildCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "", "The directory where bundle manifests and metadata for a specific version are located")
+	bundleBuildCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "",
+		"The directory where bundle manifests and metadata for a specific version are located")
 	if err := bundleBuildCmd.MarkFlagRequired("directory"); err != nil {
 		log.Fatalf("Failed to mark `directory` flag for `build` subcommand as required")
 	}
 
-	bundleBuildCmd.Flags().StringVarP(&tagBuildArgs, "tag", "t", "", "The image tag applied to the bundle image")
+	bundleBuildCmd.Flags().StringVarP(&tagBuildArgs, "tag", "t", "",
+		"The image tag applied to the bundle image")
 	if err := bundleBuildCmd.MarkFlagRequired("tag"); err != nil {
 		log.Fatalf("Failed to mark `tag` flag for `build` subcommand as required")
 	}
 
-	bundleBuildCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "", "The name of the package that bundle image belongs to")
-	if err := bundleBuildCmd.MarkFlagRequired("package"); err != nil {
-		log.Fatalf("Failed to mark `package` flag for `build` subcommand as required")
-	}
+	bundleBuildCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
+		"The name of the package that bundle image belongs to "+
+			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleBuildCmd.Flags().StringVarP(&channelsArgs, "channels", "c", "", "The list of channels that bundle image belongs to")
-	if err := bundleBuildCmd.MarkFlagRequired("channels"); err != nil {
-		log.Fatalf("Failed to mark `channels` flag for `build` subcommand as required")
-	}
+	bundleBuildCmd.Flags().StringVarP(&channelsArgs, "channels", "c", "",
+		"The list of channels that bundle image belongs to"+
+			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleBuildCmd.Flags().StringVarP(&imageBuilderArgs, "image-builder", "b", "docker", "Tool to build container images. One of: [docker, podman, buildah]")
+	bundleBuildCmd.Flags().StringVarP(&imageBuilderArgs, "image-builder", "b", "docker",
+		"Tool to build container images. One of: [docker, podman, buildah]")
 
-	bundleBuildCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "", "The default channel for the bundle image")
+	bundleBuildCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "",
+		"The default channel for the bundle image")
 
-	bundleBuildCmd.Flags().BoolVarP(&overwriteArgs, "overwrite", "o", false, "To overwrite annotations.yaml locally if existed. By default, overwrite is set to `false`.")
+	bundleBuildCmd.Flags().BoolVarP(&overwriteArgs, "overwrite", "o", false,
+		"To overwrite annotations.yaml locally if existed. By default, overwrite is set to `false`.")
 
-	bundleBuildCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "", "Optional output directory for operator manifests")
+	bundleBuildCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "",
+		"Optional output directory for operator manifests")
 
 	return bundleBuildCmd
 }
