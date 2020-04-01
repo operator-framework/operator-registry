@@ -1,0 +1,197 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: prometheusoperator.0.22.2
+spec:
+  apiservicedefinitions:
+    required:
+    - group: totoally.awesome.com
+      kind: testapi
+      name: v1.totoally.awesome.com
+      version: v1
+  customresourcedefinitions:
+    owned:
+    - description: Configures an Alertmanager for the namespace
+      displayName: Alertmanager
+      kind: Alertmanager
+      name: alertmanagers.monitoring.coreos.com
+      resources:
+      - kind: StatefulSet
+        name: ""
+        version: v1beta2
+      - kind: Pod
+        name: ""
+        version: v1
+      specDescriptors:
+      - description: Desired number of Pods for the cluster
+        displayName: Size
+        path: replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: Limits describes the minimum/maximum amount of compute resources
+          required/allowed
+        displayName: Resource Requirements
+        path: resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      version: v1
+    - description: A running Prometheus instance
+      displayName: Prometheus
+      kind: Prometheus
+      name: prometheuses.monitoring.coreos.com
+      resources:
+      - kind: StatefulSet
+        name: ""
+        version: v1beta2
+      - kind: Pod
+        name: ""
+        version: v1
+      specDescriptors:
+      - description: Desired number of Pods for the cluster
+        displayName: Size
+        path: replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: A selector for the ConfigMaps from which to load rule files
+        displayName: Rule Config Map Selector
+        path: ruleSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:core:v1:ConfigMap
+      version: v1
+    - kind: PrometheusRule
+      name: prometheusrules.monitoring.coreos.com
+      version: v1
+    - kind: ServiceMonitor
+      name: servicemonitors.monitoring.coreos.com
+      version: v1
+    required:
+    - kind: testapi
+      name: plural.apiextensions.k8s.io
+      version: v1
+  description: |
+    The Prometheus Operator for Kubernetes provides easy monitoring definitions for Kubernetes services and deployment and management of Prometheus instances.
+
+    Once installed, the Prometheus Operator provides the following features:
+
+    * **Create/Destroy**: Easily launch a Prometheus instance for your Kubernetes namespace, a specific application or team easily using the Operator.
+
+    * **Simple Configuration**: Configure the fundamentals of Prometheus like versions, persistence, retention policies, and replicas from a native Kubernetes resource.
+
+    * **Target Services via Labels**: Automatically generate monitoring target configurations based on familiar Kubernetes label queries; no need to learn a Prometheus specific configuration language.
+  displayName: prometheus operator
+  icon:
+  - base64data: PHN2ZyB3aWR0aD0iMjQ5MCIgaGVpZ2h0PSIyNTAwIiB2aWV3Qm94PSIwIDAgMjU2IDI1NyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCI+PHBhdGggZD0iTTEyOC4wMDEuNjY3QzU3LjMxMS42NjcgMCA1Ny45NzEgMCAxMjguNjY0YzAgNzAuNjkgNTcuMzExIDEyNy45OTggMTI4LjAwMSAxMjcuOTk4UzI1NiAxOTkuMzU0IDI1NiAxMjguNjY0QzI1NiA1Ny45NyAxOTguNjg5LjY2NyAxMjguMDAxLjY2N3ptMCAyMzkuNTZjLTIwLjExMiAwLTM2LjQxOS0xMy40MzUtMzYuNDE5LTMwLjAwNGg3Mi44MzhjMCAxNi41NjYtMTYuMzA2IDMwLjAwNC0zNi40MTkgMzAuMDA0em02MC4xNTMtMzkuOTRINjcuODQyVjE3OC40N2gxMjAuMzE0djIxLjgxNmgtLjAwMnptLS40MzItMzMuMDQ1SDY4LjE4NWMtLjM5OC0uNDU4LS44MDQtLjkxLTEuMTg4LTEuMzc1LTEyLjMxNS0xNC45NTQtMTUuMjE2LTIyLjc2LTE4LjAzMi0zMC43MTYtLjA0OC0uMjYyIDE0LjkzMyAzLjA2IDI1LjU1NiA1LjQ1IDAgMCA1LjQ2NiAxLjI2NSAxMy40NTggMi43MjItNy42NzMtOC45OTQtMTIuMjMtMjAuNDI4LTEyLjIzLTMyLjExNiAwLTI1LjY1OCAxOS42OC00OC4wNzkgMTIuNTgtNjYuMjAxIDYuOTEuNTYyIDE0LjMgMTQuNTgzIDE0LjggMzYuNTA1IDcuMzQ2LTEwLjE1MiAxMC40Mi0yOC42OSAxMC40Mi00MC4wNTYgMC0xMS43NjkgNy43NTUtMjUuNDQgMTUuNTEyLTI1LjkwNy02LjkxNSAxMS4zOTYgMS43OSAyMS4xNjUgOS41MyA0NS40IDIuOTAyIDkuMTAzIDIuNTMyIDI0LjQyMyA0Ljc3MiAzNC4xMzguNzQ0LTIwLjE3OCA0LjIxMy00OS42MiAxNy4wMTQtNTkuNzg0LTUuNjQ3IDEyLjguODM2IDI4LjgxOCA1LjI3IDM2LjUxOCA3LjE1NCAxMi40MjQgMTEuNDkgMjEuODM2IDExLjQ5IDM5LjYzOCAwIDExLjkzNi00LjQwNyAyMy4xNzMtMTEuODQgMzEuOTU4IDguNDUyLTEuNTg2IDE0LjI4OS0zLjAxNiAxNC4yODktMy4wMTZsMjcuNDUtNS4zNTVjLjAwMi0uMDAyLTMuOTg3IDE2LjQwMS0xOS4zMTQgMzIuMTk3eiIgZmlsbD0iI0RBNEUzMSIvPjwvc3ZnPg==
+    mediatype: image/svg+xml
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - get
+          - watch
+          - list
+        serviceAccountName: prometheus-operator2
+      deployments:
+      - name: prometheus-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              k8s-app: prometheus-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                k8s-app: prometheus-operator
+            spec:
+              containers:
+              - args:
+                - -namespace=$(K8S_NAMESPACE)
+                - -manage-crds=false
+                - -logtostderr=true
+                - --config-reloader-image=quay.io/coreos/configmap-reload:v0.0.1
+                - --prometheus-config-reloader=quay.io/coreos/prometheus-config-reloader:v0.22.2
+                env:
+                - name: K8S_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                image: quay.io/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf
+                name: prometheus-operator
+                ports:
+                - containerPort: 8080
+                  name: http
+                resources: {}
+              serviceAccountName: prometheus-operator-0-22-2
+      - name: prometheus-operator2
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              k8s-app: prometheus-operator2
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                k8s-app: prometheus-operator2
+            spec:
+              containers:
+              - args:
+                - -namespace=$(K8S_NAMESPACE)
+                - -manage-crds=false
+                - -logtostderr=true
+                image: quay.io/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf
+                name: prometheus-operator2
+                ports:
+                - containerPort: 8888
+                  name: http
+                resources: {}
+              serviceAccountName: prometheus-operator2
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+          - watch
+          - list
+        serviceAccountName: prometheus-operator-0-22-2
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - prometheus
+  - monitoring
+  - tsdb
+  - alerting
+  labels:
+    alm-owner-prometheus: prometheusoperator
+    alm-status-descriptors: prometheusoperator.0.22.2
+  links:
+  - name: Prometheus
+    url: https://www.prometheus.io/
+  maintainers:
+  - email: openshift-operators@redhat.com
+    name: Red Hat
+  maturity: beta
+  minKubeVersion: 1.17.3
+  provider:
+    name: Red Hat
+  replaces: prometheusoperator.0.15.0
+  selector:
+    matchLabels:
+      alm-owner-prometheus: prometheusoperator
+  version: 0.22.2

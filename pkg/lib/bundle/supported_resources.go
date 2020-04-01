@@ -13,6 +13,7 @@ const (
 	RoleBindingKind        = "RoleBinding"
 	PrometheusRuleKind     = "PrometheusRule"
 	ServiceMonitorKind     = "ServiceMonitor"
+	DeploymentKind         = "Deployment"
 )
 
 // Namespaced indicates whether the resource is namespace scoped (true) or cluster-scoped (false).
@@ -33,6 +34,7 @@ var supportedResources = map[string]Namespaced{
 	ServiceMonitorKind:     true,
 	SecretKind:             true,
 	ConfigMapKind:          true,
+	DeploymentKind:         true,
 }
 
 // IsSupported checks if the object kind is OLM-supported and if it is namespaced

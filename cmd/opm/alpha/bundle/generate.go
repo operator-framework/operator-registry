@@ -1,9 +1,10 @@
 package bundle
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
 // newBundleGenerateCmd returns a command that will generate operator bundle
@@ -11,9 +12,8 @@ import (
 func newBundleGenerateCmd() *cobra.Command {
 	bundleGenerateCmd := &cobra.Command{
 		Use:   "generate",
-		Short: "Generate operator bundle metadata and Dockerfile",
-		Long: `The "opm alpha bundle generate" command will generate operator
-        bundle metadata if needed and a Dockerfile to build Operator bundle image.
+		Short: "Generates operator bundle metadata and Dockerfile",
+		Long: `Generates operator bundle metadata and Dockerfile if needed to build Operator bundle image.
 
         $ opm alpha bundle generate --directory /test/0.1.0/ --package test-operator \
 		--channels stable,beta --default stable
@@ -48,7 +48,9 @@ func newBundleGenerateCmd() *cobra.Command {
 }
 
 func generateFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.GenerateFunc(dirBuildArgs, outputDirArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true)
+	err := bundle.GenerateFunc(bundle.BundleDir(dirBuildArgs), bundle.WithOutputDir(outputDirArgs),
+		bundle.WithPackageName(packageNameArgs), bundle.WithChannels(channelsArgs),
+		bundle.WithDefaultChannel(channelDefaultArgs), bundle.Overwrite(true))
 	if err != nil {
 		return err
 	}

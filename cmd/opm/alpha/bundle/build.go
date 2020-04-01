@@ -1,9 +1,10 @@
 package bundle
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
 var (
@@ -21,18 +22,16 @@ var (
 func newBundleBuildCmd() *cobra.Command {
 	bundleBuildCmd := &cobra.Command{
 		Use:   "build",
-		Short: "Build operator bundle image",
-		Long: `The "opm alpha bundle build" command will generate operator
-        bundle metadata if needed and build bundle image with operator manifest
-        and metadata for a specific version.
+		Short: "Builds operator bundle image",
+		Long: `Builds an operator bundle image from a set of Kubernetes resource manifests 
+		and metadata files.
 
-        For example: The command will generate annotations.yaml metadata plus
-        Dockerfile for bundle image and then build a container image from
-        provided operator bundle manifests generated metadata
-        e.g. "quay.io/example/operator:v0.0.1".
+        The command could generate annotations.yaml metadata and Dockerfile if absent and 
+		then build a container image from provided operator bundle manifests and generated 
+		metadata, e.g. "quay.io/example/operator:v0.0.1".
 
         After the build process is completed, a container image would be built
-        locally in docker and available to push to a container registry.
+        locally in the image-builder and available to push to a container registry.
 
         $ opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/example/operator:v0.1.0 \
 		--package test-operator --channels stable,beta --default stable --overwrite
@@ -80,8 +79,10 @@ func newBundleBuildCmd() *cobra.Command {
 }
 
 func buildFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.BuildFunc(dirBuildArgs, outputDirArgs, tagBuildArgs, imageBuilderArgs,
-		packageNameArgs, channelsArgs, channelDefaultArgs, overwriteArgs)
+	err := bundle.BuildFunc(bundle.BundleDir(dirBuildArgs), bundle.WithOutputDir(outputDirArgs),
+		bundle.WithImageTag(tagBuildArgs), bundle.WithImageBuilder(imageBuilderArgs),
+		bundle.WithPackageName(packageNameArgs), bundle.WithChannels(channelsArgs),
+		bundle.WithDefaultChannel(channelDefaultArgs), bundle.Overwrite(overwriteArgs))
 	if err != nil {
 		return err
 	}

@@ -372,7 +372,7 @@ func DecodeFile(path string, into interface{}) error {
 	return decoder.Decode(into)
 }
 
-func parseDependenciesFile(path string, depFile *DependenciesFile) error {
+func ParseDependenciesFile(path string, depFile *DependenciesFile) error {
 	deps := Dependencies{}
 	err := DecodeFile(path, &deps)
 	if err != nil || len(deps.RawMessage) == 0 {

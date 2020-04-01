@@ -36,7 +36,7 @@ func validateFunc(cmd *cobra.Command, args []string) error {
 	logger := log.WithFields(log.Fields{"container-tool": imageBuilderArgs})
 	log.SetLevel(log.DebugLevel)
 
-	imageValidator := bundle.NewImageValidator(imageBuilderArgs, logger)
+	imageValidator := bundle.NewBundleValidator(logger)
 
 	dir, err := ioutil.TempDir("", "bundle-")
 	logger.Infof("Create a temp directory at %s", dir)
@@ -50,7 +50,7 @@ func validateFunc(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	err = imageValidator.PullBundleImage(tagBuildArgs, dir)
+	err = imageValidator.PullBundleImage(imageBuilderArgs, tagBuildArgs, dir)
 	if err != nil {
 		return err
 	}

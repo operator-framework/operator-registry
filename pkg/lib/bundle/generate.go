@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/kubectl/pkg/util/slice"
 )
 
 const (
@@ -35,6 +37,72 @@ type AnnotationMetadata struct {
 	Annotations map[string]string `yaml:"annotations"`
 }
 
+func NewAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string) *AnnotationMetadata {
+	return &AnnotationMetadata{
+		Annotations: map[string]string{
+			MediatypeLabel:      mediaType,
+			ManifestsLabel:      manifests,
+			MetadataLabel:       metadata,
+			PackageLabel:        packageName,
+			ChannelsLabel:       channels,
+			ChannelDefaultLabel: channelDefault,
+		},
+	}
+}
+
+func (a *AnnotationMetadata) IsComplete() bool {
+	return a.Annotations[ManifestsLabel] != "" && a.Annotations[MetadataLabel] != "" && a.
+		Annotations[ChannelsLabel] != "" && a.Annotations[PackageLabel] != "" && a.Annotations[MediatypeLabel] != ""
+}
+
+func (a *AnnotationMetadata) GetManifestsDirName() string {
+	return a.Annotations[ManifestsLabel]
+}
+
+func (a *AnnotationMetadata) GetMetadataDirName() string {
+	return a.Annotations[MetadataLabel]
+}
+
+func (a *AnnotationMetadata) GetChannels() string {
+	return a.Annotations[ChannelsLabel]
+}
+
+func (a *AnnotationMetadata) GetPackageName() string {
+	return a.Annotations[PackageLabel]
+}
+
+func (a *AnnotationMetadata) GetMediatype() string {
+	return a.Annotations[MediatypeLabel]
+}
+
+func (a *AnnotationMetadata) GetDefaultChannel() string {
+	return a.Annotations[ChannelDefaultLabel]
+}
+
+func (a *AnnotationMetadata) SetManifestsDirName(manifestsDirName string) {
+	a.Annotations[ManifestsLabel] = manifestsDirName
+}
+
+func (a *AnnotationMetadata) SetMetadataDirName(metadataDirName string) {
+	a.Annotations[MetadataLabel] = metadataDirName
+}
+
+func (a *AnnotationMetadata) SetChannels(channels string) {
+	a.Annotations[ChannelsLabel] = channels
+}
+
+func (a *AnnotationMetadata) SetPackageName(packageName string) {
+	a.Annotations[PackageLabel] = packageName
+}
+
+func (a *AnnotationMetadata) SetMediaType(mediatype string) {
+	a.Annotations[MediatypeLabel] = mediatype
+}
+
+func (a *AnnotationMetadata) SetDefaultChannel(defaultChannel string) {
+	a.Annotations[ChannelDefaultLabel] = defaultChannel
+}
+
 // GenerateFunc builds annotations.yaml with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information and then writes the file to `/metadata` directory.
@@ -46,26 +114,15 @@ type AnnotationMetadata struct {
 // @channels: The list of channels that bundle image belongs to
 // @channelDefault: The default channel for the bundle image
 // @overwrite: Boolean flag to enable overwriting annotations.yaml locally if existed
-func GenerateFunc(directory, outputDir, packageName, channels, channelDefault string, overwrite bool) error {
-	// clean the input so that we know the absolute paths of input directories
-	directory, err := filepath.Abs(directory)
-	if err != nil {
-		return err
-	}
-	if outputDir != "" {
-		outputDir, err = filepath.Abs(outputDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = os.Stat(directory)
-	if os.IsNotExist(err) {
+func GenerateFunc(option ...BundleOption) error {
+	bundleConfig := &BundleConfig{}
+	bundleConfig.apply(option)
+	if err := bundleConfig.complete(); err != nil {
 		return err
 	}
 
 	// Determine mediaType
-	mediaType, err := GetMediaType(directory)
+	mediaType, err := GetMediaType(bundleConfig.bundleDir)
 	if err != nil {
 		return err
 	}
@@ -79,55 +136,56 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 	// Channels and packageName are required fields where as default channel is automatically filled if unspecified
 	// and that either of the required field is missing. We are interpreting the bundle information through
 	// bundle directory embedded in the package folder.
-	if channels == "" || packageName == "" {
+	if bundleConfig.channels == "" || bundleConfig.packageName == "" {
 		var notProvided []string
-		if channels == "" {
+		if bundleConfig.channels == "" {
 			notProvided = append(notProvided, "channels")
 		}
-		if packageName == "" {
+		if bundleConfig.packageName == "" {
 			notProvided = append(notProvided, "package name")
 		}
 		log.Infof("Bundle %s information not provided, inferring from parent package directory",
 			strings.Join(notProvided, " and "))
 
-		i, err := NewBundleDirInterperter(directory)
+		i, err := NewBundleDirInterperter(bundleConfig.bundleDir)
 		if err != nil {
 			return fmt.Errorf("please manually input channels and packageName, "+
-				"error interpreting bundle from directory %s, %v", directory, err)
+				"error interpreting bundle from directory %s, %v", bundleConfig.bundleDir, err)
 		}
 
-		if channels == "" {
-			channels = strings.Join(i.GetBundleChannels(), ",")
-			if channels == "" {
+		if bundleConfig.channels == "" {
+			bundleConfig.channels = strings.Join(i.GetBundleChannels(), ",")
+			if bundleConfig.channels == "" {
 				return fmt.Errorf("error interpreting channels, please manually input channels instead")
 			}
-			log.Infof("Inferred channels: %s", channels)
+			log.Infof("Inferred channels: %s", bundleConfig.channels)
 		}
 
-		if packageName == "" {
-			packageName = i.GetPackageName()
-			log.Infof("Inferred package name: %s", packageName)
+		if bundleConfig.packageName == "" {
+			bundleConfig.packageName = i.GetPackageName()
+			log.Infof("Inferred package name: %s", bundleConfig.packageName)
 		}
 
-		if channelDefault == "" {
-			channelDefault = i.GetDefaultChannel()
-			if !containsString(strings.Split(channels, ","), channelDefault) {
-				channelDefault = ""
+		if bundleConfig.channelDefault == "" {
+			bundleConfig.channelDefault = i.GetDefaultChannel()
+			if !containsString(strings.Split(bundleConfig.channels, ","), bundleConfig.channelDefault) {
+				bundleConfig.channelDefault = ""
 			}
-			log.Infof("Inferred default channel: %s", channelDefault)
+			log.Infof("Inferred default channel: %s", bundleConfig.channelDefault)
 		}
 	}
 
 	log.Info("Building annotations.yaml")
 
 	// Generate annotations.yaml
-	content, err := GenerateAnnotations(mediaType, ManifestsDir, MetadataDir, packageName, channels, channelDefault)
+	content, err := GenerateAnnotations(NewAnnotations(mediaType, ManifestsDir, MetadataDir, bundleConfig.packageName,
+		bundleConfig.channels, bundleConfig.channelDefault))
 	if err != nil {
 		return err
 	}
 
 	// Push the output yaml content to the correct directory and conditionally copy the manifest dir
-	outManifestDir, outMetadataDir, err := CopyYamlOutput(content, directory, outputDir, workingDir, overwrite)
+	outManifestDir, outMetadataDir, err := CopyYamlOutput(content, bundleConfig.bundleDir, bundleConfig.outputDir, bundleConfig.overwrite)
 	if err != nil {
 		return err
 	}
@@ -135,13 +193,14 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 	log.Info("Building Dockerfile")
 
 	// Generate Dockerfile
-	content, err = GenerateDockerfile(mediaType, ManifestsDir, MetadataDir, outManifestDir, outMetadataDir, workingDir, packageName, channels, channelDefault)
+	content, err = GenerateDockerfile(mediaType, ManifestsDir, MetadataDir, outManifestDir, outMetadataDir,
+		workingDir, bundleConfig.packageName, bundleConfig.channels, bundleConfig.channelDefault)
 	if err != nil {
 		return err
 	}
 
 	_, err = os.Stat(filepath.Join(workingDir, DockerFile))
-	if os.IsNotExist(err) || overwrite {
+	if os.IsNotExist(err) || bundleConfig.overwrite {
 		err = WriteFile(DockerFile, workingDir, content)
 		if err != nil {
 			return err
@@ -160,7 +219,7 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 // It returns two strings. resultMetadata is the path to the output metadata/ folder.
 // resultManifests is the path to the output manifests/ folder -- if no copy occured,
 // it just returns the input manifestDir
-func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDir string, overwrite bool) (resultManifests, resultMetadata string, err error) {
+func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir string, overwrite bool) (resultManifests, resultMetadata string, err error) {
 	// First, determine the parent directory of the metadata and manifest directories
 	copyDir := ""
 
@@ -175,7 +234,8 @@ func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDi
 
 		resultManifests = filepath.Join(copyDir, "/manifests/")
 		// copy the manifest directory into $pwd/manifests/
-		err := copyManifestDir(manifestDir, resultManifests, overwrite)
+		err := copyManifestDir(manifestDir, resultManifests, overwrite, (manifestDir == copyDir),
+			path.Clean(MetadataDir), path.Clean(ManifestsDir))
 		if err != nil {
 			return "", "", err
 		}
@@ -323,24 +383,13 @@ func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 // GenerateAnnotations builds annotations.yaml with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information.
-func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
-	annotations := &AnnotationMetadata{
-		Annotations: map[string]string{
-			MediatypeLabel:      mediaType,
-			ManifestsLabel:      manifests,
-			MetadataLabel:       metadata,
-			PackageLabel:        packageName,
-			ChannelsLabel:       channels,
-			ChannelDefaultLabel: channelDefault,
-		},
-	}
-
-	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
+func GenerateAnnotations(annotations *AnnotationMetadata) ([]byte, error) {
+	chanDefault, err := ValidateChannelDefault(annotations.GetChannels(), annotations.GetDefaultChannel())
 	if err != nil {
 		return nil, err
 	}
 
-	annotations.Annotations[ChannelDefaultLabel] = chanDefault
+	annotations.SetDefaultChannel(chanDefault)
 
 	afile, err := yaml.Marshal(annotations)
 	if err != nil {
@@ -348,6 +397,14 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 	}
 
 	return afile, nil
+}
+
+func GetAnnotations(content []byte) (annotationsFile AnnotationMetadata, err error) {
+	unmarshalErr := yaml.Unmarshal(content, &annotationsFile)
+	if unmarshalErr != nil || annotationsFile.Annotations == nil {
+		err = fmt.Errorf("failed to decode annotations file")
+	}
+	return
 }
 
 // GenerateDockerfile builds Dockerfile with mediatype, manifests &
@@ -407,7 +464,7 @@ func WriteFile(fileName, directory string, content []byte) error {
 }
 
 // copy the contents of a potentially nested manifest dir into an output dir.
-func copyManifestDir(from, to string, overwrite bool) error {
+func copyManifestDir(from, to string, overwrite, deleteCopiedFiles bool, exceptForDirs ...string) error {
 	fromFiles, err := ioutil.ReadDir(from)
 	if err != nil {
 		return err
@@ -421,16 +478,20 @@ func copyManifestDir(from, to string, overwrite bool) error {
 
 	for _, fromFile := range fromFiles {
 		if fromFile.IsDir() {
+			if slice.ContainsString(exceptForDirs, fromFile.Name(), nil) {
+				continue
+			}
 			nestedTo := filepath.Join(to, filepath.Base(from))
 			nestedFrom := filepath.Join(from, fromFile.Name())
-			err = copyManifestDir(nestedFrom, nestedTo, overwrite)
+			err = copyManifestDir(nestedFrom, nestedTo, overwrite, deleteCopiedFiles)
 			if err != nil {
 				return err
 			}
 			continue
 		}
 
-		contents, err := os.Open(filepath.Join(from, fromFile.Name()))
+		fromFilePath := filepath.Join(from, fromFile.Name())
+		contents, err := os.Open(fromFilePath)
 		if err != nil {
 			return err
 		}
@@ -466,6 +527,13 @@ func copyManifestDir(from, to string, overwrite bool) error {
 		err = os.Chmod(toFilePath, fromFile.Mode())
 		if err != nil {
 			return err
+		}
+
+		if deleteCopiedFiles {
+			err = os.Remove(fromFilePath)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

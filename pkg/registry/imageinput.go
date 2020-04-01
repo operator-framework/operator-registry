@@ -49,7 +49,7 @@ func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
 		}
 
 		if !dependenciesFound {
-			err = parseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
+			err = ParseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
 			if err == nil && len(dependenciesFile.Dependencies) > 0 {
 				dependenciesFound = true
 			}

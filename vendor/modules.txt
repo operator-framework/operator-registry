@@ -329,7 +329,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runc v1.0.0-rc9
 github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
-# github.com/operator-framework/api v0.3.4
+# github.com/operator-framework/api v0.3.5
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/operators
 github.com/operator-framework/api/pkg/operators/v1alpha1
@@ -626,6 +626,7 @@ k8s.io/apiserver/pkg/apis/apiserver/v1alpha1
 k8s.io/apiserver/pkg/apis/apiserver/v1beta1
 k8s.io/apiserver/pkg/server/egressselector
 k8s.io/apiserver/pkg/server/egressselector/metrics
+k8s.io/apiserver/pkg/storage/names
 k8s.io/apiserver/pkg/util/webhook
 # k8s.io/client-go v0.18.2
 k8s.io/client-go/discovery
@@ -750,6 +751,7 @@ k8s.io/klog
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubectl v0.18.0
 k8s.io/kubectl/pkg/util/interrupt
+k8s.io/kubectl/pkg/util/slice
 k8s.io/kubectl/pkg/util/templates
 k8s.io/kubectl/pkg/util/term
 # k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89

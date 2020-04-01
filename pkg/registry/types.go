@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
@@ -38,6 +39,16 @@ type DefinitionKey struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }
+
+func (dk *DefinitionKey) GroupVersionKind() GroupVersionKind {
+	return GroupVersionKind{
+		Group:   dk.Group,
+		Version: dk.Version,
+		Kind:    dk.Kind,
+	}
+}
+
+type GroupVersionKind schema.GroupVersionKind
 
 // PackageManifest holds information about a package, which is a reference to one (or more)
 // channels under a single package.

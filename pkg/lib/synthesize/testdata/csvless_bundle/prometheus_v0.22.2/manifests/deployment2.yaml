@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-operator2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      k8s-app: prometheus-operator2
+  template:
+    metadata:
+      labels:
+        k8s-app: prometheus-operator2
+    spec:
+      serviceAccountName: prometheus-operator2
+      containers:
+        - name: prometheus-operator2
+          image: quay.io/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf
+          args:
+            - -namespace=$(K8S_NAMESPACE)
+            - -manage-crds=false
+            - -logtostderr=true
+          ports:
+            - containerPort: 8888
+              name: http

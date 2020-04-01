@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: role-binder
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-operator-0-22-2
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: roboCop
+  apiGroup: rbac.authorization.k8s.io

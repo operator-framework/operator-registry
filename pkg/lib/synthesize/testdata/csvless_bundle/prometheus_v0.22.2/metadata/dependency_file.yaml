@@ -1,0 +1,13 @@
+dependencies:
+# this dependency file contains one APIService, one CRD, and a package as required resources.
+  - type: olm.gvk
+    group: totoally.awesome.com
+    kind: testapi
+    version: v1
+  - type: olm.gvk
+    group: apiextensions.k8s.io
+    kind: testapi
+    version: v1
+  - type: olm.package
+    packageName: awesome
+    version: 0.27.0

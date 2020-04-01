@@ -45,8 +45,10 @@ type imageValidator struct {
 // PullBundleImage shells out to a container tool and pulls a given image tag
 // Then it unpacks the image layer filesystem contents and pushes the contents
 // to a specified directory for further validation
-func (i imageValidator) PullBundleImage(imageTag, directory string) error {
+func (i imageValidator) PullBundleImage(containerTool, imageTag, directory string) error {
 	i.logger.Debug("Pulling and unpacking container image")
+	i.imageReader = containertools.NewImageReader(containertools.NewContainerTool(containerTool,
+		containertools.NoneTool), i.logger)
 
 	return i.imageReader.GetImageData(imageTag, directory)
 }
@@ -194,12 +196,7 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 				validationErrors = append(validationErrors, aErr)
 			}
 		case ChannelsLabel, ChannelDefaultLabel:
-			if val == "" {
-				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
-				validationErrors = append(validationErrors, aErr)
-			} else {
-				annotations[label] = val
-			}
+			annotations[label] = val
 		}
 	}
 

@@ -189,7 +189,7 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 	}
 	// Create result annotations struct
 	resultAnnotations := AnnotationMetadata{}
-	data, err := GenerateAnnotations("test1", "test2", "test3", "test4", "test5", "test5")
+	data, err := GenerateAnnotations(NewAnnotations("test1", "test2", "test3", "test4", "test5", "test5"))
 	require.NoError(t, err)
 
 	err = yaml.Unmarshal(data, &resultAnnotations)
@@ -222,10 +222,9 @@ func TestCopyYamlOutput(t *testing.T) {
 
 	testContent := []byte{0, 1, 0, 0}
 	testManifestDir := "./testdata/generate/manifests"
-	testWorkingDir := "./"
 	testOverwrite := true
 
-	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testWorkingDir, testOverwrite)
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testOverwrite)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(testOutputDir, "manifests/"), resultManifestDir)
 	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
@@ -243,10 +242,9 @@ func TestCopyYamlOutput(t *testing.T) {
 func TestCopyYamlOutput_NoOutputDir(t *testing.T) {
 	testContent := []byte{0, 1, 0, 0}
 	testManifestDir := "./testdata/generate/manifests"
-	testWorkingDir := "./"
 	testOverwrite := true
 
-	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, "", testWorkingDir, testOverwrite)
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, "", testOverwrite)
 	require.NoError(t, err)
 	require.Equal(t, testManifestDir, resultManifestDir)
 	require.Equal(t, filepath.Join(filepath.Dir(testManifestDir), "metadata/"), resultMetadataDir)
@@ -265,10 +263,9 @@ func TestCopyYamlOutput_NestedCopy(t *testing.T) {
 
 	testContent := []byte{0, 1, 0, 0}
 	testManifestDir := "./testdata/generate/nested_manifests"
-	testWorkingDir := "./"
 	testOverwrite := true
 
-	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testWorkingDir, testOverwrite)
+	resultManifestDir, resultMetadataDir, err := CopyYamlOutput(testContent, testManifestDir, testOutputDir, testOverwrite)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(testOutputDir, "manifests/"), resultManifestDir)
 	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
@@ -287,7 +284,7 @@ func TestGenerateFunc(t *testing.T) {
 	etcdPkgPath := "./testdata/etcd"
 	outputPath := "./testdata/tmp_output"
 	defer os.RemoveAll(outputPath)
-	err := GenerateFunc(filepath.Join(etcdPkgPath, "0.6.1"), outputPath, "", "", "", true)
+	err := GenerateFunc(BundleDir(filepath.Join(etcdPkgPath, "0.6.1")), WithOutputDir(outputPath), Overwrite(true))
 	require.NoError(t, err)
 	os.Remove(filepath.Join("./", DockerFile))
 

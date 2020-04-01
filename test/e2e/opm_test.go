@@ -205,7 +205,9 @@ var _ = Describe("opm", func() {
 				bundleTag3: bundlePath3,
 			} {
 				err := inTemporaryBuildContext(func() error {
-					return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
+					return bundle.BuildFunc(bundle.BundleDir(path), bundle.WithImageTag(bundleImage+":"+tag),
+						bundle.WithImageBuilder(containerTool), bundle.WithPackageName(packageName),
+						bundle.WithChannels(channels), bundle.WithDefaultChannel(defaultChannel))
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -275,10 +277,10 @@ var _ = Describe("opm", func() {
 
 			By("building bundles")
 			for i := range bundlePaths {
-				td, err := ioutil.TempDir("", "opm-")
+				tmpOutputDir, err := ioutil.TempDir("", "opm-")
 				Expect(err).NotTo(HaveOccurred())
-
-				err = bundle.BuildFunc(bundlePaths[i], td, bundleImage+":"+bundleTags[i], containerTool, "", "", "", false)
+				err = bundle.BuildFunc(bundle.BundleDir(bundlePaths[i]), bundle.WithOutputDir(tmpOutputDir),
+					bundle.WithImageTag(bundleImage+":"+bundleTags[i]), bundle.WithImageBuilder(containerTool))
 				Expect(err).NotTo(HaveOccurred())
 			}
 

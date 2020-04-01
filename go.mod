@@ -19,7 +19,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
-	github.com/operator-framework/api v0.3.4
+	github.com/operator-framework/api v0.3.5
 	github.com/otiai10/copy v1.0.2
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
@@ -36,9 +36,11 @@ require (
 	k8s.io/api v0.18.2
 	k8s.io/apiextensions-apiserver v0.18.2
 	k8s.io/apimachinery v0.18.2
+	k8s.io/apiserver v0.18.2
 	k8s.io/client-go v0.18.2
 	k8s.io/klog v1.0.0
 	k8s.io/kubectl v0.18.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
