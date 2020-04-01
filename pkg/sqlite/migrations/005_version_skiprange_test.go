@@ -42,7 +42,7 @@ func TestVersioningDown(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec("insert into package(name, default_channel) values(?,?)", "etcd", "alpha")
 	require.NoError(t, err)
-	_, err = db.Exec("insert into channel(name, package_name, head_operatorbundle_name) values(?,?,?)",  "alpha", "etcd", "etcdoperator.v0.6.1")
+	_, err = db.Exec("insert into channel(name, package_name, head_operatorbundle_name) values(?,?,?)", "alpha", "etcd", "etcdoperator.v0.6.1")
 	require.NoError(t, err)
 	_, err = db.Exec("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)", "alpha", "etcd", "etcdoperator.v0.6.1", 0)
 	require.NoError(t, err)

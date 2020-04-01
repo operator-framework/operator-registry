@@ -52,9 +52,30 @@ func TestRemover(t *testing.T) {
 	}
 	require.NoError(t, prometheusThirdVersion.LoadBundleFunc())
 
-	// delete everything
-	require.NoError(t, store.RmPackageName("etcd"))
-	require.NoError(t, store.RmPackageName("prometheus"))
+	// delete etcd
+	require.NoError(t, store.RemovePackage("etcd"))
+
+	querier := NewSQLLiteQuerierFromDb(db)
+	_, err = querier.GetPackage(context.TODO(), "etcd")
+	require.EqualError(t, err, "package etcd not found")
+
+	// prometheus apis still around
+	rows, err := db.QueryContext(context.TODO(), "select * from api")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	require.NoError(t, rows.Close())
+
+	// delete prometheus
+	require.NoError(t, store.RemovePackage("prometheus"))
+
+	_, err = querier.GetPackage(context.TODO(), "prometheus")
+	require.EqualError(t, err, "package prometheus not found")
+
+	// no apis after all packages are removed
+	rows, err = db.QueryContext(context.TODO(), "select * from api")
+	require.NoError(t, err)
+	require.False(t, rows.Next())
+	require.NoError(t, rows.Close())
 
 	// and insert again
 	require.NoError(t, etcdFirstVersion.LoadBundleFunc())
@@ -62,4 +83,10 @@ func TestRemover(t *testing.T) {
 	require.NoError(t, prometheusFirstVersion.LoadBundleFunc())
 	require.NoError(t, prometheusSecondVersion.LoadBundleFunc())
 	require.NoError(t, prometheusThirdVersion.LoadBundleFunc())
+
+	// apis are back
+	rows, err = db.QueryContext(context.TODO(), "select * from api")
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	require.NoError(t, rows.Close())
 }

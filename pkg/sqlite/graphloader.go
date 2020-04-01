@@ -94,7 +94,7 @@ func graphFromEntries(channelEntries []registry.ChannelEntryAnnotated) (map[stri
 			CsvName:    entry.BundleName,
 		}
 		replacesKey := registry.BundleKey{
-			BundlePath: entry.BundlePath,
+			BundlePath: entry.ReplacesBundlePath,
 			Version:    entry.ReplacesVersion,
 			CsvName:    entry.Replaces,
 		}

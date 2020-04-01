@@ -46,9 +46,9 @@ func rmFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	request := registry.DeleteFromRegistryRequest{
-		Packages: packages,
+		Packages:      packages,
 		InputDatabase: fromFilename,
-		Permissive: permissive,
+		Permissive:    permissive,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"packages": packages})

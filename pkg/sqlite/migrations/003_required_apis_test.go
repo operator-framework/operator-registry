@@ -27,7 +27,7 @@ func TestRequiredApisUp(t *testing.T) {
 	require.NoError(t, err)
 	_, err = tx.Exec("insert into package(name, default_channel) values(?,?)", "etcd", "alpha")
 	require.NoError(t, err)
-	_, err = tx.Exec("insert into channel(name, package_name, head_operatorbundle_name) values(?,?,?)",  "alpha", "etcd", "etcdoperator.v0.6.1")
+	_, err = tx.Exec("insert into channel(name, package_name, head_operatorbundle_name) values(?,?,?)", "alpha", "etcd", "etcdoperator.v0.6.1")
 	require.NoError(t, err)
 	_, err = tx.Exec("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)", "alpha", "etcd", "etcdoperator.v0.6.1", 0)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestRequiredApisDown(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec("insert into api(group_name, version, kind, plural) values(?,?,?,?)", "etcd.database.coreos.com", "v1beta2", "EtcdCluster", "etcdclusters")
 	require.NoError(t, err)
-	_, err = db.Exec("insert into api_requirer(group_name, version, kind, channel_entry_id) values(?,?,?,?)", "etcd.database.coreos.com", "v1beta2", "EtcdCluster",1)
+	_, err = db.Exec("insert into api_requirer(group_name, version, kind, channel_entry_id) values(?,?,?,?)", "etcd.database.coreos.com", "v1beta2", "EtcdCluster", 1)
 	require.NoError(t, err)
 
 	// check that required apis were extracted from existing bundles

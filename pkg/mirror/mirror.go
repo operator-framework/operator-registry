@@ -39,11 +39,11 @@ func (f ImageMirrorerFunc) Mirror(mapping map[string]string) error {
 }
 
 type IndexImageMirrorer struct {
-	ImageMirrorer       ImageMirrorer
-	DatabaseExtractor   DatabaseExtractor
+	ImageMirrorer     ImageMirrorer
+	DatabaseExtractor DatabaseExtractor
 
 	// options
-	Source, Dest        string
+	Source, Dest string
 }
 
 var _ Mirrorer = &IndexImageMirrorer{}
@@ -58,10 +58,10 @@ func NewIndexImageMirror(options ...ImageIndexMirrorOption) (*IndexImageMirrorer
 		return nil, err
 	}
 	return &IndexImageMirrorer{
-		ImageMirrorer:         config.ImageMirrorer,
-		DatabaseExtractor:     config.DatabaseExtractor,
-		Source:                config.Source,
-		Dest:                  config.Dest,
+		ImageMirrorer:     config.ImageMirrorer,
+		DatabaseExtractor: config.DatabaseExtractor,
+		Source:            config.Source,
+		Dest:              config.Dest,
 	}, nil
 }
 

@@ -53,9 +53,9 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	request := registry.AddToRegistryRequest{
-		Bundles: bundleImages,
+		Bundles:       bundleImages,
 		InputDatabase: fromFilename,
-		Permissive: permissive,
+		Permissive:    permissive,
 		ContainerTool: containerTool,
 	}
 

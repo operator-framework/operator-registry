@@ -24,7 +24,7 @@ func TestDirectoryLoader(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.Migrate(context.TODO()))
 
-	loader := NewSQLLoaderForDirectory(store, "../../manifests")
+	loader := NewSQLLoaderForDirectory(store, "./testdata/loader_data")
 	require.NoError(t, loader.Populate())
 }
 
@@ -45,7 +45,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-	require.NoError(t, copy.Copy("../../manifests", dir))
+	require.NoError(t, copy.Copy("./testdata/loader_data", dir))
 
 	// Point the first channel at a CSV that doesn't exist
 	path := filepath.Join(dir, "etcd/etcd.package.yaml")
@@ -82,6 +82,7 @@ func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
 	loader := NewSQLLoaderForDirectory(store, "pkg/sqlite/testdata/incorrectbundle")
 	require.Error(t, loader.Populate(), "error loading manifests from directory: [error adding operator bundle : json: cannot unmarshal number into Go struct field EnvVar.Install.spec.Deployments.Spec.template.spec.containers.env.value of type string, error loading package into db: [FOREIGN KEY constraint failed, no bundle found for csv 3scale-community-operator.v0.3.0]]")
 }
+
 func TestQuerierForDirectory(t *testing.T) {
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()
@@ -143,11 +144,11 @@ func TestQuerierForDirectory(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	require.Equal(t, expectedBundle, etcdBundleByChannel)
+	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundle)
+	EqualBundles(t, *expectedBundle, *etcdBundle)
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
@@ -155,9 +156,12 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
-	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
+	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	for _, c := range etcdChannelEntriesThatProvide {
+		t.Logf("%#v", c)
+	}
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
@@ -178,7 +182,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundleByProvides)
+	EqualBundles(t, *expectedBundle, *etcdBundleByProvides)
 
 	kafkaPackage, err := store.GetPackage(context.TODO(), "strimzi-kafka-operator")
 	require.NoError(t, err)
@@ -230,4 +234,11 @@ func TestQuerierForDirectory(t *testing.T) {
 	dbImages, err := store.ListImages(context.TODO())
 	require.NoError(t, err)
 	require.ElementsMatch(t, expectedDatabaseImages, dbImages)
+}
+
+func EqualBundles(t *testing.T, expected, actual api.Bundle) {
+	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis)
+	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
+	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
+	require.EqualValues(t, expected, actual)
 }

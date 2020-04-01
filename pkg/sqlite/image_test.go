@@ -3,13 +3,19 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 func createAndPopulateDB(db *sql.DB) (*SQLQuerier, error) {
 	load, err := NewSQLLiteLoader(db)
@@ -74,6 +80,7 @@ func createAndPopulateDB(db *sql.DB) (*SQLQuerier, error) {
 
 	return NewSQLLiteQuerierFromDb(db), nil
 }
+
 func TestImageLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	db, cleanup := CreateTestDb(t)
@@ -131,11 +138,11 @@ func TestQuerierForImage(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	require.Equal(t, expectedBundle, etcdBundleByChannel)
+	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundle)
+	EqualBundles(t, *expectedBundle, *etcdBundle)
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
@@ -143,7 +150,7 @@ func TestQuerierForImage(t *testing.T) {
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
-	require.EqualValues(t, expectedBundle, etcdBundleByReplaces)
+	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.ElementsMatch(t, []*registry.ChannelEntry{
@@ -161,7 +168,7 @@ func TestQuerierForImage(t *testing.T) {
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.Equal(t, expectedBundle, etcdBundleByProvides)
+	EqualBundles(t, *expectedBundle, *etcdBundleByProvides)
 
 	expectedEtcdImages := []string{
 		"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
@@ -202,4 +209,91 @@ func TestQuerierForImage(t *testing.T) {
 	currentCSVName, err := store.GetCurrentCSVNameForChannel(context.TODO(), "etcd", "alpha")
 	require.NoError(t, err)
 	require.Equal(t, "etcdoperator.v0.9.2", currentCSVName)
+}
+
+func TestImageLoading(t *testing.T) {
+	// TODO: remove requirement to have real files
+	tests := []struct {
+		name         string
+		initImages   []*ImageLoader
+		addImage     *ImageLoader
+		wantPackages []*registry.Package
+		wantErr      bool
+	}{
+		{
+			name: "OneChannel/AddBundleToTwoChannels",
+			initImages: []*ImageLoader{
+				{
+					// this is in the "preview" channel
+					image:     "quay.io/prometheus/operator:0.14.0",
+					directory: "../../bundles/prometheus.0.14.0",
+				},
+			},
+			addImage: &ImageLoader{
+				// this is in the "preview" and "stable" channels and replaces 0.14.0
+				image:     "quay.io/prometheus/operator:0.15.0",
+				directory: "../../bundles/prometheus.0.15.0",
+			},
+			wantPackages: []*registry.Package{
+				{
+					Name:           "prometheus",
+					DefaultChannel: "preview",
+					Channels: map[string]registry.Channel{
+						"preview": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.15.0",
+								Version:    "0.15.0",
+								CsvName:    "prometheusoperator.0.15.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.15.0", Version: "0.15.0", CsvName: "prometheusoperator.0.15.0"}: {
+									{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: struct{}{},
+								},
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {},
+							},
+						},
+						"stable": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.15.0",
+								Version:    "0.15.0",
+								CsvName:    "prometheusoperator.0.15.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.15.0", Version: "0.15.0", CsvName: "prometheusoperator.0.15.0"}: {
+									{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: struct{}{},
+								},
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {}},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			load, err := NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			require.NoError(t, load.Migrate(context.TODO()))
+			for _, i := range tt.initImages {
+				i.store = load
+				require.NoError(t, i.LoadBundleFunc())
+			}
+
+			tt.addImage.store = load
+			require.NoError(t, tt.addImage.LoadBundleFunc())
+
+			for _, p := range tt.wantPackages {
+				graphLoader, err := NewSQLGraphLoaderFromDB(db, p.Name)
+				require.NoError(t, err)
+
+				result, err := graphLoader.Generate()
+				require.NoError(t, err)
+				require.Equal(t, p, result)
+			}
+		})
+	}
 }
