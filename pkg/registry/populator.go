@@ -11,20 +11,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
 	loader Load
+	to     image.Reference
 	from   string
-	ref    string
 }
 
-func NewDirectoryPopulator(loader Load, from, ref string) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, to image.Reference, from string) *DirectoryPopulator {
 	return &DirectoryPopulator{
 		loader: loader,
+		to:     to,
 		from:   from,
-		ref:    ref,
 	}
 }
 
@@ -94,7 +96,7 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 	}
 
 	// set the bundleimage on the bundle
-	bundle.BundleImage = i.ref
+	bundle.BundleImage = i.to.String()
 
 	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
 		return fmt.Errorf("error checking provided apis in bundle %s: %s", bundle.Name, err)

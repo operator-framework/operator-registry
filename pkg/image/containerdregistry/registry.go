@@ -15,24 +15,27 @@ import (
 	"github.com/containerd/containerd/remotes"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
+
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
+// Registry enables manipulation of images via containerd modules.
 type Registry struct {
 	Store
 
 	log      *logrus.Entry
 	resolver remotes.Resolver
 	platform platforms.MatchComparer
-
-	close func() error
 }
 
+var _ image.Registry = &Registry{}
+
 // Pull fetches and stores an image by reference.
-func (r *Registry) Pull(ctx context.Context, ref string) error {
+func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 	// Set the default namespace if unset
 	ctx = ensureNamespace(ctx)
 
-	name, root, err := r.resolver.Resolve(ctx, ref)
+	name, root, err := r.resolver.Resolve(ctx, ref.String())
 	if err != nil {
 		return err
 	}
@@ -48,7 +51,7 @@ func (r *Registry) Pull(ctx context.Context, ref string) error {
 	}
 
 	img := images.Image{
-		Name:   ref,
+		Name:   ref.String(),
 		Target: root,
 	}
 	if _, err = r.Images().Create(ctx, img); err != nil {
@@ -62,11 +65,11 @@ func (r *Registry) Pull(ctx context.Context, ref string) error {
 
 // Unpack writes the unpackaged content of an image to a directory.
 // If the referenced image does not exist in the registry, an error is returned.
-func (r *Registry) Unpack(ctx context.Context, ref, dir string) error {
+func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) error {
 	// Set the default namespace if unset
 	ctx = ensureNamespace(ctx)
 
-	img, err := r.Images().Get(ctx, ref)
+	img, err := r.Images().Get(ctx, ref.String())
 	if err != nil {
 		return err
 	}
@@ -88,10 +91,6 @@ func (r *Registry) Unpack(ctx context.Context, ref, dir string) error {
 	}
 
 	return nil
-}
-
-func (r *Registry) Close() error {
-	return r.close()
 }
 
 func (r *Registry) fetch(ctx context.Context, fetcher remotes.Fetcher, root ocispec.Descriptor) error {

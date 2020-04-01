@@ -1,16 +1,15 @@
-package containerdregistry
+// +build ignore
+package buildahregistry
 
 import (
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 
-	contentlocal "github.com/containerd/containerd/content/local"
-	"github.com/containerd/containerd/metadata"
-	"github.com/containerd/containerd/platforms"
-	"github.com/containerd/containerd/remotes"
+	"github.com/containers/storage"
 	"github.com/sirupsen/logrus"
-	bolt "go.etcd.io/bbolt"
 )
 
 type RegistryConfig struct {
@@ -50,8 +49,6 @@ func defaultConfig() *RegistryConfig {
 	return config
 }
 
-// NewRegistry returns a new containerd Registry and a function to destroy it after use.
-// The destroy function is safe to call more than once, but is a no-op after the first call.
 func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() error, err error) {
 	config := defaultConfig()
 	config.apply(options)
@@ -59,23 +56,9 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() 
 		return
 	}
 
-	cs, err := contentlocal.NewStore(config.CacheDir)
-	if err != nil {
-		return
-	}
-
-	var bdb *bolt.DB
-	bdb, err = bolt.Open(config.DBPath, 0644, nil)
-	if err != nil {
-		return
-	}
-
 	var once sync.Once
 	destroy = func() (destroyErr error) {
 		once.Do(func() {
-			if destroyErr = bdb.Close(); destroyErr != nil {
-				return
-			}
 			if config.PreserveCache {
 				return
 			}
@@ -86,18 +69,51 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() 
 		return
 	}
 
-	var resolver remotes.Resolver
-	resolver, err = NewResolver(config.ResolverConfigDir, config.SkipTLS)
+	// TODO: at this point we've overwritten all the defaults, may as well not use this
+	var storeOpts storage.StoreOptions
+	storeOpts, err = storage.DefaultStoreOptionsAutoDetectUID()
+	if err != nil {
+		return
+	}
+	storeOpts.RootlessStoragePath = config.CacheDir
+	storeOpts.RunRoot = config.CacheDir
+	storeOpts.GraphRoot = config.CacheDir
+	storeOpts.GraphDriverName = "vfs"
+	// storeOpts.UIDMap = []idtools.IDMap{
+	// 	{ContainerID: 0, HostID: os.Getuid()},
+	// }
+	// storeOpts.GIDMap = []idtools.IDMap{
+	// 	{ContainerID: 0, HostID: os.Getgid()},
+	// }
+
+	var store storage.Store
+	store, err = storage.GetStore(storeOpts)
 	if err != nil {
 		return
 	}
 
-	registry = &Registry{
-		Store: newStore(metadata.NewDB(bdb, cs, nil)),
+	// TODO: probably don't want the signature policy to be here
+	ioutil.WriteFile(path.Join(config.CacheDir, "policy.json"), []byte(`
+{
+    "default": [
+        {
+            "type": "insecureAcceptAnything"
+        }
+    ],
+    "transports":
+        {
+            "docker-daemon":
+                {
+                    "": [{"type":"insecureAcceptAnything"}]
+                }
+        }
+}
+`), os.ModePerm)
 
+	registry = &Registry{
+		Store:    store,
+		CacheDir: config.CacheDir,
 		log:      config.Log,
-		resolver: resolver,
-		platform: platforms.Only(platforms.DefaultSpec()),
 	}
 	return
 }
@@ -122,14 +138,14 @@ func WithCacheDir(dir string) RegistryOption {
 	}
 }
 
-func PreserveCache(preserve bool) RegistryOption {
+func PreserveCache() RegistryOption {
 	return func(config *RegistryConfig) {
-		config.PreserveCache = preserve
+		config.PreserveCache = true
 	}
 }
 
-func SkipTLS(skip bool) RegistryOption {
+func SkipTLS() RegistryOption {
 	return func(config *RegistryConfig) {
-		config.SkipTLS = skip
+		config.SkipTLS = true
 	}
 }

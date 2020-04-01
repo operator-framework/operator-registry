@@ -454,5 +454,10 @@ bin
 # Ignore vscode
 .vscode
 
-# Igore apprclient meta
+# Ignore apprclient meta
 pkg/apprclient/openapi/git_push.sh
+
+# Never ignore testdata
+!pkg/**/testdata/**
+!test/**testdata/**
+

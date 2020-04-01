@@ -44,21 +44,22 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
-	reg, err := containerdregistry.NewRegistry(
+	// TODO: Dependency inject the registry if we want to swap it out.
+	reg, destroy, err := containerdregistry.NewRegistry(
 		containerdregistry.SkipTLS(request.SkipTLS),
 	)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := reg.Close(); err != nil {
-			r.Logger.WithError(err).Warn("error closing local image registry")
+		if err := destroy(); err != nil {
+			r.Logger.WithError(err).Warn("error destroying internal image registry")
 		}
 	}()
 
 	// TODO(njhale): Parallelize this once bundle add is commutative
 	for _, ref := range request.Bundles {
-		if err := populate(context.TODO(), dbLoader, reg, ref); err != nil {
+		if err := populate(context.TODO(), dbLoader, reg, image.SimpleReference(ref)); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {
 				r.Logger.WithError(err).Error("permissive mode disabled")
@@ -72,7 +73,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	return utilerrors.NewAggregate(errs) // nil if no errors
 }
 
-func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref string) error {
+func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref image.Reference) error {
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
 	if err != nil {
 		return err
@@ -87,7 +88,7 @@ func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref
 		return err
 	}
 
-	populator := registry.NewDirectoryPopulator(loader, workingDir, ref)
+	populator := registry.NewDirectoryPopulator(loader, ref, workingDir)
 
 	return populator.Populate()
 }
