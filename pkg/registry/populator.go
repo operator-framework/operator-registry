@@ -126,7 +126,9 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	bundle := &Bundle{}
+	bundle := &Bundle{
+		Name: csvName,
+	}
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
