@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -45,17 +44,11 @@ func (i *DirectoryPopulator) Populate() error {
 	// manifests of the bundle should be loaded into the database.
 	annotationsFile := &AnnotationsFile{}
 	for _, f := range files {
-		fileReader, err := os.Open(filepath.Join(metadata, f.Name()))
-		if err != nil {
-			return fmt.Errorf("unable to read file %s: %s", f.Name(), err)
-		}
-		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-		err = decoder.Decode(&annotationsFile)
+		err = decodeFile(filepath.Join(metadata, f.Name()), err)
 		if err != nil || *annotationsFile == (AnnotationsFile{}) {
 			continue
-		} else {
-			log.Info("found annotations file searching for csv")
 		}
+		log.Info("found annotations file searching for csv")
 	}
 
 	if *annotationsFile == (AnnotationsFile{}) {
@@ -133,7 +126,6 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	var errs []error
 	bundle := &Bundle{}
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
@@ -148,17 +140,12 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 		}
 
 		log.Info("loading bundle file")
-		path := filepath.Join(dir, f.Name())
-		fileReader, err := os.Open(path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to load file %s: %s", path, err))
-			continue
-		}
-
-		decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-		obj := &unstructured.Unstructured{}
-		if err = decoder.Decode(obj); err != nil {
-			logrus.WithError(err).Debugf("could not decode file contents for %s", path)
+		var (
+			obj  = &unstructured.Unstructured{}
+			path = filepath.Join(dir, f.Name())
+		)
+		if err = decodeFile(path, obj); err != nil {
+			log.WithError(err).Debugf("could not decode file contents for %s", path)
 			continue
 		}
 
@@ -172,7 +159,7 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 		}
 	}
 
-	return bundle, utilerrors.NewAggregate(errs)
+	return bundle, nil
 }
 
 // findCSV looks through the bundle directory to find a csv
@@ -184,7 +171,6 @@ func (i *DirectoryPopulator) findCSV(manifests string) (*unstructured.Unstructur
 		return nil, fmt.Errorf("unable to read directory %s: %s", manifests, err)
 	}
 
-	var errs []error
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
@@ -197,29 +183,23 @@ func (i *DirectoryPopulator) findCSV(manifests string) (*unstructured.Unstructur
 			continue
 		}
 
-		path := filepath.Join(manifests, f.Name())
-		fileReader, err := os.Open(path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to read file %s: %s", path, err))
+		var (
+			obj  = &unstructured.Unstructured{}
+			path = filepath.Join(manifests, f.Name())
+		)
+		if err = decodeFile(path, obj); err != nil {
+			log.WithError(err).Debugf("could not decode file contents for %s", path)
 			continue
 		}
 
-		dec := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-		unst := &unstructured.Unstructured{}
-		if err := dec.Decode(unst); err != nil {
+		if obj.GetKind() != clusterServiceVersionKind {
 			continue
 		}
 
-		if unst.GetKind() != clusterServiceVersionKind {
-			continue
-		}
-
-		return unst, nil
-
+		return obj, nil
 	}
 
-	errs = append(errs, fmt.Errorf("no csv found in bundle"))
-	return nil, utilerrors.NewAggregate(errs)
+	return nil, fmt.Errorf("no csv found in bundle")
 }
 
 // loadOperatorBundle adds the package information to the loader's store
@@ -255,4 +235,17 @@ func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterS
 	}
 
 	return manifest, nil
+}
+
+// decodeFile decodes the file at a path into the given interface.
+func decodeFile(path string, into interface{}) error {
+	fileReader, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("unable to read file %s: %s", path, err)
+	}
+	defer fileReader.Close()
+
+	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
+
+	return decoder.Decode(into)
 }

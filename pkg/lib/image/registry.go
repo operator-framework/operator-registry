@@ -30,7 +30,7 @@ func RunDockerRegistry(ctx context.Context, rootDir string) (string, error) {
 	} else {
 		config.Storage = map[string]configuration.Parameters{"inmemory": map[string]interface{}{}}
 	}
-	config.HTTP.DrainTimeout = time.Duration(2) * time.Second
+	config.HTTP.DrainTimeout = 2 * time.Second
 
 	dockerRegistry, err := registry.NewRegistry(ctx, config)
 	if err != nil {
