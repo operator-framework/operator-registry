@@ -44,7 +44,7 @@ func (i *DirectoryPopulator) Populate() error {
 	// manifests of the bundle should be loaded into the database.
 	annotationsFile := &AnnotationsFile{}
 	for _, f := range files {
-		err = decodeFile(filepath.Join(metadata, f.Name()), err)
+		err = decodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
 		if err != nil || *annotationsFile == (AnnotationsFile{}) {
 			continue
 		}
@@ -126,7 +126,9 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	bundle := &Bundle{}
+	bundle := &Bundle{
+		Name: csvName,
+	}
 	for _, f := range files {
 		log = log.WithField("file", f.Name())
 		if f.IsDir() {
@@ -239,6 +241,10 @@ func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterS
 
 // decodeFile decodes the file at a path into the given interface.
 func decodeFile(path string, into interface{}) error {
+	if into == nil {
+		panic("programmer error: decode destination must be instantiated before decode")
+	}
+
 	fileReader, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to read file %s: %s", path, err)
