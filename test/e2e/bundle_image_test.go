@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -676,8 +677,8 @@ spec:
 	}
 }
 
-func buildContainer(tag, dockerfilePath, context string) {
-	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, context)
+func buildContainer(tag, dockerfilePath, dockerContext string) {
+	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
 	err := cmd.Run()
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -710,7 +711,7 @@ var _ = Describe("Launch bundle", func() {
 			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = kubeclient.RbacV1().Roles(namespace).Create(&rbacv1.Role{
+			_, err = kubeclient.RbacV1().Roles(namespace).Create(context.TODO(), &rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "olm-dev-configmap-access",
 					Namespace: namespace,
@@ -722,10 +723,10 @@ var _ = Describe("Launch bundle", func() {
 						Verbs:     []string{"create", "get", "update"},
 					},
 				},
-			})
+			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = kubeclient.RbacV1().RoleBindings(namespace).Create(&rbacv1.RoleBinding{
+			_, err = kubeclient.RbacV1().RoleBindings(namespace).Create(context.TODO(), &rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "olm-dev-configmap-access-binding",
 					Namespace: namespace,
@@ -743,7 +744,7 @@ var _ = Describe("Launch bundle", func() {
 					Kind:     "Role",
 					Name:     "olm-dev-configmap-access",
 				},
-			})
+			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building required images")
@@ -755,7 +756,7 @@ var _ = Describe("Launch bundle", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// wait for job to complete
-			jobWatcher, err := kubeclient.BatchV1().Jobs(namespace).Watch(metav1.ListOptions{})
+			jobWatcher, err := kubeclient.BatchV1().Jobs(namespace).Watch(context.TODO(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			done := make(chan struct{})
@@ -792,22 +793,22 @@ var _ = Describe("Launch bundle", func() {
 			<-done
 			Logf("Job complete")
 
-			bundleDataConfigMap, err = kubeclient.CoreV1().ConfigMaps(namespace).Get(bundleDataConfigMap.GetName(), metav1.GetOptions{})
+			bundleDataConfigMap, err = kubeclient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), bundleDataConfigMap.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			assert.EqualValues(GinkgoT(), correctConfigMap.Annotations, bundleDataConfigMap.Annotations)
 			assert.EqualValues(GinkgoT(), correctConfigMap.Data, bundleDataConfigMap.Data)
 
 			// clean up, perhaps better handled elsewhere
-			err = kubeclient.CoreV1().ConfigMaps(namespace).Delete(bundleDataConfigMap.GetName(), &metav1.DeleteOptions{})
+			err = kubeclient.CoreV1().ConfigMaps(namespace).Delete(context.TODO(), bundleDataConfigMap.GetName(), metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			// job deletion does not clean up underlying pods (but using kubectl will do the clean up)
-			pods, err := kubeclient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("job-name=%s", job.GetName())})
+			pods, err := kubeclient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf("job-name=%s", job.GetName())})
 			Expect(err).NotTo(HaveOccurred())
-			err = kubeclient.CoreV1().Pods(namespace).Delete(pods.Items[0].GetName(), &metav1.DeleteOptions{})
+			err = kubeclient.CoreV1().Pods(namespace).Delete(context.TODO(), pods.Items[0].GetName(), metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			err = kubeclient.BatchV1().Jobs(namespace).Delete(job.GetName(), &metav1.DeleteOptions{})
+			err = kubeclient.BatchV1().Jobs(namespace).Delete(context.TODO(), job.GetName(), metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

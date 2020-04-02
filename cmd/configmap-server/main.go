@@ -99,7 +99,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 
 	client := NewClientFromConfig(kubeconfig, logger.Logger)
-	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(configMapName, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalf("error getting configmap: %s", err)
 	}
