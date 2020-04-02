@@ -56,3 +56,8 @@ type Query interface {
 type GraphLoader interface {
 	Generate() (*Package, error)
 }
+
+// RegistryPopulator populates a registry.
+type RegistryPopulator interface {
+	Populate() error
+}

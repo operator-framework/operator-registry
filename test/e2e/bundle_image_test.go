@@ -6,11 +6,10 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
-
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -25,11 +24,11 @@ import (
 var builderCmd string
 
 const (
-	imageDirectory = "image-bundle/"
+	imageDirectory = "testdata/image-bundle/"
 )
 
 func Logf(format string, a ...interface{}) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: "+format+"\n", a...)
+	fmt.Fprintf(GinkgoWriter, "INFO: "+format+"\n", a...)
 }
 
 // checks command that it exists in $PATH, isn't a directory, and has executable permissions set
@@ -59,7 +58,7 @@ func checkCommand(filename string) string {
 }
 
 func init() {
-	logrus.SetOutput(ginkgo.GinkgoWriter)
+	logrus.SetOutput(GinkgoWriter)
 
 	if builderCmd = checkCommand("docker"); builderCmd != "" {
 		return
@@ -680,10 +679,10 @@ spec:
 func buildContainer(tag, dockerfilePath, context string) {
 	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, context)
 	err := cmd.Run()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 }
 
-var _ = ginkgo.Describe("Launch bundle", func() {
+var _ = Describe("Launch bundle", func() {
 	namespace := "default"
 	initImage := "init-operator-manifest:test"
 	bundleImage := "bundle-image:test"
@@ -704,12 +703,12 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 		Data: getConfigMapDataSection(),
 	}
 
-	ginkgo.Context("Deploy bundle job", func() {
-		ginkgo.It("should populate specified configmap", func() {
+	Context("Deploy bundle job", func() {
+		It("should populate specified configmap", func() {
 			// these permissions are only necessary for the e2e (and not OLM using the feature)
-			ginkgo.By("configuring configmap service account")
+			By("configuring configmap service account")
 			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			_, err = kubeclient.RbacV1().Roles(namespace).Create(&rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
@@ -724,7 +723,7 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 					},
 				},
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			_, err = kubeclient.RbacV1().RoleBindings(namespace).Create(&rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -745,19 +744,19 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 					Name:     "olm-dev-configmap-access",
 				},
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
-			ginkgo.By("building required images")
-			buildContainer(initImage, imageDirectory+"Dockerfile.serve", "../../bin")
-			buildContainer(bundleImage, imageDirectory+"Dockerfile.bundle", imageDirectory)
+			By("building required images")
+			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin")
+			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", imageDirectory)
 
-			ginkgo.By("creating a batch job")
+			By("creating a batch job")
 			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, bundleImage, initImage, namespace)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			// wait for job to complete
 			jobWatcher, err := kubeclient.BatchV1().Jobs(namespace).Watch(metav1.ListOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			done := make(chan struct{})
 			quit := make(chan struct{})
@@ -794,22 +793,22 @@ var _ = ginkgo.Describe("Launch bundle", func() {
 			Logf("Job complete")
 
 			bundleDataConfigMap, err = kubeclient.CoreV1().ConfigMaps(namespace).Get(bundleDataConfigMap.GetName(), metav1.GetOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			assert.EqualValues(ginkgo.GinkgoT(), correctConfigMap.Annotations, bundleDataConfigMap.Annotations)
-			assert.EqualValues(ginkgo.GinkgoT(), correctConfigMap.Data, bundleDataConfigMap.Data)
+			Expect(err).NotTo(HaveOccurred())
+			assert.EqualValues(GinkgoT(), correctConfigMap.Annotations, bundleDataConfigMap.Annotations)
+			assert.EqualValues(GinkgoT(), correctConfigMap.Data, bundleDataConfigMap.Data)
 
 			// clean up, perhaps better handled elsewhere
 			err = kubeclient.CoreV1().ConfigMaps(namespace).Delete(bundleDataConfigMap.GetName(), &metav1.DeleteOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			// job deletion does not clean up underlying pods (but using kubectl will do the clean up)
 			pods, err := kubeclient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("job-name=%s", job.GetName())})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			err = kubeclient.CoreV1().Pods(namespace).Delete(pods.Items[0].GetName(), &metav1.DeleteOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			err = kubeclient.BatchV1().Jobs(namespace).Delete(job.GetName(), &metav1.DeleteOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

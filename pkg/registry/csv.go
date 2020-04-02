@@ -17,6 +17,9 @@ import (
 )
 
 const (
+	// Name of the CSV's kind
+	clusterServiceVersionKind = "ClusterServiceVersion"
+
 	// Name of the section under which the list of owned and required list of
 	// CRD(s) is specified inside an operator manifest.
 	customResourceDefinitions = "customresourcedefinitions"

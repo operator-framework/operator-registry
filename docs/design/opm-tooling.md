@@ -128,10 +128,30 @@ which can be pushed to appregistry.
 
 **Note**: the appregistry format is being deprecated in favor of the new index image and image bundle format.
 
-### Container Tooling
+### External Container Tooling
 
-Of note, many of these commands require some form of shelling to common container tooling (in the general case at least to pull the bundle image and extract the contents to update the registry). By default, the container tool that `opm` shells to is [podman](https://podman.io/). However, we also support overriding this via the `--container-tool` flag in all of these commands:
+Of note, many of these commands require some form of shelling to common container tooling. By default, the container tool that `opm` shells to is [podman](https://podman.io/). However, we also support overriding this via the `--container-tool`.
 
-`opm registry add -b "quay.io/operator-framework/operator-bundle-prometheus:0.14.0" -d "test-registry.db" --container-tool docker`
+_Ex._
 
-This will run `opm registry add` via the docker runtime.
+`opm index add --bundles quay.io/operator-framework/operator-bundle-prometheus:0.14.0 --tag quay.io/operator-framework/monitoring-index:1.0.0 --container-tool docker`
+
+These commands require shelling to an external tool:
+
+- `opm index add`
+- `opm index rm`
+- `opm index export`
+
+### Self-Contained Container Tooling
+
+There are a few commands that use self-contained container tooling. These commands do not require shelling to an external tool:
+
+- `opm registry add`
+
+#### Configuration
+
+By default, the self-contained tooling uses the standard [Docker config](https://docs.docker.com/engine/reference/commandline/cli/#configuration-files) in the `~/.docker` directory. This can be changed by setting the `DOCKER_CONFIG` environment variable.
+
+#### Authentication
+
+Authentication options [can be added](https://docs.docker.com/engine/reference/commandline/login/#credentials-store) to the standard Docker config. The self-contained tooling should also be able to use the system credential store out-of-the-box.

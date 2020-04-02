@@ -89,7 +89,6 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Bundles:       request.Bundles,
 		InputDatabase: databaseFile,
 		Permissive:    request.Permissive,
-		ContainerTool: i.ContainerTool,
 	}
 
 	// Add the bundles to the registry
