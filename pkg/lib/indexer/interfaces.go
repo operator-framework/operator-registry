@@ -63,3 +63,20 @@ func NewIndexExporter(containerTool containertools.ContainerTool, logger *logrus
 		Logger:              logger,
 	}
 }
+
+// IndexPruner prunes operators out of an index
+type IndexPruner interface {
+	PruneFromIndex(PruneFromIndexRequest) error
+}
+
+func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexPruner {
+	return ImageIndexer{
+		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
+		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		RegistryPruner:      registry.NewRegistryPruner(logger),
+		ImageReader:         containertools.NewImageReader(containerTool, logger),
+		ContainerTool:       containerTool,
+		Logger:              logger,
+	}
+}

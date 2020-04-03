@@ -41,6 +41,7 @@ type ImageIndexer struct {
 	ImageReader         containertools.ImageReader
 	RegistryAdder       registry.RegistryAdder
 	RegistryDeleter     registry.RegistryDeleter
+	RegistryPruner      registry.RegistryPruner
 	ContainerTool       containertools.ContainerTool
 	Logger              *logrus.Entry
 }
@@ -181,6 +182,82 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 
 	// Delete the bundles from the registry
 	err = i.RegistryDeleter.DeleteFromRegistry(deleteFromRegistryReq)
+	if err != nil {
+		return err
+	}
+
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	if request.Generate {
+		return nil
+	}
+
+	// build the dockerfile
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// PruneFromIndexRequest defines the parameters to send to the PruneFromIndex API
+type PruneFromIndexRequest struct {
+	Generate          bool
+	Permissive        bool
+	BinarySourceImage string
+	FromIndex         string
+	OutDockerfile     string
+	Tag               string
+	Packages          []string
+}
+
+func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	// set a temp directory for unpacking an image
+	// this is in its own function context so that the deferred cleanup runs before we do a docker build
+	// which prevents the full contents of the previous image from being in the build context
+	var databasePath string
+	if err := func () error {
+		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+		if err != nil {
+
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+
+		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		if err != nil {
+			return err
+		}
+		// copy the index to the database folder in the build directory
+		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	// Run opm registry prune on the database
+	pruneFromRegistryReq := registry.PruneFromRegistryRequest{
+		Packages:      request.Packages,
+		InputDatabase: databasePath,
+		Permissive:    request.Permissive,
+	}
+
+	// Prune the bundles from the registry
+	err = i.RegistryPruner.PruneFromRegistry(pruneFromRegistryReq)
 	if err != nil {
 		return err
 	}

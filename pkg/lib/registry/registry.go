@@ -177,3 +177,55 @@ func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) e
 
 	return nil
 }
+
+type PruneFromRegistryRequest struct {
+	Permissive    bool
+	InputDatabase string
+	Packages      []string
+}
+
+func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) error {
+	db, err := sql.Open("sqlite3", request.InputDatabase)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := dbLoader.Migrate(context.TODO()); err != nil {
+		return err
+	}
+
+	// get all the packages
+	lister := sqlite.NewSQLLiteQuerierFromDb(db)
+	packages, err := lister.ListPackages(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	// make it inexpensive to find packages
+	pkgMap := make(map[string]bool)
+	for _, pkg := range request.Packages {
+		pkgMap[pkg] = true
+	}
+
+	// prune packages from registry
+	for _, pkg := range packages {
+		if _, found := pkgMap[pkg]; !found {
+			remover := sqlite.NewSQLRemoverForPackages(dbLoader, pkg)
+			if err := remover.Remove(); err != nil {
+				err = fmt.Errorf("error deleting packages from database: %s", err)
+				if !request.Permissive {
+					logrus.WithError(err).Fatal("permissive mode disabled")
+					return err
+				}
+				logrus.WithError(err).Warn("permissive mode enabled")
+			}
+		}
+	}
+
+	return nil
+}
