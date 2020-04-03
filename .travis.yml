@@ -28,6 +28,7 @@ addons:
     update: true
     packages:
     - podman
+    - conntrack
 script: |
   "${MAKE}" unit build
   if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
