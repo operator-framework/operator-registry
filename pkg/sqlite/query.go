@@ -227,11 +227,18 @@ func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvNam
 	out.ProvidedApis = provided
 	out.RequiredApis = required
 
+	dependencies, err := s.GetDependenciesForBundle(ctx, name.String, version.String, bundlePath.String)
+	if err != nil {
+		return nil, err
+	}
+
+	out.Dependencies = dependencies
+
 	return out, nil
 }
 
 func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error) {
-	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange FROM channel 
+	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange FROM channel
               INNER JOIN operatorbundle ON channel.head_operatorbundle_name=operatorbundle.name
               INNER JOIN channel_entry ON (channel_entry.channel_name = channel.name and channel_entry.package_name=channel.package_name and channel_entry.operatorbundle_name=operatorbundle.name)
               WHERE channel.package_name=? AND channel.name=? LIMIT 1`
@@ -274,6 +281,13 @@ func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, ch
 	}
 	out.ProvidedApis = provided
 	out.RequiredApis = required
+
+	dependencies, err := s.GetDependenciesForBundle(ctx, name.String, version.String, bundlePath.String)
+	if err != nil {
+		return nil, err
+	}
+
+	out.Dependencies = dependencies
 
 	return out, nil
 }
@@ -358,6 +372,13 @@ func (s *SQLQuerier) GetBundleThatReplaces(ctx context.Context, name, pkgName, c
 	}
 	out.ProvidedApis = provided
 	out.RequiredApis = required
+
+	dependencies, err := s.GetDependenciesForBundle(ctx, outName.String, version.String, bundlePath.String)
+	if err != nil {
+		return nil, err
+	}
+
+	out.Dependencies = dependencies
 
 	return out, nil
 }
@@ -498,6 +519,13 @@ func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, apiVersio
 	out.ProvidedApis = provided
 	out.RequiredApis = required
 
+	dependencies, err := s.GetDependenciesForBundle(ctx, bundleName.String, version.String, bundlePath.String)
+	if err != nil {
+		return nil, err
+	}
+
+	out.Dependencies = dependencies
+
 	return out, nil
 }
 
@@ -636,7 +664,7 @@ func (s *SQLQuerier) GetBundleVersion(ctx context.Context, image string) (string
 }
 
 func (s *SQLQuerier) GetBundlePathsForPackage(ctx context.Context, pkgName string) ([]string, error) {
-	query := `SELECT DISTINCT bundlepath FROM operatorbundle 
+	query := `SELECT DISTINCT bundlepath FROM operatorbundle
 	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
 	WHERE channel_entry.package_name=?`
 	rows, err := s.db.QueryContext(ctx, query, pkgName)
@@ -751,4 +779,104 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 		return csvName.String, nil
 	}
 	return "", nil
+}
+
+func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, err error) {
+	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath, MIN(channel_entry.depth), channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces, operatorbundle.version, operatorbundle.skiprange
+	FROM channel_entry
+	INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
+	INNER JOIN package ON package.name = channel_entry.package_name
+	GROUP BY channel_entry.package_name, channel_entry.channel_name`
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	bundles = []*api.Bundle{}
+	for rows.Next() {
+		var entryID sql.NullInt64
+		var bundle sql.NullString
+		var bundlePath sql.NullString
+		var minDepth sql.NullInt64
+		var bundleName sql.NullString
+		var pkgName sql.NullString
+		var channelName sql.NullString
+		var replaces sql.NullString
+		var version sql.NullString
+		var skipRange sql.NullString
+		if err := rows.Scan(&entryID, &bundle, &bundlePath, &minDepth, &bundleName, &pkgName, &channelName, &replaces, &version, &skipRange); err != nil {
+			return nil, err
+		}
+
+		out := &api.Bundle{}
+		if bundle.Valid && bundle.String != "" {
+			out, err = registry.BundleStringToAPIBundle(bundle.String)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		out.CsvName = bundleName.String
+		out.PackageName = pkgName.String
+		out.ChannelName = channelName.String
+		out.BundlePath = bundlePath.String
+		out.Version = version.String
+		out.SkipRange = skipRange.String
+
+		provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
+		if err != nil {
+			return nil, err
+		}
+		out.ProvidedApis = provided
+		out.RequiredApis = required
+
+		dependencies, err := s.GetDependenciesForBundle(ctx, bundleName.String, version.String, bundlePath.String)
+		if err != nil {
+			return nil, err
+		}
+		out.Dependencies = dependencies
+
+		bundles = append(bundles, out)
+	}
+
+	return
+}
+
+func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
+	depQuery := `SELECT DISTINCT dependencies.type, dependencies.package_name, dependencies.group_name, dependencies.version, dependencies.kind FROM dependencies
+	WHERE dependencies.operatorbundle_name=? AND dependencies.operatorbundle_version=? AND dependencies.operatorbundle_path=?`
+
+	rows, err := s.db.QueryContext(ctx, depQuery, name, version, path)
+	if err != nil {
+		return nil, nil, err
+	}
+	dependencies = []*api.Dependency{}
+	for rows.Next() {
+		var typeName sql.NullString
+		var packageName sql.NullString
+		var groupName sql.NullString
+		var versionName sql.NullString
+		var kindName sql.NullString
+
+		if err := rows.Scan(&typeName, &packageName, &groupName, &versionName, &kindName); err != nil {
+			return nil, err
+		}
+		if !typeName.Valid || !packageName.Valid || !groupName.Valid || !versionName.Valid || !kindName.Valid {
+			return nil, err
+		}
+		dependencies = append(dependencies, &api.Dependency{
+			Type:    typeName.String,
+			Name:    packageName.String,
+			Group:   groupName.String,
+			Version: versionName.String,
+			Kind:    kindName.String,
+		})
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	return
 }

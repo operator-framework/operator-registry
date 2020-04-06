@@ -114,6 +114,71 @@ type Annotations struct {
 	DefaultChannelName string `json:"operators.operatorframework.io.bundle.channel.default.v1" yaml:"operators.operatorframework.io.bundle.channel.default.v1"`
 }
 
+// DependenciesFile holds dependency information about a bundle
+type DependenciesFile struct {
+	// Dependencies is a list of dependencies for a given bundle
+	Dependencies []Dependency `json:"dependencies" yaml:"dependencies"`
+}
+
+// Dependencies is a list of dependencies for a given bundle
+type Dependency struct {
+	// The type of dependency. It can be `olm.package` for operator-version based
+	// dependency or `olm.gvk` for gvk based dependency. This field is required.
+	Type string `json:"type" yaml:"type"`
+
+	// The name of dependency such as 'etcd'. This field is required.
+	Name string `json:"name" yaml:"name"`
+
+	// The group of GVK based dependency.
+	Group string `json:"group,omitempty" yaml:"group"`
+
+	// The kind of GVK based dependency.
+	Kind string `json:"kind,omitempty" yaml:"kind"`
+
+	// The version of dependency in semver format
+	Version string `json:"version" yaml:"version"`
+}
+
+// GetType returns the type of dependency
+func (e *Dependency) GetType() string {
+	if e.Type != "" {
+		return e.Type
+	}
+	return ""
+}
+
+// GetName returns the package name of dependency
+func (e *Dependency) GetName() string {
+	if e.Name != "" {
+		return e.Name
+	}
+	return ""
+}
+
+// GetGroup returns the group name of dependency
+func (e *Dependency) GetGroup() string {
+	if e.Group != "" {
+		return e.Group
+	}
+	return ""
+}
+
+// GetKind returns the kind of dependency
+func (e *Dependency) GetKind() string {
+	if e.Kind != "" {
+		return e.Kind
+	}
+	return ""
+}
+
+// GetVersion returns the version of dependency
+func (e *Dependency) GetVersion() string {
+	if e.Version != "" {
+		return e.Version
+	}
+	return ""
+}
+
 // GetName returns the package name of the bundle
 func (a *AnnotationsFile) GetName() string {
 	if a.Annotations.PackageName != "" {

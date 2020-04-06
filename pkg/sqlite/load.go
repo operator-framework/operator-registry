@@ -113,6 +113,12 @@ func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		}
 	}
 
+	// Add dependencies information
+	err = s.addDependencies(tx, bundle)
+	if err != nil {
+		return err
+	}
+
 	return s.addAPIs(tx, bundle)
 }
 
@@ -285,7 +291,7 @@ func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	defer addReplaces.Close()
 
 	getReplaces, err := tx.Prepare(`
-	  SELECT DISTINCT operatorbundle.csv 
+	  SELECT DISTINCT operatorbundle.csv
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	defer getReplaces.Close()
@@ -530,7 +536,7 @@ func SplitCRDName(crdName string) (plural, group string, err error) {
 
 func (s *SQLLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (replaces string, skips []string, err error) {
 	getReplacesAndSkips, err := tx.Prepare(`
-	  SELECT replaces, skips 
+	  SELECT replaces, skips
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	if err != nil {
@@ -746,4 +752,36 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 	}
 
 	return tx.Commit()
+}
+
+func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	addDep, err := tx.Prepare("insert into dependencies_list(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addDep.Close()
+
+	bundleVersion, err := bundle.Version()
+	if err != nil {
+		return err
+	}
+
+	sqlString := func(s string) sql.NullString {
+		return sql.NullString{String: s, Valid: s != ""}
+	}
+	for _, dep := range bundle.Dependencies {
+		if _, err := addDep.Exec(dep.Type, dep.Name, dep.Group, dep.Version, dep.Kind, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
