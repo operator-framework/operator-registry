@@ -1,0 +1,37 @@
+name: reviewdog
+on: [pull_request]
+jobs:
+  reviewdog:
+    name: reviewdog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+
+      - name: Add $GOPATH/bin
+        run: |
+          echo ::add-path::$(go env GOPATH)/bin
+
+      - uses: actions/checkout@v2
+
+      - name: Install linters
+        run: |
+          go get golang.org/x/lint/golint
+
+      - name: Setup reviewdog
+        run: |
+          set -e
+          mkdir -p $HOME/bin
+          curl -sfL https://github.com/reviewdog/reviewdog/releases/download/v0.9.17/reviewdog_0.9.17_Linux_x86_64.tar.gz -o reviewdog.tar.gz
+          echo "445f8e1ae9c85a61ed70a03d35c46fc553f74110ceb9cee79b4035193a22627f reviewdog.tar.gz" | sha256sum -c -
+          tar -xvf reviewdog.tar.gz
+          chmod +x reviewdog
+          mv reviewdog $HOME/bin/reviewdog
+          echo ::add-path::$HOME/bin
+
+      - name: Run reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reviewdog -reporter=github-pr-check -conf=.reviewdog.yml
