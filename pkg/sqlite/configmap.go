@@ -127,7 +127,7 @@ func (c *ConfigMapLoader) Populate() error {
 			continue
 		}
 
-		bundle := registry.NewBundle(csv.GetName(), "", "", &unstructured.Unstructured{Object: csvUnst})
+		bundle := registry.NewBundle(csv.GetName(), "", nil, &unstructured.Unstructured{Object: csvUnst})
 		ownedCRDs, _, err := csv.GetCustomResourceDefintions()
 		if err != nil {
 			errs = append(errs, err)

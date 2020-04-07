@@ -80,6 +80,10 @@ func (EmptyQuery) GetBundlePathsForPackage(ctx context.Context, pkgName string) 
 	return nil, errors.New("empty querier: cannot get images")
 }
 
+func (EmptyQuery) GetBundlesForPackage(ctx context.Context, pkgName string) (map[BundleKey]struct{}, error) {
+	return nil, errors.New("empty querier: cannot get bundles")
+}
+
 func (EmptyQuery) GetDefaultChannelForPackage(ctx context.Context, pkgName string) (string, error) {
 	return "", errors.New("empty querier: cannot get default channel")
 }

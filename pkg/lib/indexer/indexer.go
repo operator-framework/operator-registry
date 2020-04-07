@@ -49,6 +49,7 @@ type AddToIndexRequest struct {
 	OutDockerfile     string
 	Bundles           []string
 	Tag               string
+	Mode              pregistry.Mode
 }
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
@@ -89,6 +90,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Bundles:       request.Bundles,
 		InputDatabase: databaseFile,
 		Permissive:    request.Permissive,
+		Mode:          request.Mode,
 	}
 
 	// Add the bundles to the registry

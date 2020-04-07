@@ -35,10 +35,10 @@ func TestAddPackageChannels(t *testing.T) {
 			description: "DuplicateBundlesInPackage/DBDoesntLock",
 			fields: fields{
 				bundles: []*registry.Bundle{
-					newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSV(t, "csv-a", "")),
-					newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSV(t, "csv-a", "")),
-					newBundle(t, "csv-b", "pkg-0", "alpha", newUnstructuredCSV(t, "csv-b", "")),
-					newBundle(t, "csv-c", "pkg-1", "stable", newUnstructuredCSV(t, "csv-c", "")),
+					newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", "")),
+					newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", "")),
+					newBundle(t, "csv-b", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-b", "")),
+					newBundle(t, "csv-c", "pkg-1", []string{"stable"}, newUnstructuredCSV(t, "csv-c", "")),
 				},
 			},
 			args: args{
@@ -80,9 +80,9 @@ func TestAddPackageChannels(t *testing.T) {
 			description: "MissingReplacesInPackage/AggregatesAndContinues",
 			fields: fields{
 				bundles: []*registry.Bundle{
-					newBundle(t, "csv-a", "pkg-0", "stable", newUnstructuredCSV(t, "csv-a", "non-existant")),
-					newBundle(t, "csv-b", "pkg-0", "alpha", newUnstructuredCSV(t, "csv-b", "")),
-					newBundle(t, "csv-c", "pkg-1", "stable", newUnstructuredCSV(t, "csv-c", "")),
+					newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", "non-existant")),
+					newBundle(t, "csv-b", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-b", "")),
+					newBundle(t, "csv-c", "pkg-1", []string{"stable"}, newUnstructuredCSV(t, "csv-c", "")),
 				},
 			},
 			args: args{
@@ -164,10 +164,11 @@ func TestClearNonDefaultBundles(t *testing.T) {
 
 	// Create a replaces chain that contains bundles with no bundle path
 	pkg, channel := "pkg", "stable"
-	withoutPath := newBundle(t, "without-path", pkg, channel, newUnstructuredCSV(t, "without-path", ""))
-	withPathInternal := newBundle(t, "with-path-internal", pkg, channel, newUnstructuredCSV(t, "with-path-internal", withoutPath.Name))
+	channels := []string{"stable"}
+	withoutPath := newBundle(t, "without-path", pkg, channels, newUnstructuredCSV(t, "without-path", ""))
+	withPathInternal := newBundle(t, "with-path-internal", pkg, channels, newUnstructuredCSV(t, "with-path-internal", withoutPath.Name))
 	withPathInternal.BundleImage = "this.is/agood@sha256:path"
-	withPath := newBundle(t, "with-path", pkg, channel, newUnstructuredCSV(t, "with-path", withPathInternal.Name))
+	withPath := newBundle(t, "with-path", pkg, channels, newUnstructuredCSV(t, "with-path", withPathInternal.Name))
 	withPath.BundleImage = "this.is/abetter@sha256:path"
 
 	require.NoError(t, store.AddOperatorBundle(withoutPath))
@@ -222,8 +223,8 @@ func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstr
 	return &unstructured.Unstructured{Object: out}
 }
 
-func newBundle(t *testing.T, name, pkgName, channelName string, objs ...*unstructured.Unstructured) *registry.Bundle {
-	bundle := registry.NewBundle(name, pkgName, channelName, objs...)
+func newBundle(t *testing.T, name, pkgName string, channels []string, objs ...*unstructured.Unstructured) *registry.Bundle {
+	bundle := registry.NewBundle(name, pkgName, channels, objs...)
 
 	// Bust the bundle cache to set the CSV and CRDs
 	_, err := bundle.ClusterServiceVersion()

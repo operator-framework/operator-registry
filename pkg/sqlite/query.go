@@ -659,6 +659,41 @@ func (s *SQLQuerier) GetBundlePathsForPackage(ctx context.Context, pkgName strin
 	return images, nil
 }
 
+func (s *SQLQuerier) GetBundlesForPackage(ctx context.Context, pkgName string) (map[registry.BundleKey]struct{}, error) {
+	query := `SELECT DISTINCT name, bundlepath, version FROM operatorbundle 
+	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
+	WHERE channel_entry.package_name=?`
+	rows, err := s.db.QueryContext(ctx, query, pkgName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	bundles := map[registry.BundleKey]struct{}{}
+	for rows.Next() {
+		var name sql.NullString
+		var bundlepath sql.NullString
+		var version sql.NullString
+		if err := rows.Scan(&name, &bundlepath, &version); err != nil {
+			return nil, err
+		}
+		key := registry.BundleKey{}
+		if name.Valid && name.String != "" {
+			key.CsvName = name.String
+		}
+		if bundlepath.Valid && bundlepath.String != "" {
+			key.BundlePath = bundlepath.String
+		}
+		if version.Valid && version.String != "" {
+			key.Version = version.String
+		}
+		if key.IsEmpty() {
+			return nil, fmt.Errorf("Index malformed: cannot find identifier for bundle in package %s", pkgName)
+		}
+		bundles[key] = struct{}{}
+	}
+	return bundles, nil
+}
+
 func (s *SQLQuerier) GetDefaultChannelForPackage(ctx context.Context, pkgName string) (string, error) {
 	query := `SELECT DISTINCT default_channel FROM package WHERE name=? LIMIT 1`
 	rows, err := s.db.QueryContext(ctx, query, pkgName)

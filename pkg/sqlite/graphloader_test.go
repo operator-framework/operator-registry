@@ -30,7 +30,6 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			"alpha": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
 				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
 					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
 					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
@@ -53,7 +52,6 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			"stable": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
 				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      {},
 					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
 					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
@@ -70,10 +68,10 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 	db, cleanup := createLoadedTestDb(t)
 	defer cleanup()
 
-	graphLoader, err := NewSQLGraphLoaderFromDB(db, "etcd")
+	graphLoader, err := NewSQLGraphLoaderFromDB(db)
 	require.NoError(t, err)
 
-	result, err := graphLoader.Generate()
+	result, err := graphLoader.Generate("etcd")
 	require.NoError(t, err)
 
 	require.Equal(t, "etcd", result.Name)
@@ -84,4 +82,16 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 		require.Equal(t, expectedChannel.Head, channel.Head)
 		require.EqualValues(t, expectedChannel.Nodes, channel.Nodes)
 	}
+}
+
+func TestLoadPackageGraph_Etcd_NotFound(t *testing.T) {
+	db, cleanup := createLoadedTestDb(t)
+	defer cleanup()
+
+	graphLoader, err := NewSQLGraphLoaderFromDB(db)
+	require.NoError(t, err)
+
+	_, err = graphLoader.Generate("not-a-real-package")
+	require.Error(t, err)
+	require.Equal(t, registry.ErrPackageNotInDatabase, err)
 }

@@ -116,6 +116,127 @@ func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	return s.addAPIs(tx, bundle)
 }
 
+func (s *SQLLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	var errs []error
+
+	if err := addPackageIfNotExists(tx, graph.Name); err != nil {
+		errs = append(errs, err)
+	}
+
+	for name, channel := range graph.Channels {
+		if err := addOrUpdateChannel(tx, name, graph.Name, channel.Head.CsvName); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+
+	if err := updateDefaultChannel(tx, graph.DefaultChannel, graph.Name); err != nil {
+		errs = append(errs, err)
+	}
+
+	// update each channel's graph
+	for channelName, channel := range graph.Channels {
+		currentNode := channel.Head
+		depth := 1
+
+		var previousNodeID int64
+
+		// first clear the current channel graph
+		err := truncChannelGraph(tx, channelName, graph.Name)
+		if err != nil {
+			errs = append(errs, err)
+			break
+		}
+
+		// iterate into the replacement chain of the channel to insert or update all entries
+		for {
+			// create real channel entry for node
+			id, err := addChannelEntry(tx, channelName, graph.Name, currentNode.CsvName, depth)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+
+			// If the previous node was created, use the entryId of the current node to update
+			// the replaces for the previous node
+			if previousNodeID != 0 {
+				err := addReplaces(tx, id, previousNodeID)
+				if err != nil {
+					errs = append(errs, err)
+				}
+			}
+
+			syntheticReplaces := make([]registry.BundleKey, 0) // for CSV skips
+			nextNode := registry.BundleKey{}
+
+			currentNodeReplaces := channel.Nodes[currentNode]
+
+			// Iterate over all replaces for the node in the graph
+			// It should only contain one real replacement, so let's find it and
+			// follow the chain. For the rest, they are fake entries and should be
+			// generated as synthetic replacements
+			for replace := range currentNodeReplaces {
+				if _, ok := channel.Nodes[replace]; !ok {
+					syntheticReplaces = append(syntheticReplaces, replace)
+				} else {
+					nextNode = replace
+				}
+			}
+
+			// create synthetic channel entries for nodes
+			// also create channel entry to replace that node
+			syntheticDepth := depth + 1
+			for _, synthetic := range syntheticReplaces {
+				syntheticReplacesID, err := addChannelEntry(tx, channelName, graph.Name, synthetic.CsvName, syntheticDepth)
+				if err != nil {
+					errs = append(errs, err)
+					break
+				}
+
+				syntheticNodeID, err := addChannelEntry(tx, channelName, graph.Name, currentNode.CsvName, syntheticDepth)
+				if err != nil {
+					errs = append(errs, err)
+					break
+				}
+
+				err = addReplaces(tx, syntheticReplacesID, syntheticNodeID)
+				if err != nil {
+					errs = append(errs, err)
+				}
+				syntheticDepth++
+			}
+
+			// we got to the end of the channel graph
+			if nextNode.IsEmpty() {
+				if len(channel.Nodes) != depth {
+					err := fmt.Errorf("Invalid graph: some (non-bottom) nodes defined in the graph were not mentioned as replacements of any node")
+					errs = append(errs, err)
+				}
+				break
+			}
+
+			// increase depth and continue
+			currentNode = nextNode
+			previousNodeID = id
+			depth++
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		errs = append(errs, err)
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
 func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -567,6 +688,20 @@ func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
 	defer stmt.Close()
 
 	if _, err := stmt.Exec(csvName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bundle) error {
+	err := s.AddOperatorBundle(bundle)
+	if err != nil {
+		return err
+	}
+
+	err = s.AddPackageChannelsFromGraph(graph)
+	if err != nil {
 		return err
 	}
 

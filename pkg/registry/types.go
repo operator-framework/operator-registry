@@ -1,8 +1,14 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	// ErrPackageNotInDatabase is an error that describes a package not found error when querying the registry
+	ErrPackageNotInDatabase = errors.New("Package not in database")
 )
 
 // APIKey stores GroupVersionKind for use as map keys

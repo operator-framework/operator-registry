@@ -25,6 +25,7 @@ type AddToRegistryRequest struct {
 	SkipTLS       bool
 	InputDatabase string
 	Bundles       []string
+	Mode          registry.Mode
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
@@ -44,6 +45,11 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		return err
 	}
 
+	graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+	if err != nil {
+		return err
+	}
+
 	// TODO: Dependency inject the registry if we want to swap it out.
 	reg, destroy, err := containerdregistry.NewRegistry(
 		containerdregistry.SkipTLS(request.SkipTLS),
@@ -59,7 +65,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 
 	// TODO(njhale): Parallelize this once bundle add is commutative
 	for _, ref := range request.Bundles {
-		if err := populate(context.TODO(), dbLoader, reg, image.SimpleReference(ref)); err != nil {
+		if err := populate(context.TODO(), dbLoader, graphLoader, reg, image.SimpleReference(ref), request.Mode); err != nil {
 			err = fmt.Errorf("error loading bundle from image: %s", err)
 			if !request.Permissive {
 				r.Logger.WithError(err).Error("permissive mode disabled")
@@ -73,7 +79,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	return utilerrors.NewAggregate(errs) // nil if no errors
 }
 
-func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref image.Reference) error {
+func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, reg image.Registry, ref image.Reference, mode registry.Mode) error {
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
 	if err != nil {
 		return err
@@ -88,9 +94,9 @@ func populate(ctx context.Context, loader registry.Load, reg image.Registry, ref
 		return err
 	}
 
-	populator := registry.NewDirectoryPopulator(loader, ref, workingDir)
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, ref, workingDir)
 
-	return populator.Populate()
+	return populator.Populate(mode)
 }
 
 type DeleteFromRegistryRequest struct {
