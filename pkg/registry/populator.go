@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,14 +20,16 @@ import (
 type DirectoryPopulator struct {
 	loader      Load
 	graphLoader GraphLoader
+	querier     Query
 	to          image.Reference
 	from        string
 }
 
-func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, to image.Reference, from string) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, to image.Reference, from string) *DirectoryPopulator {
 	return &DirectoryPopulator{
 		loader:      loader,
 		graphLoader: graphLoader,
+		querier:     querier,
 		to:          to,
 		from:        from,
 	}
@@ -80,8 +83,6 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 
 	log.Info("found csv, loading bundle")
 
-	// TODO: Check channels against what's in the database vs in the bundle csv
-
 	csvName := csv.GetName()
 
 	bundle, err := loadBundle(csvName, manifests)
@@ -133,12 +134,22 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 }
 
 func (i *DirectoryPopulator) loadManifestsReplaces(bundle *Bundle, annotationsFile *AnnotationsFile) error {
+	channels, err := i.querier.ListChannels(context.TODO(), annotationsFile.GetName())
+	existingPackageChannels := map[string]string{}
+	for _, c := range channels {
+		current, err := i.querier.GetCurrentCSVNameForChannel(context.TODO(), annotationsFile.GetName(), c)
+		if err != nil {
+			return err
+		}
+		existingPackageChannels[c] = current
+	}
+
 	bcsv, err := bundle.ClusterServiceVersion()
 	if err != nil {
 		return fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
 	}
 
-	packageManifest, err := translateAnnotationsIntoPackage(annotationsFile, bcsv)
+	packageManifest, err := translateAnnotationsIntoPackage(annotationsFile, bcsv, existingPackageChannels)
 	if err != nil {
 		return fmt.Errorf("Could not translate annotations file into packageManifest %s", err)
 	}
@@ -271,15 +282,19 @@ func (i *DirectoryPopulator) loadOperatorBundle(manifest PackageManifest, bundle
 }
 
 // translateAnnotationsIntoPackage attempts to translate the channels.yaml file at the given path into a package.yaml
-func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterServiceVersion) (PackageManifest, error) {
+func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterServiceVersion, existingPackageChannels map[string]string) (PackageManifest, error) {
 	manifest := PackageManifest{}
 
-	channels := []PackageChannel{}
 	for _, ch := range annotations.GetChannels() {
+		existingPackageChannels[ch] = csv.GetName()
+	}
+
+	channels := []PackageChannel{}
+	for c, current := range existingPackageChannels {
 		channels = append(channels,
 			PackageChannel{
-				Name:           ch,
-				CurrentCSVName: csv.GetName(),
+				Name:           c,
+				CurrentCSVName: current,
 			})
 	}
 
