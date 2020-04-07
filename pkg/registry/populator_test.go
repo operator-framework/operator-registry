@@ -1,24 +1,47 @@
-package sqlite
+package registry_test
 
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-func createAndPopulateDB(db *sql.DB) (*SQLQuerier, error) {
-	load, err := NewSQLLiteLoader(db)
+func CreateTestDb(t *testing.T) (*sql.DB, func()) {
+	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+
+	db, err := sql.Open("sqlite3", dbName)
+	require.NoError(t, err)
+
+	return db, func() {
+		defer func() {
+			if err := os.Remove(dbName); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
+	load, err := sqlite.NewSQLLiteLoader(db)
 	if err != nil {
 		return nil, err
 	}
@@ -26,59 +49,23 @@ func createAndPopulateDB(db *sql.DB) (*SQLQuerier, error) {
 	if err != nil {
 		return nil, err
 	}
+	query := sqlite.NewSQLLiteQuerierFromDb(db)
 
-	image := "quay.io/test/"
-	etcdFirstVersion := &ImageLoader{
-		store:     load,
-		image:     image + "etcd.0.9.0",
-		directory: "../../bundles/etcd.0.9.0",
+	populate := func(name string) error {
+		return registry.NewDirectoryPopulator(
+			load,
+			nil,
+			query,
+			image.SimpleReference("quay.io/test/"+name),
+			"../../bundles/"+name).Populate(registry.ReplacesMode)
 	}
-	err = etcdFirstVersion.LoadBundleFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	etcdNextVersion := &ImageLoader{
-		store:     load,
-		image:     image + "etcd.0.9.2",
-		directory: "../../bundles/etcd.0.9.2",
-	}
-	err = etcdNextVersion.LoadBundleFunc()
-	if err != nil {
-		return nil, err
+	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
+		if err := populate(name); err != nil {
+			return nil, err
+		}
 	}
 
-	prometheusFirstVersion := &ImageLoader{
-		store:     load,
-		image:     image + "prometheus.0.14.0",
-		directory: "../../bundles/prometheus.0.14.0",
-	}
-	err = prometheusFirstVersion.LoadBundleFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	prometheusSecondVersion := &ImageLoader{
-		store:     load,
-		image:     image + "prometheus.0.15.0",
-		directory: "../../bundles/prometheus.0.15.0",
-	}
-	err = prometheusSecondVersion.LoadBundleFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	prometheusThirdVersion := &ImageLoader{
-		store:     load,
-		image:     image + "prometheus.0.22.2",
-		directory: "../../bundles/prometheus.0.22.2",
-	}
-	err = prometheusThirdVersion.LoadBundleFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewSQLLiteQuerierFromDb(db), nil
+	return query, nil
 }
 
 func TestImageLoader(t *testing.T) {
@@ -213,26 +200,30 @@ func TestQuerierForImage(t *testing.T) {
 
 func TestImageLoading(t *testing.T) {
 	// TODO: remove requirement to have real files
+	type img struct {
+		ref image.SimpleReference
+		dir string
+	}
 	tests := []struct {
 		name         string
-		initImages   []*ImageLoader
-		addImage     *ImageLoader
+		initImages   []img
+		addImage     img
 		wantPackages []*registry.Package
 		wantErr      bool
 	}{
 		{
 			name: "OneChannel/AddBundleToTwoChannels",
-			initImages: []*ImageLoader{
+			initImages: []img{
 				{
 					// this is in the "preview" channel
-					image:     "quay.io/prometheus/operator:0.14.0",
-					directory: "../../bundles/prometheus.0.14.0",
+					ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+					dir: "../../bundles/prometheus.0.14.0",
 				},
 			},
-			addImage: &ImageLoader{
+			addImage: img{
 				// this is in the "preview" and "stable" channels and replaces 0.14.0
-				image:     "quay.io/prometheus/operator:0.15.0",
-				directory: "../../bundles/prometheus.0.15.0",
+				ref: image.SimpleReference("quay.io/prometheus/operator:0.15.0"),
+				dir: "../../bundles/prometheus.0.15.0",
 			},
 			wantPackages: []*registry.Package{
 				{
@@ -269,25 +260,69 @@ func TestImageLoading(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "OneChannel/AddBundleToNewChannel",
+			initImages: []img{
+				{
+					// this is in the "preview" channel
+					ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+					dir: "../../bundles/prometheus.0.14.0",
+				},
+			},
+			addImage: img{
+				// this is in the "beta" channel
+				ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0-beta"),
+				dir: "../../bundles/prometheus.0.14.0-beta",
+			},
+			wantPackages: []*registry.Package{
+				{
+					Name:           "prometheus",
+					DefaultChannel: "beta",
+					Channels: map[string]registry.Channel{
+						"preview": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.14.0",
+								Version:    "0.14.0",
+								CsvName:    "prometheusoperator.0.14.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {},
+							},
+						},
+						"beta": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.14.0-beta",
+								Version:    "0.14.0",
+								CsvName:    "prometheusoperator.0.14.0-beta",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.14.0-beta", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0-beta"}: {},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
 			db, cleanup := CreateTestDb(t)
 			defer cleanup()
-			load, err := NewSQLLiteLoader(db)
+			load, err := sqlite.NewSQLLiteLoader(db)
 			require.NoError(t, err)
 			require.NoError(t, load.Migrate(context.TODO()))
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
 			for _, i := range tt.initImages {
-				i.store = load
-				require.NoError(t, i.LoadBundleFunc())
+				p := registry.NewDirectoryPopulator(load, nil, query, i.ref, i.dir)
+				require.NoError(t, p.Populate(registry.ReplacesMode))
 			}
-
-			tt.addImage.store = load
-			require.NoError(t, tt.addImage.LoadBundleFunc())
+			add := registry.NewDirectoryPopulator(load, nil, query, tt.addImage.ref, tt.addImage.dir)
+			require.NoError(t, add.Populate(registry.ReplacesMode))
 
 			for _, p := range tt.wantPackages {
-				graphLoader, err := NewSQLGraphLoaderFromDB(db)
+				graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
 				require.NoError(t, err)
 
 				result, err := graphLoader.Generate(p.Name)
@@ -296,4 +331,11 @@ func TestImageLoading(t *testing.T) {
 			}
 		})
 	}
+}
+
+func EqualBundles(t *testing.T, expected, actual api.Bundle) {
+	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis)
+	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
+	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
+	require.EqualValues(t, expected, actual)
 }

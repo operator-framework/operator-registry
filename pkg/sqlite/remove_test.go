@@ -2,6 +2,8 @@ package sqlite
 
 import (
 	"context"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -16,41 +18,19 @@ func TestRemover(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.Migrate(context.TODO()))
 
-	image := "quay.io/test/"
-	etcdFirstVersion := &ImageLoader{
-		store:     store,
-		image:     image + "etcd.0.9.0",
-		directory: "../../bundles/etcd.0.9.0",
-	}
-	require.NoError(t, etcdFirstVersion.LoadBundleFunc())
+	query := NewSQLLiteQuerierFromDb(db)
 
-	etcdNextVersion := &ImageLoader{
-		store:     store,
-		image:     image + "etcd.0.9.2",
-		directory: "../../bundles/etcd.0.9.2",
+	populate := func(name string) error {
+		return registry.NewDirectoryPopulator(
+			store,
+			nil,
+			query,
+			image.SimpleReference( "quay.io/test/" + name),
+			"../../bundles/"+name).Populate(registry.ReplacesMode)
 	}
-	require.NoError(t, etcdNextVersion.LoadBundleFunc())
-
-	prometheusFirstVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.14.0",
-		directory: "../../bundles/prometheus.0.14.0",
+	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
+		require.NoError(t,  populate(name))
 	}
-	require.NoError(t, prometheusFirstVersion.LoadBundleFunc())
-
-	prometheusSecondVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.15.0",
-		directory: "../../bundles/prometheus.0.15.0",
-	}
-	require.NoError(t, prometheusSecondVersion.LoadBundleFunc())
-
-	prometheusThirdVersion := &ImageLoader{
-		store:     store,
-		image:     image + "prometheus.0.22.2",
-		directory: "../../bundles/prometheus.0.22.2",
-	}
-	require.NoError(t, prometheusThirdVersion.LoadBundleFunc())
 
 	// delete etcd
 	require.NoError(t, store.RemovePackage("etcd"))
@@ -78,11 +58,9 @@ func TestRemover(t *testing.T) {
 	require.NoError(t, rows.Close())
 
 	// and insert again
-	require.NoError(t, etcdFirstVersion.LoadBundleFunc())
-	require.NoError(t, etcdNextVersion.LoadBundleFunc())
-	require.NoError(t, prometheusFirstVersion.LoadBundleFunc())
-	require.NoError(t, prometheusSecondVersion.LoadBundleFunc())
-	require.NoError(t, prometheusThirdVersion.LoadBundleFunc())
+	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
+		require.NoError(t,  populate(name))
+	}
 
 	// apis are back
 	rows, err = db.QueryContext(context.TODO(), "select * from api")
