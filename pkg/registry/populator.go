@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,20 +17,22 @@ import (
 
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
-	loader Load
-	to     image.Reference
-	from   string
+	loader      Load
+	graphLoader GraphLoader
+	to          image.Reference
+	from        string
 }
 
-func NewDirectoryPopulator(loader Load, to image.Reference, from string) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, to image.Reference, from string) *DirectoryPopulator {
 	return &DirectoryPopulator{
-		loader: loader,
-		to:     to,
-		from:   from,
+		loader:      loader,
+		graphLoader: graphLoader,
+		to:          to,
+		from:        from,
 	}
 }
 
-func (i *DirectoryPopulator) Populate() error {
+func (i *DirectoryPopulator) Populate(mode Mode) error {
 	path := i.from
 	manifests := filepath.Join(path, "manifests")
 	metadata := filepath.Join(path, "metadata")
@@ -55,7 +58,7 @@ func (i *DirectoryPopulator) Populate() error {
 		return fmt.Errorf("Could not find annotations.yaml file")
 	}
 
-	err = i.loadManifests(manifests, annotationsFile)
+	err = i.loadManifests(manifests, annotationsFile, mode)
 	if err != nil {
 		return err
 	}
@@ -63,7 +66,7 @@ func (i *DirectoryPopulator) Populate() error {
 	return nil
 }
 
-func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile) error {
+func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile, mode Mode) error {
 	log := logrus.WithFields(logrus.Fields{"dir": i.from, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
@@ -79,7 +82,9 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 
 	// TODO: Check channels against what's in the database vs in the bundle csv
 
-	bundle, err := loadBundle(csv.GetName(), manifests)
+	csvName := csv.GetName()
+
+	bundle, err := loadBundle(csvName, manifests)
 	if err != nil {
 		return fmt.Errorf("error loading objs in directory: %s", err)
 	}
@@ -91,10 +96,43 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 	// set the bundleimage on the bundle
 	bundle.BundleImage = i.to.String()
 
+	bundle.Name = csvName
+	bundle.Package = annotationsFile.Annotations.PackageName
+	bundle.Channels = strings.Split(annotationsFile.Annotations.Channels, ",")
+
 	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
 		return fmt.Errorf("error checking provided apis in bundle %s: %s", bundle.Name, err)
 	}
 
+	switch mode {
+	case ReplacesMode:
+		err = i.loadManifestsReplaces(bundle, annotationsFile)
+		if err != nil {
+			return err
+		}
+	case SemVerMode:
+		err = i.loadManifestsSemver(bundle, annotationsFile, false)
+		if err != nil {
+			return err
+		}
+	case SkipPatchMode:
+		err = i.loadManifestsSemver(bundle, annotationsFile, true)
+		if err != nil {
+			return err
+		}
+	default:
+		err = fmt.Errorf("Unsupported update mode")
+	}
+
+	// Finally let's delete all the old bundles
+	if err = i.loader.ClearNonDefaultBundles(annotationsFile.GetName()); err != nil {
+		return fmt.Errorf("Error deleting previous bundles: %s", err)
+	}
+
+	return nil
+}
+
+func (i *DirectoryPopulator) loadManifestsReplaces(bundle *Bundle, annotationsFile *AnnotationsFile) error {
 	bcsv, err := bundle.ClusterServiceVersion()
 	if err != nil {
 		return fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
@@ -109,9 +147,24 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 		return fmt.Errorf("Error adding package %s", err)
 	}
 
-	// Finally let's delete all the old bundles
-	if err = i.loader.ClearNonDefaultBundles(packageManifest.PackageName); err != nil {
-		return fmt.Errorf("Error deleting previous bundles: %s", err)
+	return nil
+}
+
+func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, annotations *AnnotationsFile, skippatch bool) error {
+	graph, err := i.graphLoader.Generate(bundle.Package)
+	if err != nil && !errors.Is(err, ErrPackageNotInDatabase) {
+		return err
+	}
+
+	// add to the graph
+	bundleLoader := BundleGraphLoader{}
+	updatedGraph, err := bundleLoader.AddBundleToGraph(bundle, graph, annotations.Annotations.DefaultChannelName, skippatch)
+	if err != nil {
+		return err
+	}
+
+	if err := i.loader.AddBundleSemver(updatedGraph, bundle); err != nil {
+		return fmt.Errorf("error loading bundle into db: %s", err)
 	}
 
 	return nil

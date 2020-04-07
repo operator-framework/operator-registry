@@ -8,6 +8,7 @@ import (
 
 type Load interface {
 	AddOperatorBundle(bundle *Bundle) error
+	AddBundleSemver(graph *Package, bundle *Bundle) error
 	AddPackageChannels(manifest PackageManifest) error
 	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
@@ -42,6 +43,8 @@ type Query interface {
 	GetBundleVersion(ctx context.Context, image string) (string, error)
 	// List Images for Package
 	GetBundlePathsForPackage(ctx context.Context, pkgName string) ([]string, error)
+	// List Bundles for Package
+	GetBundlesForPackage(ctx context.Context, pkgName string) (map[BundleKey]struct{}, error)
 	// Get DefaultChannel for Package
 	GetDefaultChannelForPackage(ctx context.Context, pkgName string) (string, error)
 	// List channels for package
@@ -54,7 +57,7 @@ type Query interface {
 // GraphLoader supports multiple different loading schemes
 // GraphLoader from SQL, GraphLoader from old format (filesystem), GraphLoader from SQL + input bundles
 type GraphLoader interface {
-	Generate() (*Package, error)
+	Generate(packageName string) (*Package, error)
 }
 
 // RegistryPopulator populates a registry.

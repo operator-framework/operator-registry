@@ -287,10 +287,10 @@ func TestImageLoading(t *testing.T) {
 			require.NoError(t, tt.addImage.LoadBundleFunc())
 
 			for _, p := range tt.wantPackages {
-				graphLoader, err := NewSQLGraphLoaderFromDB(db, p.Name)
+				graphLoader, err := NewSQLGraphLoaderFromDB(db)
 				require.NoError(t, err)
 
-				result, err := graphLoader.Generate()
+				result, err := graphLoader.Generate(p.Name)
 				require.NoError(t, err)
 				require.Equal(t, p, result)
 			}

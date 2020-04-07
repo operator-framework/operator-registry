@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
+	reg "github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func newRegistryAddCmd() *cobra.Command {
@@ -28,6 +29,7 @@ func newRegistryAddCmd() *cobra.Command {
 	rootCmd.Flags().StringSliceP("bundle-images", "b", []string{}, "comma separated list of links to bundle image")
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	rootCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
+	rootCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
 	rootCmd.Flags().StringP("container-tool", "c", "", "")
 	if err := rootCmd.Flags().MarkDeprecated("container-tool", "ignored in favor of standalone image manipulation"); err != nil {
@@ -55,11 +57,22 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	mode, err := cmd.Flags().GetString("mode")
+	if err != nil {
+		return err
+	}
+
+	modeEnum, err := reg.GetModeFromString(mode)
+	if err != nil {
+		return err
+	}
+
 	request := registry.AddToRegistryRequest{
 		Permissive:    permissive,
 		SkipTLS:       skipTLS,
 		InputDatabase: fromFilename,
 		Bundles:       bundleImages,
+		Mode:          modeEnum,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
