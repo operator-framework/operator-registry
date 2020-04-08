@@ -763,7 +763,7 @@ func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 		tx.Rollback()
 	}()
 
-	addDep, err := tx.Prepare("insert into dependencies_list(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?, ?, ?)")
+	addDep, err := tx.Prepare("insert into dependencies(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}

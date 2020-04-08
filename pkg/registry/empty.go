@@ -96,6 +96,14 @@ func (EmptyQuery) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, chan
 	return "", errors.New("empty querier: cannot get csv name for package and channel")
 }
 
+func (EmptyQuery) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	return nil, errors.New("empty querier: cannot list bundles")
+}
+
+func (EmptyQuery) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
+	return nil, errors.New("empty querier: cannot get dependencies for bundle")
+}
+
 var _ Query = &EmptyQuery{}
 
 func NewEmptyQuerier() *EmptyQuery {

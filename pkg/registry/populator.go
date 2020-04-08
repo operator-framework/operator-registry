@@ -16,6 +16,10 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
+const (
+	DependenciesFileName = "dependencies.yaml"
+)
+
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
 	loader      Load
@@ -46,22 +50,33 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 		return fmt.Errorf("unable to read directory %s: %s", metadata, err)
 	}
 
-	// Look for the metadata and manifests sub-directories to find the annotations.yaml file that will inform how the
-	// manifests of the bundle should be loaded into the database.
+	// Look for the metadata and manifests sub-directories to find the annotations.yaml
+	// file that will inform how the manifests of the bundle should be loaded into the database.
+	// If dependencies.yaml which contains operator dependencies in metadata directory
+	// exists, parse and load it into the DB
 	annotationsFile := &AnnotationsFile{}
+	dependenciesFile := &DependenciesFile{}
 	for _, f := range files {
 		err = decodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
 		if err != nil || *annotationsFile == (AnnotationsFile{}) {
+			log.Info("found annotations file searching for csv")
 			continue
 		}
-		log.Info("found annotations file searching for csv")
+		if f.Name() == DependenciesFileName {
+			err = decodeFile(filepath.Join(metadata, f.Name()), dependenciesFile)
+			if err != nil {
+				log.Info("found dependencies file searching for csv")
+			} else {
+				log.Info("unable to parse dependencies.yaml file")
+			}
+		}
 	}
 
 	if *annotationsFile == (AnnotationsFile{}) {
 		return fmt.Errorf("Could not find annotations.yaml file")
 	}
 
-	err = i.loadManifests(manifests, annotationsFile, mode)
+	err = i.loadManifests(manifests, annotationsFile, dependenciesFile, mode)
 	if err != nil {
 		return err
 	}
@@ -69,7 +84,7 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 	return nil
 }
 
-func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile, mode Mode) error {
+func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile, dependenciesFile *DependenciesFile, mode Mode) error {
 	log := logrus.WithFields(logrus.Fields{"dir": i.from, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
@@ -96,6 +111,8 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 
 	// set the bundleimage on the bundle
 	bundle.BundleImage = i.to.String()
+	// set the dependencies on the bundle
+	bundle.Dependencies = dependenciesFile.Dependencies
 
 	bundle.Name = csvName
 	bundle.Package = annotationsFile.Annotations.PackageName

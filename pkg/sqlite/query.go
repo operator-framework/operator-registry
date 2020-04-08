@@ -688,7 +688,7 @@ func (s *SQLQuerier) GetBundlePathsForPackage(ctx context.Context, pkgName strin
 }
 
 func (s *SQLQuerier) GetBundlesForPackage(ctx context.Context, pkgName string) (map[registry.BundleKey]struct{}, error) {
-	query := `SELECT DISTINCT name, bundlepath, version FROM operatorbundle 
+	query := `SELECT DISTINCT name, bundlepath, version FROM operatorbundle
 	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
 	WHERE channel_entry.package_name=?`
 	rows, err := s.db.QueryContext(ctx, query, pkgName)
@@ -850,7 +850,7 @@ func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version
 
 	rows, err := s.db.QueryContext(ctx, depQuery, name, version, path)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dependencies = []*api.Dependency{}
 	for rows.Next() {

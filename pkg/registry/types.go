@@ -126,14 +126,14 @@ type Dependency struct {
 	// dependency or `olm.gvk` for gvk based dependency. This field is required.
 	Type string `json:"type" yaml:"type"`
 
-	// The name of dependency such as 'etcd'. This field is required.
-	Name string `json:"name" yaml:"name"`
+	// The name of dependency such as 'etcd'
+	Name string `json:"name" yaml:"packgeName"`
 
-	// The group of GVK based dependency.
-	Group string `json:"group,omitempty" yaml:"group"`
+	// The group of GVK based dependency
+	Group string `json:"group" yaml:"group"`
 
-	// The kind of GVK based dependency.
-	Kind string `json:"kind,omitempty" yaml:"kind"`
+	// The kind of GVK based dependency
+	Kind string `json:"kind" yaml:"kind"`
 
 	// The version of dependency in semver format
 	Version string `json:"version" yaml:"version"`
