@@ -160,9 +160,6 @@ func initialize() error {
 var _ = Describe("opm", func() {
 	IncludeSharedSpecs := func(containerTool string) {
 		BeforeEach(func() {
-			dockerUsername := os.Getenv("DOCKER_USERNAME")
-			dockerPassword := os.Getenv("DOCKER_PASSWORD")
-
 			if dockerUsername == "" || dockerPassword == "" {
 				Skip("registry credentials are not available")
 			}
