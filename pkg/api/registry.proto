@@ -12,7 +12,7 @@ service Registry {
 	rpc GetChannelEntriesThatProvide(GetAllProvidersRequest) returns (stream ChannelEntry) {}
 	rpc GetLatestChannelEntriesThatProvide(GetLatestProvidersRequest) returns (stream ChannelEntry) {}
 	rpc GetDefaultBundleThatProvides(GetDefaultProviderRequest) returns (Bundle) {}
-  rpc ListBundles() returns (stream Bundle) {}
+  rpc ListBundles(ListBundlesRequest) returns (stream Bundle) {}
 }
 
 
@@ -68,6 +68,8 @@ message ChannelEntry{
 }
 
 message ListPackageRequest{}
+
+message ListBundlesRequest{}
 
 message GetPackageRequest{
 	string name = 1;
