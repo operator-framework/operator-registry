@@ -154,7 +154,7 @@ func TestAddPackageChannels(t *testing.T) {
 	}
 }
 
-func TestClearNonDefaultBundles(t *testing.T) {
+func TestClearNonHeadBundles(t *testing.T) {
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
@@ -187,7 +187,7 @@ func TestClearNonDefaultBundles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Clear everything but the default bundle
-	require.NoError(t, store.ClearNonDefaultBundles(pkg))
+	require.NoError(t, store.ClearNonHeadBundles())
 
 	// Internal node without bundle path should keep its manifests
 	querier := NewSQLLiteQuerierFromDb(db)

@@ -126,7 +126,7 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 	}
 
 	// Finally let's delete all the old bundles
-	if err = i.loader.ClearNonDefaultBundles(annotationsFile.GetName()); err != nil {
+	if err = i.loader.ClearNonHeadBundles(); err != nil {
 		return fmt.Errorf("Error deleting previous bundles: %s", err)
 	}
 

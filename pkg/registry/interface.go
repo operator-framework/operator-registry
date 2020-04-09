@@ -12,7 +12,7 @@ type Load interface {
 	AddPackageChannels(manifest PackageManifest) error
 	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
-	ClearNonDefaultBundles(packageName string) error
+	ClearNonHeadBundles() error
 }
 
 type Query interface {
