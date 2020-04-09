@@ -101,19 +101,22 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 	if request.FromIndex != "" {
 		// Edge case where building from an already existing catalog source
 		// index.db gets saved to /database/database/index.db not /database/index.db
-		w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
-		if err != nil {
-			return err
+		finalIndexPath := path.Join(workingDir, defaultDatabaseFile)
+		if !fileExists(finalIndexPath) {
+			w,err := os.Create(finalIndexPath)
+			if err != nil {
+				return err
+			}
+			r,err := os.Open(databaseFile)
+			if err != nil {
+				return err
+			}
+			_,err = io.Copy(w,r)
+			if err != nil {
+				return err
+			}
+			os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 		}
-		r,err := os.Open(databaseFile)
-		if err != nil {
-			return err
-		}
-		_,err = io.Copy(w,r)
-		if err != nil {
-			return err
-		}
-		os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
@@ -195,19 +198,22 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	if request.FromIndex != "" {
 		// Edge case where building from an already existing catalog source
 		// index.db gets saved to /database/database/index.db not /database/index.db
-		w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
-		if err != nil {
-			return err
+		finalIndexPath := path.Join(workingDir, defaultDatabaseFile)
+		if !fileExists(finalIndexPath) {
+			w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
+			if err != nil {
+				return err
+			}
+			r,err := os.Open(databaseFile)
+			if err != nil {
+				return err
+			}
+			_,err = io.Copy(w,r)
+			if err != nil {
+				return err
+			}
+			os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 		}
-		r,err := os.Open(databaseFile)
-		if err != nil {
-			return err
-		}
-		_,err = io.Copy(w,r)
-		if err != nil {
-			return err
-		}
-		os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
@@ -484,4 +490,15 @@ func generatePackageYaml(dbQuerier pregistry.Query, packageName, downloadPath st
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	// Stat the file to make sure that it exists on the system
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
