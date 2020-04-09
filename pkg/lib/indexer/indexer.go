@@ -49,7 +49,6 @@ type AddToIndexRequest struct {
 	OutDockerfile     string
 	Bundles           []string
 	Tag               string
-	Mode              pregistry.Mode
 }
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
@@ -74,7 +73,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		}
 		if dbLocation, ok := labels[containertools.DbLocationLabel]; ok {
 			// extract the database to the file
-			err = i.ImageReader.GetImageData(request.FromIndex, workingDir)
+			err = i.ImageReader.GetExistingDatabaseData(request.FromIndex, workingDir)
 			if err != nil {
 				return err
 			}
@@ -90,13 +89,31 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Bundles:       request.Bundles,
 		InputDatabase: databaseFile,
 		Permissive:    request.Permissive,
-		Mode:          request.Mode,
 	}
 
-	// Add the bundles to the registry
+	// Add the bundle to the registry
 	err = i.RegistryAdder.AddToRegistry(addToRegistryReq)
 	if err != nil {
 		return err
+	}
+
+
+	if request.FromIndex != "" {
+		// Edge case where building from an already existing catalog source
+		// index.db gets saved to /database/database/index.db not /database/index.db
+		w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
+		if err != nil {
+			return err
+		}
+		r,err := os.Open(databaseFile)
+		if err != nil {
+			return err
+		}
+		_,err = io.Copy(w,r)
+		if err != nil {
+			return err
+		}
+		os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
@@ -151,7 +168,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 			i.Logger.Infof("Previous db location %s", dbLocation)
 
 			// extract the database to the file
-			err = i.ImageReader.GetImageData(request.FromIndex, workingDir)
+			err = i.ImageReader.GetExistingDatabaseData(request.FromIndex, workingDir)
 			if err != nil {
 				return err
 			}
@@ -173,6 +190,24 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	err = i.RegistryDeleter.DeleteFromRegistry(deleteFromRegistryReq)
 	if err != nil {
 		return err
+	}
+
+	if request.FromIndex != "" {
+		// Edge case where building from an already existing catalog source
+		// index.db gets saved to /database/database/index.db not /database/index.db
+		w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
+		if err != nil {
+			return err
+		}
+		r,err := os.Open(databaseFile)
+		if err != nil {
+			return err
+		}
+		_,err = io.Copy(w,r)
+		if err != nil {
+			return err
+		}
+		os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image

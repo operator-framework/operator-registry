@@ -21,11 +21,12 @@ const (
 // imageManifest is the object format of container image manifest files
 // use this type to parse manifest.json files inside container image blobs
 type imageManifest struct {
-	Layers []string `json:”Layers”`
+	Layers []string `json:"Layers"`
 }
 
 type ImageReader interface {
 	GetImageData(string, string, ...GetImageDataOption) error
+	GetExistingDatabaseData(string, string, ...GetImageDataOption) error
 }
 
 type ImageLayerReader struct {
@@ -42,12 +43,19 @@ func NewImageReader(containerTool string, logger *logrus.Entry) ImageReader {
 	}
 }
 
+func (b ImageLayerReader) GetExistingDatabaseData(image, outputDir string, opts ...GetImageDataOption) error {
+	return b.getImageDataInternal(image, outputDir, true, opts...)
+}
+
 func (b ImageLayerReader) GetImageData(image, outputDir string, opts ...GetImageDataOption) error {
+	return b.getImageDataInternal(image, outputDir, false, opts...)
+}
+
+func (b ImageLayerReader) getImageDataInternal(image, outputDir string, dbOnly bool, opts ...GetImageDataOption) error {
 	options := GetImageDataOptions{}
 	for _, o := range opts {
 		o(&options)
 	}
-
 	// Create the output directory if it doesn't exist
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		os.Mkdir(outputDir, 0777)
@@ -82,7 +90,7 @@ func (b ImageLayerReader) GetImageData(image, outputDir string, opts ...GetImage
 	defer f.Close()
 
 	// Read the manifest.json file to find the right embedded tarball
-	layerTarballs, err := getManifestLayers(tar.NewReader(f))
+	layerTarballs, err := getManifestLayers(tar.NewReader(f), dbOnly)
 	if err != nil {
 		return err
 	}
@@ -104,7 +112,7 @@ func (b ImageLayerReader) GetImageData(image, outputDir string, opts ...GetImage
 	return nil
 }
 
-func getManifestLayers(tarReader *tar.Reader) ([]string, error) {
+func getManifestLayers(tarReader *tar.Reader, dbOnly bool) ([]string, error) {
 	for {
 		header, err := tarReader.Next()
 		if err != nil {
@@ -134,7 +142,10 @@ func getManifestLayers(tarReader *tar.Reader) ([]string, error) {
 			if len(topManifest.Layers) == 0 {
 				return nil, fmt.Errorf("invalid bundle image: manifest has no layers")
 			}
-
+			if dbOnly {
+				// Database layer will be the last layer in the list for the catalog image
+				return topManifest.Layers[len(topManifest.Layers)-1:], nil
+			}
 			return topManifest.Layers, nil
 		}
 	}
