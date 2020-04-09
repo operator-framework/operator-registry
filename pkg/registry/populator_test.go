@@ -304,6 +304,52 @@ func TestImageLoading(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "TwoChannel/OneChannelIsASubset",
+			initImages: []img{
+				{
+					// this is in the "preview" channel
+					ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+					dir: "../../bundles/prometheus.0.14.0",
+				},
+			},
+			addImage: img{
+				// this is in the "stable" channel and replaces v0.14.0
+				ref: image.SimpleReference("quay.io/prometheus/operator:0.15.0-stable"),
+				dir: "../../bundles/prometheus.0.15.0-stable",
+			},
+			wantPackages: []*registry.Package{
+				{
+					Name:           "prometheus",
+					DefaultChannel: "stable",
+					Channels: map[string]registry.Channel{
+						"preview": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.14.0",
+								Version:    "0.14.0",
+								CsvName:    "prometheusoperator.0.14.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {},
+							},
+						},
+						"stable": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.15.0-stable",
+								Version:    "0.15.0",
+								CsvName:    "prometheusoperator.0.15.0-stable",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.15.0-stable", Version: "0.15.0", CsvName: "prometheusoperator.0.15.0-stable"}: {
+									{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: struct{}{},
+								},
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {}},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -329,6 +375,7 @@ func TestImageLoading(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, p, result)
 			}
+			CheckInvariants(t, db)
 		})
 	}
 }
@@ -338,4 +385,47 @@ func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
 	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
 	require.EqualValues(t, expected, actual)
+}
+
+func CheckInvariants(t *testing.T, db *sql.DB) {
+	CheckChannelHeadsHaveDescriptions(t, db)
+	CheckBundlesHaveContentsIfNoPath(t, db)
+}
+
+func CheckChannelHeadsHaveDescriptions(t *testing.T, db *sql.DB) {
+	// check channel heads have csv / bundle
+	rows, err := db.Query(`
+		select operatorbundle.name,length(operatorbundle.csv),length(operatorbundle.bundle) from operatorbundle 
+		join channel on channel.head_operatorbundle_name = operatorbundle.name`)
+	require.NoError(t, err)
+
+	for rows.Next() {
+		var name sql.NullString
+		var csvlen sql.NullInt64
+		var bundlelen sql.NullInt64
+		err := rows.Scan(&name, &csvlen, &bundlelen)
+		require.NoError(t, err)
+		t.Logf("channel head %s has csvlen %d and bundlelen %d", name.String, csvlen.Int64, bundlelen.Int64)
+		require.NotZero(t, csvlen.Int64, "length of csv for %s should not be zero, it is a channel head", name.String)
+		require.NotZero(t, bundlelen.Int64, "length of bundle for %s should not be zero, it is a channel head", name.String)
+	}
+}
+
+func CheckBundlesHaveContentsIfNoPath(t *testing.T, db *sql.DB) {
+	// check that any bundle entry has csv/bundle content unpacked if there is no bundlepath
+	rows, err := db.Query(`
+		select name,length(csv),length(bundle) from operatorbundle 
+		where bundlepath="" or bundlepath=null`)
+	require.NoError(t, err)
+
+	for rows.Next() {
+		var name sql.NullString
+		var csvlen sql.NullInt64
+		var bundlelen sql.NullInt64
+		err := rows.Scan(&name, &csvlen, &bundlelen)
+		require.NoError(t, err)
+		t.Logf("bundle %s has csvlen %d and bundlelen %d", name.String, csvlen.Int64, bundlelen.Int64)
+		require.NotZero(t, csvlen.Int64, "length of csv for %s should not be zero, it has no bundle path", name.String)
+		require.NotZero(t, bundlelen.Int64, "length of bundle for %s should not be zero, it has no bundle path", name.String)
+	}
 }
