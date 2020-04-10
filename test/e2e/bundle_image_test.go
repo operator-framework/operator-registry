@@ -747,8 +747,9 @@ var _ = Describe("Launch bundle", func() {
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("building required images")
-			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin")
+			By("building required images: init image")
+      buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin")
+      By("building required images: bundle image")
 			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", imageDirectory)
 
 			By("creating a batch job")
