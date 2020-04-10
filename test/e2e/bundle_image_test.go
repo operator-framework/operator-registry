@@ -678,11 +678,10 @@ spec:
 }
 
 func buildContainer(tag, dockerfilePath, dockerContext string) {
-	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
+  cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
+  cmd.Stdout = GinkgoWriter
+  cmd.Stderr = GinkgoWriter
   err := cmd.Run()
-  if err != nil {
-    Logf("Unexpected error has occured in building container image %s\n", err.Error())
-  }
 	Expect(err).NotTo(HaveOccurred())
 }
 
