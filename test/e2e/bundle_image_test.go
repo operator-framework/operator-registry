@@ -678,8 +678,10 @@ spec:
 }
 
 func buildContainer(tag, dockerfilePath, dockerContext string) {
-	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
-	err := cmd.Run()
+  cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
+  cmd.Stdout = GinkgoWriter
+  cmd.Stderr = GinkgoWriter
+  err := cmd.Run()
 	Expect(err).NotTo(HaveOccurred())
 }
 
