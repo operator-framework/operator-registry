@@ -8,6 +8,19 @@ import (
 )
 
 type FakeImageReader struct {
+	GetExistingDatabaseDataStub        func(string, string, ...containertools.GetImageDataOption) error
+	getExistingDatabaseDataMutex       sync.RWMutex
+	getExistingDatabaseDataArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 []containertools.GetImageDataOption
+	}
+	getExistingDatabaseDataReturns struct {
+		result1 error
+	}
+	getExistingDatabaseDataReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetImageDataStub        func(string, string, ...containertools.GetImageDataOption) error
 	getImageDataMutex       sync.RWMutex
 	getImageDataArgsForCall []struct {
@@ -23,6 +36,68 @@ type FakeImageReader struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseData(arg1 string, arg2 string, arg3 ...containertools.GetImageDataOption) error {
+	fake.getExistingDatabaseDataMutex.Lock()
+	ret, specificReturn := fake.getExistingDatabaseDataReturnsOnCall[len(fake.getExistingDatabaseDataArgsForCall)]
+	fake.getExistingDatabaseDataArgsForCall = append(fake.getExistingDatabaseDataArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 []containertools.GetImageDataOption
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("GetExistingDatabaseData", []interface{}{arg1, arg2, arg3})
+	fake.getExistingDatabaseDataMutex.Unlock()
+	if fake.GetExistingDatabaseDataStub != nil {
+		return fake.GetExistingDatabaseDataStub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.getExistingDatabaseDataReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseDataCallCount() int {
+	fake.getExistingDatabaseDataMutex.RLock()
+	defer fake.getExistingDatabaseDataMutex.RUnlock()
+	return len(fake.getExistingDatabaseDataArgsForCall)
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseDataCalls(stub func(string, string, ...containertools.GetImageDataOption) error) {
+	fake.getExistingDatabaseDataMutex.Lock()
+	defer fake.getExistingDatabaseDataMutex.Unlock()
+	fake.GetExistingDatabaseDataStub = stub
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseDataArgsForCall(i int) (string, string, []containertools.GetImageDataOption) {
+	fake.getExistingDatabaseDataMutex.RLock()
+	defer fake.getExistingDatabaseDataMutex.RUnlock()
+	argsForCall := fake.getExistingDatabaseDataArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseDataReturns(result1 error) {
+	fake.getExistingDatabaseDataMutex.Lock()
+	defer fake.getExistingDatabaseDataMutex.Unlock()
+	fake.GetExistingDatabaseDataStub = nil
+	fake.getExistingDatabaseDataReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeImageReader) GetExistingDatabaseDataReturnsOnCall(i int, result1 error) {
+	fake.getExistingDatabaseDataMutex.Lock()
+	defer fake.getExistingDatabaseDataMutex.Unlock()
+	fake.GetExistingDatabaseDataStub = nil
+	if fake.getExistingDatabaseDataReturnsOnCall == nil {
+		fake.getExistingDatabaseDataReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.getExistingDatabaseDataReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeImageReader) GetImageData(arg1 string, arg2 string, arg3 ...containertools.GetImageDataOption) error {
@@ -90,6 +165,8 @@ func (fake *FakeImageReader) GetImageDataReturnsOnCall(i int, result1 error) {
 func (fake *FakeImageReader) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.getExistingDatabaseDataMutex.RLock()
+	defer fake.getExistingDatabaseDataMutex.RUnlock()
 	fake.getImageDataMutex.RLock()
 	defer fake.getImageDataMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
