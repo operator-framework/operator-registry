@@ -127,7 +127,7 @@ type Dependency struct {
 	Type string `json:"type" yaml:"type"`
 
 	// The name of dependency such as 'etcd'
-	Name string `json:"name" yaml:"packgeName"`
+	Name string `json:"packageName" yaml:"packageName"`
 
 	// The group of GVK based dependency
 	Group string `json:"group" yaml:"group"`

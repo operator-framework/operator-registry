@@ -65,9 +65,9 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 		if f.Name() == DependenciesFileName {
 			err = decodeFile(filepath.Join(metadata, f.Name()), dependenciesFile)
 			if err != nil {
-				log.Info("found dependencies file searching for csv")
-			} else {
 				log.Info("unable to parse dependencies.yaml file")
+			} else {
+				log.Info("found dependencies file searching for csv")
 			}
 		}
 	}
