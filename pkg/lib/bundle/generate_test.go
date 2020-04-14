@@ -209,7 +209,7 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
 		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
 		"COPY test2 /manifests/\n"+
-		"COPY metadata/annotations.yaml /metadata/annotations.yaml\n", MetadataDir)
+		"COPY metadata/ /metadata/\n", MetadataDir)
 
 	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test2/", "metadata/", "./", "test4", "test5", "")
 	require.NoError(t, err)

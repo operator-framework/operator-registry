@@ -58,7 +58,7 @@ func (i imageValidator) PullBundleImage(imageTag, directory string) error {
 // error: ValidattionError which contains a list of errors
 func (i imageValidator) ValidateBundleFormat(directory string) error {
 	var manifestsFound, metadataFound bool
-	var annotationsDir, manifestsDir string
+	var metadataDir, manifestsDir string
 	var validationErrors []error
 
 	items, err := ioutil.ReadDir(directory)
@@ -76,7 +76,7 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 			case strings.TrimSuffix(MetadataDir, "/"):
 				i.logger.Debug("Found metadata directory")
 				metadataFound = true
-				annotationsDir = filepath.Join(directory, MetadataDir)
+				metadataDir = filepath.Join(directory, MetadataDir)
 			}
 		}
 	}
@@ -100,7 +100,7 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	}
 
 	// Validate annotations.yaml
-	annotationsFile, err := ioutil.ReadFile(filepath.Join(annotationsDir, AnnotationsFile))
+	annotationsFile, err := ioutil.ReadFile(filepath.Join(metadataDir, AnnotationsFile))
 	if err != nil {
 		fmtErr := fmt.Errorf("Unable to read annotations.yaml file: %s", err.Error())
 		validationErrors = append(validationErrors, fmtErr)
@@ -163,6 +163,12 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	_, err = ValidateChannelDefault(annotations[ChannelsLabel], annotations[ChannelDefaultLabel])
 	if err != nil {
 		validationErrors = append(validationErrors, err)
+	}
+
+	// Validate dependencies.yaml if exists
+	dependenciesFile, err := ioutil.ReadFile(filepath.Join(metadataDir, DependenciesFile))
+	if err != nil {
+		i.logger.Debugf(`Unable to read %s in directory %s`, DependenciesFile, metadataDir)
 	}
 
 	if len(validationErrors) > 0 {
