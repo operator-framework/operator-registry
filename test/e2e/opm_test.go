@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"database/sql"
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -86,7 +87,7 @@ func buildIndexWith(containerTool string) error {
 		bundleImage + ":" + bundleTag2,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containerTool, logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
@@ -106,7 +107,7 @@ func buildFromIndexWith(containerTool string) error {
 		bundleImage + ":" + bundleTag3,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containerTool, logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
@@ -141,7 +142,7 @@ func pushBundles(containerTool string) error {
 
 func exportWith(containerTool string) error {
 	logger := logrus.WithFields(logrus.Fields{"package": packageName})
-	indexExporter := indexer.NewIndexExporter(containerTool, logger)
+	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.ExportFromIndexRequest{
 		Index:         indexImage2,

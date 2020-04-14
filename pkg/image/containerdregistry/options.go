@@ -1,6 +1,7 @@
 package containerdregistry
 
 import (
+	"crypto/x509"
 	"os"
 	"path/filepath"
 	"sync"
@@ -20,6 +21,7 @@ type RegistryConfig struct {
 	CacheDir          string
 	PreserveCache     bool
 	SkipTLS           bool
+	Roots             *x509.CertPool
 }
 
 func (r *RegistryConfig) apply(options []RegistryOption) {
@@ -52,7 +54,7 @@ func defaultConfig() *RegistryConfig {
 
 // NewRegistry returns a new containerd Registry and a function to destroy it after use.
 // The destroy function is safe to call more than once, but is a no-op after the first call.
-func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() error, err error) {
+func NewRegistry(options ...RegistryOption) (registry *Registry, err error) {
 	config := defaultConfig()
 	config.apply(options)
 	if err = config.complete(); err != nil {
@@ -71,7 +73,7 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() 
 	}
 
 	var once sync.Once
-	destroy = func() (destroyErr error) {
+	destroy := func() (destroyErr error) {
 		once.Do(func() {
 			if destroyErr = bdb.Close(); destroyErr != nil {
 				return
@@ -87,14 +89,14 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() 
 	}
 
 	var resolver remotes.Resolver
-	resolver, err = NewResolver(config.ResolverConfigDir, config.SkipTLS)
+	resolver, err = NewResolver(config.ResolverConfigDir, config.SkipTLS, config.Roots)
 	if err != nil {
 		return
 	}
 
 	registry = &Registry{
-		Store: newStore(metadata.NewDB(bdb, cs, nil)),
-
+		Store:    newStore(metadata.NewDB(bdb, cs, nil)),
+		destroy:  destroy,
 		log:      config.Log,
 		resolver: resolver,
 		platform: platforms.Only(platforms.DefaultSpec()),
@@ -119,6 +121,12 @@ func WithResolverConfigDir(path string) RegistryOption {
 func WithCacheDir(dir string) RegistryOption {
 	return func(config *RegistryConfig) {
 		config.CacheDir = dir
+	}
+}
+
+func WithRootCAs(pool *x509.CertPool) RegistryOption {
+	return func(config *RegistryConfig) {
+		config.Roots = pool
 	}
 }
 

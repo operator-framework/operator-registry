@@ -3,9 +3,7 @@ package containerdregistry
 import (
 	"archive/tar"
 	"context"
-	"io"
-	"os"
-
+	"fmt"
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
 	"github.com/containerd/containerd/errdefs"
@@ -15,6 +13,8 @@ import (
 	"github.com/containerd/containerd/remotes"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
+	"io"
+	"os"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
@@ -22,7 +22,7 @@ import (
 // Registry enables manipulation of images via containerd modules.
 type Registry struct {
 	Store
-
+	destroy  func() error
 	log      *logrus.Entry
 	resolver remotes.Resolver
 	platform platforms.MatchComparer
@@ -37,7 +37,7 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 
 	name, root, err := r.resolver.Resolve(ctx, ref.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("error resolving name %s: %v", name, err)
 	}
 	r.log.Infof("resolved name: %s", name)
 
@@ -93,12 +93,21 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) 
 	return nil
 }
 
+// Destroy cleans up the on-disk boltdb file and other cache files, unless preserve cache is true
+func (r *Registry) Destroy() (err error) {
+	return r.destroy()
+}
+
 func (r *Registry) fetch(ctx context.Context, fetcher remotes.Fetcher, root ocispec.Descriptor) error {
 	visitor := images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		r.log.WithField("digest", desc.Digest).Info("fetched")
 		r.log.Debug(desc)
 		return nil, nil
 	})
+
+	if root.MediaType == images.MediaTypeDockerSchema1Manifest {
+		return fmt.Errorf("specified image is a docker schema v1 manifest, which is not supported")
+	}
 
 	handler := images.Handlers(
 		visitor,

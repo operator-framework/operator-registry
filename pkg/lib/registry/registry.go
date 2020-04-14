@@ -2,8 +2,11 @@ package registry
 
 import (
 	"context"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"io/ioutil"
 	"os"
 
@@ -17,15 +20,17 @@ import (
 )
 
 type RegistryUpdater struct {
-	Logger *logrus.Entry
+	Logger   *logrus.Entry
 }
 
 type AddToRegistryRequest struct {
 	Permissive    bool
 	SkipTLS       bool
+	CaFile        string
 	InputDatabase string
 	Bundles       []string
 	Mode          registry.Mode
+	ContainerTool containertools.ContainerTool
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
@@ -51,16 +56,36 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	}
 	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
 
-	// TODO: Dependency inject the registry if we want to swap it out.
-	reg, destroy, err := containerdregistry.NewRegistry(
-		containerdregistry.SkipTLS(request.SkipTLS),
-	)
-	if err != nil {
-		return err
+	// add custom ca certs to resolver
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil || rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if len(request.CaFile) > 0 {
+		certs, err := ioutil.ReadFile(request.CaFile)
+		if err != nil {
+			return fmt.Errorf("failed to append %q to RootCAs: %v", certs, err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			return fmt.Errorf("unable to add certs specified in %s", request.CaFile)
+		}
+	}
+
+	var reg image.Registry
+	var rerr error
+	switch request.ContainerTool {
+	case containertools.NoneTool:
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(request.SkipTLS), containerdregistry.WithRootCAs(rootCAs))
+	case containertools.PodmanTool:
+	case containertools.DockerTool:
+		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger)
+	}
+	if rerr != nil {
+		return rerr
 	}
 	defer func() {
-		if err := destroy(); err != nil {
-			r.Logger.WithError(err).Warn("error destroying internal image registry")
+		if err := reg.Destroy(); err != nil {
+			r.Logger.WithError(err).Warn("error destroying local cache")
 		}
 	}()
 
