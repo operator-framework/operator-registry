@@ -118,10 +118,8 @@ func TestQuerierForImage(t *testing.T) {
 		SkipRange: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:    "olm.gvk",
-				Group:   "testapi.coreos.com",
-				Kind:    "testapi",
-				Version: "v1",
+				Type:  "olm.gvk",
+				Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -351,15 +349,12 @@ func TestQuerierForDependencies(t *testing.T) {
 
 	expectedDependencies := []*api.Dependency{
 		{
-			Type:    "olm.package",
-			Name:    "test-operator",
-			Version: ">0.2.0",
+			Type:  "olm.package",
+			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
 		},
 		{
-			Type:    "olm.gvk",
-			Group:   "testapi.coreos.com",
-			Kind:    "testapi",
-			Version: "v1",
+			Type:  "olm.gvk",
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 		},
 	}
 
@@ -401,15 +396,12 @@ func TestListBundles(t *testing.T) {
 
 	expectedDependencies := []*api.Dependency{
 		{
-			Type:    "olm.package",
-			Name:    "test-operator",
-			Version: ">0.2.0",
+			Type:  "olm.package",
+			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
 		},
 		{
-			Type:    "olm.gvk",
-			Group:   "testapi.coreos.com",
-			Kind:    "testapi",
-			Version: "v1",
+			Type:  "olm.gvk",
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 		},
 	}
 
@@ -418,7 +410,6 @@ func TestListBundles(t *testing.T) {
 	require.NoError(t, err)
 	for _, b := range bundles {
 		dep := b.Dependencies
-		fmt.Printf("Dep: %v\n", dep)
 		dependencies = append(dependencies, dep...)
 	}
 	require.ElementsMatch(t, expectedDependencies, dependencies)

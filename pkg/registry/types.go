@@ -126,9 +126,11 @@ type Dependency struct {
 	// dependency or `olm.gvk` for gvk based dependency. This field is required.
 	Type string `json:"type" yaml:"type"`
 
-	// The name of dependency such as 'etcd'
-	Name string `json:"packageName" yaml:"packageName"`
+	// The value of the dependency (either GVKDependency or PackageDependency)
+	Value string `json:"value" yaml:"value"`
+}
 
+type GVKDependency struct {
 	// The group of GVK based dependency
 	Group string `json:"group" yaml:"group"`
 
@@ -139,42 +141,27 @@ type Dependency struct {
 	Version string `json:"version" yaml:"version"`
 }
 
+type PackageDependency struct {
+	// The name of dependency such as 'etcd'
+	PackageName string `json:"packageName" yaml:"packageName"`
+
+	// The version of dependency in semver format
+	Version string `json:"version" yaml:"version"`
+}
+
+// GetDependencies returns the list of dependency
+func (d *DependenciesFile) GetDependencies() []*Dependency {
+	var dependencies []*Dependency
+	for _, item := range d.Dependencies {
+		dependencies = append(dependencies, &item)
+	}
+	return dependencies
+}
+
 // GetType returns the type of dependency
 func (e *Dependency) GetType() string {
 	if e.Type != "" {
 		return e.Type
-	}
-	return ""
-}
-
-// GetName returns the package name of dependency
-func (e *Dependency) GetName() string {
-	if e.Name != "" {
-		return e.Name
-	}
-	return ""
-}
-
-// GetGroup returns the group name of dependency
-func (e *Dependency) GetGroup() string {
-	if e.Group != "" {
-		return e.Group
-	}
-	return ""
-}
-
-// GetKind returns the kind of dependency
-func (e *Dependency) GetKind() string {
-	if e.Kind != "" {
-		return e.Kind
-	}
-	return ""
-}
-
-// GetVersion returns the version of dependency
-func (e *Dependency) GetVersion() string {
-	if e.Version != "" {
-		return e.Version
 	}
 	return ""
 }

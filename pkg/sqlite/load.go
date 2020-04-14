@@ -755,7 +755,7 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 }
 
 func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
-	addDep, err := tx.Prepare("insert into dependencies(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?, ?, ?)")
+	addDep, err := tx.Prepare("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -770,7 +770,7 @@ func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 		return sql.NullString{String: s, Valid: s != ""}
 	}
 	for _, dep := range bundle.Dependencies {
-		if _, err := addDep.Exec(dep.Type, dep.Name, dep.Group, dep.Version, dep.Kind, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+		if _, err := addDep.Exec(dep.Type, dep.Value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
 			return err
 		}
 	}

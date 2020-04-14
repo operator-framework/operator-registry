@@ -783,14 +783,13 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 
 func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, err error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
-	MIN(channel_entry.depth), channel_entry.operatorbundle_name, channel_entry.package_name,
-	channel_entry.channel_name, channel_entry.replaces, operatorbundle.version, operatorbundle.skiprange,
-	dependencies.type, dependencies.package_name, dependencies.group_name, dependencies.version, dependencies.kind
+	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces,
+	operatorbundle.version, operatorbundle.skiprange,
+	dependencies.type, dependencies.value
 	FROM channel_entry
 	INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
 	INNER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
-	INNER JOIN package ON package.name = channel_entry.package_name
-	GROUP BY channel_entry.package_name, channel_entry.channel_name`
+	INNER JOIN package ON package.name = channel_entry.package_name`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -804,7 +803,6 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		var entryID sql.NullInt64
 		var bundle sql.NullString
 		var bundlePath sql.NullString
-		var minDepth sql.NullInt64
 		var bundleName sql.NullString
 		var pkgName sql.NullString
 		var channelName sql.NullString
@@ -812,11 +810,8 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		var version sql.NullString
 		var skipRange sql.NullString
 		var depType sql.NullString
-		var depPkgName sql.NullString
-		var depGroup sql.NullString
-		var depVersion sql.NullString
-		var depKind sql.NullString
-		if err := rows.Scan(&entryID, &bundle, &bundlePath, &minDepth, &bundleName, &pkgName, &channelName, &replaces, &version, &skipRange, &depType, &depPkgName, &depGroup, &depVersion, &depKind); err != nil {
+		var depValue sql.NullString
+		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &version, &skipRange, &depType, &depValue); err != nil {
 			return nil, err
 		}
 
@@ -826,10 +821,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			// Create new dependency object
 			dep := &api.Dependency{}
 			dep.Type = depType.String
-			dep.Name = depPkgName.String
-			dep.Group = depGroup.String
-			dep.Version = depVersion.String
-			dep.Kind = depKind.String
+			dep.Value = depValue.String
 
 			// Add new dependency to the existing list
 			existingDeps := bundleItem.Dependencies
@@ -863,10 +855,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			dep := &api.Dependency{}
 			dependencies := []*api.Dependency{}
 			dep.Type = depType.String
-			dep.Name = depPkgName.String
-			dep.Group = depGroup.String
-			dep.Version = depVersion.String
-			dep.Kind = depKind.String
+			dep.Value = depValue.String
 			dependencies = append(dependencies, dep)
 			out.Dependencies = dependencies
 
@@ -889,7 +878,7 @@ func unique(deps []*api.Dependency) []*api.Dependency {
 	keys := make(map[string]bool)
 	list := []*api.Dependency{}
 	for _, entry := range deps {
-		depKey := fmt.Sprintf("%s/%s/%s/%s/%s", entry.Type, entry.Name, entry.Group, entry.Version, entry.Kind)
+		depKey := fmt.Sprintf("%s/%s", entry.Type, entry.Value)
 		if _, value := keys[depKey]; !value {
 			keys[depKey] = true
 			list = append(list, entry)
@@ -899,7 +888,7 @@ func unique(deps []*api.Dependency) []*api.Dependency {
 }
 
 func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
-	depQuery := `SELECT DISTINCT dependencies.type, dependencies.package_name, dependencies.group_name, dependencies.version, dependencies.kind FROM dependencies
+	depQuery := `SELECT DISTINCT dependencies.type, dependencies.value FROM dependencies
 	WHERE dependencies.operatorbundle_name=? AND dependencies.operatorbundle_version=? AND dependencies.operatorbundle_path=?`
 
 	rows, err := s.db.QueryContext(ctx, depQuery, name, version, path)
@@ -909,23 +898,17 @@ func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version
 	dependencies = []*api.Dependency{}
 	for rows.Next() {
 		var typeName sql.NullString
-		var packageName sql.NullString
-		var groupName sql.NullString
-		var versionName sql.NullString
-		var kindName sql.NullString
+		var value sql.NullString
 
-		if err := rows.Scan(&typeName, &packageName, &groupName, &versionName, &kindName); err != nil {
+		if err := rows.Scan(&typeName, &value); err != nil {
 			return nil, err
 		}
-		if !typeName.Valid || !packageName.Valid || !groupName.Valid || !versionName.Valid || !kindName.Valid {
+		if !typeName.Valid || !value.Valid {
 			return nil, err
 		}
 		dependencies = append(dependencies, &api.Dependency{
-			Type:    typeName.String,
-			Name:    packageName.String,
-			Group:   groupName.String,
-			Version: versionName.String,
-			Kind:    kindName.String,
+			Type:  typeName.String,
+			Value: value.String,
 		})
 	}
 	if err := rows.Close(); err != nil {

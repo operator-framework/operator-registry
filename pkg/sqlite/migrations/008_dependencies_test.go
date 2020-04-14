@@ -31,7 +31,7 @@ func TestDependenciesUp(t *testing.T) {
 	err = migrator.Up(context.TODO(), migrations.Only(migrations.DependenciesMigrationKey))
 	require.NoError(t, err)
 
-	depQuery := `SELECT DISTINCT type, package_name, group_name, version, kind FROM dependencies
+	depQuery := `SELECT DISTINCT type, value FROM dependencies
 	WHERE operatorbundle_name=? AND operatorbundle_version=? AND operatorbundle_path=?`
 
 	rows, err := db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
@@ -39,16 +39,10 @@ func TestDependenciesUp(t *testing.T) {
 	defer rows.Close()
 	rows.Next()
 	var typeName sql.NullString
-	var name sql.NullString
-	var group sql.NullString
-	var version sql.NullString
-	var kind sql.NullString
-	require.NoError(t, rows.Scan(&typeName, &name, &group, &version, &kind))
+	var value sql.NullString
+	require.NoError(t, rows.Scan(&typeName, &value))
 	require.Equal(t, typeName.String, "olm.gvk")
-	require.Equal(t, name.String, "")
-	require.Equal(t, group.String, "test.coreos.com")
-	require.Equal(t, version.String, "v1")
-	require.Equal(t, kind.String, "testapi")
+	require.Equal(t, value.String, `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`)
 	require.NoError(t, rows.Close())
 }
 
@@ -67,11 +61,12 @@ func TestDependenciesDown(t *testing.T) {
 	insert := "insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)"
 	_, err = db.Exec(insert, "etcdoperator.v0.6.1", testCSV, testBundle, "quay.io/image", "0.6.1", ">0.5.0 <0.6.1", "0.9.0", "0.9.1,0.9.2")
 	require.NoError(t, err)
-	_, err = db.Exec("insert into dependencies(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", "olm.package", "etcd-operator", "", "0.6.0", "", "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+	valueStr := `{"packageName":"etcd-operator","type":"olm.package","version":">0.6.0"}`
+	_, err = db.Exec("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?)", "olm.package", valueStr, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit())
 
-	depQuery := `SELECT DISTINCT type, package_name, group_name, version, kind FROM dependencies
+	depQuery := `SELECT DISTINCT type, value FROM dependencies
 	WHERE operatorbundle_name=? AND operatorbundle_version=? AND operatorbundle_path=?`
 
 	rows, err := db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
@@ -79,16 +74,10 @@ func TestDependenciesDown(t *testing.T) {
 	defer rows.Close()
 	rows.Next()
 	var typeName sql.NullString
-	var name sql.NullString
-	var group sql.NullString
-	var version sql.NullString
-	var kind sql.NullString
-	require.NoError(t, rows.Scan(&typeName, &name, &group, &version, &kind))
+	var value sql.NullString
+	require.NoError(t, rows.Scan(&typeName, &value))
 	require.Equal(t, typeName.String, "olm.package")
-	require.Equal(t, name.String, "etcd-operator")
-	require.Equal(t, group.String, "")
-	require.Equal(t, version.String, "0.6.0")
-	require.Equal(t, kind.String, "")
+	require.Equal(t, value.String, valueStr)
 	require.NoError(t, rows.Close())
 
 	// run down migration
@@ -96,6 +85,6 @@ func TestDependenciesDown(t *testing.T) {
 	require.NoError(t, err)
 
 	// check that no dependencies were extracted.
-	rows, err = db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+	rows, _ = db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
 	require.False(t, rows.Next())
 }

@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -20,10 +21,7 @@ var dependenciesMigration = &Migration{
 		sql := `
 		CREATE TABLE IF NOT EXISTS dependencies (
 			type TEXT,
-			package_name TEXT,
-			group_name TEXT,
-			version TEXT,
-			kind TEXT,
+			value TEXT,
 			operatorbundle_name TEXT,
 			operatorbundle_version TEXT,
 			operatorbundle_path TEXT,
@@ -35,7 +33,7 @@ var dependenciesMigration = &Migration{
 			return err
 		}
 
-		insertRequired := `INSERT INTO dependencies(type, package_name, group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		insertRequired := `INSERT INTO dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?)`
 
 		bundleApis, err := getRequiredAPIs(ctx, tx)
 		if err != nil {
@@ -43,7 +41,17 @@ var dependenciesMigration = &Migration{
 		}
 		for bundle, apis := range bundleApis {
 			for required := range apis.required {
-				_, err := tx.ExecContext(ctx, insertRequired, "olm.gvk", nil, required.Group, required.Version, required.Kind, bundle.CsvName, bundle.Version, bundle.BundlePath)
+				valueMap := map[string]string{
+					"type":    "olm.gvk",
+					"group":   required.Group,
+					"version": required.Version,
+					"kind":    required.Kind,
+				}
+				value, err := json.Marshal(valueMap)
+				if err != nil {
+					return err
+				}
+				_, err = tx.ExecContext(ctx, insertRequired, "olm.gvk", value, bundle.CsvName, bundle.Version, bundle.BundlePath)
 				if err != nil {
 					return err
 				}

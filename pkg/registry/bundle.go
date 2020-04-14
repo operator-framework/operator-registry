@@ -35,7 +35,7 @@ type Bundle struct {
 	BundleImage  string
 	csv          *ClusterServiceVersion
 	crds         []*v1beta1.CustomResourceDefinition
-	Dependencies []Dependency
+	Dependencies []*Dependency
 	cacheStale   bool
 }
 

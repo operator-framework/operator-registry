@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -16,9 +17,9 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
-const (
-	DependenciesFileName = "dependencies.yaml"
-)
+type Dependencies struct {
+	RawMessage []map[string]string `json:"dependencies" yaml:"dependencies"`
+}
 
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
@@ -62,13 +63,12 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 			log.Info("found annotations file searching for csv")
 			continue
 		}
-		if f.Name() == DependenciesFileName {
-			err = decodeFile(filepath.Join(metadata, f.Name()), dependenciesFile)
-			if err != nil {
-				log.Info("unable to parse dependencies.yaml file")
-			} else {
-				log.Info("found dependencies file searching for csv")
-			}
+
+		err = parseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
+		if err != nil || len(dependenciesFile.Dependencies) < 1 {
+			continue
+		} else {
+			log.Info("found dependencies file searching for csv")
 		}
 	}
 
@@ -112,7 +112,7 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 	// set the bundleimage on the bundle
 	bundle.BundleImage = i.to.String()
 	// set the dependencies on the bundle
-	bundle.Dependencies = dependenciesFile.Dependencies
+	bundle.Dependencies = dependenciesFile.GetDependencies()
 
 	bundle.Name = csvName
 	bundle.Package = annotationsFile.Annotations.PackageName
@@ -339,4 +339,37 @@ func decodeFile(path string, into interface{}) error {
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 
 	return decoder.Decode(into)
+}
+
+func parseDependenciesFile(path string, depFile *DependenciesFile) error {
+	deps := Dependencies{}
+	err := decodeFile(path, &deps)
+	if err != nil || len(deps.RawMessage) == 0 {
+		return fmt.Errorf("Unable to decode the dependencies file %s", path)
+	}
+	depList := []Dependency{}
+	for _, v := range deps.RawMessage {
+		// convert map to json
+		jsonStr, _ := json.Marshal(v)
+		fmt.Println(string(jsonStr))
+
+		// Check dependency type
+		dep := Dependency{}
+		err := json.Unmarshal(jsonStr, &dep)
+		if err != nil {
+			return err
+		}
+
+		switch dep.GetType() {
+		case "olm.gvk", "olm.package":
+			dep.Value = string(jsonStr)
+		default:
+			return fmt.Errorf("Unsupported dependency type %s", dep.GetType())
+		}
+		depList = append(depList, dep)
+	}
+
+	depFile.Dependencies = depList
+
+	return nil
 }
