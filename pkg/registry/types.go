@@ -11,6 +11,11 @@ var (
 	ErrPackageNotInDatabase = errors.New("Package not in database")
 )
 
+const (
+	GVKType     = "olm.gvk"
+	PackageType = "olm.package"
+)
+
 // APIKey stores GroupVersionKind for use as map keys
 type APIKey struct {
 	Group   string
