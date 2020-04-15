@@ -1,0 +1,5 @@
+dependencies:
+  - type: olm.gvk
+    group: testapi.coreos.com
+    kind: testapi
+    version: v1

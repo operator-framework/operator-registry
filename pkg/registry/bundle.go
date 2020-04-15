@@ -28,14 +28,15 @@ func init() {
 }
 
 type Bundle struct {
-	Name        string
-	Objects     []*unstructured.Unstructured
-	Package     string
-	Channels    []string
-	BundleImage string
-	csv         *ClusterServiceVersion
-	crds        []*v1beta1.CustomResourceDefinition
-	cacheStale  bool
+	Name         string
+	Objects      []*unstructured.Unstructured
+	Package      string
+	Channels     []string
+	BundleImage  string
+	csv          *ClusterServiceVersion
+	crds         []*v1beta1.CustomResourceDefinition
+	Dependencies []*Dependency
+	cacheStale   bool
 }
 
 func NewBundle(name, pkgName string, channels []string, objs ...*unstructured.Unstructured) *Bundle {

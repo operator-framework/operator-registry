@@ -1,0 +1,4 @@
+dependencies:
+  - type: olm.package
+    packageName: testoperator
+    version: "> 0.2.0"
