@@ -517,6 +517,41 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 	EqualBundles(t, *expected, *bundle)
 }
 
+func TestListBundles(t *testing.T) {
+	require := require.New(t)
+
+	c, conn := client(t)
+	defer conn.Close()
+
+	stream, err := c.ListBundles(context.TODO(), &api.ListBundlesRequest{})
+	require.NoError(err)
+
+	expected := []string{
+		"etcdoperator.v0.6.1",
+		"strimzi-cluster-operator.v0.11.1",
+		"etcdoperator.v0.9.2",
+		"etcdoperator.v0.9.0",
+		"prometheusoperator.0.22.2",
+		"prometheusoperator.0.15.0",
+		"prometheusoperator.0.14.0",
+		"strimzi-cluster-operator.v0.11.0",
+		"strimzi-cluster-operator.v0.12.1",
+		"strimzi-cluster-operator.v0.12.2",
+	}
+
+	var names []string
+	for range expected {
+		bundle, err := stream.Recv()
+		require.NoError(err)
+		names = append(names, bundle.CsvName)
+	}
+
+	_, err = stream.Recv()
+	require.Equal(io.EOF, err)
+
+	require.ElementsMatch(expected, names)
+}
+
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis)
 	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
