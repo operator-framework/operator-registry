@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/blang/semver"
 	y "github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -99,15 +100,42 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		validationErrors = append(validationErrors, err)
 	}
 
-	// Validate annotations.yaml
+	// Validate annotations file
+	files, err := ioutil.ReadDir(metadataDir)
+	if err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
+	// Look for the metadata and manifests sub-directories to find the annotations file
+	fileAnnotations := &AnnotationMetadata{}
+	dependenciesFile := &registry.DependenciesFile{}
+	for _, f := range files {
+		err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), fileAnnotations)
+		if err != nil || fileAnnotations.Annotations == nil {
+			continue
+		}
+
+		err = registry.ParseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
+		if err != nil || len(dependenciesFile.Dependencies) < 1 {
+			continue
+		} else {
+			i.logger.Info("found dependencies file")
+		}
+	}
+
+	if len(dependenciesFile.Dependencies) < 1 {
+		i.logger.Info("Could not find dependencies file")
+	}
+
+	if fileAnnotations.Annotations == nil {
+		validationErrors = append(validationErrors, fmt.Errorf("Could not find annotations file"))
+	}
+
 	annotationsFile, err := ioutil.ReadFile(filepath.Join(metadataDir, AnnotationsFile))
 	if err != nil {
 		fmtErr := fmt.Errorf("Unable to read annotations.yaml file: %s", err.Error())
 		validationErrors = append(validationErrors, fmtErr)
-		return NewValidationError(validationErrors)
 	}
-
-	var fileAnnotations AnnotationMetadata
 
 	annotations := map[string]string{
 		MediatypeLabel:      mediaType,
@@ -118,11 +146,11 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		ChannelDefaultLabel: "",
 	}
 
-	i.logger.Debug("Validating annotations.yaml")
+	i.logger.Debug("Validating annotations file")
 
 	err = yaml.Unmarshal(annotationsFile, &fileAnnotations)
 	if err != nil {
-		validationErrors = append(validationErrors, fmt.Errorf("Unable to parse annotations.yaml file"))
+		validationErrors = append(validationErrors, fmt.Errorf("Unable to parse annotations file"))
 	}
 
 	for label, item := range annotations {
@@ -165,10 +193,59 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		validationErrors = append(validationErrors, err)
 	}
 
-	// Validate dependencies.yaml if exists
-	dependenciesFile, err := ioutil.ReadFile(filepath.Join(metadataDir, DependenciesFile))
-	if err != nil {
-		i.logger.Debugf(`Unable to read %s in directory %s`, DependenciesFile, metadataDir)
+	// Validate dependencies if exists
+	for _, d := range dependenciesFile.Dependencies {
+		switch d.GetType() {
+		case registry.GVKType:
+			gvkDep := &registry.GVKDependency{}
+			if d.GetValue() == "" {
+				validationErrors = append(validationErrors, fmt.Errorf("Dependency value is empty"))
+			} else {
+				err := json.Unmarshal([]byte(d.GetValue()), gvkDep)
+				if err != nil {
+					validationErrors = append(validationErrors, err)
+					break
+				}
+
+				if gvkDep.Group == "" {
+					validationErrors = append(validationErrors, fmt.Errorf("API Group is empty"))
+				}
+				if gvkDep.Version == "" {
+					validationErrors = append(validationErrors, fmt.Errorf("API Version is empty"))
+				}
+				if gvkDep.Kind == "" {
+					validationErrors = append(validationErrors, fmt.Errorf("API Kind is empty"))
+				}
+			}
+		case registry.PackgeType:
+			pkgDep := &registry.PackageDependency{}
+			if d.GetValue() == "" {
+				validationErrors = append(validationErrors, fmt.Errorf("Dependency value is empty"))
+			} else {
+				err := json.Unmarshal([]byte(d.GetValue()), pkgDep)
+				if err != nil {
+					validationErrors = append(validationErrors, err)
+					break
+				}
+
+				if pkgDep.PackageName == "" {
+					validationErrors = append(validationErrors, fmt.Errorf("Package name is empty"))
+				}
+				if pkgDep.Version == "" {
+					validationErrors = append(validationErrors, fmt.Errorf("Package version is empty"))
+				} else {
+					_, err := semver.Parse(pkgDep.Version)
+					if err != nil {
+						_, err := semver.ParseRange(pkgDep.Version)
+						if err != nil {
+							validationErrors = append(validationErrors, fmt.Errorf("Invalid semver format version"))
+						}
+					}
+				}
+			}
+		default:
+			validationErrors = append(validationErrors, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
+		}
 	}
 
 	if len(validationErrors) > 0 {

@@ -171,6 +171,14 @@ func (e *Dependency) GetType() string {
 	return ""
 }
 
+// GetValue returns the value content of dependency
+func (e *Dependency) GetValue() string {
+	if e.Value != "" {
+		return e.Value
+	}
+	return ""
+}
+
 // GetName returns the package name of the bundle
 func (a *AnnotationsFile) GetName() string {
 	if a.Annotations.PackageName != "" {

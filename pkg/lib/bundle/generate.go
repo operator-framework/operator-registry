@@ -20,7 +20,6 @@ const (
 	PlainType           = "plain"
 	HelmType            = "helm"
 	AnnotationsFile     = "annotations.yaml"
-	DependenciesFile    = "dependencies.yaml"
 	DockerFile          = "bundle.Dockerfile"
 	ManifestsDir        = "manifests/"
 	MetadataDir         = "metadata/"
