@@ -351,7 +351,6 @@ func parseDependenciesFile(path string, depFile *DependenciesFile) error {
 	for _, v := range deps.RawMessage {
 		// convert map to json
 		jsonStr, _ := json.Marshal(v)
-		fmt.Println(string(jsonStr))
 
 		// Check dependency type
 		dep := Dependency{}
