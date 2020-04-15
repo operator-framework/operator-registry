@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -16,10 +15,6 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
-
-type Dependencies struct {
-	RawMessage []map[string]string `json:"dependencies" yaml:"dependencies"`
-}
 
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
@@ -51,32 +46,22 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 		return fmt.Errorf("unable to read directory %s: %s", metadata, err)
 	}
 
-	// Look for the metadata and manifests sub-directories to find the annotations.yaml
-	// file that will inform how the manifests of the bundle should be loaded into the database.
-	// If dependencies.yaml which contains operator dependencies in metadata directory
-	// exists, parse and load it into the DB
+	// Look for the metadata and manifests sub-directories to find the annotations.yaml file that will inform how the
+	// manifests of the bundle should be loaded into the database.
 	annotationsFile := &AnnotationsFile{}
-	dependenciesFile := &DependenciesFile{}
 	for _, f := range files {
 		err = decodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
 		if err != nil || *annotationsFile == (AnnotationsFile{}) {
-			log.Info("found annotations file searching for csv")
 			continue
 		}
-
-		err = parseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
-		if err != nil || len(dependenciesFile.Dependencies) < 1 {
-			continue
-		} else {
-			log.Info("found dependencies file searching for csv")
-		}
+		log.Info("found annotations file searching for csv")
 	}
 
 	if *annotationsFile == (AnnotationsFile{}) {
 		return fmt.Errorf("Could not find annotations.yaml file")
 	}
 
-	err = i.loadManifests(manifests, annotationsFile, dependenciesFile, mode)
+	err = i.loadManifests(manifests, annotationsFile, mode)
 	if err != nil {
 		return err
 	}
@@ -84,7 +69,7 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 	return nil
 }
 
-func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile, dependenciesFile *DependenciesFile, mode Mode) error {
+func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *AnnotationsFile, mode Mode) error {
 	log := logrus.WithFields(logrus.Fields{"dir": i.from, "file": manifests, "load": "bundle"})
 
 	csv, err := i.findCSV(manifests)
@@ -111,8 +96,6 @@ func (i *DirectoryPopulator) loadManifests(manifests string, annotationsFile *An
 
 	// set the bundleimage on the bundle
 	bundle.BundleImage = i.to.String()
-	// set the dependencies on the bundle
-	bundle.Dependencies = dependenciesFile.GetDependencies()
 
 	bundle.Name = csvName
 	bundle.Package = annotationsFile.Annotations.PackageName
@@ -339,37 +322,4 @@ func decodeFile(path string, into interface{}) error {
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 
 	return decoder.Decode(into)
-}
-
-func parseDependenciesFile(path string, depFile *DependenciesFile) error {
-	deps := Dependencies{}
-	err := decodeFile(path, &deps)
-	if err != nil || len(deps.RawMessage) == 0 {
-		return fmt.Errorf("Unable to decode the dependencies file %s", path)
-	}
-	depList := []Dependency{}
-	for _, v := range deps.RawMessage {
-		// convert map to json
-		jsonStr, _ := json.Marshal(v)
-		fmt.Println(string(jsonStr))
-
-		// Check dependency type
-		dep := Dependency{}
-		err := json.Unmarshal(jsonStr, &dep)
-		if err != nil {
-			return err
-		}
-
-		switch dep.GetType() {
-		case "olm.gvk", "olm.package":
-			dep.Value = string(jsonStr)
-		default:
-			return fmt.Errorf("Unsupported dependency type %s", dep.GetType())
-		}
-		depList = append(depList, dep)
-	}
-
-	depFile.Dependencies = depList
-
-	return nil
 }

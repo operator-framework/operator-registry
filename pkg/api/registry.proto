@@ -12,7 +12,6 @@ service Registry {
 	rpc GetChannelEntriesThatProvide(GetAllProvidersRequest) returns (stream ChannelEntry) {}
 	rpc GetLatestChannelEntriesThatProvide(GetLatestProvidersRequest) returns (stream ChannelEntry) {}
 	rpc GetDefaultBundleThatProvides(GetDefaultProviderRequest) returns (Bundle) {}
-      rpc ListBundles(ListBundlesRequest) returns (stream Bundle) {}
 }
 
 
@@ -38,11 +37,6 @@ message GroupVersionKind{
 	string plural = 4;
 }
 
-message Dependency{
-  string type = 1;
-  string value = 2;
-}
-
 message Bundle{
 	string csvName = 1;
 	string packageName = 2;
@@ -54,7 +48,6 @@ message Bundle{
 	repeated GroupVersionKind requiredApis = 8;
 	string version = 9;
 	string skipRange = 10;
-      repeated Dependency dependencies = 11;
 }
 
 message ChannelEntry{
@@ -65,8 +58,6 @@ message ChannelEntry{
 }
 
 message ListPackageRequest{}
-
-message ListBundlesRequest{}
 
 message GetPackageRequest{
 	string name = 1;
@@ -113,3 +104,4 @@ message GetDefaultProviderRequest{
 	string kind = 3;
 	string plural = 4;
 }
+

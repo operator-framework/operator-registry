@@ -114,58 +114,6 @@ type Annotations struct {
 	DefaultChannelName string `json:"operators.operatorframework.io.bundle.channel.default.v1" yaml:"operators.operatorframework.io.bundle.channel.default.v1"`
 }
 
-// DependenciesFile holds dependency information about a bundle
-type DependenciesFile struct {
-	// Dependencies is a list of dependencies for a given bundle
-	Dependencies []Dependency `json:"dependencies" yaml:"dependencies"`
-}
-
-// Dependencies is a list of dependencies for a given bundle
-type Dependency struct {
-	// The type of dependency. It can be `olm.package` for operator-version based
-	// dependency or `olm.gvk` for gvk based dependency. This field is required.
-	Type string `json:"type" yaml:"type"`
-
-	// The value of the dependency (either GVKDependency or PackageDependency)
-	Value string `json:"value" yaml:"value"`
-}
-
-type GVKDependency struct {
-	// The group of GVK based dependency
-	Group string `json:"group" yaml:"group"`
-
-	// The kind of GVK based dependency
-	Kind string `json:"kind" yaml:"kind"`
-
-	// The version of dependency in semver format
-	Version string `json:"version" yaml:"version"`
-}
-
-type PackageDependency struct {
-	// The name of dependency such as 'etcd'
-	PackageName string `json:"packageName" yaml:"packageName"`
-
-	// The version of dependency in semver format
-	Version string `json:"version" yaml:"version"`
-}
-
-// GetDependencies returns the list of dependency
-func (d *DependenciesFile) GetDependencies() []*Dependency {
-	var dependencies []*Dependency
-	for _, item := range d.Dependencies {
-		dependencies = append(dependencies, &item)
-	}
-	return dependencies
-}
-
-// GetType returns the type of dependency
-func (e *Dependency) GetType() string {
-	if e.Type != "" {
-		return e.Type
-	}
-	return ""
-}
-
 // GetName returns the package name of the bundle
 func (a *AnnotationsFile) GetName() string {
 	if a.Annotations.PackageName != "" {
