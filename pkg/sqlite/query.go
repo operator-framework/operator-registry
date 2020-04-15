@@ -889,7 +889,9 @@ func unique(deps []*api.Dependency) []*api.Dependency {
 
 func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
 	depQuery := `SELECT DISTINCT dependencies.type, dependencies.value FROM dependencies
-	WHERE dependencies.operatorbundle_name=? AND dependencies.operatorbundle_version=? AND dependencies.operatorbundle_path=?`
+	WHERE dependencies.operatorbundle_name=?
+	AND (dependencies.operatorbundle_version=? OR dependencies.operatorbundle_version is NULL)
+	AND (dependencies.operatorbundle_path=? OR dependencies.operatorbundle_path is NULL)`
 
 	rows, err := s.db.QueryContext(ctx, depQuery, name, version, path)
 	if err != nil {
