@@ -26,6 +26,7 @@ const (
 	defaultImageTag       = "operator-registry-index:latest"
 	defaultDatabaseFolder = "database"
 	defaultDatabaseFile   = "index.db"
+	tmpDirPrefix          = "index_tmp"
 )
 
 // ImageIndexer is a struct implementation of the Indexer interface
@@ -53,36 +54,18 @@ type AddToIndexRequest struct {
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
 func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
-	databaseFile := defaultDatabaseFile
-
 	// set a temp directory
-	workingDir, err := ioutil.TempDir("./", "index_tmp")
+	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(workingDir)
+	defer os.RemoveAll(tmpDir)
 
-	// Pull the fromIndex
-	if request.FromIndex != "" {
-		i.Logger.Infof("Pulling previous image %s to get metadata", request.FromIndex)
-
-		// Get the old index image's dbLocationLabel to find this path
-		labels, err := i.LabelReader.GetLabelsFromImage(request.FromIndex)
-		if err != nil {
-			return err
-		}
-		if dbLocation, ok := labels[containertools.DbLocationLabel]; ok {
-			// extract the database to the file
-			err = i.ImageReader.GetExistingDatabaseData(request.FromIndex, workingDir)
-			if err != nil {
-				return err
-			}
-
-			databaseFile = path.Join(workingDir, dbLocation)
-		}
-	} else {
-		databaseFile = path.Join(workingDir, databaseFile)
+	databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+	if err != nil {
+		return err
 	}
+	workingDir := path.Dir(databaseFile)
 
 	// Run opm registry add on the database
 	addToRegistryReq := registry.AddToRegistryRequest{
@@ -91,32 +74,10 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Permissive:    request.Permissive,
 	}
 
-	// Add the bundle to the registry
+	// Add the bundles to the registry
 	err = i.RegistryAdder.AddToRegistry(addToRegistryReq)
 	if err != nil {
 		return err
-	}
-
-
-	if request.FromIndex != "" {
-		// Edge case where building from an already existing catalog source
-		// index.db gets saved to /database/database/index.db not /database/index.db
-		finalIndexPath := path.Join(workingDir, defaultDatabaseFile)
-		if !fileExists(finalIndexPath) {
-			w,err := os.Create(finalIndexPath)
-			if err != nil {
-				return err
-			}
-			r,err := os.Open(databaseFile)
-			if err != nil {
-				return err
-			}
-			_,err = io.Copy(w,r)
-			if err != nil {
-				return err
-			}
-			os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
-		}
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
@@ -149,38 +110,18 @@ type DeleteFromIndexRequest struct {
 // DeleteFromIndex is an aggregate API used to generate a registry index image
 // without specific operators
 func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
-	databaseFile := defaultDatabaseFile
-
 	// set a temp directory
-	workingDir, err := ioutil.TempDir("./", "index_tmp")
+	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(workingDir)
+	defer os.RemoveAll(tmpDir)
 
-	// Pull the fromIndex
-	if request.FromIndex != "" {
-		i.Logger.Infof("Pulling previous image %s to get metadata", request.FromIndex)
-
-		// Get the old index image's dbLocationLabel to find this path
-		labels, err := i.LabelReader.GetLabelsFromImage(request.FromIndex)
-		if err != nil {
-			return err
-		}
-		if dbLocation, ok := labels[containertools.DbLocationLabel]; ok {
-			i.Logger.Infof("Previous db location %s", dbLocation)
-
-			// extract the database to the file
-			err = i.ImageReader.GetExistingDatabaseData(request.FromIndex, workingDir)
-			if err != nil {
-				return err
-			}
-
-			databaseFile = path.Join(workingDir, dbLocation)
-		}
-	} else {
-		databaseFile = path.Join(workingDir, databaseFile)
+	databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+	if err != nil {
+		return err
 	}
+	workingDir := path.Dir(databaseFile)
 
 	// Run opm registry add on the database
 	deleteFromRegistryReq := registry.DeleteFromRegistryRequest{
@@ -193,27 +134,6 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	err = i.RegistryDeleter.DeleteFromRegistry(deleteFromRegistryReq)
 	if err != nil {
 		return err
-	}
-
-	if request.FromIndex != "" {
-		// Edge case where building from an already existing catalog source
-		// index.db gets saved to /database/database/index.db not /database/index.db
-		finalIndexPath := path.Join(workingDir, defaultDatabaseFile)
-		if !fileExists(finalIndexPath) {
-			w,err := os.Create(path.Join(workingDir, defaultDatabaseFile))
-			if err != nil {
-				return err
-			}
-			r,err := os.Open(databaseFile)
-			if err != nil {
-				return err
-			}
-			_,err = io.Copy(w,r)
-			if err != nil {
-				return err
-			}
-			os.RemoveAll(path.Join(workingDir, defaultDatabaseFolder))
-		}
 	}
 
 	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
@@ -232,7 +152,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	return nil
 }
 
-func (i ImageIndexer) generateDockerfile(binarySourceImage, outDockerfile, databaseFile string) error {
+func (i ImageIndexer) generateDockerfile(binarySourceImage string, outDockerfile string, databaseFile string) error {
 	databaseFolder := defaultDatabaseFolder
 
 	// create the dockerfile
@@ -300,6 +220,33 @@ func (i ImageIndexer) buildDockerfile(binarySourceImage, workingDir, tag string)
 	return nil
 }
 
+func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, error) {
+	if fromIndex == "" {
+		return path.Join(workingDir, defaultDatabaseFile), nil
+	}
+
+	// Pull the fromIndex
+	i.Logger.Infof("Pulling previous image %s to get metadata", fromIndex)
+
+	// Get the old index image's dbLocationLabel to find this path
+	labels, err := i.LabelReader.GetLabelsFromImage(fromIndex)
+	if err != nil {
+		return "", err
+	}
+	dbLocation, ok := labels[containertools.DbLocationLabel]
+	if !ok {
+		return "", fmt.Errorf("Index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
+	}
+
+	// extract the database to the working directory
+	err = i.ImageReader.GetExistingDatabaseData(fromIndex, workingDir)
+	if err != nil {
+		return "", err
+	}
+
+	return path.Join(workingDir, dbLocation), nil
+}
+
 func build(dockerfileText, imageTag string, commandRunner containertools.CommandRunner, logger *logrus.Entry) error {
 	if imageTag == "" {
 		imageTag = defaultImageTag
@@ -347,7 +294,7 @@ type ExportFromIndexRequest struct {
 // an index image
 func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	// set a temp directory
-	workingDir, err := ioutil.TempDir("./", "index_tmp")
+	workingDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return err
 	}

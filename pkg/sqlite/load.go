@@ -113,6 +113,12 @@ func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		}
 	}
 
+	// Add dependencies information
+	err = s.addDependencies(tx, bundle)
+	if err != nil {
+		return err
+	}
+
 	return s.addAPIs(tx, bundle)
 }
 
@@ -285,7 +291,7 @@ func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	defer addReplaces.Close()
 
 	getReplaces, err := tx.Prepare(`
-	  SELECT DISTINCT operatorbundle.csv 
+	  SELECT DISTINCT operatorbundle.csv
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	defer getReplaces.Close()
@@ -416,7 +422,7 @@ func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	return utilerrors.NewAggregate(errs)
 }
 
-func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
+func (s *SQLLoader) ClearNonHeadBundles() error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -425,112 +431,29 @@ func (s *SQLLoader) ClearNonDefaultBundles(packageName string) error {
 		tx.Rollback()
 	}()
 
-	// First find the default channel for the package
-	getDefChan, err := tx.Prepare(fmt.Sprintf("select default_channel from package where name='%s'", packageName))
+	removeNonHeadBundles, err := tx.Prepare(`
+		update operatorbundle set bundle = null, csv = null 
+		where (bundlepath != null or bundlepath != "")
+		and name not in (
+			select operatorbundle.name from operatorbundle
+			join channel on channel.head_operatorbundle_name = operatorbundle.name
+		)
+	`)
 	if err != nil {
 		return err
 	}
-	defer getDefChan.Close()
+	defer removeNonHeadBundles.Close()
 
-	defaultChannelRows, err := getDefChan.Query()
+	_, err = removeNonHeadBundles.Exec()
 	if err != nil {
 		return err
 	}
-	defer defaultChannelRows.Close()
-
-	if !defaultChannelRows.Next() {
-		return fmt.Errorf("no default channel found for package %s", packageName)
-	}
-	var defaultChannel sql.NullString
-	if err := defaultChannelRows.Scan(&defaultChannel); err != nil {
-		return err
-	}
-
-	// Then get the head of the default channel
-	getChanHead, err := tx.Prepare(fmt.Sprintf("select head_operatorbundle_name from channel where name='%s'", defaultChannel.String))
-	if err != nil {
-		return err
-	}
-	defer getChanHead.Close()
-
-	chanHeadRows, err := getChanHead.Query()
-	if err != nil {
-		return err
-	}
-	defer chanHeadRows.Close()
-
-	if !chanHeadRows.Next() {
-		return fmt.Errorf("no channel head found for default channel %s", defaultChannel.String)
-	}
-	var defChanHead sql.NullString
-	if err := chanHeadRows.Scan(&defChanHead); err != nil {
-		return err
-	}
-
-	// Now get all the bundles that are not the head of the default channel
-	getChannelBundles, err := tx.Prepare(fmt.Sprintf("SELECT operatorbundle_name FROM channel_entry WHERE package_name='%s' AND operatorbundle_name!='%s'", packageName, defChanHead.String))
-	if err != nil {
-		return err
-	}
-	defer getChanHead.Close()
-
-	chanBundleRows, err := getChannelBundles.Query()
-	if err != nil {
-		return err
-	}
-	defer chanBundleRows.Close()
-
-	bundles := make(map[string]struct{}, 0)
-	for chanBundleRows.Next() {
-		var bundleToUpdate sql.NullString
-		if err := chanBundleRows.Scan(&bundleToUpdate); err != nil {
-			return err
-		}
-		bundles[bundleToUpdate.String] = struct{}{}
-	}
-
-	if len(bundles) > 0 {
-		bundlePredicates := []string{}
-		for bundle := range bundles {
-			bundlePredicates = append(bundlePredicates, fmt.Sprintf("name = '%s'", bundle))
-		}
-
-		var transactionPredicate string
-		if len(bundlePredicates) == 1 {
-			transactionPredicate = fmt.Sprintf("WHERE %s AND bundlepath != \"\"", bundlePredicates[0])
-		} else {
-			transactionPredicate = fmt.Sprintf("WHERE (%s) AND bundlepath != \"\"", strings.Join(bundlePredicates, " OR "))
-		}
-
-		removeOldBundles, err := tx.Prepare(fmt.Sprintf("UPDATE operatorbundle SET bundle = null, csv = null %s", transactionPredicate))
-		if err != nil {
-			return err
-		}
-
-		_, err = removeOldBundles.Exec()
-		if err != nil {
-			return fmt.Errorf("Unable to remove previous bundles: %s", err)
-		}
-	}
-
 	return tx.Commit()
-}
-
-func SplitCRDName(crdName string) (plural, group string, err error) {
-	pluralGroup := strings.SplitN(crdName, ".", 2)
-	if len(pluralGroup) != 2 {
-		err = fmt.Errorf("can't split bad CRD name %s", crdName)
-		return
-	}
-
-	plural = pluralGroup[0]
-	group = pluralGroup[1]
-	return
 }
 
 func (s *SQLLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (replaces string, skips []string, err error) {
 	getReplacesAndSkips, err := tx.Prepare(`
-	  SELECT replaces, skips 
+	  SELECT replaces, skips
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
 	if err != nil {
@@ -746,4 +669,28 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 	}
 
 	return tx.Commit()
+}
+
+func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
+	addDep, err := tx.Prepare("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer addDep.Close()
+
+	bundleVersion, err := bundle.Version()
+	if err != nil {
+		return err
+	}
+
+	sqlString := func(s string) sql.NullString {
+		return sql.NullString{String: s, Valid: s != ""}
+	}
+	for _, dep := range bundle.Dependencies {
+		if _, err := addDep.Exec(dep.Type, dep.Value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

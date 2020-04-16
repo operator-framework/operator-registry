@@ -12,7 +12,7 @@ type Load interface {
 	AddPackageChannels(manifest PackageManifest) error
 	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
-	ClearNonDefaultBundles(packageName string) error
+	ClearNonHeadBundles() error
 }
 
 type Query interface {
@@ -51,6 +51,10 @@ type Query interface {
 	ListChannels(ctx context.Context, pkgName string) ([]string, error)
 	// Get CurrentCSV name for channel and package
 	GetCurrentCSVNameForChannel(ctx context.Context, pkgName, channel string) (string, error)
+	// List all available bundles in the database
+	ListBundles(ctx context.Context) (bundles []*api.Bundle, err error)
+	// Get the list of dependencies for a bundle
+	GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error)
 }
 
 // GraphLoader generates a graph
