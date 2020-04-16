@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -432,7 +433,7 @@ func (s *SQLLoader) ClearNonHeadBundles() error {
 	}()
 
 	removeNonHeadBundles, err := tx.Prepare(`
-		update operatorbundle set bundle = null, csv = null 
+		update operatorbundle set bundle = null, csv = null
 		where (bundlepath != null or bundlepath != "")
 		and name not in (
 			select operatorbundle.name from operatorbundle
@@ -688,6 +689,28 @@ func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 	}
 	for _, dep := range bundle.Dependencies {
 		if _, err := addDep.Exec(dep.Type, dep.Value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+			return err
+		}
+	}
+
+	// Look up requiredAPIs in CSV and add them in dependencies table
+	requiredApis, err := bundle.RequiredAPIs()
+	if err != nil {
+		return err
+	}
+
+	for api := range requiredApis {
+		valueMap := map[string]string{
+			"type":    registry.GVKType,
+			"group":   api.Group,
+			"version": api.Version,
+			"kind":    api.Kind,
+		}
+		value, err := json.Marshal(valueMap)
+		if err != nil {
+			return err
+		}
+		if _, err := addDep.Exec(registry.GVKType, value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
 			return err
 		}
 	}

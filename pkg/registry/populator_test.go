@@ -121,6 +121,10 @@ func TestQuerierForImage(t *testing.T) {
 				Type:  "olm.gvk",
 				Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
@@ -403,6 +407,10 @@ func TestQuerierForDependencies(t *testing.T) {
 			Type:  "olm.gvk",
 			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+		},
 	}
 
 	type operatorbundle struct {
@@ -441,6 +449,11 @@ func TestListBundles(t *testing.T) {
 	store, err := createAndPopulateDB(db)
 	require.NoError(t, err)
 
+	var count int
+	row := db.QueryRow("SELECT COUNT(*) FROM operatorbundle")
+	err = row.Scan(&count)
+	require.NoError(t, err)
+
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
@@ -450,15 +463,23 @@ func TestListBundles(t *testing.T) {
 			Type:  "olm.gvk",
 			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
 		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+		},
 	}
 
 	dependencies := []*api.Dependency{}
 	bundles, err := store.ListBundles(context.TODO())
 	require.NoError(t, err)
 	for _, b := range bundles {
-		dep := b.Dependencies
-		dependencies = append(dependencies, dep...)
+		for _, d := range b.Dependencies {
+			if d.GetType() != "" {
+				dependencies = append(dependencies, d)
+			}
+		}
 	}
+	require.Equal(t, count, len(bundles))
 	require.ElementsMatch(t, expectedDependencies, dependencies)
 }
 
@@ -477,7 +498,7 @@ func CheckInvariants(t *testing.T, db *sql.DB) {
 func CheckChannelHeadsHaveDescriptions(t *testing.T, db *sql.DB) {
 	// check channel heads have csv / bundle
 	rows, err := db.Query(`
-		select operatorbundle.name,length(operatorbundle.csv),length(operatorbundle.bundle) from operatorbundle 
+		select operatorbundle.name,length(operatorbundle.csv),length(operatorbundle.bundle) from operatorbundle
 		join channel on channel.head_operatorbundle_name = operatorbundle.name`)
 	require.NoError(t, err)
 
@@ -496,7 +517,7 @@ func CheckChannelHeadsHaveDescriptions(t *testing.T, db *sql.DB) {
 func CheckBundlesHaveContentsIfNoPath(t *testing.T, db *sql.DB) {
 	// check that any bundle entry has csv/bundle content unpacked if there is no bundlepath
 	rows, err := db.Query(`
-		select name,length(csv),length(bundle) from operatorbundle 
+		select name,length(csv),length(bundle) from operatorbundle
 		where bundlepath="" or bundlepath=null`)
 	require.NoError(t, err)
 
