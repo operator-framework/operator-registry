@@ -1,9 +1,11 @@
 package index
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 )
 
@@ -35,7 +37,7 @@ func newIndexDeleteCmd() *cobra.Command {
 		logrus.Panic("Failed to set required `operators` flag for `index delete`")
 	}
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
-	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
 
@@ -78,6 +80,10 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if containerTool == "none" {
+		return fmt.Errorf("none is not a valid container-tool for index add")
+	}
+
 	tag, err := cmd.Flags().GetString("tag")
 	if err != nil {
 		return err
@@ -92,7 +98,7 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger.Info("building the index")
 
-	indexDeleter := indexer.NewIndexDeleter(containerTool, logger)
+	indexDeleter := indexer.NewIndexDeleter(containertools.NewContainerTool(containerTool, containertools.PodmanTool), logger)
 
 	request := indexer.DeleteFromIndexRequest{
 		Generate:          generate,

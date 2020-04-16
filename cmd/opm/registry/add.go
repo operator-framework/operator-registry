@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 	reg "github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -30,11 +31,7 @@ func newRegistryAddCmd() *cobra.Command {
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	rootCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
 	rootCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
-
-	rootCmd.Flags().StringP("container-tool", "c", "", "")
-	if err := rootCmd.Flags().MarkDeprecated("container-tool", "ignored in favor of standalone image manipulation"); err != nil {
-		logrus.Panic(err.Error())
-	}
+	rootCmd.Flags().StringP("container-tool", "c", "none", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
 
 	return rootCmd
 }
@@ -56,12 +53,14 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
+	containerTool, err := cmd.Flags().GetString("container-tool")
+	if err != nil {
+		return err
+	}
 	mode, err := cmd.Flags().GetString("mode")
 	if err != nil {
 		return err
 	}
-
 	modeEnum, err := reg.GetModeFromString(mode)
 	if err != nil {
 		return err
@@ -73,6 +72,7 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		InputDatabase: fromFilename,
 		Bundles:       bundleImages,
 		Mode:          modeEnum,
+		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})

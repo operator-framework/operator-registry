@@ -2,7 +2,9 @@ package image_test
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -16,27 +18,50 @@ import (
 	libimage "github.com/operator-framework/operator-registry/pkg/lib/image"
 )
 
+
 // cleanupFunc is a function that cleans up after some test infra.
 type cleanupFunc func()
 
 // newRegistryFunc is a function that creates and returns a new image.Registry to test its cleanupFunc.
-type newRegistryFunc func(t *testing.T) (image.Registry, cleanupFunc)
+type newRegistryFunc func(t *testing.T, cafile string) (image.Registry, cleanupFunc)
+
+func poolForCertFile(t *testing.T, file string) *x509.CertPool {
+	rootCAs := x509.NewCertPool()
+	certs, err := ioutil.ReadFile(file)
+	require.NoError(t, err)
+	require.True(t, rootCAs.AppendCertsFromPEM(certs))
+	return rootCAs
+}
 
 func TestRegistries(t *testing.T) {
-	registries := []newRegistryFunc{
-		func(t *testing.T) (image.Registry, cleanupFunc) {
-			// TODO: should this fail because the registry isn't TLS and we haven't specified skiptls?
-			r, d, err := containerdregistry.NewRegistry(
+	registries := map[string]newRegistryFunc{
+		"containerd": func(t *testing.T, cafile string) (image.Registry, cleanupFunc) {
+			r, err := containerdregistry.NewRegistry(
 				containerdregistry.WithLog(logrus.New().WithField("test", t.Name())),
 				containerdregistry.WithCacheDir(fmt.Sprintf("cache-%x", rand.Int())),
+				containerdregistry.WithRootCAs(poolForCertFile(t, cafile)),
 			)
 			require.NoError(t, err)
 			cleanup := func() {
-				require.NoError(t, d())
+				require.NoError(t, r.Destroy())
 			}
 
 			return r, cleanup
 		},
+		// TODO: enable docker tests - currently blocked on a cross-platform way to configure either insecure registries
+		// or CA certs
+		//"docker": func(t *testing.T, cafile string) (image.Registry, cleanupFunc) {
+		//	r, err := execregistry.NewRegistry(containertools.DockerTool,
+		//		logrus.New().WithField("test", t.Name()),
+		//		cafile,
+		//	)
+		//	require.NoError(t, err)
+		//	cleanup := func() {
+		//		require.NoError(t, r.Destroy())
+		//	}
+		//
+		//	return r, cleanup
+		//},
 		// TODO: Enable buildah tests
 		// func(t *testing.T) image.Registry {
 		// 	r, err := buildahregistry.NewRegistry(
@@ -49,8 +74,11 @@ func TestRegistries(t *testing.T) {
 		// },
 	}
 
-	for _, registry := range registries {
-		testPullAndUnpack(t, registry)
+	for name, registry := range registries {
+		t.Run(name, func(t *testing.T) {
+			testPullAndUnpack(t, registry)
+		})
+
 	}
 }
 
@@ -94,10 +122,10 @@ func testPullAndUnpack(t *testing.T, newRegistry newRegistryFunc) {
 			ctx, close := context.WithCancel(context.Background())
 			defer close()
 
-			host, err := libimage.RunDockerRegistry(ctx, tt.args.dockerRootDir)
+			host, cafile, err := libimage.RunDockerRegistry(ctx, tt.args.dockerRootDir)
 			require.NoError(t, err)
 
-			r, cleanup := newRegistry(t)
+			r, cleanup := newRegistry(t, cafile)
 			defer cleanup()
 
 			ref := image.SimpleReference(host + tt.args.img)

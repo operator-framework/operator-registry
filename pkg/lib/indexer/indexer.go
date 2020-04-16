@@ -37,7 +37,7 @@ type ImageIndexer struct {
 	ImageReader         containertools.ImageReader
 	RegistryAdder       registry.RegistryAdder
 	RegistryDeleter     registry.RegistryDeleter
-	ContainerTool       string
+	ContainerTool       containertools.ContainerTool
 	Logger              *logrus.Entry
 }
 
@@ -51,6 +51,7 @@ type AddToIndexRequest struct {
 	Bundles           []string
 	Tag               string
 	Mode              pregistry.Mode
+	SkipTLS           bool
 }
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
@@ -74,6 +75,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		InputDatabase: databaseFile,
 		Permissive:    request.Permissive,
 		Mode:          request.Mode,
+		SkipTLS:       request.SkipTLS,
 	}
 
 	// Add the bundles to the registry
