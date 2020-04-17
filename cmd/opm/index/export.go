@@ -1,10 +1,12 @@
 package index
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 )
 
@@ -44,7 +46,7 @@ func newIndexExportCmd() *cobra.Command {
 		logrus.Panic("Failed to set required `package` flag for `index export`")
 	}
 	indexCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded operator bundle(s) will be stored")
-	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -74,11 +76,15 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if containerTool == "none" {
+		return fmt.Errorf("none is not a valid container-tool for index add")
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packageName})
 
 	logger.Info("export from the index")
 
-	indexExporter := indexer.NewIndexExporter(containerTool, logger)
+	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.PodmanTool), logger)
 
 	request := indexer.ExportFromIndexRequest{
 		Index:         index,

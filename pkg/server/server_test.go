@@ -148,6 +148,12 @@ func TestGetBundle(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\"}}",
 		},
 		BundlePath: "",
+		Dependencies: []*api.Dependency{
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
+		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
@@ -181,6 +187,12 @@ func TestGetBundleForChannel(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\"}}",
 		},
 		BundlePath: "",
+		Dependencies: []*api.Dependency{
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
+		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
@@ -264,6 +276,12 @@ func TestGetBundleThatReplaces(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\"}}",
 		},
 		BundlePath: "",
+		Dependencies: []*api.Dependency{
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
+		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
@@ -297,6 +315,12 @@ func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\"}}",
 		},
 		BundlePath: "",
+		Dependencies: []*api.Dependency{
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
+		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
@@ -473,6 +497,12 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 			"{\"apiVersion\":\"apiextensions.k8s.io/v1beta1\",\"kind\":\"CustomResourceDefinition\",\"metadata\":{\"name\":\"etcdrestores.etcd.database.coreos.com\"},\"spec\":{\"group\":\"etcd.database.coreos.com\",\"names\":{\"kind\":\"EtcdRestore\",\"listKind\":\"EtcdRestoreList\",\"plural\":\"etcdrestores\",\"singular\":\"etcdrestore\"},\"scope\":\"Namespaced\",\"version\":\"v1beta2\"}}",
 		},
 		BundlePath: "",
+		Dependencies: []*api.Dependency{
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			},
+		},
 		ProvidedApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdBackup", Plural: "etcdbackups"},
@@ -485,6 +515,41 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 		SkipRange: "< 0.6.0",
 	}
 	EqualBundles(t, *expected, *bundle)
+}
+
+func TestListBundles(t *testing.T) {
+	require := require.New(t)
+
+	c, conn := client(t)
+	defer conn.Close()
+
+	stream, err := c.ListBundles(context.TODO(), &api.ListBundlesRequest{})
+	require.NoError(err)
+
+	expected := []string{
+		"etcdoperator.v0.6.1",
+		"strimzi-cluster-operator.v0.11.1",
+		"etcdoperator.v0.9.2",
+		"etcdoperator.v0.9.0",
+		"prometheusoperator.0.22.2",
+		"prometheusoperator.0.15.0",
+		"prometheusoperator.0.14.0",
+		"strimzi-cluster-operator.v0.11.0",
+		"strimzi-cluster-operator.v0.12.1",
+		"strimzi-cluster-operator.v0.12.2",
+	}
+
+	var names []string
+	for range expected {
+		bundle, err := stream.Recv()
+		require.NoError(err)
+		names = append(names, bundle.CsvName)
+	}
+
+	_, err = stream.Recv()
+	require.Equal(io.EOF, err)
+
+	require.ElementsMatch(expected, names)
 }
 
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {

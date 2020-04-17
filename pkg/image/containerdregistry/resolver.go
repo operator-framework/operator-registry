@@ -2,6 +2,7 @@ package containerdregistry
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"net/http"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/docker/docker/registry"
 )
 
-func NewResolver(configDir string, insecure bool) (remotes.Resolver, error) {
+func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes.Resolver, error) {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -25,12 +26,20 @@ func NewResolver(configDir string, insecure bool) (remotes.Resolver, error) {
 		IdleConnTimeout:       30 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 5 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs: roots,
+		},
 	}
+
 	if insecure {
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: insecure,
 		}
 	}
+	headers := http.Header{}
+	headers.Set("User-Agent", "opm/alpha")
+
 	client := http.DefaultClient
 	client.Transport = transport
 
@@ -39,9 +48,21 @@ func NewResolver(configDir string, insecure bool) (remotes.Resolver, error) {
 		return nil, err
 	}
 
+	regopts := []docker.RegistryOpt{
+		docker.WithAuthorizer(docker.NewDockerAuthorizer(
+			docker.WithAuthClient(client),
+			docker.WithAuthHeader(headers),
+			docker.WithAuthCreds(credential(cfg)),
+		)),
+		docker.WithClient(client),
+	}
+	if insecure {
+		regopts = append(regopts, docker.WithPlainHTTP(docker.MatchAllHosts))
+	}
+
 	opts := docker.ResolverOptions{
-		Client:      client,
-		Credentials: credential(cfg),
+		Hosts: docker.ConfigureDefaultRegistries(regopts...),
+		Headers: headers,
 	}
 
 	return docker.NewResolver(opts), nil

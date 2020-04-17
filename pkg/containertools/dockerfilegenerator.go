@@ -24,7 +24,7 @@ type IndexDockerfileGenerator struct {
 }
 
 // NewDockerfileGenerator is a constructor that returns a DockerfileGenerator
-func NewDockerfileGenerator(containerTool string, logger *logrus.Entry) DockerfileGenerator {
+func NewDockerfileGenerator(logger *logrus.Entry) DockerfileGenerator {
 	return &IndexDockerfileGenerator{
 		Logger: logger,
 	}
@@ -48,7 +48,7 @@ func (g *IndexDockerfileGenerator) GenerateIndexDockerfile(binarySourceImage, da
 	dockerfile += fmt.Sprintf("LABEL %s=%s\n", DbLocationLabel, DefaultDbLocation)
 
 	// Content
-	dockerfile += fmt.Sprintf("ADD %s /database\n", databaseFolder)
+	dockerfile += fmt.Sprintf("ADD %s/index.db %s\n", databaseFolder, DefaultDbLocation)
 	dockerfile += fmt.Sprintf("EXPOSE 50051\n")
 	dockerfile += fmt.Sprintf("ENTRYPOINT [\"/bin/opm\"]\n")
 	dockerfile += fmt.Sprintf("CMD [\"registry\", \"serve\", \"--database\", \"%s\"]\n", DefaultDbLocation)

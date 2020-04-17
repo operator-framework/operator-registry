@@ -788,7 +788,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 	dependencies.type, dependencies.value
 	FROM channel_entry
 	INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
-	INNER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
+	LEFT OUTER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
 	INNER JOIN package ON package.name = channel_entry.package_name`
 
 	rows, err := s.db.QueryContext(ctx, query)
@@ -820,6 +820,9 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		if ok {
 			// Create new dependency object
 			dep := &api.Dependency{}
+			if !depType.Valid || !depValue.Valid {
+				continue
+			}
 			dep.Type = depType.String
 			dep.Value = depValue.String
 
@@ -889,7 +892,9 @@ func unique(deps []*api.Dependency) []*api.Dependency {
 
 func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
 	depQuery := `SELECT DISTINCT dependencies.type, dependencies.value FROM dependencies
-	WHERE dependencies.operatorbundle_name=? AND dependencies.operatorbundle_version=? AND dependencies.operatorbundle_path=?`
+	WHERE dependencies.operatorbundle_name=?
+	AND (dependencies.operatorbundle_version=? OR dependencies.operatorbundle_version is NULL)
+	AND (dependencies.operatorbundle_path=? OR dependencies.operatorbundle_path is NULL)`
 
 	rows, err := s.db.QueryContext(ctx, depQuery, name, version, path)
 	if err != nil {

@@ -42,7 +42,7 @@ var dependenciesMigration = &Migration{
 		for bundle, apis := range bundleApis {
 			for required := range apis.required {
 				valueMap := map[string]string{
-					"type":    "olm.gvk",
+					"type":    registry.GVKType,
 					"group":   required.Group,
 					"version": required.Version,
 					"kind":    required.Kind,
@@ -51,7 +51,7 @@ var dependenciesMigration = &Migration{
 				if err != nil {
 					return err
 				}
-				_, err = tx.ExecContext(ctx, insertRequired, "olm.gvk", value, bundle.CsvName, bundle.Version, bundle.BundlePath)
+				_, err = tx.ExecContext(ctx, insertRequired, registry.GVKType, value, bundle.CsvName, bundle.Version, bundle.BundlePath)
 				if err != nil {
 					return err
 				}

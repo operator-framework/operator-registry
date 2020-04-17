@@ -7,7 +7,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 var (
@@ -51,6 +53,7 @@ func addIndexAddCmd(parent *cobra.Command) {
 	if err := indexCmd.MarkFlagRequired("bundles"); err != nil {
 		logrus.Panic("Failed to set required `bundles` flag for `index add`")
 	}
+	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
 	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
@@ -98,6 +101,10 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if containerTool == "none" {
+		return fmt.Errorf("none is not a valid container-tool for index add")
+	}
+
 	tag, err := cmd.Flags().GetString("tag")
 	if err != nil {
 		return err
@@ -108,11 +115,26 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
+	mode, err := cmd.Flags().GetString("mode")
+	if err != nil {
+		return err
+	}
+
+	modeEnum, err := registry.GetModeFromString(mode)
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("building the index")
 
-	indexAdder := indexer.NewIndexAdder(containerTool, logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.PodmanTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          generate,
@@ -122,6 +144,8 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		Tag:               tag,
 		Bundles:           bundles,
 		Permissive:        permissive,
+		Mode:              modeEnum,
+		SkipTLS:           skipTLS,
 	}
 
 	err = indexAdder.AddToIndex(request)

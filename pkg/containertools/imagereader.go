@@ -34,7 +34,7 @@ type ImageLayerReader struct {
 	Logger *logrus.Entry
 }
 
-func NewImageReader(containerTool string, logger *logrus.Entry) ImageReader {
+func NewImageReader(containerTool ContainerTool, logger *logrus.Entry) ImageReader {
 	cmd := NewCommandRunner(containerTool, logger)
 
 	return &ImageLayerReader{
