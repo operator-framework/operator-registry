@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/blang/semver"
 	y "github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -195,61 +194,23 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 
 	// Validate dependencies if exists
 	for _, d := range dependenciesFile.Dependencies {
-		switch d.GetType() {
-		case registry.GVKType:
-			gvkDep := &registry.GVKDependency{}
-			if d.GetValue() == "" {
-				validationErrors = append(validationErrors, fmt.Errorf("Dependency value is empty"))
-			} else {
-				err := json.Unmarshal([]byte(d.GetValue()), gvkDep)
-				if err != nil {
-					validationErrors = append(validationErrors, err)
-					break
-				}
-
-				if gvkDep.Group == "" {
-					validationErrors = append(validationErrors, fmt.Errorf("API Group is empty"))
-				}
-				if gvkDep.Version == "" {
-					validationErrors = append(validationErrors, fmt.Errorf("API Version is empty"))
-				}
-				if gvkDep.Kind == "" {
-					validationErrors = append(validationErrors, fmt.Errorf("API Kind is empty"))
-				}
+		dep := d.GetTypeValue()
+		errs := []error{}
+		if dep != nil {
+			switch d := dep.(type) {
+			case registry.GVKDependency:
+				errs = d.Validate()
+			case registry.PackageDependency:
+				errs = d.Validate()
 			}
-		case registry.PackgeType:
-			pkgDep := &registry.PackageDependency{}
-			if d.GetValue() == "" {
-				validationErrors = append(validationErrors, fmt.Errorf("Dependency value is empty"))
-			} else {
-				err := json.Unmarshal([]byte(d.GetValue()), pkgDep)
-				if err != nil {
-					validationErrors = append(validationErrors, err)
-					break
-				}
-
-				if pkgDep.PackageName == "" {
-					validationErrors = append(validationErrors, fmt.Errorf("Package name is empty"))
-				}
-				if pkgDep.Version == "" {
-					validationErrors = append(validationErrors, fmt.Errorf("Package version is empty"))
-				} else {
-					_, err := semver.Parse(pkgDep.Version)
-					if err != nil {
-						_, err := semver.ParseRange(pkgDep.Version)
-						if err != nil {
-							validationErrors = append(validationErrors, fmt.Errorf("Invalid semver format version"))
-						}
-					}
-				}
-			}
-		default:
-			validationErrors = append(validationErrors, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
+		} else {
+			errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
 		}
-	}
+		validationErrors = append(validationErrors, errs...)
 
-	if len(validationErrors) > 0 {
-		return NewValidationError(validationErrors)
+		if len(validationErrors) > 0 {
+			return NewValidationError(validationErrors)
+		}
 	}
 
 	return nil
