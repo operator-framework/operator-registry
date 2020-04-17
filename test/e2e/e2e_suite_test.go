@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -12,6 +13,7 @@ import (
 var (
 	dockerUsername = os.Getenv("DOCKER_USERNAME")
 	dockerPassword = os.Getenv("DOCKER_PASSWORD")
+	dockerHost     = os.Getenv("DOCKER_REGISTRY_HOST") // 'DOCKER_HOST' is reserved for the docker daemon
 )
 
 func TestE2E(t *testing.T) {
@@ -21,12 +23,17 @@ func TestE2E(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	// FIXME: Since podman login doesn't work with daemonless image pulling, we need to login with docker first so podman tests don't fail.
+	if dockerHost == "" {
+		// Default to Quay.io
+		dockerHost = "quay.io"
+	}
+	By(fmt.Sprintf("Using container image registry %s", dockerHost))
+
 	if dockerUsername == "" || dockerPassword == "" {
-		// Test will be skipped anyway
+		// No creds given, don't login
 		return
 	}
 
-	dockerlogin := exec.Command("docker", "login", "-u", dockerUsername, "-p", dockerPassword, "quay.io")
-	err := dockerlogin.Run()
-	Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
+	dockerlogin := exec.Command("docker", "login", "-u", dockerUsername, "-p", dockerPassword, dockerHost)
+	Expect(dockerlogin.Run()).To(Succeed(), "Error logging into %s", dockerHost)
 })
