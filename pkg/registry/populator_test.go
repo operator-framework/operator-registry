@@ -51,18 +51,25 @@ func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
 	}
 	query := sqlite.NewSQLLiteQuerierFromDb(db)
 
-	populate := func(name string) error {
+	graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+	if err != nil {
+		return nil, err
+	}
+
+	populate := func(names []string) error {
+		refMap := make(map[image.Reference]string, 0)
+		for _, name := range names {
+			refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+		}
 		return registry.NewDirectoryPopulator(
 			load,
-			nil,
+			graphLoader,
 			query,
-			image.SimpleReference("quay.io/test/"+name),
-			"../../bundles/"+name).Populate(registry.ReplacesMode)
+			refMap).Populate(registry.ReplacesMode)
 	}
-	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
-		if err := populate(name); err != nil {
-			return nil, err
-		}
+	names := []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.22.2", "prometheus.0.14.0", "prometheus.0.15.0"}
+	if err := populate(names); err != nil {
+		return nil, err
 	}
 
 	return query, nil
@@ -370,11 +377,21 @@ func TestImageLoading(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, load.Migrate(context.TODO()))
 			query := sqlite.NewSQLLiteQuerierFromDb(db)
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
 			for _, i := range tt.initImages {
-				p := registry.NewDirectoryPopulator(load, nil, query, i.ref, i.dir)
+				p := registry.NewDirectoryPopulator(
+					load,
+					graphLoader,
+					query,
+					map[image.Reference]string{i.ref: i.dir})
 				require.NoError(t, p.Populate(registry.ReplacesMode))
 			}
-			add := registry.NewDirectoryPopulator(load, nil, query, tt.addImage.ref, tt.addImage.dir)
+			add := registry.NewDirectoryPopulator(
+				load,
+				graphLoader,
+				query,
+				map[image.Reference]string{tt.addImage.ref: tt.addImage.dir})
 			require.NoError(t, add.Populate(registry.ReplacesMode))
 
 			for _, p := range tt.wantPackages {
