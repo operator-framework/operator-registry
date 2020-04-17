@@ -155,3 +155,41 @@ By default, the self-contained tooling uses the standard [Docker config](https:/
 #### Authentication
 
 Authentication options [can be added](https://docs.docker.com/engine/reference/commandline/login/#credentials-store) to the standard Docker config. The self-contained tooling should also be able to use the system credential store out-of-the-box.
+
+### alpha bundle
+
+The `alpha bundle` command interacts with bundles from different sources including indexes, configmaps, and directories of different formats.
+
+#### build
+
+The `opm alpha bundle build` command will generate operator bundle metadata and create CSV if needed and build bundle image with operator manifest and metadata for a specific version. For example, the command will generate annotations.yaml metadata plus Dockerfile for bundle image and then build a container image from provided operator bundle manifests generated metadata e.g. "quay.io/example/operator:v0.0.1". After the build process is completed, a container image would be built locally in docker and available to push to a container registry.
+
+> Note:
+> * Bundle image is not runnable.
+> * All manifests yaml must be in the same directory. 
+
+```bash
+$ opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/example/operator:v0.1.0 \
+--package test-operator --channels stable,beta --default stable
+```
+
+#### generate
+
+The `opm alpha bundle generate` command will generate operator bundle metadata, a Dockerfile, and create CSV if needed to build an Operator bundle image.
+
+```bash
+$ opm alpha bundle generate --directory /test/0.1.0/ --package test-operator \
+--channels stable,beta --default stable
+```
+
+The `package` and `channels` flags are optional if the bundle directory is nested in the package folder along with all other bundles in the package and a `package.yaml` file, same format as that of the output of `opm index export`. Under this format, the `package`, `channel`, and `default channel` information can be inferred from `package.yaml` file and backtracking replace/replaces/skips fields of CSVs in other bundles in the package directory. 
+
+The `generate` and `build` command creates a `ClusterServiceVersion` file if the operator bundles does not already possesses one based on the plain Kubernetes manifests with one additional OLM specific YAML of `kind: Registry+v2/ClusterServiceVersion` containing information essential to OLM and non-inferable from those provided Kubernetes manifests. This feature is a step towards relieving operator developer/maintainers from writing and updating CSVs and allow OLM to be more approachable to the wider community by requiring less OLM specific information. For example, the standalone [prometheusoperator.0.22.2 bundle](https://github.com/operator-framework/operator-registry/tree/master/pkg/lib/synthesize/testdata/validBundles/prometheus_v0.22.2/) contains [YAML file](https://github.com/operator-framework/operator-registry/tree/master/pkg/lib/synthesize/testdata/validBundles/prometheus_v0.22.2/olm.yam) and other pain Kubernetes resources otherwise needed to be specified in a CSV. By enabling the `create-csv` flag, `opm` creates a CSV for the bundle based on the manifests available in the bundle, validates the created CSV, and prints out errors and warnings. You can disable CSV validation using the `skip-validation` flag.
+
+The `opm` creates the CSV based on the following logic:
+ - The installStrategies are required and taken from `Deployment` resource in the bundle.
+ - The permissions are rules taken from `Role` and `ClusterRole` resource which are associated by `RoleBinding` or `ClusterRoleBinding` that points to `ServiceAccountName`s specified in the deployments.
+ - All `required` APIService/CustomResourceDefinition/Service resources should have their GVKs specified in the bundle within `metadata/dependency.yaml` under type `olm.gvk`. The description of the resource should be declared in the `Registry+v2/ClusterServiceVersion` file if necessary and the `opm` will match the descriptions with resources by their GVK. All GVKs specified in `dependency.yaml` without a description will be classified as required CRDs in the CSV which OLM will distinguish later during run time. 
+ - All `owned` APIServices should have descriptions declared in the `Registry+v2/ClusterServiceVersion` file.
+ - This feature does not take care of nativeAPI at this moment.
+ 
