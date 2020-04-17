@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"io"
 	"io/ioutil"
 	"os"
@@ -210,19 +213,43 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, err
 	// Pull the fromIndex
 	i.Logger.Infof("Pulling previous image %s to get metadata", fromIndex)
 
+	var reg image.Registry
+	var rerr error
+	switch i.ContainerTool {
+	case containertools.NoneTool:
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(i.Logger))
+	case containertools.PodmanTool:
+		fallthrough
+	case containertools.DockerTool:
+		reg, rerr = execregistry.NewRegistry(i.ContainerTool, i.Logger)
+	}
+	if rerr != nil {
+		return "", rerr
+	}
+	defer func() {
+		if err := reg.Destroy(); err != nil {
+			i.Logger.WithError(err).Warn("error destroying local cache")
+		}
+	}()
+
+	imageRef := image.SimpleReference(fromIndex)
+
+	if err := reg.Pull(context.TODO(), imageRef); err != nil {
+		return "", err
+	}
+
 	// Get the old index image's dbLocationLabel to find this path
-	labels, err := i.LabelReader.GetLabelsFromImage(fromIndex)
+	labels, err := reg.Labels(context.TODO(), imageRef)
 	if err != nil {
 		return "", err
 	}
+
 	dbLocation, ok := labels[containertools.DbLocationLabel]
 	if !ok {
-		return "", fmt.Errorf("Index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
+		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
 
-	// extract the database to the working directory
-	err = i.ImageReader.GetImageData(fromIndex, workingDir)
-	if err != nil {
+	if err := reg.Unpack(context.TODO(), imageRef, workingDir); err != nil {
 		return "", err
 	}
 
@@ -341,7 +368,7 @@ type ExportFromIndexRequest struct {
 	Index         string
 	Package       string
 	DownloadPath  string
-	ContainerTool string
+	ContainerTool containertools.ContainerTool
 }
 
 // ExportFromIndex is an aggregate API used to specify operators from
@@ -355,7 +382,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer os.RemoveAll(workingDir)
 
 	// extract the index database to the file
-	databaseFile, err := i.WriteIndexDBFile(request.Index, workingDir, defaultDatabaseFile)
+	databaseFile, err := i.getDatabaseFile(workingDir, request.Index)
 	if err != nil {
 		return err
 	}
@@ -409,32 +436,6 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 		errs = append(errs, err)
 	}
 	return utilerrors.NewAggregate(errs)
-}
-
-func (i ImageIndexer) WriteIndexDBFile(index, workingDir, databaseFile string) (string, error) {
-	if index != "" {
-		i.Logger.Infof("Pulling previous image %s to get metadata", index)
-
-		// Get the old index image's dbLocationLabel to find this path
-		labels, err := i.LabelReader.GetLabelsFromImage(index)
-		if err != nil {
-			return "", err
-		}
-		if dbLocation, ok := labels[containertools.DbLocationLabel]; ok {
-			i.Logger.Infof("Previous db location %s", dbLocation)
-
-			// extract the database to the file
-			err = i.ImageReader.GetImageData(index, workingDir)
-			if err != nil {
-				return "", err
-			}
-
-			databaseFile = path.Join(workingDir, dbLocation)
-		}
-	} else {
-		databaseFile = path.Join(workingDir, databaseFile)
-	}
-	return databaseFile, nil
 }
 
 func getBundlesToExport(dbQuerier pregistry.Query, packageName string) ([]string, error) {
