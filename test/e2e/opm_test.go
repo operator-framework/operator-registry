@@ -244,7 +244,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pruning an index")
-			err = pruneIndexWith(containerTool, indexImage2, indexImage3)
+			err = pruneIndexWith(containerTool, indexImage1, indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -264,7 +264,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk with containerd")
-			err = exportWith(containertools.NoneTool.String(), indexImage2)
+			err = exportWith(containertools.NoneTool.String(), indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a containerd-extracted directory")
