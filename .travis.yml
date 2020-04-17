@@ -31,11 +31,22 @@ addons:
     - conntrack
 script: |
   "${MAKE}" unit build
-  if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-    sudo minikube start # vm-driver=none requires root
-    sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
-    KUBECONFIG="$HOME/.kube/config" make e2e
+  if [[ "$TRAVIS_OS_NAME" != "linux" ]]; then
+    echo "skipping e2e tests for ${TRAVIS_OS_NAME}"
+    exit 0
   fi
+
+  if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
+    # no Quay.io credentials available for PR tests
+    echo "starting local test docker registry"
+    sudo docker run -d -p 5000:5000 --restart=always --name registry registry:2
+    export DOCKER_REGISTRY_HOST="localhost:5000"
+  fi
+
+  sudo minikube start # vm-driver=none requires root
+  sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
+
+  KUBECONFIG="$HOME/.kube/config" make e2e
 notifications:
   email: false
 before_deploy:
