@@ -77,6 +77,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	case containertools.NoneTool:
 		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(request.SkipTLS), containerdregistry.WithRootCAs(rootCAs))
 	case containertools.PodmanTool:
+		fallthrough
 	case containertools.DockerTool:
 		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger)
 	}
