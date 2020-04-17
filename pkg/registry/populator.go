@@ -55,7 +55,6 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 	if len(errs) > 0 {
 		return utilerrors.NewAggregate(errs)
 	}
-	log.Info("found annotations file searching for csv")
 
 	err := i.loadManifests(imagesToAdd, mode)
 	if err != nil {
@@ -373,7 +372,7 @@ func DecodeFile(path string, into interface{}) error {
 	return decoder.Decode(into)
 }
 
-func ParseDependenciesFile(path string, depFile *DependenciesFile) error {
+func parseDependenciesFile(path string, depFile *DependenciesFile) error {
 	deps := Dependencies{}
 	err := DecodeFile(path, &deps)
 	if err != nil || len(deps.RawMessage) == 0 {
@@ -392,7 +391,7 @@ func ParseDependenciesFile(path string, depFile *DependenciesFile) error {
 		}
 
 		switch dep.GetType() {
-		case "olm.gvk", "olm.package":
+		case GVKType, PackageType:
 			dep.Value = string(jsonStr)
 		default:
 			return fmt.Errorf("Unsupported dependency type %s", dep.GetType())

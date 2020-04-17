@@ -22,7 +22,6 @@ import (
 
 	y "github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 type Meta struct {
@@ -114,28 +113,42 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 			continue
 		}
 
-		err = registry.ParseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
+		err = parseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
 		if err != nil || len(dependenciesFile.Dependencies) < 1 {
 			continue
-		} else {
-			i.logger.Info("found dependencies file")
 		}
 	}
 
 	if len(dependenciesFile.Dependencies) < 1 {
 		i.logger.Info("Could not find dependencies file")
+	} else {
+		i.logger.Info("Found dependencies file")
+		errs := validateDependencies(dependenciesFile)
+		if errs != nil {
+			validationErrors = append(validationErrors, errs...)
+		}
 	}
 
 	if fileAnnotations.Annotations == nil {
 		validationErrors = append(validationErrors, fmt.Errorf("Could not find annotations file"))
+	} else {
+		i.logger.Info("Found annotations file")
+		errs := validateAnnotations(mediaType, fileAnnotations)
+		if errs != nil {
+			validationErrors = append(validationErrors, errs...)
+		}
 	}
 
-	annotationsFile, err := ioutil.ReadFile(filepath.Join(metadataDir, AnnotationsFile))
-	if err != nil {
-		fmtErr := fmt.Errorf("Unable to read annotations.yaml file: %s", err.Error())
-		validationErrors = append(validationErrors, fmtErr)
+	if len(validationErrors) > 0 {
+		return NewValidationError(validationErrors)
 	}
 
+	return nil
+}
+
+// Validate the annotations file
+func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) []error {
+	var validationErrors []error
 	annotations := map[string]string{
 		MediatypeLabel:      mediaType,
 		ManifestsLabel:      ManifestsDir,
@@ -145,18 +158,9 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		ChannelDefaultLabel: "",
 	}
 
-	i.logger.Debug("Validating annotations file")
-
-	err = yaml.Unmarshal(annotationsFile, &fileAnnotations)
-	if err != nil {
-		validationErrors = append(validationErrors, fmt.Errorf("Unable to parse annotations file"))
-	}
-
 	for label, item := range annotations {
 		val, ok := fileAnnotations.Annotations[label]
-		if ok {
-			i.logger.Debugf(`Found annotation "%s" with value "%s"`, label, val)
-		} else {
+		if !ok {
 			aErr := fmt.Errorf("Missing annotation %q", label)
 			validationErrors = append(validationErrors, aErr)
 		}
@@ -187,10 +191,16 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		}
 	}
 
-	_, err = ValidateChannelDefault(annotations[ChannelsLabel], annotations[ChannelDefaultLabel])
+	_, err := ValidateChannelDefault(annotations[ChannelsLabel], annotations[ChannelDefaultLabel])
 	if err != nil {
 		validationErrors = append(validationErrors, err)
 	}
+	return validationErrors
+}
+
+// Validate the dependencies file
+func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
+	var validationErrors []error
 
 	// Validate dependencies if exists
 	for _, d := range dependenciesFile.Dependencies {
@@ -207,13 +217,9 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 			errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
 		}
 		validationErrors = append(validationErrors, errs...)
-
-		if len(validationErrors) > 0 {
-			return NewValidationError(validationErrors)
-		}
 	}
 
-	return nil
+	return validationErrors
 }
 
 // ValidateBundleContent confirms that the CSV and CRD files inside the bundle
@@ -329,6 +335,32 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	if len(validationErrors) > 0 {
 		return NewValidationError(validationErrors)
 	}
+
+	return nil
+}
+
+func parseDependenciesFile(path string, depFile *registry.DependenciesFile) error {
+	deps := registry.Dependencies{}
+	err := registry.DecodeFile(path, &deps)
+
+	if err != nil || len(deps.RawMessage) == 0 {
+		return fmt.Errorf("Unable to decode the dependencies file %s", path)
+	}
+
+	depList := []registry.Dependency{}
+	for _, v := range deps.RawMessage {
+		jsonStr, _ := json.Marshal(v)
+		dep := registry.Dependency{}
+		err := json.Unmarshal(jsonStr, &dep)
+		if err != nil {
+			return err
+		}
+
+		dep.Value = string(jsonStr)
+		depList = append(depList, dep)
+	}
+
+	depFile.Dependencies = depList
 
 	return nil
 }

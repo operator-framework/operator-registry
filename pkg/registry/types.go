@@ -215,19 +215,20 @@ func (e *Dependency) GetTypeValue() interface{} {
 	if e.Type != "" {
 		switch e.GetType() {
 		case GVKType:
-			gvkDep := &GVKDependency{}
-			err := json.Unmarshal([]byte(e.GetValue()), gvkDep)
+			dep := GVKDependency{}
+			err := json.Unmarshal([]byte(e.GetValue()), &dep)
 			if err != nil {
 				return nil
 			}
-			return gvkDep
+			return dep
 		case PackageType:
-			pkgDep := &PackageDependency{}
-			err := json.Unmarshal([]byte(e.GetValue()), pkgDep)
+			dep := PackageDependency{}
+			err := json.Unmarshal([]byte(e.GetValue()), &dep)
 			if err != nil {
 				return nil
 			}
-			return pkgDep
+			fmt.Printf("Pkg Dep: %v", dep)
+			return dep
 		}
 	}
 	return nil

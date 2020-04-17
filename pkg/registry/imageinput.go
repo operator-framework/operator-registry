@@ -39,9 +39,8 @@ func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
 	annotationsFile := &AnnotationsFile{}
 	dependenciesFile := &DependenciesFile{}
 	for _, f := range files {
-		err = decodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
+		err = DecodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
 		if err != nil || *annotationsFile == (AnnotationsFile{}) {
-			log.Info("found annotations file searching for csv")
 			continue
 		}
 
