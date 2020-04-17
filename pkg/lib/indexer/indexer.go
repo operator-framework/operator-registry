@@ -26,7 +26,8 @@ const (
 	defaultImageTag       = "operator-registry-index:latest"
 	defaultDatabaseFolder = "database"
 	defaultDatabaseFile   = "index.db"
-	tmpDirPrefix          = "index_tmp"
+	tmpDirPrefix          = "index_tmp_"
+	tmpBuildDirPrefix     = "index_build_tmp"
 )
 
 // ImageIndexer is a struct implementation of the Indexer interface
@@ -56,23 +57,41 @@ type AddToIndexRequest struct {
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
 func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
-	// set a temp directory
-	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
 
-	databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
-	if err != nil {
+	// set a temp directory for unpacking an image
+	// this is in its own function context so that the deferred cleanup runs before we do a docker build
+	// which prevents the full contents of the previous image from being in the build context
+	var databasePath string
+	if err := func () error {
+		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+		if err != nil {
+
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+
+		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		if err != nil {
+			return err
+		}
+		// copy the index to the database folder in the build directory
+		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
 		return err
 	}
-	workingDir := path.Dir(databaseFile)
 
 	// Run opm registry add on the database
 	addToRegistryReq := registry.AddToRegistryRequest{
 		Bundles:       request.Bundles,
-		InputDatabase: databaseFile,
+		InputDatabase: databasePath,
 		Permissive:    request.Permissive,
 		Mode:          request.Mode,
 		SkipTLS:       request.SkipTLS,
@@ -85,17 +104,21 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		return err
 	}
 
-	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
 	if request.Generate {
-		err = i.generateDockerfile(request.BinarySourceImage, request.OutDockerfile, databaseFile)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = i.buildDockerfile(request.BinarySourceImage, workingDir, request.Tag)
-		if err != nil {
-			return err
-		}
+		return nil
+	}
+
+	// build the dockerfile
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -115,109 +138,63 @@ type DeleteFromIndexRequest struct {
 // DeleteFromIndex is an aggregate API used to generate a registry index image
 // without specific operators
 func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
-	// set a temp directory
-	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
 
-	databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
-	if err != nil {
+	// set a temp directory for unpacking an image
+	// this is in its own function context so that the deferred cleanup runs before we do a docker build
+	// which prevents the full contents of the previous image from being in the build context
+	var databasePath string
+	if err := func () error {
+		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+		if err != nil {
+
+			return err
+		}
+		defer os.RemoveAll(tmpDir)
+
+		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		if err != nil {
+			return err
+		}
+		// copy the index to the database folder in the build directory
+		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
+			return err
+		}
+		return nil
+	}(); err != nil {
 		return err
 	}
-	workingDir := path.Dir(databaseFile)
 
-	// Run opm registry add on the database
+	// Run opm registry delete on the database
 	deleteFromRegistryReq := registry.DeleteFromRegistryRequest{
 		Packages:      request.Operators,
-		InputDatabase: databaseFile,
+		InputDatabase: databasePath,
 		Permissive:    request.Permissive,
 	}
 
-	// Add the bundles to the registry
+	// Delete the bundles from the registry
 	err = i.RegistryDeleter.DeleteFromRegistry(deleteFromRegistryReq)
 	if err != nil {
 		return err
 	}
 
-	// write the dockerfile to disk if generate is set, otherwise shell out to build the image
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
 	if request.Generate {
-		err = i.generateDockerfile(request.BinarySourceImage, request.OutDockerfile, databaseFile)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = i.buildDockerfile(request.BinarySourceImage, workingDir, request.Tag)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 
-	return nil
-}
-
-func (i ImageIndexer) generateDockerfile(binarySourceImage, outDockerfile, databaseFile string) error {
-	databaseFolder := defaultDatabaseFolder
-
-	// create the dockerfile
-	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(binarySourceImage, databaseFolder)
-
-	// write the dockerfile to root
-	err := write(dockerfile, outDockerfile, i.Logger)
-	if err != nil {
-		return err
-	}
-
-	// copy the index to a permanent database folder
-
-	// create the database/ folder if it doesn't exist
-	if _, err := os.Stat(defaultDatabaseFolder); os.IsNotExist(err) {
-		os.Mkdir(defaultDatabaseFolder, 0777)
-	}
-
-	// Open the database file in the working dir
-	from, err := os.OpenFile(databaseFile, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer from.Close()
-
-	dbFile := path.Join(defaultDatabaseFolder, defaultDatabaseFile)
-
-	// define the path to copy to the database/index.db file
-	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer to.Close()
-
-	// copy to the destination directory
-	_, err = io.Copy(to, from)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (i ImageIndexer) buildDockerfile(binarySourceImage, workingDir, tag string) error {
-	// create the dockerfile
-	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(binarySourceImage, workingDir)
-
-	// write the dockerfile to temp file
-	tempDockerfile, err := ioutil.TempFile(".", defaultDockerfileName)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tempDockerfile.Name())
-
-	err = write(dockerfile, tempDockerfile.Name(), i.Logger)
-	if err != nil {
-		return err
-	}
-
-	err = build(tempDockerfile.Name(), tag, i.CommandRunner, i.Logger)
+	// build the dockerfile
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
 	if err != nil {
 		return err
 	}
@@ -252,14 +229,86 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, err
 	return path.Join(workingDir, dbLocation), nil
 }
 
-func build(dockerfileText, imageTag string, commandRunner containertools.CommandRunner, logger *logrus.Entry) error {
+func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
+	// create the containing folder if it doesn't exist
+	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(targetDir, 0777); err != nil {
+			return "", err
+		}
+	} else {
+		return "", err
+	}
+
+	// Open the database file in the working dir
+	from, err := os.OpenFile(databaseFile, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return "", err
+	}
+	defer from.Close()
+
+	dbFile := path.Join(targetDir, defaultDatabaseFile)
+
+	// define the path to copy to the database/index.db file
+	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return "", err
+	}
+	defer to.Close()
+
+	// copy to the destination directory
+	_, err = io.Copy(to, from)
+	return to.Name(), err
+}
+
+func buildContext(generate bool, requestedDockerfile string) (buildDir, outDockerfile string, cleanup func(), err error) {
+	if generate {
+		buildDir = "./"
+		if len(requestedDockerfile) == 0 {
+			outDockerfile = defaultDockerfileName
+		} else {
+			outDockerfile = requestedDockerfile
+		}
+		cleanup = func() {}
+		return
+	}
+
+	// set a temp directory for building the new image
+	buildDir, err = ioutil.TempDir(".", tmpBuildDirPrefix)
+	if err != nil {
+		return
+	}
+	cleanup = func() {
+		os.RemoveAll(buildDir)
+	}
+
+	if len(requestedDockerfile) > 0 {
+		outDockerfile = requestedDockerfile
+		return
+	}
+
+	// generate a temp dockerfile if needed
+	tempDockerfile, err := ioutil.TempFile(".", defaultDockerfileName)
+	if err != nil {
+		defer cleanup()
+		return
+	}
+	outDockerfile = tempDockerfile.Name()
+	cleanup = func() {
+		os.RemoveAll(buildDir)
+		os.Remove(outDockerfile)
+	}
+
+	return
+}
+
+func build(dockerfilePath, imageTag string, commandRunner containertools.CommandRunner, logger *logrus.Entry) error {
 	if imageTag == "" {
 		imageTag = defaultImageTag
 	}
 
 	logger.Debugf("building container image: %s", imageTag)
 
-	err := commandRunner.Build(dockerfileText, imageTag)
+	err := commandRunner.Build(dockerfilePath, imageTag)
 	if err != nil {
 		return err
 	}
