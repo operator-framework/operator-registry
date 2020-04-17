@@ -116,16 +116,16 @@ func buildFromIndexWith(containerTool, fromIndexImage, toIndexImage string, bund
 }
 
 // TODO(djzager): make this more complete than what should be a simple no-op
-func pruneIndexWith(containerTool string) error {
+func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 	logger := logrus.WithFields(logrus.Fields{"packages": packageName})
 	indexAdder := indexer.NewIndexPruner(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.PruneFromIndexRequest{
 		Generate:          false,
-		FromIndex:         indexImage2,
+		FromIndex:         fromIndexImage,
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage3,
+		Tag:               toIndexImage,
 		Packages:          []string{packageName},
 		Permissive:        false,
 	}
@@ -194,6 +194,7 @@ var _ = Describe("opm", func() {
 		bundleImage string
 		indexImage1 string
 		indexImage2 string
+		indexImage3 string
 	)
 
 	BeforeEach(func() {
@@ -245,7 +246,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pruning an index")
-			err = pruneIndexWith(containerTool)
+			err = pruneIndexWith(containerTool, indexImage1, indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -265,7 +266,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk with containerd")
-			err = exportWith(containertools.NoneTool.String())
+			err = exportWith(containertools.NoneTool.String(), indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a containerd-extracted directory")
