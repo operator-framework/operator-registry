@@ -20,7 +20,7 @@ import (
 )
 
 type RegistryUpdater struct {
-	Logger   *logrus.Entry
+	Logger *logrus.Entry
 }
 
 type AddToRegistryRequest struct {
@@ -90,38 +90,54 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		}
 	}()
 
-	// TODO(njhale): Parallelize this once bundle add is commutative
+	simpleRefs := make([]image.Reference, 0)
 	for _, ref := range request.Bundles {
-		if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, image.SimpleReference(ref), request.Mode); err != nil {
-			err = fmt.Errorf("error loading bundle from image: %s", err)
-			if !request.Permissive {
-				r.Logger.WithError(err).Error("permissive mode disabled")
-				errs = append(errs, err)
-			} else {
-				r.Logger.WithError(err).Warn("permissive mode enabled")
-			}
+		simpleRefs = append(simpleRefs, image.SimpleReference(ref))
+	}
+
+	if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, simpleRefs, request.Mode); err != nil {
+		err = fmt.Errorf("error loading bundle from image: %s", err)
+		if !request.Permissive {
+			r.Logger.WithError(err).Error("permissive mode disabled")
+			errs = append(errs, err)
+		} else {
+			r.Logger.WithError(err).Warn("permissive mode enabled")
 		}
 	}
 
 	return utilerrors.NewAggregate(errs) // nil if no errors
 }
 
-func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, ref image.Reference, mode registry.Mode) error {
-	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(workingDir)
+func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode) error {
+	var errs []error
 
-	if err = reg.Pull(ctx, ref); err != nil {
-		return err
+	unpackedImageMap := make(map[image.Reference]string, 0)
+	for _, ref := range refs {
+		workingDir, err := ioutil.TempDir("./", "bundle_tmp")
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		defer os.RemoveAll(workingDir)
+
+		if err = reg.Pull(ctx, ref); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		if err = reg.Unpack(ctx, ref, workingDir); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		unpackedImageMap[ref] = workingDir
 	}
 
-	if err = reg.Unpack(ctx, ref, workingDir); err != nil {
-		return err
+	if len(errs) > 0 {
+		return utilerrors.NewAggregate(errs)
 	}
 
-	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, ref, workingDir)
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap)
 
 	return populator.Populate(mode)
 }

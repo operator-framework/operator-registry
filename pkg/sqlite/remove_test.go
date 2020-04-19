@@ -20,16 +20,20 @@ func TestRemover(t *testing.T) {
 
 	query := NewSQLLiteQuerierFromDb(db)
 
+	graphLoader, err := NewSQLGraphLoaderFromDB(db)
+	require.NoError(t, err)
+
 	populate := func(name string) error {
 		return registry.NewDirectoryPopulator(
 			store,
-			nil,
+			graphLoader,
 			query,
-			image.SimpleReference( "quay.io/test/" + name),
-			"../../bundles/"+name).Populate(registry.ReplacesMode)
+			map[image.Reference]string{
+				image.SimpleReference("quay.io/test/" + name): "../../bundles/" + name,
+			}).Populate(registry.ReplacesMode)
 	}
 	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
-		require.NoError(t,  populate(name))
+		require.NoError(t, populate(name))
 	}
 
 	// delete etcd
@@ -59,7 +63,7 @@ func TestRemover(t *testing.T) {
 
 	// and insert again
 	for _, name := range []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
-		require.NoError(t,  populate(name))
+		require.NoError(t, populate(name))
 	}
 
 	// apis are back
