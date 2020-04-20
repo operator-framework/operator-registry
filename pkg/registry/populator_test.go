@@ -428,6 +428,10 @@ func TestQuerierForDependencies(t *testing.T) {
 			Type:  "olm.gvk",
 			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
 		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
+		},
 	}
 
 	type operatorbundle struct {
@@ -483,6 +487,10 @@ func TestListBundles(t *testing.T) {
 		{
 			Type:  "olm.gvk",
 			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
 		},
 	}
 
