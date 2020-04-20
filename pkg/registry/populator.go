@@ -258,7 +258,7 @@ func loadBundle(csvName string, dir string) (*Bundle, error) {
 			obj  = &unstructured.Unstructured{}
 			path = filepath.Join(dir, f.Name())
 		)
-		if err = decodeFile(path, obj); err != nil {
+		if err = DecodeFile(path, obj); err != nil {
 			log.WithError(err).Debugf("could not decode file contents for %s", path)
 			continue
 		}
@@ -301,7 +301,7 @@ func (i *ImageInput) findCSV(manifests string) (*unstructured.Unstructured, erro
 			obj  = &unstructured.Unstructured{}
 			path = filepath.Join(manifests, f.Name())
 		)
-		if err = decodeFile(path, obj); err != nil {
+		if err = DecodeFile(path, obj); err != nil {
 			log.WithError(err).Debugf("could not decode file contents for %s", path)
 			continue
 		}
@@ -355,8 +355,8 @@ func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterS
 	return manifest, nil
 }
 
-// decodeFile decodes the file at a path into the given interface.
-func decodeFile(path string, into interface{}) error {
+// DecodeFile decodes the file at a path into the given interface.
+func DecodeFile(path string, into interface{}) error {
 	if into == nil {
 		panic("programmer error: decode destination must be instantiated before decode")
 	}
@@ -374,7 +374,7 @@ func decodeFile(path string, into interface{}) error {
 
 func parseDependenciesFile(path string, depFile *DependenciesFile) error {
 	deps := Dependencies{}
-	err := decodeFile(path, &deps)
+	err := DecodeFile(path, &deps)
 	if err != nil || len(deps.RawMessage) == 0 {
 		return fmt.Errorf("Unable to decode the dependencies file %s", path)
 	}
@@ -391,7 +391,7 @@ func parseDependenciesFile(path string, depFile *DependenciesFile) error {
 		}
 
 		switch dep.GetType() {
-		case "olm.gvk", "olm.package":
+		case GVKType, PackageType:
 			dep.Value = string(jsonStr)
 		default:
 			return fmt.Errorf("Unsupported dependency type %s", dep.GetType())

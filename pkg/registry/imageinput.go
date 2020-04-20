@@ -22,6 +22,7 @@ type ImageInput struct {
 }
 
 func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
+	var annotationsFound, dependenciesFound bool
 	path := from
 	manifests := filepath.Join(path, "manifests")
 	metadata := filepath.Join(path, "metadata")
@@ -39,22 +40,28 @@ func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
 	annotationsFile := &AnnotationsFile{}
 	dependenciesFile := &DependenciesFile{}
 	for _, f := range files {
-		err = decodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
-		if err != nil || *annotationsFile == (AnnotationsFile{}) {
-			log.Info("found annotations file searching for csv")
-			continue
+		if !annotationsFound {
+			err = DecodeFile(filepath.Join(metadata, f.Name()), annotationsFile)
+			if err == nil && *annotationsFile != (AnnotationsFile{}) {
+				annotationsFound = true
+				continue
+			}
 		}
 
-		err = parseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
-		if err != nil || len(dependenciesFile.Dependencies) < 1 {
-			continue
-		} else {
-			log.Info("found dependencies file searching for csv")
+		if !dependenciesFound {
+			err = parseDependenciesFile(filepath.Join(metadata, f.Name()), dependenciesFile)
+			if err == nil && len(dependenciesFile.Dependencies) > 0 {
+				dependenciesFound = true
+			}
 		}
 	}
 
-	if *annotationsFile == (AnnotationsFile{}) {
-		return nil, fmt.Errorf("Could not find annotations.yaml file")
+	if !annotationsFound {
+		return nil, fmt.Errorf("Could not find annotations file")
+	}
+
+	if !dependenciesFound {
+		log.Info("Could not find dependencies file")
 	}
 
 	imageInput := &ImageInput{

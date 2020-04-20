@@ -64,6 +64,65 @@ func TestValidateBundleFormat(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidateBundleDependencies(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	validator := imageValidator{
+		logger: logger,
+	}
+
+	var table = []struct {
+		description string
+		mediaType   string
+		directory   string
+		errStrings  map[string]struct{}
+	}{
+		{
+			description: "registryv1 bundle/invalid gvk dependency",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_gvk_dependency/",
+			errStrings: map[string]struct{}{
+				"API Group is empty":   struct{}{},
+				"API Version is empty": struct{}{},
+				"API Kind is empty":    struct{}{},
+			},
+		},
+		{
+			description: "registryv1 bundle/invalid package dependency",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_package_dependency/",
+			errStrings: map[string]struct{}{
+				"Invalid semver format version": struct{}{},
+				"Package version is empty":      struct{}{},
+				"Package name is empty":         struct{}{},
+			},
+		},
+		{
+			description: "registryv1 bundle/invalid dependency type",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_dependency_type/",
+			errStrings: map[string]struct{}{
+				"Unsupported dependency type olm.crd": struct{}{},
+			},
+		},
+	}
+
+	for i, tt := range table {
+		fmt.Println(tt.directory)
+		err := validator.ValidateBundleFormat(tt.directory)
+		var validationError ValidationError
+		if err != nil {
+			isValidationErr := errors.As(err, &validationError)
+			require.True(t, isValidationErr)
+		}
+		require.Len(t, validationError.Errors, len(tt.errStrings), table[i].description)
+		for _, e := range validationError.Errors {
+			_, ok := tt.errStrings[e.Error()]
+			require.True(t, ok, "Unable to find this error %s", e.Error())
+		}
+	}
+}
+
 func TestValidateBundle_InvalidRegistryVersion(t *testing.T) {
 	dir := "./testdata/validate/invalid_annotations_bundle"
 
