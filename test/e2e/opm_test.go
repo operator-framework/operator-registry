@@ -148,7 +148,7 @@ func exportWith(containerTool string) error {
 		Index:         indexImage2,
 		Package:       packageName,
 		DownloadPath:  "downloaded",
-		ContainerTool: containerTool,
+		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
 	}
 
 	return indexExporter.ExportFromIndex(request)
@@ -221,6 +221,18 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a directory")
+			err = initialize()
+			Expect(err).NotTo(HaveOccurred())
+
+			// clean and try again with containerd
+			err = os.RemoveAll("downloaded")
+			Expect(err).NotTo(HaveOccurred())
+
+			By("exporting an index to disk with containerd")
+			err = exportWith(containertools.NoneTool.String())
+			Expect(err).NotTo(HaveOccurred())
+
+			By("loading manifests from a containerd-extracted directory")
 			err = initialize()
 			Expect(err).NotTo(HaveOccurred())
 		})

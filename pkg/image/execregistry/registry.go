@@ -38,6 +38,14 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) 
 	}.GetImageData(ref.String(), dir)
 }
 
+// Labels gets the labels for an image reference.
+func (r *Registry) Labels(ctx context.Context, ref image.Reference) (map[string]string, error) {
+	return containertools.ImageLabelReader{
+		Cmd: r.cmd,
+		Logger: r.log,
+	}.GetLabelsFromImage(ref.String())
+}
+
 // Destroy is no-op for exec tools
 func (r *Registry) Destroy() error {
 	return nil
