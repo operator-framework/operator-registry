@@ -56,7 +56,7 @@ func (i imageValidator) PullBundleImage(imageTag, directory string) error {
 // Outputs:
 // error: ValidattionError which contains a list of errors
 func (i imageValidator) ValidateBundleFormat(directory string) error {
-	var manifestsFound, metadataFound bool
+	var manifestsFound, metadataFound, annotationsFound, dependenciesFound bool
 	var metadataDir, manifestsDir string
 	var validationErrors []error
 
@@ -108,32 +108,37 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	fileAnnotations := &AnnotationMetadata{}
 	dependenciesFile := &registry.DependenciesFile{}
 	for _, f := range files {
-		err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), fileAnnotations)
-		if err != nil || fileAnnotations.Annotations == nil {
-			continue
+		if !annotationsFound {
+			err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), fileAnnotations)
+			if err == nil && fileAnnotations.Annotations != nil {
+				annotationsFound = true
+				continue
+			}
 		}
 
-		err = parseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
-		if err != nil || len(dependenciesFile.Dependencies) < 1 {
-			continue
+		if !dependenciesFound {
+			err = parseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
+			if err == nil && len(dependenciesFile.Dependencies) > 0 {
+				dependenciesFound = true
+			}
 		}
 	}
 
-	if len(dependenciesFile.Dependencies) < 1 {
-		i.logger.Info("Could not find dependencies file")
+	if !annotationsFound {
+		validationErrors = append(validationErrors, fmt.Errorf("Could not find annotations file"))
 	} else {
-		i.logger.Info("Found dependencies file")
-		errs := validateDependencies(dependenciesFile)
+		i.logger.Info("Found annotations file")
+		errs := validateAnnotations(mediaType, fileAnnotations)
 		if errs != nil {
 			validationErrors = append(validationErrors, errs...)
 		}
 	}
 
-	if fileAnnotations.Annotations == nil {
-		validationErrors = append(validationErrors, fmt.Errorf("Could not find annotations file"))
+	if !dependenciesFound {
+		i.logger.Info("Could not find dependencies file")
 	} else {
-		i.logger.Info("Found annotations file")
-		errs := validateAnnotations(mediaType, fileAnnotations)
+		i.logger.Info("Found dependencies file")
+		errs := validateDependencies(dependenciesFile)
 		if errs != nil {
 			validationErrors = append(validationErrors, errs...)
 		}
@@ -207,11 +212,13 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 		dep := d.GetTypeValue()
 		errs := []error{}
 		if dep != nil {
-			switch d := dep.(type) {
+			switch dp := dep.(type) {
 			case registry.GVKDependency:
-				errs = d.Validate()
+				errs = dp.Validate()
 			case registry.PackageDependency:
-				errs = d.Validate()
+				errs = dp.Validate()
+			default:
+				errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
 			}
 		} else {
 			errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))

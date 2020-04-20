@@ -227,7 +227,6 @@ func (e *Dependency) GetTypeValue() interface{} {
 			if err != nil {
 				return nil
 			}
-			fmt.Printf("Pkg Dep: %v", dep)
 			return dep
 		}
 	}
