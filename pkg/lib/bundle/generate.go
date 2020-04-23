@@ -149,7 +149,7 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 	} else if err != nil {
 		return err
 	} else {
-		log.Info("A bundle.Dockerfile already exists in current working directory")
+		log.Infof("A bundle.Dockerfile already exists in current working directory: %s", workingDir)
 	}
 
 	return nil
@@ -192,7 +192,7 @@ func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDi
 	} else if err != nil {
 		return "", "", err
 	} else {
-		log.Info("An annotations.yaml already exists in directory")
+		log.Infof("An annotations.yaml already exists in the directory: %s", MetadataDir)
 		if err = ValidateAnnotations(file, annotationsContent); err != nil {
 			return "", "", err
 		}
@@ -398,7 +398,7 @@ func WriteFile(fileName, directory string, content []byte) error {
 			return err
 		}
 	}
-
+	log.Infof("Writing %s in %s", fileName, directory)
 	err := ioutil.WriteFile(filepath.Join(directory, fileName), content, DefaultPermission)
 	if err != nil {
 		return err
