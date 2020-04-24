@@ -15,8 +15,4 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.1 && \
 
 FROM scratch
 COPY --from=builder /build/bin/opm /bin/opm
-COPY --from=builder /build/bin/initializer /bin/initializer
-COPY --from=builder /build/bin/appregistry-server /bin/appregistry-server
-COPY --from=builder /build/bin/configmap-server /bin/configmap-server
-COPY --from=builder /build/bin/registry-server /bin/registry-server
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
