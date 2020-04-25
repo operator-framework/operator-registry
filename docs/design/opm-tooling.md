@@ -34,6 +34,14 @@ Great! The existing `test-registry.db` file is updated. Now we have a registry t
 
 Calling this on our existing test registry removes all versions of the prometheus operator entirely from the database.
 
+#### prune
+
+`opm` supports specifying which packages should be kept in an operator database. For example:
+
+`opm registry prune -p "prometheus" -d "test-registry.db"`
+
+Would remove all but the `prometheus` package from the operator database.
+
 #### serve
 
 `opm` also includes a command to connect to an existing database and serve a `gRPC` API that handles requests for data about the registry:
@@ -92,6 +100,14 @@ Like `opm registry rm`, this command will remove all versions an entire operator
 `opm index rm --operators prometheus --tag quay.io/operator-framework/monitoring-index:1.0.2 --binary-image quay.io/$user/my-opm-source`
 
 This will result in the tagged container image `quay.io/operator-framework/monitoring-index:1.0.2` with a registry that no longer contains the `prometheus` operator at all.
+
+#### prune
+
+`opm index prune` allows the user to specify which operator packages should be maintained in an index. For example:
+
+`opm index prune -p "prometheus" --from-index quay.io/operator-framework/example-index:1.0.0 --tag quay.io/operator-framework/example-index:1.0.1`
+
+Would remove all but the `prometheus` package from the index.
 
 #### export
 

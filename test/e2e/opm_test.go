@@ -34,10 +34,12 @@ var (
 	bundleTag3 = rand.String(6)
 	indexTag1  = rand.String(6)
 	indexTag2  = rand.String(6)
+	indexTag3  = rand.String(6)
 
 	bundleImage = "quay.io/olmtest/e2e-bundle"
 	indexImage1 = "quay.io/olmtest/e2e-index:" + indexTag1
 	indexImage2 = "quay.io/olmtest/e2e-index:" + indexTag2
+	indexImage3 = "quay.io/olmtest/e2e-index:" + indexTag3
 )
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
@@ -120,6 +122,24 @@ func buildFromIndexWith(containerTool string) error {
 	}
 
 	return indexAdder.AddToIndex(request)
+}
+
+// TODO(djzager): make this more complete than what should be a simple no-op
+func pruneIndexWith(containerTool string) error {
+	logger := logrus.WithFields(logrus.Fields{"packages": packageName})
+	indexAdder := indexer.NewIndexPruner(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+
+	request := indexer.PruneFromIndexRequest{
+		Generate:          false,
+		FromIndex:         indexImage2,
+		BinarySourceImage: "",
+		OutDockerfile:     "",
+		Tag:               indexImage3,
+		Packages:          []string{packageName},
+		Permissive:        false,
+	}
+
+	return indexAdder.PruneFromIndex(request)
 }
 
 func pushWith(containerTool, image string) error {
@@ -214,6 +234,14 @@ var _ = Describe("opm", func() {
 
 			By("pushing an index")
 			err = pushWith(containerTool, indexImage2)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pruning an index")
+			err = pruneIndexWith(containerTool)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pushing an index")
+			err = pushWith(containerTool, indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk")
