@@ -9,14 +9,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -128,8 +127,12 @@ func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 }
 
 func pushWith(containerTool, image string) error {
-	dockerpush := exec.Command(containerTool, "push", image)
-	return dockerpush.Run()
+	cmd := exec.Command(containerTool, "push", image)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("output: %s\n err: %v", out, err)
+	}
+	return err
 }
 
 func pushBundles(containerTool string, bundleImages ...string) error {
