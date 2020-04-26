@@ -3,10 +3,13 @@ package e2e_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -36,10 +38,10 @@ var (
 	indexTag2  = rand.String(6)
 	indexTag3  = rand.String(6)
 
-	bundleImage = "quay.io/olmtest/e2e-bundle"
-	indexImage1 = "quay.io/olmtest/e2e-index:" + indexTag1
-	indexImage2 = "quay.io/olmtest/e2e-index:" + indexTag2
-	indexImage3 = "quay.io/olmtest/e2e-index:" + indexTag3
+	bundleImageSuffix = "/olmtest/e2e-bundle"
+	indexImage1Suffix = "/olmtest/e2e-index:" + indexTag1
+	indexImage2Suffix = "/olmtest/e2e-index:" + indexTag2
+	indexImage3Suffix = "/olmtest/e2e-index:" + indexTag3
 )
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
@@ -90,20 +92,17 @@ func buildIndexWith(containerTool, indexImage, bundleImage string, bundleTags []
 	return indexAdder.AddToIndex(request)
 }
 
-func buildFromIndexWith(containerTool string) error {
-	bundles := []string{
-		bundleImage + ":" + bundleTag3,
-	}
-	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
+func buildFromIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleImages ...string) error {
+	logger := logrus.WithFields(logrus.Fields{"bundleImages": bundleImages})
 	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
-		FromIndex:         indexImage1,
+		FromIndex:         fromIndexImage,
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage2,
-		Bundles:           bundles,
+		Tag:               toIndexImage,
+		Bundles:           bundleImages,
 		Permissive:        false,
 	}
 
@@ -111,16 +110,16 @@ func buildFromIndexWith(containerTool string) error {
 }
 
 // TODO(djzager): make this more complete than what should be a simple no-op
-func pruneIndexWith(containerTool string) error {
+func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 	logger := logrus.WithFields(logrus.Fields{"packages": packageName})
 	indexAdder := indexer.NewIndexPruner(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.PruneFromIndexRequest{
 		Generate:          false,
-		FromIndex:         indexImage2,
+		FromIndex:         fromIndexImage,
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage3,
+		Tag:               toIndexImage,
 		Packages:          []string{packageName},
 		Permissive:        false,
 	}
@@ -133,25 +132,24 @@ func pushWith(containerTool, image string) error {
 	return dockerpush.Run()
 }
 
-func pushBundles(containerTool string) error {
-	err := pushWith(containerTool, bundleImage+":"+bundleTag1)
-	if err != nil {
-		return err
+func pushBundles(containerTool string, bundleImages ...string) error {
+	for _, image := range bundleImages {
+		By(fmt.Sprintf("pushing %s", image))
+		err := pushWith(containerTool, image)
+		if err != nil {
+			return err
+		}
 	}
-	err = pushWith(containerTool, bundleImage+":"+bundleTag2)
-	if err != nil {
-		return err
-	}
-	err = pushWith(containerTool, bundleImage+":"+bundleTag3)
-	return err
+
+	return nil
 }
 
-func exportWith(containerTool string) error {
+func exportWith(containerTool, indexImage string) error {
 	logger := logrus.WithFields(logrus.Fields{"package": packageName})
 	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.ExportFromIndexRequest{
-		Index:         indexImage2,
+		Index:         indexImage,
 		Package:       packageName,
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
@@ -186,15 +184,30 @@ func initialize() error {
 }
 
 var _ = Describe("opm", func() {
+	var (
+		bundleImage string
+		indexImage1 string
+		indexImage2 string
+		indexImage3 string
+	)
+
+	BeforeEach(func() {
+		bundleImage = dockerHost + bundleImageSuffix
+		indexImage1 = dockerHost + indexImage1Suffix
+		indexImage2 = dockerHost + indexImage2Suffix
+		indexImage3 = dockerHost + indexImage3Suffix
+	})
+
 	IncludeSharedSpecs := func(containerTool string) {
 		BeforeEach(func() {
 			if dockerUsername == "" || dockerPassword == "" {
-				Skip("registry credentials are not available")
+				// No creds available, don't login
+				return
 			}
 
-			dockerlogin := exec.Command(containerTool, "login", "-u", dockerUsername, "-p", dockerPassword, "quay.io")
-			err := dockerlogin.Run()
-			Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
+			By("logging in when registry credentials are available")
+			dockerlogin := exec.Command(containerTool, "login", "-u", dockerUsername, "-p", dockerPassword, dockerHost)
+			Expect(dockerlogin.Run()).To(Succeed(), "Error logging into %s", dockerHost)
 		})
 
 		It("builds and manipulates bundle and index images", func() {
@@ -223,7 +236,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building from an index")
-			err = buildFromIndexWith(containerTool)
+			err = buildFromIndexWith(containerTool, indexImage1, indexImage2, bundleImage+":"+bundleTag3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -231,7 +244,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pruning an index")
-			err = pruneIndexWith(containerTool)
+			err = pruneIndexWith(containerTool, indexImage2, indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -239,7 +252,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk")
-			err = exportWith(containerTool)
+			err = exportWith(containerTool, indexImage2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a directory")
@@ -251,7 +264,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("exporting an index to disk with containerd")
-			err = exportWith(containertools.NoneTool.String())
+			err = exportWith(containertools.NoneTool.String(), indexImage2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a containerd-extracted directory")
