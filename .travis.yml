@@ -41,6 +41,7 @@ script: |
     echo "starting local test docker registry"
     sudo docker run -d -p 5000:5000 --restart=always --name registry registry:2
     export DOCKER_REGISTRY_HOST="localhost:5000"
+    printf "[registries.insecure]\nregistries = ['localhost:5000']\n" > /etc/containers/registries.conf
   fi
 
   sudo minikube start # vm-driver=none requires root

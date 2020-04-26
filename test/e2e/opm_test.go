@@ -9,14 +9,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -41,7 +40,7 @@ var (
 	bundleImageSuffix = "/olmtest/e2e-bundle"
 	indexImage1Suffix = "/olmtest/e2e-index:" + indexTag1
 	indexImage2Suffix = "/olmtest/e2e-index:" + indexTag2
-	indexImage3Suffix = "quay.io/olmtest/e2e-index:" + indexTag3
+	indexImage3Suffix = "/olmtest/e2e-index:" + indexTag3
 )
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
@@ -134,8 +133,12 @@ func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 }
 
 func pushWith(containerTool, image string) error {
-	dockerpush := exec.Command(containerTool, "push", image)
-	return dockerpush.Run()
+	cmd := exec.Command(containerTool, "push", image)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("output: %s\n err: %v", out, err)
+	}
+	return err
 }
 
 func pushBundles(containerTool string, bundleImages ...string) error {
