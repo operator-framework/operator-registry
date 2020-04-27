@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/operator-framework/operator-registry/pkg/version"
 )
 
 const (
@@ -35,11 +37,16 @@ func NewDockerfileGenerator(logger *logrus.Entry) DockerfileGenerator {
 func (g *IndexDockerfileGenerator) GenerateIndexDockerfile(binarySourceImage, databasePath string) string {
 	var dockerfile string
 
-	if binarySourceImage == "" {
-		binarySourceImage = defaultBinarySourceImage
-	}
-
 	g.Logger.Info("Generating dockerfile")
+
+	if binarySourceImage == "" {
+		imageTag := "latest"
+		if version.GitCommit != "" {
+			imageTag = version.GitCommit
+		}
+
+		binarySourceImage = fmt.Sprintf("%s:%s", defaultBinarySourceImage, imageTag)
+	}
 
 	// From
 	dockerfile += fmt.Sprintf("FROM %s\n", binarySourceImage)

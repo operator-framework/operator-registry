@@ -39,7 +39,7 @@ func TestGenerateDockerfile_EmptyBaseImage(t *testing.T) {
 	defer controller.Finish()
 
 	databasePath := "database/index.db"
-	expectedDockerfile := `FROM quay.io/operator-framework/upstream-opm-builder
+	expectedDockerfile := `FROM quay.io/operator-framework/upstream-opm-builder:latest
 LABEL operators.operatorframework.io.index.database.v1=/database/index.db
 ADD database/index.db /database/index.db
 EXPOSE 50051

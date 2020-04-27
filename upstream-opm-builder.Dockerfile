@@ -3,6 +3,7 @@ FROM golang:1.13-alpine AS builder
 RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /build
 
+COPY .git .git
 COPY vendor vendor
 COPY cmd cmd
 COPY pkg pkg

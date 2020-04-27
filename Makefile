@@ -1,12 +1,16 @@
 GO := GOFLAGS="-mod=vendor" go
+PKG := github.com/operator-framework/operator-registry
 CMDS := $(addprefix bin/, $(shell ls ./cmd))
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
 
 .PHONY: all
 all: clean test build
 
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+
+$(CMDS): version_flags=-ldflags "-X $(PKG)/pkg/version.GitCommit=$(GIT_COMMIT)"
 $(CMDS):
-	$(GO) build $(extra_flags) -o $@ ./cmd/$(notdir $@)
+	$(GO) build $(version_flags) $(extra_flags) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: build
 build: clean $(CMDS)

@@ -19,7 +19,8 @@ Builds are also triggered for the following docker images. The tags in Quay.io w
  - [quay.io/operator-framework/operator-registry-server](https://quay.io/repository/operator-framework/operator-registry-server)
  - [quay.io/operator-framework/configmap-operator-registry](https://quay.io/repository/operator-framework/configmap-operator-registry)
  - [quay.io/operator-framework/upstream-registry-builder](https://quay.io/repository/operator-framework/upstream-registry-builder?tab=tags)
- 
+ - [quay.io/operator-framework/upstream-opm-builder](https://quay.io/repository/operator-framework/upstream-opm-builder?tab=tags)
+
  Images are also built to track master with `latest` tags. It is recommended that you always pull by digest, and only use images that are tagged with a version.
  
  
