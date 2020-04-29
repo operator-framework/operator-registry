@@ -2,10 +2,15 @@ package bundle
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // Create build command to build bundle manifests image
@@ -75,4 +80,42 @@ func BuildFunc(directory, outputDir, imageTag, imageBuilder, packageName, channe
 	}
 
 	return nil
+}
+
+// FilterSupportedFiles acts as a filter that will return a list of file names
+// that are OLM-supppored types in manifests directory.
+// Inputs:
+// @manifestDir: The local directory where bundle manifests are located
+func FilterSupportedFiles(manifestDir string) []string {
+	var supportedFiles []string
+
+	// Read all files in manifests directory
+	items, err := ioutil.ReadDir(manifestDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, item := range items {
+		fileWithPath := filepath.Join(manifestDir, item.Name())
+		data, err := ioutil.ReadFile(fileWithPath)
+		if err != nil {
+			continue
+		}
+
+		dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 30)
+		k8sFile := &unstructured.Unstructured{}
+		err = dec.Decode(k8sFile)
+		if err != nil {
+			continue
+		}
+
+		gvk := k8sFile.GetObjectKind().GroupVersionKind()
+		// Verify if the object kind is supported for RegistryV1 format
+		ok, _ := IsSupported(gvk.Kind)
+		if ok {
+			supportedFiles = append(supportedFiles, item.Name())
+		}
+	}
+
+	return supportedFiles
 }
