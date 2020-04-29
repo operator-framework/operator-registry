@@ -120,10 +120,10 @@ func (b *Bundle) CustomResourceDefinitions() ([]interface{}, error) {
 		return nil, err
 	}
 	var crds []interface{}
-	for _, crd := range b.v1beta1crds {
+	for _, crd := range b.v1crds {
 		crds = append(crds, crd)
 	}
-	for _, crd := range b.v1crds {
+	for _, crd := range b.v1beta1crds {
 		crds = append(crds, crd)
 	}
 	return crds, nil
