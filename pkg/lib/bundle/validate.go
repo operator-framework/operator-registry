@@ -135,7 +135,7 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	}
 
 	if !dependenciesFound {
-		i.logger.Info("Could not find dependencies file")
+		i.logger.Info("Could not find optional dependencies file")
 	} else {
 		i.logger.Info("Found dependencies file")
 		errs := validateDependencies(dependenciesFile)
