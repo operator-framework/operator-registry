@@ -197,7 +197,12 @@ func (a *dockerAuthorizer) generateTokenOptions(ctx context.Context, host string
 
 	scope, ok := c.parameters["scope"]
 	if !ok {
-		return tokenOptions{}, errors.Errorf("no scope specified for token auth challenge")
+		if v := ctx.Value(tokenScopesKey{}); v != nil {
+			scopes := v.([]string)
+			to.scopes = append(to.scopes, scopes...)
+		} else {
+			return tokenOptions{}, errors.Errorf("no scope specified for token auth challenge")
+		}
 	}
 	to.scopes = append(to.scopes, scope)
 
