@@ -71,7 +71,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -152,7 +152,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -228,7 +228,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -339,7 +339,7 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 		if err := os.MkdirAll(targetDir, 0777); err != nil {
 			return "", err
 		}
-	} else {
+	} else if err != nil {
 		return "", err
 	}
 
@@ -353,7 +353,7 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 	dbFile := path.Join(targetDir, defaultDatabaseFile)
 
 	// define the path to copy to the database/index.db file
-	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return "", err
 	}
