@@ -55,7 +55,9 @@ func addIndexAddCmd(parent *cobra.Command) {
 	}
 	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
-	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	indexCmd.Flags().StringP("container-tool", "c", "", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
+	indexCmd.Flags().StringP("build-tool", "u", "", "tool to build container images. One of: [docker, podman]. Defaults to podman. Overrides part of container-tool.")
+	indexCmd.Flags().StringP("pull-tool", "p", "", "tool to pull container images. One of: [none, docker, podman]. Defaults to none. Overrides part of container-tool.")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	indexCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
@@ -96,15 +98,6 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	containerTool, err := cmd.Flags().GetString("container-tool")
-	if err != nil {
-		return err
-	}
-
-	if containerTool == "none" {
-		return fmt.Errorf("none is not a valid container-tool for index add")
-	}
-
 	tag, err := cmd.Flags().GetString("tag")
 	if err != nil {
 		return err
@@ -130,11 +123,19 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	pullTool, buildTool, err := getContainerTools(cmd)
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("building the index")
 
-	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.PodmanTool), logger)
+	indexAdder := indexer.NewIndexAdder(
+		containertools.NewContainerTool(buildTool, containertools.PodmanTool),
+		containertools.NewContainerTool(pullTool, containertools.NoneTool),
+		logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          generate,
@@ -154,4 +155,47 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// getContainerTools returns the pull and build tools based on command line input
+// to preserve backwards compatibility and alias the legacy `container-tool` parameter
+func getContainerTools(cmd *cobra.Command) (string, string, error) {
+	buildTool, err := cmd.Flags().GetString("build-tool")
+	if err != nil {
+		return "", "", err
+	}
+
+	if buildTool == "none" {
+		return "", "", fmt.Errorf("none is not a valid container-tool for index add")
+	}
+
+	pullTool, err := cmd.Flags().GetString("pull-tool")
+	if err != nil {
+		return "", "", err
+	}
+
+	containerTool, err := cmd.Flags().GetString("container-tool")
+	if err != nil {
+		return "", "", err
+	}
+
+	// Backwards compatiblity mode
+	if containerTool != "" {
+		if pullTool == "" && buildTool == "" {
+			return containerTool, containerTool, nil
+		} else {
+			return "", "", fmt.Errorf("container-tool cannot be set alongside pull-tool or build-tool")
+		}
+	}
+
+	// Check for defaults, then return
+	if pullTool == "" {
+		pullTool = "none"
+	}
+
+	if buildTool == "" {
+		buildTool = "podman"
+	}
+
+	return pullTool, buildTool, nil
 }

@@ -89,7 +89,7 @@ func buildIndexWith(containerTool string) error {
 		bundleImage + ":" + bundleTag2,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
@@ -109,7 +109,7 @@ func buildFromIndexWith(containerTool string) error {
 		bundleImage + ":" + bundleTag3,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,

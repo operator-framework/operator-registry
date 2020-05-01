@@ -42,7 +42,8 @@ type ImageIndexer struct {
 	RegistryAdder       registry.RegistryAdder
 	RegistryDeleter     registry.RegistryDeleter
 	RegistryPruner      registry.RegistryPruner
-	ContainerTool       containertools.ContainerTool
+	BuildTool           containertools.ContainerTool
+	PullTool            containertools.ContainerTool
 	Logger              *logrus.Entry
 }
 
@@ -71,7 +72,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -99,7 +100,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Permissive:    request.Permissive,
 		Mode:          request.Mode,
 		SkipTLS:       request.SkipTLS,
-		ContainerTool: i.ContainerTool,
+		ContainerTool: i.PullTool,
 	}
 
 	// Add the bundles to the registry
@@ -152,7 +153,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -228,7 +229,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 	// this is in its own function context so that the deferred cleanup runs before we do a docker build
 	// which prevents the full contents of the previous image from being in the build context
 	var databasePath string
-	if err := func () error {
+	if err := func() error {
 		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 		if err != nil {
 
@@ -292,13 +293,13 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, err
 
 	var reg image.Registry
 	var rerr error
-	switch i.ContainerTool {
+	switch i.PullTool {
 	case containertools.NoneTool:
 		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(i.Logger))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(i.ContainerTool, i.Logger)
+		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger)
 	}
 	if rerr != nil {
 		return "", rerr
@@ -339,7 +340,7 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 		if err := os.MkdirAll(targetDir, 0777); err != nil {
 			return "", err
 		}
-	} else {
+	} else if err != nil {
 		return "", err
 	}
 
@@ -353,7 +354,7 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 	dbFile := path.Join(targetDir, defaultDatabaseFile)
 
 	// define the path to copy to the database/index.db file
-	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE, 0666)
+	to, err := os.OpenFile(dbFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return "", err
 	}
