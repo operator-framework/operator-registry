@@ -282,3 +282,12 @@ func TestCopyYamlOutput_NestedCopy(t *testing.T) {
 	_, err = ioutil.ReadFile(csvFile)
 	require.NoError(t, err)
 }
+
+func TestGenerateFunc(t *testing.T){
+	etcdPkgPath:="./testdata/etcd"
+	outputPath :="./testdata/tmp_output"
+	defer os.RemoveAll(outputPath)
+	err:=GenerateFunc(filepath.Join(etcdPkgPath,"0.6.1"),outputPath,"","","",true)
+	require.NoError(t,err)
+	os.Remove(filepath.Join("./",DockerFile))
+}

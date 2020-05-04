@@ -111,6 +111,9 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 
 		if channelDefault == "" {
 			channelDefault = i.GetDefaultChannel()
+			if !containsString(strings.Split(channels, ","), channelDefault) {
+				channelDefault = ""
+			}
 			log.Infof("Inferred default channel: %s", channelDefault)
 		}
 	}
@@ -470,4 +473,13 @@ func copyManifestDir(from, to string, overwrite bool) error {
 	}
 
 	return nil
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }
