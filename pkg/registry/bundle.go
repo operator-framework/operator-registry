@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -29,12 +30,8 @@ func DefaultYAMLDecoder() runtime.Decoder {
 }
 
 func init() {
-	if err := apiextensionsv1beta1.AddToScheme(Scheme); err != nil {
-		panic(err)
-	}
-	if err := apiextensionsv1.AddToScheme(Scheme); err != nil {
-		panic(err)
-	}
+	utilruntime.Must(apiextensionsv1beta1.AddToScheme(Scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(Scheme))
 }
 
 type Bundle struct {
@@ -115,11 +112,11 @@ func (b *Bundle) Skips() ([]string, error) {
 	return b.csv.GetSkips()
 }
 
-func (b *Bundle) CustomResourceDefinitions() ([]interface{}, error) {
+func (b *Bundle) CustomResourceDefinitions() ([]runtime.Object, error) {
 	if err := b.cache(); err != nil {
 		return nil, err
 	}
-	var crds []interface{}
+	var crds []runtime.Object
 	for _, crd := range b.v1crds {
 		crds = append(crds, crd)
 	}
