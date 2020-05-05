@@ -30,7 +30,7 @@ func NewSQLExporterForBundle(image, directory string, containerTool containertoo
 	}
 }
 
-func (i *BundleExporter) Export() error {
+func (i *BundleExporter) Export(SkipTLS bool) error {
 
 	log := logrus.WithField("img", i.image)
 
@@ -44,7 +44,7 @@ func (i *BundleExporter) Export() error {
 	var rerr error
 	switch i.containerTool {
 	case containertools.NoneTool:
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(log))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(SkipTLS), containerdregistry.WithLog(log))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:

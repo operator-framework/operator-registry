@@ -86,6 +86,7 @@ func buildIndexWith(containerTool, indexImage, bundleImage string, bundleTags []
 		Tag:               indexImage,
 		Bundles:           bundles,
 		Permissive:        false,
+		SkipTLS:           true,
 	}
 
 	return indexAdder.AddToIndex(request)
@@ -103,6 +104,7 @@ func buildFromIndexWith(containerTool, fromIndexImage, toIndexImage string, bund
 		Tag:               toIndexImage,
 		Bundles:           bundleImages,
 		Permissive:        false,
+		SkipTLS:           true,
 	}
 
 	return indexAdder.AddToIndex(request)
@@ -121,6 +123,7 @@ func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 		Tag:               toIndexImage,
 		Packages:          []string{packageName},
 		Permissive:        false,
+		SkipTLS:           true,
 	}
 
 	return indexAdder.PruneFromIndex(request)
@@ -156,6 +159,7 @@ func exportWith(containerTool, indexImage string) error {
 		Package:       packageName,
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		SkipTLS:       true,
 	}
 
 	return indexExporter.ExportFromIndex(request)

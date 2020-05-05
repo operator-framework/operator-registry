@@ -80,7 +80,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		databaseFile, err := i.getDatabaseFile(request.SkipTLS, tmpDir, request.FromIndex)
 		if err != nil {
 			return err
 		}
@@ -138,6 +138,7 @@ type DeleteFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Operators         []string
+	SkipTLS           bool
 }
 
 // DeleteFromIndex is an aggregate API used to generate a registry index image
@@ -161,7 +162,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		databaseFile, err := i.getDatabaseFile(request.SkipTLS, tmpDir, request.FromIndex)
 		if err != nil {
 			return err
 		}
@@ -216,6 +217,7 @@ type PruneFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Packages          []string
+	SkipTLS           bool
 }
 
 func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
@@ -237,7 +239,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
+		databaseFile, err := i.getDatabaseFile(request.SkipTLS, tmpDir, request.FromIndex)
 		if err != nil {
 			return err
 		}
@@ -283,7 +285,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 	return nil
 }
 
-func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, error) {
+func (i ImageIndexer) getDatabaseFile(skipTLS bool, workingDir, fromIndex string) (string, error) {
 	if fromIndex == "" {
 		return path.Join(workingDir, defaultDatabaseFile), nil
 	}
@@ -295,7 +297,7 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, err
 	var rerr error
 	switch i.PullTool {
 	case containertools.NoneTool:
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(i.Logger))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(skipTLS), containerdregistry.WithLog(i.Logger))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
@@ -447,6 +449,7 @@ type ExportFromIndexRequest struct {
 	Package       string
 	DownloadPath  string
 	ContainerTool containertools.ContainerTool
+	SkipTLS       bool
 }
 
 // ExportFromIndex is an aggregate API used to specify operators from
@@ -460,7 +463,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer os.RemoveAll(workingDir)
 
 	// extract the index database to the file
-	databaseFile, err := i.getDatabaseFile(workingDir, request.Index)
+	databaseFile, err := i.getDatabaseFile(request.SkipTLS, workingDir, request.Index)
 	if err != nil {
 		return err
 	}
@@ -499,7 +502,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 			folderName = bundleImage
 		}
 		exporter := bundle.NewSQLExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, folderName), request.ContainerTool)
-		if err := exporter.Export(); err != nil {
+		if err := exporter.Export(request.SkipTLS); err != nil {
 			err = fmt.Errorf("error exporting bundle from image: %s", err)
 			errs = append(errs, err)
 		}
