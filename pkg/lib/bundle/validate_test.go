@@ -193,14 +193,14 @@ func TestValidateBundleContent(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle/",
 			numErrors:   1,
-			errString:   `owned CRD "etcdclusters.etcd.database.coreos.com" not found in bundle`,
+			errString:   "owned CRD etcdclusters.etcd.database.coreos.com/v1beta2 not found in bundle",
 		},
 		{
 			description: "invalid registryv1 bundle/extra crd",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle_2/",
 			numErrors:   1,
-			errString:   `owned CRD "etcdclusters.etcd.database.coreos.com" is present in bundle "etcdoperator.v0.9.4" but not defined in CSV`,
+			errString:   `CRD etcdclusters.etcd.database.coreos.com/v1beta2 is present in bundle "etcdoperator.v0.9.4" but not defined in CSV`,
 		},
 	}
 
