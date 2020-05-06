@@ -295,6 +295,9 @@ func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	  SELECT DISTINCT operatorbundle.csv
 	  FROM operatorbundle
 	  WHERE operatorbundle.name=? LIMIT 1`)
+	if err != nil {
+		return err
+	}
 	defer getReplaces.Close()
 
 	var errs []error
