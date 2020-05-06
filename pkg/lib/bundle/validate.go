@@ -10,6 +10,7 @@ import (
 	v1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v "github.com/operator-framework/api/pkg/validation"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
+	validation "github.com/operator-framework/operator-registry/pkg/lib/validation"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -355,7 +356,7 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	// Validate the bundle object
 	if len(unstObjs) > 0 {
 		bundle := registry.NewBundle(csvName, "", nil, unstObjs...)
-		bundleValidator := v.BundleValidator
+		bundleValidator := validation.BundleValidator
 		results := bundleValidator.Validate(bundle)
 		if len(results) > 0 {
 			for _, err := range results[0].Errors {
