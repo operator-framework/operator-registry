@@ -59,7 +59,7 @@ func TestValidateChannelDefault(t *testing.T) {
 		{
 			"test5,test6",
 			"",
-			"test5",
+			"",
 			"",
 		},
 		{
@@ -72,7 +72,7 @@ func TestValidateChannelDefault(t *testing.T) {
 			",",
 			"",
 			"",
-			`Invalid channels is provied: ,`,
+			`invalid channels are provided: ,`,
 		},
 	}
 
@@ -207,7 +207,7 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.metadata.v1=%s\n"+
 		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
-		"LABEL operators.operatorframework.io.bundle.channel.default.v1=test5\n\n"+
+		"LABEL operators.operatorframework.io.bundle.channel.default.v1=\n\n"+
 		"COPY test2 /manifests/\n"+
 		"COPY metadata /metadata/\n", MetadataDir)
 
@@ -281,4 +281,25 @@ func TestCopyYamlOutput_NestedCopy(t *testing.T) {
 	csvFile := filepath.Join(testOutputDir, "manifests/nested_manifests/", "prometheusoperator.0.14.0.clusterserviceversion.yaml")
 	_, err = ioutil.ReadFile(csvFile)
 	require.NoError(t, err)
+}
+
+func TestGenerateFunc(t *testing.T) {
+	etcdPkgPath := "./testdata/etcd"
+	outputPath := "./testdata/tmp_output"
+	defer os.RemoveAll(outputPath)
+	err := GenerateFunc(filepath.Join(etcdPkgPath, "0.6.1"), outputPath, "", "", "", true)
+	require.NoError(t, err)
+	os.Remove(filepath.Join("./", DockerFile))
+
+	output := fmt.Sprintf("annotations:\n" +
+		"  operators.operatorframework.io.bundle.channel.default.v1: \"\"\n" +
+		"  operators.operatorframework.io.bundle.channels.v1: beta\n" +
+		"  operators.operatorframework.io.bundle.manifests.v1: manifests/\n" +
+		"  operators.operatorframework.io.bundle.mediatype.v1: registry+v1\n" +
+		"  operators.operatorframework.io.bundle.metadata.v1: metadata/\n" +
+		"  operators.operatorframework.io.bundle.package.v1: etcd\n")
+	outputAnnotationsFile := filepath.Join(outputPath, "metadata/", "annotations.yaml")
+	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	require.NoError(t, err)
+	require.EqualValues(t, output, string(annotationsBlob))
 }
