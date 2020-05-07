@@ -53,4 +53,7 @@ require (
 	k8s.io/kubectl v0.18.0
 )
 
-replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
+replace (
+	github.com/containerd/containerd => github.com/ecordell/containerd v1.3.1-0.20200501170002-47240ee83023
+	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
+)
