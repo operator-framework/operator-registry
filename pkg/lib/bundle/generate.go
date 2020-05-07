@@ -301,6 +301,10 @@ func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 	var chanErr error
 	channelList := strings.Split(channels, ",")
 
+	if containsString(channelList, "") {
+		return chanDefault, fmt.Errorf("invalid channels are provided: %s", channels)
+	}
+
 	if channelDefault != "" {
 		for _, channel := range channelList {
 			if channel == channelDefault {
@@ -312,15 +316,8 @@ func ValidateChannelDefault(channels, channelDefault string) (string, error) {
 			chanDefault = channelList[0]
 			chanErr = fmt.Errorf(`The channel list "%s" doesn't contain channelDefault "%s"`, channels, channelDefault)
 		}
-	} else {
-		chanDefault = channelList[0]
 	}
-
-	if chanDefault != "" {
-		return chanDefault, chanErr
-	} else {
-		return chanDefault, fmt.Errorf("Invalid channels is provied: %s", channels)
-	}
+	return chanDefault, chanErr
 }
 
 // GenerateAnnotations builds annotations.yaml with mediatype, manifests &
