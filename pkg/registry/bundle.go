@@ -16,14 +16,30 @@ import (
 
 const (
 	v1beta1CRDVersion = "v1beta1"
-	v1CRDVersion = "v1"
-	CRDKind = "CustomResourceDefinition"
+	v1CRDVersion      = "v1"
+	CRDKind           = "CustomResourceDefinition"
 )
+
 // Scheme is the default instance of runtime.Scheme to which types in the Kubernetes API are already registered.
 var Scheme = runtime.NewScheme()
 
 // Codecs provides access to encoding and decoding for the scheme
 var Codecs = serializer.NewCodecFactory(Scheme)
+
+// ErrNoCSVInBundle should be returned when no ClusterServiceVersion object
+// can be found in a Bundle but one is required.
+type ErrNoCSVInBundle struct {
+	BundleName string
+}
+
+func (e *ErrNoCSVInBundle) Error() string {
+	// Consider bundles without names when formatting the error string.
+	name := e.BundleName
+	if name != "" {
+		name = " " + name
+	}
+	return fmt.Sprintf("no ClusterServiceVersion object in bundle%s", name)
+}
 
 func DefaultYAMLDecoder() runtime.Decoder {
 	return Codecs.UniversalDeserializer()
@@ -40,15 +56,25 @@ type Bundle struct {
 	Package      string
 	Channels     []string
 	BundleImage  string
-	csv          *ClusterServiceVersion
-	v1beta1crds  []*apiextensionsv1beta1.CustomResourceDefinition
-	v1crds       []*apiextensionsv1.CustomResourceDefinition
 	Dependencies []*Dependency
-	cacheStale   bool
+
+	csv         *ClusterServiceVersion
+	v1beta1crds []*apiextensionsv1beta1.CustomResourceDefinition
+	v1crds      []*apiextensionsv1.CustomResourceDefinition
+	cacheStale  bool
+	// If true, all operations that assume a CSV exists in Bundle must return an
+	// error if one does not.
+	mustHaveCSV bool
 }
 
 func NewBundle(name, pkgName string, channels []string, objs ...*unstructured.Unstructured) *Bundle {
-	bundle := &Bundle{Name: name, Package: pkgName, Channels: channels, cacheStale: false}
+	bundle := &Bundle{
+		Name:        name,
+		Package:     pkgName,
+		Channels:    channels,
+		cacheStale:  false,
+		mustHaveCSV: true,
+	}
 	for _, o := range objs {
 		bundle.Add(o)
 	}
@@ -246,6 +272,9 @@ func (b *Bundle) Serialize() (csvName, bundleImage string, csvBytes []byte, bund
 			}
 		}
 	}
+	if csvCount == 0 && b.mustHaveCSV {
+		return "", "", nil, nil, &ErrNoCSVInBundle{BundleName: b.Name}
+	}
 
 	return csvName, b.BundleImage, csvBytes, bundleBytes, nil
 }
@@ -285,6 +314,9 @@ func (b *Bundle) cache() error {
 			b.csv = csv
 			break
 		}
+	}
+	if b.csv == nil && b.mustHaveCSV {
+		return &ErrNoCSVInBundle{BundleName: b.Name}
 	}
 
 	for _, o := range b.Objects {
