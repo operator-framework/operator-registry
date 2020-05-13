@@ -43,10 +43,11 @@ type FakeCommandRunner struct {
 		result1 []byte
 		result2 error
 	}
-	PullStub        func(string) error
+	PullStub        func(string, bool) error
 	pullMutex       sync.RWMutex
 	pullArgsForCall []struct {
 		arg1 string
+		arg2 bool
 	}
 	pullReturns struct {
 		result1 error
@@ -246,16 +247,17 @@ func (fake *FakeCommandRunner) InspectReturnsOnCall(i int, result1 []byte, resul
 	}{result1, result2}
 }
 
-func (fake *FakeCommandRunner) Pull(arg1 string) error {
+func (fake *FakeCommandRunner) Pull(arg1 string, arg2 bool) error {
 	fake.pullMutex.Lock()
 	ret, specificReturn := fake.pullReturnsOnCall[len(fake.pullArgsForCall)]
 	fake.pullArgsForCall = append(fake.pullArgsForCall, struct {
 		arg1 string
-	}{arg1})
-	fake.recordInvocation("Pull", []interface{}{arg1})
+		arg2 bool
+	}{arg1, arg2})
+	fake.recordInvocation("Pull", []interface{}{arg1, arg2})
 	fake.pullMutex.Unlock()
 	if fake.PullStub != nil {
-		return fake.PullStub(arg1)
+		return fake.PullStub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -270,17 +272,17 @@ func (fake *FakeCommandRunner) PullCallCount() int {
 	return len(fake.pullArgsForCall)
 }
 
-func (fake *FakeCommandRunner) PullCalls(stub func(string) error) {
+func (fake *FakeCommandRunner) PullCalls(stub func(string, bool) error) {
 	fake.pullMutex.Lock()
 	defer fake.pullMutex.Unlock()
 	fake.PullStub = stub
 }
 
-func (fake *FakeCommandRunner) PullArgsForCall(i int) string {
+func (fake *FakeCommandRunner) PullArgsForCall(i int) (string, bool) {
 	fake.pullMutex.RLock()
 	defer fake.pullMutex.RUnlock()
 	argsForCall := fake.pullArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeCommandRunner) PullReturns(result1 error) {

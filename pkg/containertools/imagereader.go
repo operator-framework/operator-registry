@@ -53,7 +53,7 @@ func (b ImageLayerReader) GetImageData(image, outputDir string, opts ...GetImage
 		os.Mkdir(outputDir, 0777)
 	}
 
-	err := b.Cmd.Pull(image)
+	err := b.Cmd.Pull(image, options.SkipTLS)
 	if err != nil {
 		return err
 	}

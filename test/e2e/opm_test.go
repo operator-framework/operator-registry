@@ -130,7 +130,12 @@ func pruneIndexWith(containerTool, fromIndexImage, toIndexImage string) error {
 }
 
 func pushWith(containerTool, image string) error {
-	cmd := exec.Command(containerTool, "push", image)
+	args := []string{"push", image}
+	if containerTool == "podman" {
+		args = append(args, "--tls-verify=false")
+	}
+
+	cmd := exec.Command(containerTool, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("output: %s\n err: %v", out, err)

@@ -301,7 +301,7 @@ func (i ImageIndexer) getDatabaseFile(skipTLS bool, workingDir, fromIndex string
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger)
+		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger, skipTLS)
 	}
 	if rerr != nil {
 		return "", rerr

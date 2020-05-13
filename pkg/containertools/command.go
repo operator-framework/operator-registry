@@ -11,7 +11,7 @@ import (
 // CommandRunner defines methods to shell out to common container tools
 type CommandRunner interface {
 	GetToolName() string
-	Pull(image string) error
+	Pull(image string, skipTLS bool) error
 	Build(dockerfile, tag string) error
 	Save(image, tarFile string) error
 	Inspect(image string) ([]byte, error)
@@ -28,7 +28,7 @@ type ContainerCommandRunner struct {
 // CommandRunner to run commands with that cli tool
 func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry) CommandRunner {
 	r := ContainerCommandRunner{
-		logger: logger,
+		logger:        logger,
 		containerTool: containerTool,
 	}
 	return &r
@@ -41,8 +41,12 @@ func (r *ContainerCommandRunner) GetToolName() string {
 
 // Pull takes a container image path hosted on a container registry and runs the
 // pull command to download it onto the local environment
-func (r *ContainerCommandRunner) Pull(image string) error {
+func (r *ContainerCommandRunner) Pull(image string, skipTLS bool) error {
 	args := []string{"pull", image}
+
+	if skipTLS && r.containerTool.String() == "podman" {
+		args = append(args, "--tls-verify=false")
+	}
 
 	command := exec.Command(r.containerTool.String(), args...)
 

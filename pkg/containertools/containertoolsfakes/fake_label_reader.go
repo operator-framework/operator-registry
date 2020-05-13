@@ -8,10 +8,11 @@ import (
 )
 
 type FakeLabelReader struct {
-	GetLabelsFromImageStub        func(string) (map[string]string, error)
+	GetLabelsFromImageStub        func(string, bool) (map[string]string, error)
 	getLabelsFromImageMutex       sync.RWMutex
 	getLabelsFromImageArgsForCall []struct {
 		arg1 string
+		arg2 bool
 	}
 	getLabelsFromImageReturns struct {
 		result1 map[string]string
@@ -25,16 +26,17 @@ type FakeLabelReader struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeLabelReader) GetLabelsFromImage(arg1 string) (map[string]string, error) {
+func (fake *FakeLabelReader) GetLabelsFromImage(arg1 string, arg2 bool) (map[string]string, error) {
 	fake.getLabelsFromImageMutex.Lock()
 	ret, specificReturn := fake.getLabelsFromImageReturnsOnCall[len(fake.getLabelsFromImageArgsForCall)]
 	fake.getLabelsFromImageArgsForCall = append(fake.getLabelsFromImageArgsForCall, struct {
 		arg1 string
-	}{arg1})
-	fake.recordInvocation("GetLabelsFromImage", []interface{}{arg1})
+		arg2 bool
+	}{arg1, arg2})
+	fake.recordInvocation("GetLabelsFromImage", []interface{}{arg1, arg2})
 	fake.getLabelsFromImageMutex.Unlock()
 	if fake.GetLabelsFromImageStub != nil {
-		return fake.GetLabelsFromImageStub(arg1)
+		return fake.GetLabelsFromImageStub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -49,17 +51,17 @@ func (fake *FakeLabelReader) GetLabelsFromImageCallCount() int {
 	return len(fake.getLabelsFromImageArgsForCall)
 }
 
-func (fake *FakeLabelReader) GetLabelsFromImageCalls(stub func(string) (map[string]string, error)) {
+func (fake *FakeLabelReader) GetLabelsFromImageCalls(stub func(string, bool) (map[string]string, error)) {
 	fake.getLabelsFromImageMutex.Lock()
 	defer fake.getLabelsFromImageMutex.Unlock()
 	fake.GetLabelsFromImageStub = stub
 }
 
-func (fake *FakeLabelReader) GetLabelsFromImageArgsForCall(i int) string {
+func (fake *FakeLabelReader) GetLabelsFromImageArgsForCall(i int) (string, bool) {
 	fake.getLabelsFromImageMutex.RLock()
 	defer fake.getLabelsFromImageMutex.RUnlock()
 	argsForCall := fake.getLabelsFromImageArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeLabelReader) GetLabelsFromImageReturns(result1 map[string]string, result2 error) {
