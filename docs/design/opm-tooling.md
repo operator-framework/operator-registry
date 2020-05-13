@@ -162,7 +162,7 @@ The `alpha bundle` command interacts with bundles from different sources includi
 
 #### build
 
-The `opm alpha bundle build` command will generate operator bundle metadata and create CSV if needed and build bundle image with operator manifest and metadata for a specific version. For example, the command will generate annotations.yaml metadata plus Dockerfile for bundle image and then build a container image from provided operator bundle manifests generated metadata e.g. "quay.io/example/operator:v0.0.1". After the build process is completed, a container image would be built locally in docker and available to push to a container registry.
+The `opm alpha bundle build` command will generate operator bundle metadata and create a CSV if one is not present in the bundle. The command will then build a bundle image with operator manifests and metadata for a specific version of the operator. For example, the command will generate an annotations.yaml and a Dockerfile for a bundle image and then build a container image from the provided operator manifests e.g. "quay.io/example/operator:v0.0.1". After the build process is complete, a container image is built locally and available to push to a container registry.
 
 > Note:
 > * Bundle image is not runnable.
