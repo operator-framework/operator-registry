@@ -79,7 +79,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger)
+		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger, request.SkipTLS)
 	}
 	if rerr != nil {
 		return rerr

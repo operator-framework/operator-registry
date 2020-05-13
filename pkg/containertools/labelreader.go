@@ -9,7 +9,7 @@ import (
 )
 
 type LabelReader interface {
-	GetLabelsFromImage(string) (map[string]string, error)
+	GetLabelsFromImage(string, bool) (map[string]string, error)
 }
 
 type ImageLabelReader struct {
@@ -40,8 +40,8 @@ type PodmanImageData struct {
 
 // GetLabelsFromImage takes a container image path as input, pulls that image
 // to the local environment and then inspects it for labels
-func (r ImageLabelReader) GetLabelsFromImage(image string) (map[string]string, error) {
-	err := r.Cmd.Pull(image)
+func (r ImageLabelReader) GetLabelsFromImage(image string, skipTLS bool) (map[string]string, error) {
+	err := r.Cmd.Pull(image, skipTLS)
 	if err != nil {
 		return nil, err
 	}

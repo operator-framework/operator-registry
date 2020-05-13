@@ -4,7 +4,7 @@ go:
 jobs:
   include:
   - os: linux
-    dist: xenial
+    dist: bionic
     env:
       MAKE: make
     install: |
@@ -27,7 +27,6 @@ addons:
     - sourceline: 'ppa:projectatomic/ppa'
     update: true
     packages:
-    - podman
     - conntrack
 script: |
   "${MAKE}" unit build
@@ -36,12 +35,18 @@ script: |
     exit 0
   fi
 
+  sudo sh -c "echo 'deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+  curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/Release.key | sudo apt-key add -
+  sudo apt-get update -qq
+  sudo apt-get -qq -y install podman
+  sudo mkdir -p /etc/containers
+  echo -e "[registries.insecure]\nregistries = ['localhost:5000']\n" | sudo tee /etc/containers/registries.conf
+
   if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
     # no Quay.io credentials available for PR tests
     echo "starting local test docker registry"
     sudo docker run -d -p 5000:5000 --restart=always --name registry registry:2
     export DOCKER_REGISTRY_HOST="localhost:5000"
-    printf "[registries.insecure]\nregistries = ['localhost:5000']\n" > /etc/containers/registries.conf
   fi
 
   sudo minikube start # vm-driver=none requires root

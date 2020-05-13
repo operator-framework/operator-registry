@@ -30,7 +30,7 @@ func TestReadDockerLabels(t *testing.T) {
 		Logger: logger,
 	}
 
-	labels, err := labelReader.GetLabelsFromImage(image)
+	labels, err := labelReader.GetLabelsFromImage(image, true)
 	require.NoError(t, err)
 	require.Equal(t, labels[expectedLabelKey], expectedLabelVal)
 }
@@ -53,7 +53,7 @@ func TestReadDockerLabelsNoLabels(t *testing.T) {
 	mockCmd.InspectReturns([]byte(imageData), nil)
 	mockCmd.GetToolNameReturns(containerTool)
 
-	labels, err := labelReader.GetLabelsFromImage(image)
+	labels, err := labelReader.GetLabelsFromImage(image, true)
 	require.NoError(t, err)
 	require.Equal(t, len(labels), 0)
 }
@@ -78,7 +78,7 @@ func TestReadPodmanLabels(t *testing.T) {
 	mockCmd.InspectReturns([]byte(imageData), nil)
 	mockCmd.GetToolNameReturns(containerTool)
 
-	labels, err := labelReader.GetLabelsFromImage(image)
+	labels, err := labelReader.GetLabelsFromImage(image, true)
 	require.NoError(t, err)
 	require.Equal(t, labels[expectedLabelKey], expectedLabelVal)
 }
@@ -101,7 +101,7 @@ func TestReadPodmanLabelsNoLabels(t *testing.T) {
 	mockCmd.InspectReturns([]byte(imageData), nil)
 	mockCmd.GetToolNameReturns(containerTool)
 
-	labels, err := labelReader.GetLabelsFromImage(image)
+	labels, err := labelReader.GetLabelsFromImage(image, true)
 	require.NoError(t, err)
 	require.Equal(t, len(labels), 0)
 }
@@ -120,7 +120,7 @@ func TestReadDockerLabels_PullError(t *testing.T) {
 		Logger: logger,
 	}
 
-	_, err := labelReader.GetLabelsFromImage(image)
+	_, err := labelReader.GetLabelsFromImage(image, true)
 	require.Error(t, err)
 	require.EqualError(t, err, pullErr.Error())
 }
@@ -142,7 +142,7 @@ func TestReadDockerLabels_InspectError(t *testing.T) {
 		Logger: logger,
 	}
 
-	_, err := labelReader.GetLabelsFromImage(image)
+	_, err := labelReader.GetLabelsFromImage(image, true)
 	require.Error(t, err)
 	require.EqualError(t, err, inspectErr.Error())
 }
@@ -164,7 +164,7 @@ func TestReadDockerLabels_InvalidData_Error(t *testing.T) {
 		Logger: logger,
 	}
 
-	_, err := labelReader.GetLabelsFromImage(image)
+	_, err := labelReader.GetLabelsFromImage(image, true)
 	require.Error(t, err)
 }
 
