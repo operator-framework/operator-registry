@@ -14,6 +14,6 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.1 && \
     chmod +x /bin/grpc_health_probe
 
 FROM alpine
-RUN apk update && apk add bash ca-certificates
+RUN apk update && apk add ca-certificates
 COPY --from=builder /build/bin/opm /bin/opm
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
