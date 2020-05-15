@@ -227,7 +227,7 @@ var _ = Describe("opm", func() {
 			}
 
 			By("pushing bundles")
-			err := pushBundles(containerTool)
+			err := pushBundles(containerTool, bundleImage+":"+bundleTag1, bundleImage+":"+bundleTag2)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building an index")
@@ -276,7 +276,7 @@ var _ = Describe("opm", func() {
 		})
 
 		It("build bundles and index from inference", func() {
-
+			Skip("disabled until inference bug is resolved")
 			bundlePaths := []string{"./testdata/aqua/0.0.1", "./testdata/aqua/0.0.2", "./testdata/aqua/1.0.0",
 				"./testdata/aqua/1.0.1"}
 

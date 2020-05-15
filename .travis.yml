@@ -4,7 +4,7 @@ go:
 jobs:
   include:
   - os: linux
-    dist: xenial
+    dist: bionic
     env:
       MAKE: make
     install: |
@@ -39,9 +39,10 @@ script: |
   if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
     # no Quay.io credentials available for PR tests
     echo "starting local test docker registry"
-    sudo docker run -d -p 5000:5000 --restart=always --name registry registry:2
+    sudo cp ./test/e2e/config/ca.crt /usr/local/share/ca-certificates
+    sudo update-ca-certificates
+    sudo docker run -d -p 5000:5000 --name=registry -v $PWD/test/e2e/config/:/certs -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/server-new.crt -e REGISTRY_HTTP_TLS_KEY=/certs/server-new.key registry
     export DOCKER_REGISTRY_HOST="localhost:5000"
-    printf "[registries.insecure]\nregistries = ['localhost:5000']\n" > /etc/containers/registries.conf
   fi
 
   sudo minikube start # vm-driver=none requires root
