@@ -154,6 +154,30 @@ func TestAddPackageChannels(t *testing.T) {
 	}
 }
 
+func TestAddOperatorBundleIgnoresEmptyImageReferences(t *testing.T) {
+	require := require.New(t)
+
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(err)
+
+	err = store.Migrate(context.TODO())
+	require.NoError(err)
+
+	b := newBundle(t, "test-bundle", "test-package", nil, newUnstructuredCSV(t, "test-bundle", ""))
+	b.BundleImage = ""
+
+	err = store.AddOperatorBundle(b)
+	require.NoError(err)
+
+	querier := NewSQLLiteQuerierFromDb(db)
+	images, err := querier.GetImagesForBundle(context.TODO(), "test-bundle")
+	require.NoError(err)
+	require.Empty(images)
+}
+
 func TestClearNonHeadBundles(t *testing.T) {
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()

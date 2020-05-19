@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -16,6 +17,7 @@ import (
 type sqlLoader struct {
 	db       *sql.DB
 	migrator Migrator
+	logger   logrus.FieldLogger
 }
 
 type MigratableLoader interface {
@@ -114,6 +116,14 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		return err
 	}
 	for img := range imgs {
+		if img == "" {
+			// This condition is something that exists in
+			// the wild and must be resolved by operator
+			// authors, so it's not currently considered
+			// fatal at catalog build time.
+			s.logger.Warnf("warning: operator %q specifies an empty image reference")
+			continue
+		}
 		if _, err := addImage.Exec(img, csvName); err != nil {
 			return err
 		}

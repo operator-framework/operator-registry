@@ -2,11 +2,14 @@ package sqlite
 
 import (
 	"database/sql"
+
+	"github.com/sirupsen/logrus"
 )
 
 type DbOptions struct {
 	// MigratorBuilder is a function that returns a migrator instance
 	MigratorBuilder func(*sql.DB) (Migrator, error)
+	logger          logrus.FieldLogger
 }
 
 type DbOption func(*DbOptions)
@@ -14,11 +17,18 @@ type DbOption func(*DbOptions)
 func defaultDBOptions() *DbOptions {
 	return &DbOptions{
 		MigratorBuilder: NewSQLLiteMigrator,
+		logger:          logrus.New(),
 	}
 }
 
 func WithMigratorBuilder(m func(loader *sql.DB) (Migrator, error)) DbOption {
 	return func(o *DbOptions) {
 		o.MigratorBuilder = m
+	}
+}
+
+func WithLogger(logger logrus.FieldLogger) DbOption {
+	return func(o *DbOptions) {
+		o.logger = logger
 	}
 }
