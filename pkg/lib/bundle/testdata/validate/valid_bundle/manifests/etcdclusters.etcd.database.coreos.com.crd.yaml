@@ -14,3 +14,13 @@ spec:
     singular: etcdcluster
   scope: Namespaced
   version: v1beta2
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          properties:
+            test:
+              type: integer
+              minimum: 1
+              maximum: 32767
