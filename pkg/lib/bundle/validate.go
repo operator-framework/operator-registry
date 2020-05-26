@@ -313,10 +313,11 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 				}
 			}
 		} else if gvk.Kind == CRDKind {
+			dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 30)
 			switch gv := gvk.GroupVersion().String(); gv {
 			case v1CRDapiVersion:
 				crd := &apiextensionsv1.CustomResourceDefinition{}
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, crd)
+				err := dec.Decode(crd)
 				if err != nil {
 					validationErrors = append(validationErrors, err)
 					continue
@@ -330,7 +331,7 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 				}
 			case v1beta1CRDapiVersion:
 				crd := &apiextensionsv1beta1.CustomResourceDefinition{}
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, crd)
+				err := dec.Decode(crd)
 				if err != nil {
 					validationErrors = append(validationErrors, err)
 					continue
