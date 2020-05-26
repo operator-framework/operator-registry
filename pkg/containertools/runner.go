@@ -28,7 +28,7 @@ type ContainerCommandRunner struct {
 // CommandRunner to run commands with that cli tool
 func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry) CommandRunner {
 	r := ContainerCommandRunner{
-		logger: logger,
+		logger:        logger,
 		containerTool: containerTool,
 	}
 	return &r
@@ -59,15 +59,16 @@ func (r *ContainerCommandRunner) Pull(image string) error {
 
 // Build takes a dockerfile and a tag and builds a container image
 func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
-	args := []string{"build", "-f", dockerfile}
-
+	o := DefaultBuildOptions()
 	if tag != "" {
-		args = append(args, "-t", tag)
+		o.AddTag(tag)
 	}
-
-	args = append(args, ".")
-
-	command := exec.Command(r.containerTool.String(), args...)
+	o.SetDockerfile(dockerfile)
+	o.SetContext(".")
+	command, err := r.containerTool.CommandFactory().BuildCommand(o)
+	if err != nil {
+		return fmt.Errorf("unable to perform build: %v", err)
+	}
 
 	r.logger.Infof("running %s build", r.containerTool)
 	r.logger.Infof("%s", command.Args)

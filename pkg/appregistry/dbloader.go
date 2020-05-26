@@ -35,7 +35,7 @@ func NewDbLoader(dbName string, logger *logrus.Entry) (*dbLoader, error) {
 
 type dbLoader struct {
 	db     *sql.DB
-	loader *sqlite.SQLLoader
+	loader registry.Load
 	logger *logrus.Entry
 }
 

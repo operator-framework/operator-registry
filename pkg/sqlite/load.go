@@ -13,14 +13,19 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-type SQLLoader struct {
+type sqlLoader struct {
 	db       *sql.DB
 	migrator Migrator
 }
 
-var _ registry.Load = &SQLLoader{}
+type MigratableLoader interface {
+	registry.Load
+	Migrate(context.Context) error
+}
 
-func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
+var _ MigratableLoader = &sqlLoader{}
+
+func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (MigratableLoader, error) {
 	options := defaultDBOptions()
 	for _, o := range opts {
 		o(options)
@@ -35,17 +40,17 @@ func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (*SQLLoader, error) {
 		return nil, err
 	}
 
-	return &SQLLoader{db: db, migrator: migrator}, nil
+	return &sqlLoader{db: db, migrator: migrator}, nil
 }
 
-func (s *SQLLoader) Migrate(ctx context.Context) error {
+func (s *sqlLoader) Migrate(ctx context.Context) error {
 	if s.migrator == nil {
 		return fmt.Errorf("no migrator configured")
 	}
 	return s.migrator.Migrate(ctx)
 }
 
-func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
+func (s *sqlLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -61,7 +66,7 @@ func (s *SQLLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 	return tx.Commit()
 }
 
-func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error {
+func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error {
 	addBundle, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -123,7 +128,7 @@ func (s *SQLLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	return s.addAPIs(tx, bundle)
 }
 
-func (s *SQLLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
+func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -244,7 +249,7 @@ func (s *SQLLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error {
+func (s *sqlLoader) AddPackageChannels(manifest registry.PackageManifest) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -260,7 +265,7 @@ func (s *SQLLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 	return tx.Commit()
 }
 
-func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
+func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
 		return err
@@ -423,7 +428,7 @@ func (s *SQLLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	return utilerrors.NewAggregate(errs)
 }
 
-func (s *SQLLoader) ClearNonHeadBundles() error {
+func (s *sqlLoader) ClearNonHeadBundles() error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -452,7 +457,7 @@ func (s *SQLLoader) ClearNonHeadBundles() error {
 	return tx.Commit()
 }
 
-func (s *SQLLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (replaces string, skips []string, err error) {
+func (s *sqlLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (replaces string, skips []string, err error) {
 	getReplacesAndSkips, err := tx.Prepare(`
 	  SELECT replaces, skips
 	  FROM operatorbundle
@@ -488,7 +493,7 @@ func (s *SQLLoader) getBundleSkipsReplaces(tx *sql.Tx, bundleName string) (repla
 	return
 }
 
-func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
+func (s *sqlLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	if bundle.Name == "" {
 		return fmt.Errorf("cannot add apis for bundle with no name: %#v", bundle)
 	}
@@ -548,7 +553,7 @@ func (s *SQLLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	return nil
 }
 
-func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error) {
+func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error) {
 	getID, err := tx.Prepare(`
 	  SELECT DISTINCT channel_entry.operatorbundle_name
 	  FROM channel_entry
@@ -581,7 +586,7 @@ func (s *SQLLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
-func (s *SQLLoader) RemovePackage(packageName string) error {
+func (s *sqlLoader) RemovePackage(packageName string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -604,7 +609,7 @@ func (s *SQLLoader) RemovePackage(packageName string) error {
 	return tx.Commit()
 }
 
-func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
+func (s *sqlLoader) rmBundle(tx *sql.Tx, csvName string) error {
 	stmt, err := tx.Prepare("DELETE FROM operatorbundle WHERE operatorbundle.name=?")
 	if err != nil {
 		return err
@@ -618,7 +623,7 @@ func (s *SQLLoader) rmBundle(tx *sql.Tx, csvName string) error {
 	return nil
 }
 
-func (s *SQLLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bundle) error {
+func (s *sqlLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bundle) error {
 	err := s.AddOperatorBundle(bundle)
 	if err != nil {
 		return err
@@ -632,7 +637,7 @@ func (s *SQLLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bu
 	return nil
 }
 
-func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle *registry.Bundle) error {
+func (s *sqlLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle *registry.Bundle) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -672,7 +677,7 @@ func (s *SQLLoader) AddBundlePackageChannels(manifest registry.PackageManifest, 
 	return tx.Commit()
 }
 
-func (s *SQLLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
+func (s *sqlLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 	addDep, err := tx.Prepare("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
