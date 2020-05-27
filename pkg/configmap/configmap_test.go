@@ -77,6 +77,19 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, 3, len(objects))
 			},
 		},
+		{
+			name:   "BundleWithNoDefaultChannel",
+			source: "testdata/bundle-with-no-default-channel.yaml",
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+				csvGot := bundleGot.GetCsvJson()
+				assert.NotNil(t, csvGot)
+				unst := getUnstructured(t, csvGot)
+				assert.True(t, unst.GetName() == "kiali-operator.v1.4.2")
+
+				objects := bundleGot.GetObject()
+				assert.Equal(t, 3, len(objects))
+			},
+		},
 	}
 
 	for _, tt := range tests {
