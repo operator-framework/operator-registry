@@ -35,9 +35,7 @@ COPY --from=builder /src/bin/opm /bin/opm
 COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
-    chgrp -R 0 /dev && \
-    chmod -R g+rwx /registry && \
-    chmod -R g+rwx /dev
+    chmod -R g+rwx /registry
 
 # This image doesn't need to run as root user
 USER 1001
