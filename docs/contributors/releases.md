@@ -4,9 +4,16 @@
 
 Releases of opm are built by travis, see the [travis.yml](../../.travis.yml) for details.
 
+opm follows semantic versioning, with the latest version in the OPM_VERSION file at the top-level of the operator-registry repository. 
+
+
 ## Triggering a release
 
+
 Releases are triggered via tags. Make a new release by tagging a commit with an appropriate semver tag.
+
+Be sure to set the version in the OPM_VERSION file to reflect the new semver tag of opm before cutting the release. This ensures users 
+can accurately check which version of opm they are using via the `opm version` command. 
 
 ## Checking the build
 
