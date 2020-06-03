@@ -4,6 +4,7 @@ package containertools
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/containerd/containerd/archive"
+	"github.com/containerd/containerd/archive/compression"
 	"github.com/sirupsen/logrus"
 )
 
@@ -150,52 +153,28 @@ func extractBundleManifests(layerTarball, outputDir string, tarReader *tar.Reade
 			return err
 		}
 
-		if header.Typeflag == tar.TypeReg {
-			if header.Name == layerTarball {
-				// Found the embedded tarball for the layer
-				layerReader := tar.NewReader(tarReader)
-
-				err = extractTarballToDir(outputDir, layerReader)
-				if err != nil {
-					return err
-				}
-
-				return nil
+		if header.Typeflag == tar.TypeReg && header.Name == layerTarball {
+			// Found the embedded tarball for the layer
+			decompressed, err := compression.DecompressStream(tarReader)
+			if err != nil {
+				return err
 			}
+			_, err = archive.Apply(context.TODO(), outputDir, decompressed, archive.WithFilter(adjustPerms))
+
+			return err
 		}
 	}
 }
 
-func extractTarballToDir(outputDir string, tarReader *tar.Reader) error {
-	for {
-		header, err := tarReader.Next()
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
+func adjustPerms(h *tar.Header) (bool, error) {
+	h.Uid = os.Getuid()
+	h.Gid = os.Getgid()
 
-		switch header.Typeflag {
-		case tar.TypeDir:
-			// Create the directory if it doesn't exist
-			directoryToWrite := filepath.Join(outputDir, header.Name)
-			if _, err := os.Stat(directoryToWrite); os.IsNotExist(err) {
-				os.Mkdir(directoryToWrite, 0777)
-			}
-		case tar.TypeReg:
-			manifestToWrite := filepath.Join(outputDir, header.Name)
+	// Make all unpacked files owner-writable
+	// This prevents errors when unpacking a layer that contains a read-only folder (if permissions are preserved,
+	// file contents cannot be unpacked into the unpacked read-only folder).
+	// This also means that "unpacked" layers cannot be "repacked" without potential information loss
+	h.Mode |= 0200
 
-			m, err := os.Create(manifestToWrite)
-			if err != nil {
-				return err
-			}
-
-			_, err = io.Copy(m, tarReader)
-			m.Close()
-			if err != nil {
-				return err
-			}
-		}
-	}
+	return true, nil
 }

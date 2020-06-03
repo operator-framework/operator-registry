@@ -197,6 +197,40 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
 		})
 
+		It("builds and validates bundle images", func() {
+			By("building bundles")
+			for tag, path := range map[string]string{
+				bundleTag1: bundlePath1,
+				bundleTag2: bundlePath2,
+				bundleTag3: bundlePath3,
+			} {
+				err := inTemporaryBuildContext(func() error {
+					return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("pushing bundles")
+			err := pushBundles(containerTool)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("validating bundles")
+			bundleTags := []string{bundleTag1, bundleTag2, bundleTag3}
+			logger := logrus.WithFields(logrus.Fields{"bundleTags": bundleTags})
+			validator := bundle.NewImageValidator(containerTool, logger)
+			for _, tag := range bundleTags {
+				unpackDir, err := ioutil.TempDir(".", tag)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(validator.PullBundleImage(bundleImage+":"+tag, unpackDir)).To(Succeed())
+				Expect(validator.ValidateBundleFormat(unpackDir)).To(Succeed())
+				Expect(validator.ValidateBundleContent(unpackDir)).To(Succeed())
+
+				Expect(os.RemoveAll(unpackDir)).To(Succeed())
+			}
+
+		})
+
 		It("builds and manipulates bundle and index images", func() {
 			By("building bundles")
 			for tag, path := range map[string]string{

@@ -19,16 +19,13 @@ const (
 	expectedFilePath = "testdata/expected_unpack"
 )
 
-func TestReadImageLayersDocker(t *testing.T) {
+func TestReadImageLayers(t *testing.T) {
 	image := "quay.io/operator-framework/example"
-	testWorkingDir := "testdata/docker"
 	testOutputDir := "testdata/output"
-
-	expectedFiles, err := helperGetExpectedFiles()
-
+	expectedFiles, err := getFiles(expectedFilePath)
 	logger := logrus.NewEntry(logrus.New())
-	mockCmd := containertoolsfakes.FakeCommandRunner{}
 
+	mockCmd := containertoolsfakes.FakeCommandRunner{}
 	mockCmd.PullReturns(nil)
 	mockCmd.SaveReturns(nil)
 
@@ -37,60 +34,44 @@ func TestReadImageLayersDocker(t *testing.T) {
 		Logger: logger,
 	}
 
-	err = imageReader.GetImageData(image, testOutputDir, containertools.WithWorkingDir(testWorkingDir))
-	require.NoError(t, err)
+	tests := []struct {
+		description    string
+		savedBundleDir string
+	}{
+		{
+			description:    "SavedWithDocker",
+			savedBundleDir: "testdata/docker",
+		},
+		{
+			description:    "SavedWithPodman",
+			savedBundleDir: "testdata/podman",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			err = imageReader.GetImageData(image, testOutputDir, containertools.WithWorkingDir(tt.savedBundleDir))
+			require.NoError(t, err)
 
-	for _, file := range expectedFiles {
-		expectedFilePath := filepath.Join(expectedFilePath, file)
-		expectedFile, err := ioutil.ReadFile(expectedFilePath)
-		require.NoError(t, err)
+			actualFiles, err := getFiles(testOutputDir)
+			require.NoError(t, err)
+			require.Len(t, actualFiles, len(expectedFiles), "the number of expected and actual files don't match: expected: %v, actual: %v", expectedFiles, actualFiles)
 
-		actualFilePath := filepath.Join(testOutputDir, file)
-		actualFile, err := ioutil.ReadFile(actualFilePath)
-		require.NoError(t, err)
+			for _, file := range expectedFiles {
+				expectedFilePath := filepath.Join(expectedFilePath, file)
+				expectedFile, err := ioutil.ReadFile(expectedFilePath)
+				require.NoError(t, err)
 
-		require.Equal(t, string(expectedFile), string(actualFile))
+				actualFilePath := filepath.Join(testOutputDir, file)
+				actualFile, err := ioutil.ReadFile(actualFilePath)
+				require.NoError(t, err)
+
+				require.Equal(t, string(expectedFile), string(actualFile))
+			}
+
+			require.NoError(t, os.RemoveAll(testOutputDir))
+		})
 	}
 
-	err = os.RemoveAll(testOutputDir)
-	require.NoError(t, err)
-}
-
-func TestReadImageLayersPodman(t *testing.T) {
-	image := "quay.io/operator-framework/example"
-	testWorkingDir := "testdata/podman"
-	testOutputDir := "testdata/output"
-
-	expectedFiles, err := helperGetExpectedFiles()
-
-	logger := logrus.NewEntry(logrus.New())
-	mockCmd := containertoolsfakes.FakeCommandRunner{}
-
-	mockCmd.PullReturns(nil)
-	mockCmd.SaveReturns(nil)
-
-	imageReader := containertools.ImageLayerReader{
-		Cmd:    &mockCmd,
-		Logger: logger,
-	}
-
-	err = imageReader.GetImageData(image, testOutputDir, containertools.WithWorkingDir(testWorkingDir))
-	require.NoError(t, err)
-
-	for _, file := range expectedFiles {
-		expectedFilePath := filepath.Join(expectedFilePath, file)
-		expectedFile, err := ioutil.ReadFile(expectedFilePath)
-		require.NoError(t, err)
-
-		actualFilePath := filepath.Join(testOutputDir, file)
-		actualFile, err := ioutil.ReadFile(actualFilePath)
-		require.NoError(t, err)
-
-		require.Equal(t, string(expectedFile), string(actualFile))
-	}
-
-	err = os.RemoveAll(testOutputDir)
-	require.NoError(t, err)
 }
 
 func TestReadImageLayers_PullError(t *testing.T) {
@@ -130,12 +111,12 @@ func TestReadImageLayers_SaveError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func helperGetExpectedFiles() ([]string, error) {
+func getFiles(dir string) ([]string, error) {
 	var files []string
 
-	err := filepath.Walk(expectedFilePath, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
 		if !f.IsDir() {
-			fileName := strings.Replace(path, expectedFilePath, "", -1)
+			fileName := strings.Replace(path, dir, "", -1)
 			files = append(files, fileName)
 		}
 		return nil
