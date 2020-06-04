@@ -86,10 +86,6 @@ func (s sanitizer) Sanitize(data interface{}) interface{} {
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
 
-	if t == nil {
-		return "<nil>"
-	}
-
 	switch t.Kind() {
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -101,9 +97,6 @@ func (s sanitizer) Sanitize(data interface{}) interface{} {
 		return data
 
 	case reflect.Interface, reflect.Ptr:
-		if v.IsNil() {
-			return "<nil>"
-		}
 		return s.Sanitize(v.Elem().Interface())
 
 	case reflect.Array, reflect.Slice:
@@ -136,7 +129,7 @@ func (s sanitizer) sanitizeMap(v reflect.Value) interface{} {
 		newKey := fmt.Sprintf("%v", key.Interface())
 
 		if s.shouldRedact(newKey) {
-			val = "[FILTERED]"
+			val = "[REDACTED]"
 		}
 
 		ret[newKey] = val
@@ -165,7 +158,7 @@ func (s sanitizer) sanitizeStruct(v reflect.Value, t reflect.Type) interface{} {
 		}
 
 		if s.shouldRedact(name) {
-			ret[name] = "[FILTERED]"
+			ret[name] = "[REDACTED]"
 		} else {
 			sanitized := s.Sanitize(val.Interface())
 			if str, ok := sanitized.(string); ok {
@@ -184,7 +177,7 @@ func (s sanitizer) sanitizeStruct(v reflect.Value, t reflect.Type) interface{} {
 
 func (s sanitizer) shouldRedact(key string) bool {
 	for _, filter := range s.Filters {
-		if strings.Contains(strings.ToLower(key), strings.ToLower(filter)) {
+		if strings.Contains(strings.ToLower(filter), strings.ToLower(key)) {
 			return true
 		}
 	}

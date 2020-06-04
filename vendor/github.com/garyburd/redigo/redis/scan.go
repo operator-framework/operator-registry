@@ -32,25 +32,11 @@ func ensureLen(d reflect.Value, n int) {
 }
 
 func cannotConvert(d reflect.Value, s interface{}) error {
-	var sname string
-	switch s.(type) {
-	case string:
-		sname = "Redis simple string"
-	case Error:
-		sname = "Redis error"
-	case int64:
-		sname = "Redis integer"
-	case []byte:
-		sname = "Redis bulk string"
-	case []interface{}:
-		sname = "Redis array"
-	default:
-		sname = reflect.TypeOf(s).String()
-	}
-	return fmt.Errorf("cannot convert from %s to %s", sname, d.Type())
+	return fmt.Errorf("redigo: Scan cannot convert from %s to %s",
+		reflect.TypeOf(s), d.Type())
 }
 
-func convertAssignBulkString(d reflect.Value, s []byte) (err error) {
+func convertAssignBytes(d reflect.Value, s []byte) (err error) {
 	switch d.Type().Kind() {
 	case reflect.Float32, reflect.Float64:
 		var x float64
@@ -110,28 +96,9 @@ func convertAssignInt(d reflect.Value, s int64) (err error) {
 }
 
 func convertAssignValue(d reflect.Value, s interface{}) (err error) {
-	if d.Kind() != reflect.Ptr {
-		if d.CanAddr() {
-			d2 := d.Addr()
-			if d2.CanInterface() {
-				if scanner, ok := d2.Interface().(Scanner); ok {
-					return scanner.RedisScan(s)
-				}
-			}
-		}
-	} else if d.CanInterface() {
-		// Already a reflect.Ptr
-		if d.IsNil() {
-			d.Set(reflect.New(d.Type().Elem()))
-		}
-		if scanner, ok := d.Interface().(Scanner); ok {
-			return scanner.RedisScan(s)
-		}
-	}
-
 	switch s := s.(type) {
 	case []byte:
-		err = convertAssignBulkString(d, s)
+		err = convertAssignBytes(d, s)
 	case int64:
 		err = convertAssignInt(d, s)
 	default:
@@ -140,7 +107,7 @@ func convertAssignValue(d reflect.Value, s interface{}) (err error) {
 	return err
 }
 
-func convertAssignArray(d reflect.Value, s []interface{}) error {
+func convertAssignValues(d reflect.Value, s []interface{}) error {
 	if d.Type().Kind() != reflect.Slice {
 		return cannotConvert(d, s)
 	}
@@ -154,15 +121,11 @@ func convertAssignArray(d reflect.Value, s []interface{}) error {
 }
 
 func convertAssign(d interface{}, s interface{}) (err error) {
-	if scanner, ok := d.(Scanner); ok {
-		return scanner.RedisScan(s)
-	}
-
 	// Handle the most common destination types using type switches and
 	// fall back to reflection for all other types.
 	switch s := s.(type) {
 	case nil:
-		// ignore
+		// ingore
 	case []byte:
 		switch d := d.(type) {
 		case *string:
@@ -181,7 +144,7 @@ func convertAssign(d interface{}, s interface{}) (err error) {
 			if d := reflect.ValueOf(d); d.Type().Kind() != reflect.Ptr {
 				err = cannotConvert(d, s)
 			} else {
-				err = convertAssignBulkString(d.Elem(), s)
+				err = convertAssignBytes(d.Elem(), s)
 			}
 		}
 	case int64:
@@ -206,17 +169,6 @@ func convertAssign(d interface{}, s interface{}) (err error) {
 				err = convertAssignInt(d.Elem(), s)
 			}
 		}
-	case string:
-		switch d := d.(type) {
-		case *string:
-			*d = s
-		case *interface{}:
-			*d = s
-		case nil:
-			// skip value
-		default:
-			err = cannotConvert(reflect.ValueOf(d), s)
-		}
 	case []interface{}:
 		switch d := d.(type) {
 		case *[]interface{}:
@@ -229,7 +181,7 @@ func convertAssign(d interface{}, s interface{}) (err error) {
 			if d := reflect.ValueOf(d); d.Type().Kind() != reflect.Ptr {
 				err = cannotConvert(d, s)
 			} else {
-				err = convertAssignArray(d.Elem(), s)
+				err = convertAssignValues(d.Elem(), s)
 			}
 		}
 	case Error:
@@ -241,8 +193,6 @@ func convertAssign(d interface{}, s interface{}) (err error) {
 }
 
 // Scan copies from src to the values pointed at by dest.
-//
-// Scan uses RedisScan if available otherwise:
 //
 // The values pointed at by dest must be an integer, float, boolean, string,
 // []byte, interface{} or slices of these types. Scan uses the standard strconv
@@ -256,13 +206,12 @@ func convertAssign(d interface{}, s interface{}) (err error) {
 // following the copied values.
 func Scan(src []interface{}, dest ...interface{}) ([]interface{}, error) {
 	if len(src) < len(dest) {
-		return nil, errors.New("redigo.Scan: array short")
+		return nil, errors.New("redigo: Scan array short")
 	}
 	var err error
 	for i, d := range dest {
 		err = convertAssign(d, src[i])
 		if err != nil {
-			err = fmt.Errorf("redigo.Scan: cannot assign to dest %d: %v", i, err)
 			break
 		}
 	}
@@ -270,9 +219,9 @@ func Scan(src []interface{}, dest ...interface{}) ([]interface{}, error) {
 }
 
 type fieldSpec struct {
-	name      string
-	index     []int
-	omitEmpty bool
+	name  string
+	index []int
+	//omitEmpty bool
 }
 
 type structSpec struct {
@@ -288,7 +237,7 @@ func compileStructSpec(t reflect.Type, depth map[string]int, index []int, ss *st
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		switch {
-		case f.PkgPath != "" && !f.Anonymous:
+		case f.PkgPath != "":
 			// Ignore unexported fields.
 		case f.Anonymous:
 			// TODO: Handle pointers. Requires change to decoder and
@@ -309,10 +258,10 @@ func compileStructSpec(t reflect.Type, depth map[string]int, index []int, ss *st
 				}
 				for _, s := range p[1:] {
 					switch s {
-					case "omitempty":
-						fs.omitEmpty = true
+					//case "omitempty":
+					//  fs.omitempty = true
 					default:
-						panic(fmt.Errorf("redigo: unknown field tag %s for type %s", s, t.Name()))
+						panic(errors.New("redigo: unknown field flag " + s + " for type " + t.Name()))
 					}
 				}
 			}
@@ -372,7 +321,7 @@ func structSpecForType(t reflect.Type) *structSpec {
 	return ss
 }
 
-var errScanStructValue = errors.New("redigo.ScanStruct: value must be non-nil pointer to a struct")
+var errScanStructValue = errors.New("redigo: ScanStruct value must be non-nil pointer to a struct")
 
 // ScanStruct scans alternating names and values from src to a struct. The
 // HGETALL and CONFIG GET commands return replies in this format.
@@ -384,7 +333,6 @@ var errScanStructValue = errors.New("redigo.ScanStruct: value must be non-nil po
 //
 // Fields with the tag redis:"-" are ignored.
 //
-// Each field uses RedisScan if available otherwise:
 // Integer, float, boolean, string and []byte fields are supported. Scan uses the
 // standard strconv package to convert bulk string values to numeric and
 // boolean types.
@@ -402,7 +350,7 @@ func ScanStruct(src []interface{}, dest interface{}) error {
 	ss := structSpecForType(d.Type())
 
 	if len(src)%2 != 0 {
-		return errors.New("redigo.ScanStruct: number of values not a multiple of 2")
+		return errors.New("redigo: ScanStruct expects even number of values in values")
 	}
 
 	for i := 0; i < len(src); i += 2 {
@@ -412,21 +360,21 @@ func ScanStruct(src []interface{}, dest interface{}) error {
 		}
 		name, ok := src[i].([]byte)
 		if !ok {
-			return fmt.Errorf("redigo.ScanStruct: key %d not a bulk string value", i)
+			return errors.New("redigo: ScanStruct key not a bulk string value")
 		}
 		fs := ss.fieldSpec(name)
 		if fs == nil {
 			continue
 		}
 		if err := convertAssignValue(d.FieldByIndex(fs.index), s); err != nil {
-			return fmt.Errorf("redigo.ScanStruct: cannot assign field %s: %v", fs.name, err)
+			return err
 		}
 	}
 	return nil
 }
 
 var (
-	errScanSliceValue = errors.New("redigo.ScanSlice: dest must be non-nil pointer to a struct")
+	errScanSliceValue = errors.New("redigo: ScanSlice dest must be non-nil pointer to a struct")
 )
 
 // ScanSlice scans src to the slice pointed to by dest. The elements the dest
@@ -459,7 +407,7 @@ func ScanSlice(src []interface{}, dest interface{}, fieldNames ...string) error 
 				continue
 			}
 			if err := convertAssignValue(d.Index(i), s); err != nil {
-				return fmt.Errorf("redigo.ScanSlice: cannot assign element %d: %v", i, err)
+				return err
 			}
 		}
 		return nil
@@ -472,18 +420,18 @@ func ScanSlice(src []interface{}, dest interface{}, fieldNames ...string) error 
 		for i, name := range fieldNames {
 			fss[i] = ss.m[name]
 			if fss[i] == nil {
-				return fmt.Errorf("redigo.ScanSlice: ScanSlice bad field name %s", name)
+				return errors.New("redigo: ScanSlice bad field name " + name)
 			}
 		}
 	}
 
 	if len(fss) == 0 {
-		return errors.New("redigo.ScanSlice: no struct fields")
+		return errors.New("redigo: ScanSlice no struct fields")
 	}
 
 	n := len(src) / len(fss)
 	if n*len(fss) != len(src) {
-		return errors.New("redigo.ScanSlice: length not a multiple of struct field count")
+		return errors.New("redigo: ScanSlice length not a multiple of struct field count")
 	}
 
 	ensureLen(d, n)
@@ -501,7 +449,7 @@ func ScanSlice(src []interface{}, dest interface{}, fieldNames ...string) error 
 				continue
 			}
 			if err := convertAssignValue(d.FieldByIndex(fs.index), s); err != nil {
-				return fmt.Errorf("redigo.ScanSlice: cannot assign element %d to field %s: %v", i*len(fss)+j, fs.name, err)
+				return err
 			}
 		}
 	}
@@ -559,26 +507,6 @@ func flattenStruct(args Args, v reflect.Value) Args {
 	ss := structSpecForType(v.Type())
 	for _, fs := range ss.l {
 		fv := v.FieldByIndex(fs.index)
-		if fs.omitEmpty {
-			var empty = false
-			switch fv.Kind() {
-			case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
-				empty = fv.Len() == 0
-			case reflect.Bool:
-				empty = !fv.Bool()
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				empty = fv.Int() == 0
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-				empty = fv.Uint() == 0
-			case reflect.Float32, reflect.Float64:
-				empty = fv.Float() == 0
-			case reflect.Interface, reflect.Ptr:
-				empty = fv.IsNil()
-			}
-			if empty {
-				continue
-			}
-		}
 		args = append(args, fs.name, fv.Interface())
 	}
 	return args
