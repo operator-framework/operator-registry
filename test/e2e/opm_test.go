@@ -69,7 +69,7 @@ func inTemporaryBuildContext(f func() error) (rerr error) {
 }
 
 func buildIndexWith(containerTool, indexImage, bundleImage string, bundleTags []string) error {
-	bundles := make([]string, len(bundleTags))
+	bundles := make([]string, 0)
 	for _, tag := range bundleTags {
 		bundles = append(bundles, bundleImage+":"+tag)
 	}
@@ -259,7 +259,7 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("build bundles and index from inference", func() {
+		It("build bundles and index via inference", func() {
 
 			bundlePaths := []string{"./testdata/aqua/0.0.1", "./testdata/aqua/0.0.2", "./testdata/aqua/1.0.0",
 				"./testdata/aqua/1.0.1"}
@@ -275,10 +275,11 @@ var _ = Describe("opm", func() {
 
 			By("building bundles")
 			for i := range bundlePaths {
-				td, err := ioutil.TempDir("", "opm-")
+				td, err := ioutil.TempDir(".", "opm-")
 				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(td)
 
-				err = bundle.BuildFunc(bundlePaths[i], td, bundleImage+":"+bundleTags[i], containerTool, "", "", "", false)
+				err = bundle.BuildFunc(bundlePaths[i], td, bundleImage+":"+bundleTags[i], containerTool, "", "", "", true)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -290,6 +291,11 @@ var _ = Describe("opm", func() {
 
 			By("building an index")
 			err := buildIndexWith(containerTool, indexImage, bundleImage, bundleTags)
+			Expect(err).NotTo(HaveOccurred())
+
+			workingDir, err := os.Getwd()
+			Expect(err).NotTo(HaveOccurred())
+			err = os.Remove(workingDir + "/" + bundle.DockerFile)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	}
