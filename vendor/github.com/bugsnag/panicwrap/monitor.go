@@ -1,9 +1,9 @@
-// +build !windows,!solaris
+// +build !windows
 
 package panicwrap
 
 import (
-	"github.com/kardianos/osext"
+	"github.com/bugsnag/osext"
 	"os"
 	"os/exec"
 )
