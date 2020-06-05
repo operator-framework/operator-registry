@@ -4,6 +4,7 @@ approvers:
   - njhale
   - dinhxuanvu
   - kevinrizza
+  - benluddy
 # review == this code is good /lgtm
 reviewers:
   - ecordell
