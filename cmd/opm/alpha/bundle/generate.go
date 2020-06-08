@@ -1,9 +1,10 @@
 package bundle
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
 // newBundleGenerateCmd returns a command that will generate operator bundle
@@ -24,34 +25,36 @@ func newBundleGenerateCmd() *cobra.Command {
 		RunE: generateFunc,
 	}
 
-	bundleGenerateCmd.Flags().StringVarP(&dirBuildArgs, "directory", "d", "",
+	bundleGenerateCmd.Flags().StringVarP(&buildDir, "directory", "d", "",
 		"The directory where bundle manifests for a specific version are located.")
 	if err := bundleGenerateCmd.MarkFlagRequired("directory"); err != nil {
 		log.Fatalf("Failed to mark `directory` flag for `generate` subcommand as required")
 	}
 
-	bundleGenerateCmd.Flags().StringVarP(&packageNameArgs, "package", "p", "",
+	bundleGenerateCmd.Flags().StringVarP(&pkg, "package", "p", "",
 		"The name of the package that bundle image belongs to "+
 			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleGenerateCmd.Flags().StringVarP(&channelsArgs, "channels", "c", "",
+	bundleGenerateCmd.Flags().StringVarP(&channels, "channels", "c", "",
 		"The list of channels that bundle image belongs to"+
 			"(Required if `directory` is not pointing to a bundle in the nested bundle format)")
 
-	bundleGenerateCmd.Flags().StringVarP(&channelDefaultArgs, "default", "e", "",
+	bundleGenerateCmd.Flags().StringVarP(&defaultChannel, "default", "e", "",
 		"The default channel for the bundle image")
 
-	bundleGenerateCmd.Flags().StringVarP(&outputDirArgs, "output-dir", "u", "",
+	bundleGenerateCmd.Flags().StringVarP(&outputDir, "output-dir", "u", "",
 		"Optional output directory for operator manifests")
 
 	return bundleGenerateCmd
 }
 
 func generateFunc(cmd *cobra.Command, args []string) error {
-	err := bundle.GenerateFunc(dirBuildArgs, outputDirArgs, packageNameArgs, channelsArgs, channelDefaultArgs, true)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return bundle.GenerateFunc(
+		buildDir,
+		outputDir,
+		pkg,
+		channels,
+		defaultChannel,
+		true,
+	)
 }

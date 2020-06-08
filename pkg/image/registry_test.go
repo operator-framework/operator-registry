@@ -18,7 +18,6 @@ import (
 	libimage "github.com/operator-framework/operator-registry/pkg/lib/image"
 )
 
-
 // cleanupFunc is a function that cleans up after some test infra.
 type cleanupFunc func()
 

@@ -5,51 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools/containertoolsfakes"
-
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestPullBundle(t *testing.T) {
-	tag := "quay.io/example/bundle:0.0.1"
-	dir := "/tmp/dir"
-
-	logger := logrus.NewEntry(logrus.New())
-
-	mockImgReader := containertoolsfakes.FakeImageReader{}
-	mockImgReader.GetImageDataReturns(nil)
-
-	validator := imageValidator{
-		imageReader: &mockImgReader,
-		logger:      logger,
-	}
-
-	err := validator.PullBundleImage(tag, dir)
-	require.NoError(t, err)
-}
-
-func TestPullBundle_Error(t *testing.T) {
-	tag := "quay.io/example/bundle:0.0.1"
-	dir := "/tmp/dir"
-
-	expectedErr := fmt.Errorf("Unable to unpack image")
-
-	logger := logrus.NewEntry(logrus.New())
-
-	mockImgReader := containertoolsfakes.FakeImageReader{}
-	mockImgReader.GetImageDataReturns(expectedErr)
-
-	validator := imageValidator{
-		imageReader: &mockImgReader,
-		logger:      logger,
-	}
-
-	err := validator.PullBundleImage(tag, dir)
-	require.Error(t, err)
-	assert.Equal(t, expectedErr, err)
-}
 
 func TestValidateBundleFormat(t *testing.T) {
 	dir := "./testdata/validate/valid_bundle/"
