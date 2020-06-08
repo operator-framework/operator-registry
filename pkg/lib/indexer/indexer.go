@@ -4,24 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+
 	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
-
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 const (
@@ -38,7 +38,6 @@ type ImageIndexer struct {
 	DockerfileGenerator containertools.DockerfileGenerator
 	CommandRunner       containertools.CommandRunner
 	LabelReader         containertools.LabelReader
-	ImageReader         containertools.ImageReader
 	RegistryAdder       registry.RegistryAdder
 	RegistryDeleter     registry.RegistryDeleter
 	RegistryPruner      registry.RegistryPruner
