@@ -1,13 +1,19 @@
 package bundle
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
 func newBundleValidateCmd() *cobra.Command {
@@ -21,22 +27,40 @@ accurate.`,
 		RunE:    validateFunc,
 	}
 
-	bundleValidateCmd.Flags().StringVarP(&tagBuildArgs, "tag", "t", "",
+	bundleValidateCmd.Flags().StringVarP(&tag, "tag", "t", "",
 		"The path of a registry to pull from, image name and its tag that present the bundle image (e.g. quay.io/test/test-operator:latest)")
 	if err := bundleValidateCmd.MarkFlagRequired("tag"); err != nil {
 		log.Fatalf("Failed to mark `tag` flag for `validate` subcommand as required")
 	}
 
-	bundleValidateCmd.Flags().StringVarP(&imageBuilderArgs, "image-builder", "b", "docker", "Tool to build container images. One of: [docker, podman]")
+	bundleValidateCmd.Flags().StringVarP(&containerTool, "image-builder", "b", "docker", "Tool used to pull and unpack bundle images. One of: [none, docker, podman]")
 
 	return bundleValidateCmd
 }
 
 func validateFunc(cmd *cobra.Command, args []string) error {
-	logger := log.WithFields(log.Fields{"container-tool": imageBuilderArgs})
+	logger := log.WithFields(log.Fields{"container-tool": containerTool})
 	log.SetLevel(log.DebugLevel)
 
-	imageValidator := bundle.NewImageValidator(imageBuilderArgs, logger)
+	var (
+		registry image.Registry
+		err      error
+	)
+
+	tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
+	switch tool {
+	case containertools.PodmanTool, containertools.DockerTool:
+		registry, err = execregistry.NewRegistry(tool, logger)
+	case containertools.NoneTool:
+		registry, err = containerdregistry.NewRegistry(containerdregistry.WithLog(logger))
+	default:
+		err = fmt.Errorf("unrecognized container-tool option: %s", containerTool)
+	}
+
+	if err != nil {
+		return err
+	}
+	imageValidator := bundle.NewImageValidator(registry, logger)
 
 	dir, err := ioutil.TempDir("", "bundle-")
 	logger.Infof("Create a temp directory at %s", dir)
@@ -50,7 +74,7 @@ func validateFunc(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	err = imageValidator.PullBundleImage(tagBuildArgs, dir)
+	err = imageValidator.PullBundleImage(tag, dir)
 	if err != nil {
 		return err
 	}
