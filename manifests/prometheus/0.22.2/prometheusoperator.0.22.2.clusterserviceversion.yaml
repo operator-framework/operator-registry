@@ -186,6 +186,15 @@ spec:
                 beta.kubernetes.io/os: linux
   maturity: beta
   version: 0.22.2
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: true
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
   customresourcedefinitions:
     owned:
     - name: prometheuses.monitoring.coreos.com

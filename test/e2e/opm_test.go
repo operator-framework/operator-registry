@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,6 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -133,19 +137,6 @@ func pushWith(containerTool, image string) error {
 	return dockerpush.Run()
 }
 
-func pushBundles(containerTool string) error {
-	err := pushWith(containerTool, bundleImage+":"+bundleTag1)
-	if err != nil {
-		return err
-	}
-	err = pushWith(containerTool, bundleImage+":"+bundleTag2)
-	if err != nil {
-		return err
-	}
-	err = pushWith(containerTool, bundleImage+":"+bundleTag3)
-	return err
-}
-
 func exportWith(containerTool string) error {
 	logger := logrus.WithFields(logrus.Fields{"package": packageName})
 	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
@@ -197,22 +188,65 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
 		})
 
+		It("builds and validates a bundle image", func() {
+			By("building bundle")
+			img := bundleImage + ":" + bundleTag3
+			err := inTemporaryBuildContext(func() error {
+				return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false)
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pushing bundle")
+			Expect(pushWith(containerTool, img)).To(Succeed())
+
+			By("pulling bundle")
+			logger := logrus.WithFields(logrus.Fields{"image": img})
+			tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
+			var registry image.Registry
+			switch tool {
+			case containertools.PodmanTool, containertools.DockerTool:
+				registry, err = execregistry.NewRegistry(tool, logger)
+			case containertools.NoneTool:
+				registry, err = containerdregistry.NewRegistry(containerdregistry.WithLog(logger))
+			default:
+				err = fmt.Errorf("unrecognized container-tool option: %s", containerTool)
+			}
+			Expect(err).NotTo(HaveOccurred())
+
+			unpackDir, err := ioutil.TempDir(".", bundleTag3)
+			Expect(err).NotTo(HaveOccurred())
+			validator := bundle.NewImageValidator(registry, logger)
+			Expect(validator.PullBundleImage(img, unpackDir)).To(Succeed())
+
+			By("validating bundle format")
+			Expect(validator.ValidateBundleFormat(unpackDir)).To(Succeed())
+
+			By("validating bundle content")
+			manifestsDir := filepath.Join(unpackDir, bundle.ManifestsDir)
+			Expect(validator.ValidateBundleContent(manifestsDir)).To(Succeed())
+			Expect(os.RemoveAll(unpackDir)).To(Succeed())
+		})
+
 		It("builds and manipulates bundle and index images", func() {
 			By("building bundles")
-			for tag, path := range map[string]string{
+			tagPaths := map[string]string{
 				bundleTag1: bundlePath1,
 				bundleTag2: bundlePath2,
 				bundleTag3: bundlePath3,
-			} {
-				err := inTemporaryBuildContext(func() error {
+			}
+			var err error
+			for tag, path := range tagPaths {
+				err = inTemporaryBuildContext(func() error {
 					return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			By("pushing bundles")
-			err := pushBundles(containerTool)
-			Expect(err).NotTo(HaveOccurred())
+			for tag, _ := range tagPaths {
+				err = pushWith(containerTool, bundleImage+":"+tag)
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			By("building an index")
 			err = buildIndexWith(containerTool, indexImage1, bundleImage, []string{bundleTag1, bundleTag2})
