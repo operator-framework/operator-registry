@@ -47,7 +47,7 @@ var (
 )
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
-	td, err := ioutil.TempDir("", "opm-")
+	td, err := ioutil.TempDir(".", "opm-")
 	if err != nil {
 		return err
 	}
