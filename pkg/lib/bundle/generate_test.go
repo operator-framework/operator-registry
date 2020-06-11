@@ -117,7 +117,7 @@ func TestValidateAnnotations(t *testing.T) {
 					"test1": "stable",
 					"test2": "stable,beta",
 				}),
-			fmt.Errorf("Unmatched number of fields. Expected (2) vs existing (3)"),
+			nil,
 		},
 		{
 			buildTestAnnotations("annotations",
