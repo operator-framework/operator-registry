@@ -3,6 +3,7 @@ module github.com/operator-framework/operator-registry
 go 1.13
 
 require (
+	cuelang.org/go v0.2.0
 	github.com/Microsoft/hcsshim v0.8.9 // indirect
 	github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6
 	github.com/blang/semver v3.5.0+incompatible
@@ -30,7 +31,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/cobra v0.0.6
+	github.com/spf13/cobra v0.0.7
 	github.com/stretchr/testify v1.5.1
 	go.etcd.io/bbolt v1.3.4
 	golang.org/x/mod v0.2.0
