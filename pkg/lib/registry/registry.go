@@ -5,10 +5,11 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"io/ioutil"
 	"os"
+
+	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -95,7 +96,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		simpleRefs = append(simpleRefs, image.SimpleReference(ref))
 	}
 
-	if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, simpleRefs, request.Mode); err != nil {
+	if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, simpleRefs, request.Mode, request.Permissive); err != nil {
 		err = fmt.Errorf("error loading bundle from image: %s", err)
 		if !request.Permissive {
 			r.Logger.WithError(err).Error("permissive mode disabled")
@@ -108,7 +109,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	return utilerrors.NewAggregate(errs) // nil if no errors
 }
 
-func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode) error {
+func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode, permissive bool) error {
 	var errs []error
 
 	unpackedImageMap := make(map[image.Reference]string, 0)
@@ -122,7 +123,9 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 
 		if err = reg.Pull(ctx, ref); err != nil {
 			errs = append(errs, err)
-			continue
+			if !permissive {
+				continue
+			}
 		}
 
 		if err = reg.Unpack(ctx, ref, workingDir); err != nil {
