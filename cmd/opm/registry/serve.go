@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -15,6 +16,7 @@ import (
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/pkg/lib/tmp"
 	"github.com/operator-framework/operator-registry/pkg/server"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -72,7 +74,14 @@ func serveFunc(cmd *cobra.Command, args []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"database": dbName, "port": port})
 
-	db, err := sql.Open("sqlite3", dbName)
+	// make a writable copy of the db for migrations
+	tmpdb, err := tmp.CopyTmpDB(dbName)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpdb)
+
+	db, err := sql.Open("sqlite3", tmpdb)
 	if err != nil {
 		return err
 	}
