@@ -43,6 +43,11 @@ message Dependency{
   string value = 2;
 }
 
+message Property{
+  string type = 1;
+  string value = 2;
+}
+
 message Bundle{
 	string csvName = 1;
 	string packageName = 2;
@@ -54,7 +59,8 @@ message Bundle{
 	repeated GroupVersionKind requiredApis = 8;
 	string version = 9;
 	string skipRange = 10;
-      repeated Dependency dependencies = 11;
+    repeated Dependency dependencies = 11;
+    repeated Property properties = 12;
 }
 
 message ChannelEntry{

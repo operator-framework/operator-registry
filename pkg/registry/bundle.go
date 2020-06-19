@@ -44,6 +44,7 @@ type Bundle struct {
 	v1beta1crds  []*apiextensionsv1beta1.CustomResourceDefinition
 	v1crds       []*apiextensionsv1.CustomResourceDefinition
 	Dependencies []*Dependency
+	Properties   []*Property
 	cacheStale   bool
 }
 
