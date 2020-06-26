@@ -6,11 +6,13 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -75,6 +77,10 @@ func client(t *testing.T) (api.RegistryClient, *grpc.ClientConn) {
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
 	}
+
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	conn.WaitForStateChange(ctx, connectivity.TransientFailure)
+
 	return api.NewRegistryClient(conn), conn
 }
 
