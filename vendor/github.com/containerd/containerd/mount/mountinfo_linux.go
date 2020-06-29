@@ -45,6 +45,10 @@ func parseInfoFile(r io.Reader) ([]Info, error) {
 	out := []Info{}
 	var err error
 	for s.Scan() {
+		if err = s.Err(); err != nil {
+			return nil, err
+		}
+
 		/*
 		   See http://man7.org/linux/man-pages/man5/proc.5.html
 
@@ -124,10 +128,6 @@ func parseInfoFile(r io.Reader) ([]Info, error) {
 
 		out = append(out, p)
 	}
-	if err = s.Err(); err != nil {
-		return nil, err
-	}
-
 	return out, nil
 }
 

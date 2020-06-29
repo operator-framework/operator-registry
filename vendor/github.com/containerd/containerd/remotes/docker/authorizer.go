@@ -206,6 +206,7 @@ func (a *dockerAuthorizer) generateTokenOptions(ctx context.Context, host string
 	} else {
 		log.G(ctx).WithField("host", host).Debug("no scope specified for token auth challenge")
 	}
+	to.scopes = append(to.scopes, scope)
 
 	if a.credentials != nil {
 		to.username, to.secret, err = a.credentials(host)
@@ -279,6 +280,9 @@ func (ah *authHandler) doBearerAuth(ctx context.Context) (string, error) {
 	to := ah.common
 
 	to.scopes = getTokenScopes(ctx, to.scopes)
+	if len(to.scopes) == 0 {
+		return "", errors.Errorf("no scope specified for token auth challenge")
+	}
 
 	// Docs: https://docs.docker.com/registry/spec/auth/scope
 	scoped := strings.Join(to.scopes, " ")
@@ -335,9 +339,7 @@ type postTokenResponse struct {
 
 func (ah *authHandler) fetchTokenWithOAuth(ctx context.Context, to tokenOptions) (string, error) {
 	form := url.Values{}
-	if len(to.scopes) > 0 {
-		form.Set("scope", strings.Join(to.scopes, " "))
-	}
+	form.Set("scope", strings.Join(to.scopes, " "))
 	form.Set("service", to.service)
 	// TODO: Allow setting client_id
 	form.Set("client_id", "containerd-client")
@@ -371,7 +373,7 @@ func (ah *authHandler) fetchTokenWithOAuth(ctx context.Context, to tokenOptions)
 	// Registries without support for POST may return 404 for POST /v2/token.
 	// As of September 2017, GCR is known to return 404.
 	// As of February 2018, JFrog Artifactory is known to return 401.
-	if (resp.StatusCode == 405 && to.username != "") || resp.StatusCode == 404 || resp.StatusCode == 401 {
+	if (resp.StatusCode == 405 && to.username != "") || resp.StatusCode == 404 || resp.StatusCode == 401 || resp.StatusCode == 403 {
 		return ah.fetchToken(ctx, to)
 	} else if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(io.LimitReader(resp.Body, 64000)) // 64KB
