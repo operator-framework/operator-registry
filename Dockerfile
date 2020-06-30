@@ -1,4 +1,4 @@
-FROM openshift/origin-release:golang-1.13 as builder
+FROM openshift/origin-release:golang-1.14 as builder
 
 RUN yum update -y && \
     yum install -y make git sqlite glibc-static openssl-static zlib-static && \
@@ -22,7 +22,7 @@ RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
     cp -R vendor/ /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
     rm -rf /go/src/github.com/grpc-ecosystem/grpc_health_probe/vendor/github.com/grpc-ecosystem/grpc-health-probe && \
     cd /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
-    CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
+    CGO_ENABLED=0 go install -mod=mod -a -tags netgo -ldflags "-w"
 
 FROM openshift/origin-base
 
