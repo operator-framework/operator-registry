@@ -35,14 +35,14 @@ type IndexDeleter interface {
 }
 
 // NewIndexDeleter is a constructor that returns an IndexDeleter
-func NewIndexDeleter(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexDeleter {
+func NewIndexDeleter(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexDeleter {
 	return ImageIndexer{
 		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
-		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
-		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
+		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryDeleter:     registry.NewRegistryDeleter(logger),
-		BuildTool:           containerTool,
-		PullTool:            containerTool,
+		BuildTool:           buildTool,
+		PullTool:            pullTool,
 		Logger:              logger,
 	}
 }
