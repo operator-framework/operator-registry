@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -37,7 +36,9 @@ func newIndexDeleteCmd() *cobra.Command {
 		logrus.Panic("Failed to set required `operators` flag for `index delete`")
 	}
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
-	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
+	indexCmd.Flags().StringP("container-tool", "c", "", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
+	indexCmd.Flags().StringP("build-tool", "u", "", "tool to build container images. One of: [docker, podman]. Defaults to podman. Overrides part of container-tool.")
+	indexCmd.Flags().StringP("pull-tool", "p", "", "tool to pull container images. One of: [none, docker, podman]. Defaults to none. Overrides part of container-tool.")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
 
@@ -75,13 +76,9 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	containerTool, err := cmd.Flags().GetString("container-tool")
+	pullTool, buildTool, err := getContainerTools(cmd)
 	if err != nil {
 		return err
-	}
-
-	if containerTool == "none" {
-		return fmt.Errorf("none is not a valid container-tool for index add")
 	}
 
 	tag, err := cmd.Flags().GetString("tag")
@@ -98,7 +95,10 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 
 	logger.Info("building the index")
 
-	indexDeleter := indexer.NewIndexDeleter(containertools.NewContainerTool(containerTool, containertools.PodmanTool), logger)
+	indexDeleter := indexer.NewIndexDeleter(
+		containertools.NewContainerTool(buildTool, containertools.PodmanTool),
+		containertools.NewContainerTool(pullTool, containertools.NoneTool),
+		logger)
 
 	request := indexer.DeleteFromIndexRequest{
 		Generate:          generate,
