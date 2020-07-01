@@ -17,12 +17,7 @@ COPY Makefile go.mod go.sum ./
 RUN make build
 
 # copy and build vendored grpc_health_probe
-RUN mkdir -p /go/src/github.com/grpc-ecosystem && \
-    cp -R vendor/github.com/grpc-ecosystem/grpc-health-probe /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
-    cp -R vendor/ /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
-    rm -rf /go/src/github.com/grpc-ecosystem/grpc_health_probe/vendor/github.com/grpc-ecosystem/grpc-health-probe && \
-    cd /go/src/github.com/grpc-ecosystem/grpc_health_probe && \
-    CGO_ENABLED=0 go install -mod=mod -a -tags netgo -ldflags "-w"
+RUN CGO_ENABLED=0 go build -mod=vendor -tags netgo -ldflags "-w" ./vendor/github.com/grpc-ecosystem/grpc-health-probe/...
 
 FROM openshift/origin-base
 
@@ -34,7 +29,7 @@ COPY --from=builder /src/bin/registry-server /bin/registry-server
 COPY --from=builder /src/bin/configmap-server /bin/configmap-server
 COPY --from=builder /src/bin/appregistry-server /bin/appregistry-server
 COPY --from=builder /src/bin/opm /bin/opm
-COPY --from=builder /go/bin/grpc-health-probe /bin/grpc_health_probe
+COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
 
 RUN chgrp -R 0 /registry && \
     chmod -R g+rwx /registry
