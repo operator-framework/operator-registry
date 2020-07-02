@@ -63,7 +63,7 @@ You can bundle the statically compiled `grpc_health_probe` in your container
 image. Choose a [binary release][rel] and download it in your Dockerfile:
 
 ```
-RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0 && \
+RUN GRPC_HEALTH_PROBE_VERSION=v0.3.1 && \
     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
     chmod +x /bin/grpc_health_probe
 ```
@@ -105,6 +105,16 @@ with command-line options:
 | **`-tls-client-key`** | private key for for authenticating to the server |
 | **`-tls-no-verify`** | use TLS, but do not verify the certificate presented by the server (INSECURE) (default: false) |
 | **`-tls-server-name`** | override the hostname used to verify the server certificate |
+
+## Other Available Flags
+
+| Option | Description |
+|:------------|-------------|
+| **`-v`**    | verbose logs (default: false) |
+| **`-connect-timeout`** | timeout for establishing connection |
+| **`-rpc-timeout`** | timeout for health check rpc |
+| **`-user-agent`** | user-agent header value of health check requests (default: grpc_health_probe) |
+| **`-service`** | service name to check (default: "") - empty string is convention for server health |
 
 **Example:**
 
