@@ -13,7 +13,8 @@ jobs:
       sudo mv minikube /bin/
       minikube config set vm-driver none
       minikube config set kubernetes-version $(go list -f '{{.Version}}' -m k8s.io/api | sed 's/^v0\./v1./')
-  - os: linux-ppc64le
+  - os: linux
+    arch: ppc64le
     dist: xenial
     env: 
       MAKE: make
