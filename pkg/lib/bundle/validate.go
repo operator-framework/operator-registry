@@ -124,7 +124,7 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		}
 
 		if !dependenciesFound {
-			err = parseDependenciesFile(filepath.Join(metadataDir, f.Name()), dependenciesFile)
+			err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), &dependenciesFile)
 			if err == nil && len(dependenciesFile.Dependencies) > 0 {
 				dependenciesFound = true
 			}
@@ -225,10 +225,10 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 			case registry.PackageDependency:
 				errs = dp.Validate()
 			default:
-				errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
+				errs = append(errs, fmt.Errorf("unsupported dependency type %s", d.GetType()))
 			}
 		} else {
-			errs = append(errs, fmt.Errorf("Unsupported dependency type %s", d.GetType()))
+			errs = append(errs, fmt.Errorf("couldn't parse dependency of type %s", d.GetType()))
 		}
 		validationErrors = append(validationErrors, errs...)
 	}
@@ -369,32 +369,6 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	if len(validationErrors) > 0 {
 		return NewValidationError(validationErrors)
 	}
-
-	return nil
-}
-
-func parseDependenciesFile(path string, depFile *registry.DependenciesFile) error {
-	deps := registry.Dependencies{}
-	err := registry.DecodeFile(path, &deps)
-
-	if err != nil || len(deps.RawMessage) == 0 {
-		return fmt.Errorf("Unable to decode the dependencies file %s", path)
-	}
-
-	depList := []registry.Dependency{}
-	for _, v := range deps.RawMessage {
-		jsonStr, _ := json.Marshal(v)
-		dep := registry.Dependency{}
-		err := json.Unmarshal(jsonStr, &dep)
-		if err != nil {
-			return err
-		}
-
-		dep.Value = string(jsonStr)
-		depList = append(depList, dep)
-	}
-
-	depFile.Dependencies = depList
 
 	return nil
 }

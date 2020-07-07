@@ -126,11 +126,29 @@ func TestQuerierForImage(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+				Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+		},
+		Properties: []*api.Property{
+			{
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -140,6 +158,7 @@ func TestQuerierForImage(t *testing.T) {
 		},
 		RequiredApis: []*api.GroupVersionKind{
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
+			{Group: "testapi.coreos.com", Version: "v1", Kind: "testapi"},
 		},
 	}
 	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
@@ -418,19 +437,19 @@ func TestQuerierForDependencies(t *testing.T) {
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
+			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
 		},
 	}
 
@@ -478,19 +497,19 @@ func TestListBundles(t *testing.T) {
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
+			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
 		},
 	}
 
@@ -509,9 +528,12 @@ func TestListBundles(t *testing.T) {
 }
 
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
-	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis)
-	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
+	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis, "provided apis don't match: %#v\n%#v", expected.ProvidedApis, actual.ProvidedApis)
+	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis, "required apis don't match: %#v\n%#v", expected.RequiredApis, actual.RequiredApis)
+	require.ElementsMatch(t, expected.Dependencies, actual.Dependencies, "dependencies don't match: %#v\n%#v", expected.Dependencies, actual.Dependencies)
+	require.ElementsMatch(t, expected.Properties, actual.Properties, "properties don't match %#v\n%#v", expected.Properties, actual.Properties)
 	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
+	expected.Dependencies, expected.Properties, actual.Dependencies, actual.Properties = nil, nil, nil, nil
 	require.EqualValues(t, expected, actual)
 }
 

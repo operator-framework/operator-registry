@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
@@ -62,8 +61,7 @@ func TestAssociateApisWithBundleUp(t *testing.T) {
 	require.NoError(t, err)
 
 	// check that we can still query for provided apis
-	querier := sqlite.NewSQLLiteQuerierFromDb(db)
-	entries, err := querier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
+	entries, err := newGetChannelEntriesThatProvide(db, "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 	require.Equal(t, "etcdoperator.v0.6.1", entries[0].BundleName)
@@ -107,8 +105,7 @@ func TestAssociateApisWithBundleDown(t *testing.T) {
 	_, err = db.Exec(`PRAGMA foreign_keys = 1`)
 	require.NoError(t, err)
 
-	querier := sqlite.NewSQLLiteQuerierFromDb(db)
-	entriesBeforeMigration, err := querier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
+	entriesBeforeMigration, err := newGetChannelEntriesThatProvide(db, "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
 
 	err = migrator.Down(context.TODO(), migrations.Only(migrations.AssociateApisWithBundleMigrationKey))
 	require.NoError(t, err)
@@ -126,6 +123,44 @@ func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
               INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
               LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
 		      WHERE api_provider.group_name = ? AND api_provider.version = ? AND api_provider.kind = ?`
+
+	rows, err := db.Query(query, group, version, kind)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	entries = []*registry.ChannelEntry{}
+
+	for rows.Next() {
+		var pkgNameSQL sql.NullString
+		var channelNameSQL sql.NullString
+		var bundleNameSQL sql.NullString
+		var replacesSQL sql.NullString
+		if err = rows.Scan(&pkgNameSQL, &channelNameSQL, &bundleNameSQL, &replacesSQL); err != nil {
+			return
+		}
+
+		entries = append(entries, &registry.ChannelEntry{
+			PackageName: pkgNameSQL.String,
+			ChannelName: channelNameSQL.String,
+			BundleName:  bundleNameSQL.String,
+			Replaces:    replacesSQL.String,
+		})
+	}
+	if len(entries) == 0 {
+		err = fmt.Errorf("no channel entries found that provide %s %s %s", group, version, kind)
+		return
+	}
+	return
+}
+
+func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
+	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
+          FROM channel_entry
+          INNER JOIN api_provider ON channel_entry.operatorbundle_name = api_provider.operatorbundle_name
+          LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
+		  WHERE api_provider.group_name = ? AND api_provider.version = ? AND api_provider.kind = ?`
 
 	rows, err := db.Query(query, group, version, kind)
 	if err != nil {

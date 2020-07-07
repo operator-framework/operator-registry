@@ -145,7 +145,25 @@ func TestQuerierForConfigmap(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+		},
+		Properties: []*api.Property{
+			{
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 		},
 		Version:   "0.9.2",
@@ -172,12 +190,14 @@ func TestQuerierForConfigmap(t *testing.T) {
 	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
 
 	etcdChannelEntriesThatProvideAPIServer, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "FakeEtcdObject")
+	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"}}, etcdChannelEntriesThatProvideAPIServer)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")

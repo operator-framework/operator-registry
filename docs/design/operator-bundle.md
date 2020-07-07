@@ -76,12 +76,14 @@ An example of a `dependencies.yaml` that specifies Prometheus operator and etcd 
 ```
 dependencies:
   - type: olm.package
-    packageName: prometheus
-    version: >0.27.0
+    value: 
+      packageName: prometheus
+      version: >0.27.0
   - type: olm.gvk
-    group: etcd.database.coreos.com
-    kind: EtcdCluster
-    version: v1beta2
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdCluster
+      version: v1beta2
 ```
 
 ### Bundle Dockerfile

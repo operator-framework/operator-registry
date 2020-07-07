@@ -6,27 +6,29 @@ PKG := github.com/operator-framework/operator-registry
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 OPM_VERSION := $(shell cat OPM_VERSION)
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+TAGS := -tags "json1"
 
 
 .PHONY: all
 all: clean test build
 
 $(CMDS):
-	$(GO) build $(extra_flags) -o $@ ./cmd/$(notdir $@)
+	$(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
+
 $(OPM): opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 $(OPM):
-	$(GO) build $(opm_version_flags) $(extra_flags) -o $@ ./cmd/$(notdir $@)
+	$(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: build
 build: clean $(CMDS) $(OPM)
 
 .PHONY: static
-static: extra_flags=-ldflags '-w -extldflags "-static"'
+static: extra_flags=-ldflags '-w -extldflags "-static"' -tags "json1"
 static: build
 
 .PHONY: unit
 unit:
-	$(GO) test $(SPECIFIC_UNIT_TEST) -count=1 -v -race ./pkg/...
+	$(GO) test $(SPECIFIC_UNIT_TEST) $(TAGS) -count=1 -v -race ./pkg/...
 
 .PHONY: image
 image:

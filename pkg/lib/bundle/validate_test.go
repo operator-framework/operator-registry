@@ -33,39 +33,37 @@ func TestValidateBundleDependencies(t *testing.T) {
 		description string
 		mediaType   string
 		directory   string
-		errStrings  map[string]struct{}
+		errs        []error
 	}{
 		{
 			description: "registryv1 bundle/invalid gvk dependency",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_gvk_dependency/",
-			errStrings: map[string]struct{}{
-				"API Group is empty":   struct{}{},
-				"API Version is empty": struct{}{},
-				"API Kind is empty":    struct{}{},
+			errs: []error{
+				fmt.Errorf("couldn't parse dependency of type olm.gvk"),
 			},
 		},
 		{
 			description: "registryv1 bundle/invalid package dependency",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_package_dependency/",
-			errStrings: map[string]struct{}{
-				"Invalid semver format version": struct{}{},
-				"Package version is empty":      struct{}{},
-				"Package name is empty":         struct{}{},
+			errs: []error{
+				fmt.Errorf("Invalid semver format version"),
+				fmt.Errorf("Package version is empty"),
+				fmt.Errorf("Package name is empty"),
 			},
 		},
 		{
 			description: "registryv1 bundle/invalid dependency type",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_dependency_type/",
-			errStrings: map[string]struct{}{
-				"Unsupported dependency type olm.crd": struct{}{},
+			errs: []error{
+				fmt.Errorf("couldn't parse dependency of type olm.crd"),
 			},
 		},
 	}
 
-	for i, tt := range table {
+	for _, tt := range table {
 		fmt.Println(tt.directory)
 		err := validator.ValidateBundleFormat(tt.directory)
 		var validationError ValidationError
@@ -73,11 +71,7 @@ func TestValidateBundleDependencies(t *testing.T) {
 			isValidationErr := errors.As(err, &validationError)
 			require.True(t, isValidationErr)
 		}
-		require.Len(t, validationError.Errors, len(tt.errStrings), table[i].description)
-		for _, e := range validationError.Errors {
-			_, ok := tt.errStrings[e.Error()]
-			require.True(t, ok, "Unable to find this error %s", e.Error())
-		}
+		require.ElementsMatch(t, tt.errs, validationError.Errors)
 	}
 }
 

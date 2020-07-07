@@ -142,4 +142,3 @@ func migrate(cmd *cobra.Command, db *sql.DB) error {
 
 	return migrator.Migrate(context.TODO())
 }
-
