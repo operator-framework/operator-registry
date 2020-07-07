@@ -67,28 +67,8 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		return err
 	}
 
-	// set a temp directory for unpacking an image
-	// this is in its own function context so that the deferred cleanup runs before we do a docker build
-	// which prevents the full contents of the previous image from being in the build context
-	var databasePath string
-	if err := func() error {
-		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
-		if err != nil {
-
-			return err
-		}
-		defer os.RemoveAll(tmpDir)
-
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
-		if err != nil {
-			return err
-		}
-		// copy the index to the database folder in the build directory
-		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
-			return err
-		}
-		return nil
-	}(); err != nil {
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	if err != nil {
 		return err
 	}
 
@@ -148,28 +128,8 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		return err
 	}
 
-	// set a temp directory for unpacking an image
-	// this is in its own function context so that the deferred cleanup runs before we do a docker build
-	// which prevents the full contents of the previous image from being in the build context
-	var databasePath string
-	if err := func() error {
-		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
-		if err != nil {
-
-			return err
-		}
-		defer os.RemoveAll(tmpDir)
-
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
-		if err != nil {
-			return err
-		}
-		// copy the index to the database folder in the build directory
-		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
-			return err
-		}
-		return nil
-	}(); err != nil {
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	if err != nil {
 		return err
 	}
 
@@ -224,28 +184,8 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		return err
 	}
 
-	// set a temp directory for unpacking an image
-	// this is in its own function context so that the deferred cleanup runs before we do a docker build
-	// which prevents the full contents of the previous image from being in the build context
-	var databasePath string
-	if err := func() error {
-		tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
-		if err != nil {
-
-			return err
-		}
-		defer os.RemoveAll(tmpDir)
-
-		databaseFile, err := i.getDatabaseFile(tmpDir, request.FromIndex)
-		if err != nil {
-			return err
-		}
-		// copy the index to the database folder in the build directory
-		if databasePath, err = copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder)); err != nil {
-			return err
-		}
-		return nil
-	}(); err != nil {
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	if err != nil {
 		return err
 	}
 
@@ -280,6 +220,23 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 	}
 
 	return nil
+}
+
+
+// extractDatabase sets a temp directory for unpacking an image
+func (i ImageIndexer) extractDatabase(buildDir, fromIndex string) (string, error) {
+	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex)
+	if err != nil {
+		return "", err
+	}
+	// copy the index to the database folder in the build directory
+	return copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder))
 }
 
 func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, error) {
@@ -497,7 +454,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 			// operator-registry does not care about the folder name
 			folderName = bundleImage
 		}
-		exporter := bundle.NewSQLExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, folderName), request.ContainerTool)
+		exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, folderName), request.ContainerTool)
 		if err := exporter.Export(); err != nil {
 			err = fmt.Errorf("error exporting bundle from image: %s", err)
 			errs = append(errs, err)
