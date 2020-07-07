@@ -1,8 +1,10 @@
 dependencies:
   - type: olm.package
-    packageName: testoperator
-    version: "> 0.2.0"
+    value:
+      packageName: testoperator
+      version: "> 0.2.0"
   - type: olm.gvk
-    group: testprometheus.coreos.com
-    kind: testtestprometheus
-    version: v1
+    value:
+      group: testprometheus.coreos.com
+      kind: testtestprometheus
+      version: v1

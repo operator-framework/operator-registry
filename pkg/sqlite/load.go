@@ -125,7 +125,7 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		return err
 	}
 
-	err = s.addGVKProperties(tx, bundle)
+	err = s.addBundleProperties(tx, bundle)
 	if err != nil {
 		return err
 	}
@@ -722,13 +722,12 @@ func (s *sqlLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 	}
 
 	for api := range requiredApis {
-		valueMap := map[string]string{
-			"type":    registry.GVKType,
-			"group":   api.Group,
-			"version": api.Version,
-			"kind":    api.Kind,
+		dep := registry.GVKDependency{
+			Group:   api.Group,
+			Kind:    api.Kind,
+			Version: api.Version,
 		}
-		value, err := json.Marshal(valueMap)
+		value, err := json.Marshal(dep)
 		if err != nil {
 			return err
 		}
@@ -740,51 +739,48 @@ func (s *sqlLoader) addDependencies(tx *sql.Tx, bundle *registry.Bundle) error {
 	return nil
 }
 
-func (s *sqlLoader) addPackageProperty(tx *sql.Tx, bundleName, pkg, version string) error {
-	addProp, err := tx.Prepare("insert into properties(type, value, operatorbundle_name, operatorbundle_version) values(?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer addProp.Close()
-
-	// Add the package property
-	valueMap := map[string]string{
-		"type":    registry.PackageType,
-		"packageName": pkg,
-		"version": version,
-	}
-	value, err := json.Marshal(valueMap)
-	if err != nil {
-		return err
-	}
-	if _, err := addProp.Exec(registry.PackageType, value, bundleName, version); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *sqlLoader) addGVKProperties(tx *sql.Tx, bundle *registry.Bundle) error {
+func (s *sqlLoader) addProperty(tx *sql.Tx, propType, value, bundleName, version, path string) error {
 	addProp, err := tx.Prepare("insert into properties(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer addProp.Close()
 
+	sqlString := func(s string) sql.NullString {
+		return sql.NullString{String: s, Valid: s != ""}
+	}
+
+	if _, err := addProp.Exec(propType, value, bundleName, sqlString(version), sqlString(path)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *sqlLoader) addPackageProperty(tx *sql.Tx, bundleName, pkg, version string) error {
+	// Add the package property
+	prop := registry.PackageProperty{
+		PackageName: pkg,
+		Version:     version,
+	}
+	value, err := json.Marshal(prop)
+	if err != nil {
+		return err
+	}
+
+	return s.addProperty(tx, registry.PackageType, string(value), bundleName, version, "")
+}
+
+func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) error {
 	bundleVersion, err := bundle.Version()
 	if err != nil {
 		return err
 	}
 
-	sqlString := func(s string) sql.NullString {
-		return sql.NullString{String: s, Valid: s != ""}
-	}
 	for _, prop := range bundle.Properties {
-		if _, err := addProp.Exec(prop.Type, prop.Value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+		if err := s.addProperty(tx, prop.Type, prop.Value, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
 			return err
 		}
 	}
-
-
 
 	// Look up providedAPIs in CSV and add them in properties table
 	providedApis, err := bundle.ProvidedAPIs()
@@ -793,17 +789,16 @@ func (s *sqlLoader) addGVKProperties(tx *sql.Tx, bundle *registry.Bundle) error 
 	}
 
 	for api := range providedApis {
-		valueMap := map[string]string{
-			"type":    registry.GVKType,
-			"group":   api.Group,
-			"version": api.Version,
-			"kind":    api.Kind,
+		prop := registry.GVKProperty{
+			Group:   api.Group,
+			Kind:    api.Kind,
+			Version: api.Version,
 		}
-		value, err := json.Marshal(valueMap)
+		value, err := json.Marshal(prop)
 		if err != nil {
 			return err
 		}
-		if _, err := addProp.Exec(registry.GVKType, value, bundle.Name, sqlString(bundleVersion), sqlString(bundle.BundleImage)); err != nil {
+		if err := s.addProperty(tx, registry.GVKType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
 			return err
 		}
 	}

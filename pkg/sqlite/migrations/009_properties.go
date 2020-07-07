@@ -45,9 +45,8 @@ var propertiesMigration = &Migration{
 				return err
 			}
 			valueMap := map[string]string{
-				"type":    registry.PackageType,
 				"packageName": pkg,
-				"version": bundle.Version.String,
+				"version":     bundle.Version.String,
 			}
 			value, err := json.Marshal(valueMap)
 			if err != nil {
@@ -60,7 +59,6 @@ var propertiesMigration = &Migration{
 
 			for provided := range apis.provided {
 				valueMap := map[string]string{
-					"type":    registry.GVKType,
 					"group":   provided.Group,
 					"version": provided.Version,
 					"kind":    provided.Kind,
@@ -74,6 +72,17 @@ var propertiesMigration = &Migration{
 					return err
 				}
 			}
+		}
+
+		// update the serialized value to omit the dependency type
+		updateDependencySql := `
+		UPDATE dependencies
+		SET value = (SELECT json_remove(value, "$.type")
+					FROM dependencies
+					WHERE operatorbundle_name=dependencies.operatorbundle_name)`
+		_, err = tx.ExecContext(ctx, updateDependencySql)
+		if err != nil {
+			return err
 		}
 
 		return nil

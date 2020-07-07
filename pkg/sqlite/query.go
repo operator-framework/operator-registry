@@ -408,15 +408,17 @@ func (s *SQLQuerier) GetChannelEntriesThatProvide(ctx context.Context, group, ve
           LEFT OUTER JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
 		  WHERE properties.type=? AND properties.value=?`
 
-	value, err :=  json.Marshal(map[string]string{
-		"type":    registry.GVKType,
+	value, err := json.Marshal(map[string]string{
 		"group":   group,
 		"version": version,
 		"kind":    kind,
 	})
-	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, value)
 	if err != nil {
-		return
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, string(value))
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -454,13 +456,16 @@ func (s *SQLQuerier) GetLatestChannelEntriesThatProvide(ctx context.Context, gro
 		  WHERE properties.type = ? AND properties.value = ?
 		  GROUP BY channel_entry.package_name, channel_entry.channel_name`
 
-	value, err :=  json.Marshal(map[string]string{
-		"type":    registry.GVKType,
+	value, err := json.Marshal(map[string]string{
 		"group":   group,
 		"version": version,
 		"kind":    kind,
 	})
-	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, value)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, string(value))
 	if err != nil {
 		return nil, err
 	}
@@ -502,13 +507,12 @@ func (s *SQLQuerier) GetBundleThatProvides(ctx context.Context, group, apiVersio
 		  WHERE properties.type = ? AND properties.value = ? AND package.default_channel = channel_entry.channel_name
 		  GROUP BY channel_entry.package_name, channel_entry.channel_name`
 
-	value, err :=  json.Marshal(map[string]string{
-		"type":    registry.GVKType,
+	value, err := json.Marshal(map[string]string{
 		"group":   group,
 		"version": apiVersion,
 		"kind":    kind,
 	})
-	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, value)
+	rows, err := s.db.QueryContext(ctx, query, registry.GVKType, string(value))
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +621,7 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 	kinds := map[string]struct{}{}
 	versions := map[string]struct{}{}
 
-	providedQuery := `SELECT DISTINCT properties.value FROM properties 
+	providedQuery := `SELECT properties.value FROM properties 
 		 	  		  INNER JOIN channel_entry ON channel_entry.operatorbundle_name = properties.operatorbundle_name
 			  		  WHERE properties.type=? AND channel_entry.entry_id=?`
 
@@ -625,6 +629,7 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 	if err != nil {
 		return nil, nil, err
 	}
+	defer providedRows.Close()
 
 	provided = []*api.GroupVersionKind{}
 	for providedRows.Next() {
@@ -651,9 +656,6 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 		versions[prop.Version] = struct{}{}
 		kinds[prop.Kind] = struct{}{}
 	}
-	if err := providedRows.Close(); err != nil {
-		return nil, nil, err
-	}
 
 	requiredQuery := `SELECT DISTINCT dependencies.value FROM dependencies
 					  INNER JOIN channel_entry ON channel_entry.operatorbundle_name = dependencies.operatorbundle_name
@@ -663,6 +665,8 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 	if err != nil {
 		return nil, nil, err
 	}
+	defer requiredRows.Close()
+
 	required = []*api.GroupVersionKind{}
 	for requiredRows.Next() {
 		var value sql.NullString
@@ -687,27 +691,25 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 		versions[dep.Version] = struct{}{}
 		kinds[dep.Kind] = struct{}{}
 	}
-	if err := requiredRows.Close(); err != nil {
-		return nil, nil, err
-	}
 
 	argsFor := func(s map[string]struct{}) string {
 		l := []string{}
 		for v := range s {
-			l = append(l, "\"" + v + "\"")
+			l = append(l, "\""+v+"\"")
 		}
 		return "(" + strings.Join(l, ",") + ")"
 	}
 
 	pluralQuery := `SELECT * FROM api` +
-		           ` WHERE api.group_name IN ` + argsFor(groups) +
-		           ` AND api.version IN ` + argsFor(versions) +
-		           ` AND api.kind IN ` + argsFor(kinds)
+		` WHERE api.group_name IN ` + argsFor(groups) +
+		` AND api.version IN ` + argsFor(versions) +
+		` AND api.kind IN ` + argsFor(kinds)
 
 	pluralRows, err := s.db.QueryContext(ctx, pluralQuery)
 	if err != nil {
 		return nil, nil, err
 	}
+	defer pluralRows.Close()
 
 	gvkToPlural := map[registry.GVKProperty]string{}
 	for pluralRows.Next() {
@@ -723,13 +725,10 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 			continue
 		}
 		gvkToPlural[registry.GVKProperty{
-			Group: groupName.String,
+			Group:   groupName.String,
 			Version: versionName.String,
-			Kind: kindName.String,
+			Kind:    kindName.String,
 		}] = pluralName.String
-	}
-	if err := pluralRows.Close(); err != nil {
-		return nil, nil, err
 	}
 
 	for i, p := range provided {
@@ -737,9 +736,9 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 			continue
 		}
 		plural, ok := gvkToPlural[registry.GVKProperty{
-			Group: p.Group,
+			Group:   p.Group,
 			Version: p.Version,
-			Kind: p.Kind,
+			Kind:    p.Kind,
 		}]
 		if !ok {
 			continue
@@ -751,9 +750,9 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 			continue
 		}
 		plural, ok := gvkToPlural[registry.GVKProperty{
-			Group: r.Group,
+			Group:   r.Group,
 			Version: r.Version,
-			Kind: r.Kind,
+			Kind:    r.Kind,
 		}]
 		if !ok {
 			continue
@@ -1062,6 +1061,8 @@ func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	dependencies = []*api.Dependency{}
 	for rows.Next() {
 		var typeName sql.NullString
@@ -1078,9 +1079,6 @@ func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version
 			Value: value.String,
 		})
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 
 	return
 }
@@ -1095,6 +1093,8 @@ func (s *SQLQuerier) GetPropertiesForBundle(ctx context.Context, name, version, 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	properties = []*api.Property{}
 	for rows.Next() {
 		var typeName sql.NullString
@@ -1110,9 +1110,6 @@ func (s *SQLQuerier) GetPropertiesForBundle(ctx context.Context, name, version, 
 			Type:  typeName.String,
 			Value: value.String,
 		})
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 
 	return

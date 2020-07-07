@@ -128,16 +128,18 @@ type DependenciesFile struct {
 	Dependencies []Dependency `json:"dependencies" yaml:"dependencies"`
 }
 
-// Dependencies is a list of dependencies for a given bundle
+// Dependency specifies a single constraint that can be satisfied by a property on another bundle..
 type Dependency struct {
 	// The type of dependency. This field is required.
 	Type string `json:"type" yaml:"type"`
 
 	// The serialized value of the dependency
-	Value string `json:"value" yaml:"value"`
+	Value json.RawMessage `json:"value" yaml:"value"`
 }
 
-// Property is a list of properties for a given bundle
+// Property defines a single piece of the public interface for a bundle. Dependencies are specified over properties.
+// The Type of the property determines how to interpret the Value, but the value is treated opaquely for
+// for non-first-party types.
 type Property struct {
 	// The type of property. This field is required.
 	Type string `json:"type" yaml:"type"`
@@ -228,39 +230,34 @@ func (d *DependenciesFile) GetDependencies() []*Dependency {
 
 // GetType returns the type of dependency
 func (e *Dependency) GetType() string {
-	if e.Type != "" {
-		return e.Type
-	}
-	return ""
+	return e.Type
 }
 
 // GetTypeValue returns the dependency object that is converted
 // from value string
 func (e *Dependency) GetTypeValue() interface{} {
-	if e.Type != "" {
-		switch e.GetType() {
-		case GVKType:
-			dep := GVKDependency{}
-			err := json.Unmarshal([]byte(e.GetValue()), &dep)
-			if err != nil {
-				return nil
-			}
-			return dep
-		case PackageType:
-			dep := PackageDependency{}
-			err := json.Unmarshal([]byte(e.GetValue()), &dep)
-			if err != nil {
-				return nil
-			}
-			return dep
+	switch e.GetType() {
+	case GVKType:
+		dep := GVKDependency{}
+		err := json.Unmarshal([]byte(e.GetValue()), &dep)
+		if err != nil {
+			return nil
 		}
+		return dep
+	case PackageType:
+		dep := PackageDependency{}
+		err := json.Unmarshal([]byte(e.GetValue()), &dep)
+		if err != nil {
+			return nil
+		}
+		return dep
 	}
 	return nil
 }
 
 // GetValue returns the value content of dependency
 func (e *Dependency) GetValue() string {
-	return e.Value
+	return string(e.Value)
 }
 
 // GetName returns the package name of the bundle

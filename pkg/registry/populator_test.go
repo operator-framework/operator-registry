@@ -126,29 +126,29 @@ func TestQuerierForImage(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+				Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -437,19 +437,19 @@ func TestQuerierForDependencies(t *testing.T) {
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
+			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
 		},
 	}
 
@@ -497,19 +497,19 @@ func TestListBundles(t *testing.T) {
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","type":"olm.package","version":"\u003e 0.2.0"}`,
+			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 		},
 		{
 			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
+			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
 		},
 	}
 

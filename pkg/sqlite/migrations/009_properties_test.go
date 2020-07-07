@@ -30,43 +30,77 @@ func TestPropertiesUp(t *testing.T) {
 	channel_entries := `INSERT INTO channel_entry("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('1', 'alpha', 'etcd', 'etcdoperator.v0.6.1', '', '0');`
 	_, err = tx.Exec(channel_entries)
 	require.NoError(t, err)
+	valueStr := `{"packageName":"etcd","type":"olm.package","version":">0.6.0"}`
+	_, err = tx.Exec("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?)", "olm.package", valueStr, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+	require.NoError(t, err)
 	require.NoError(t, tx.Commit())
 
 	err = migrator.Up(context.TODO(), migrations.Only(migrations.PropertiesMigrationKey))
 	require.NoError(t, err)
 
-	propQuery := `SELECT DISTINCT type, value FROM properties 
+	t.Run("verify properties", func(t *testing.T) {
+		propQuery := `SELECT DISTINCT type, value FROM properties 
 	WHERE operatorbundle_name=? AND operatorbundle_version=? AND operatorbundle_path=?`
 
-	rows, err := db.Query(propQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
-	require.NoError(t, err)
-	defer rows.Close()
+		rows, err := db.Query(propQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+		require.NoError(t, err)
+		defer rows.Close()
 
-	type prop struct{
-		typeName string
-		value string
-	}
-	properties := []prop{}
-	for rows.Next() {
-		var typeName sql.NullString
-		var value sql.NullString
-		require.NoError(t, rows.Scan(&typeName, &value))
-		require.True(t, typeName.Valid)
-		require.True(t, value.Valid)
-		properties = append(properties, prop{typeName: typeName.String, value: value.String})
-	}
+		type prop struct {
+			typeName string
+			value    string
+		}
+		properties := []prop{}
+		for rows.Next() {
+			var typeName sql.NullString
+			var value sql.NullString
+			require.NoError(t, rows.Scan(&typeName, &value))
+			require.True(t, typeName.Valid)
+			require.True(t, value.Valid)
+			properties = append(properties, prop{typeName: typeName.String, value: value.String})
+		}
 
-	expectedProperties := []prop{
-		{
-			typeName: "olm.package",
-			value: `{"packageName":"etcd","type":"olm.package","version":"0.6.1"}`,
-		},
-		{
-			typeName: "olm.gvk",
-			value: `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
-		},
-	}
-	require.EqualValues(t, expectedProperties, properties)
+		expectedProperties := []prop{
+			{
+				typeName: "olm.package",
+				value:    `{"packageName":"etcd","version":"0.6.1"}`,
+			},
+			{
+				typeName: "olm.gvk",
+				value:    `{"group":"test.coreos.com","kind":"testapi","version":"v1"}`,
+			},
+		}
+		require.EqualValues(t, expectedProperties, properties)
+	})
+
+	t.Run("verify dependencies", func(t *testing.T) {
+		depQuery := `SELECT DISTINCT type, value FROM dependencies`
+		rows, err := db.Query(depQuery)
+		require.NoError(t, err)
+		defer rows.Close()
+
+		type dep struct {
+			typeName string
+			value    string
+		}
+		deps := []dep{}
+		for rows.Next() {
+			var typeName sql.NullString
+			var value sql.NullString
+			require.NoError(t, rows.Scan(&typeName, &value))
+			require.True(t, typeName.Valid)
+			require.True(t, value.Valid)
+			deps = append(deps, dep{typeName: typeName.String, value: value.String})
+		}
+
+		expectedDeps := []dep{
+			{
+				typeName: "olm.package",
+				value:    `{"packageName":"etcd","version":">0.6.0"}`,
+			},
+		}
+		require.EqualValues(t, expectedDeps, deps)
+	})
 }
 
 func TestPropertiesDown(t *testing.T) {
@@ -84,7 +118,7 @@ func TestPropertiesDown(t *testing.T) {
 	insert := "insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)"
 	_, err = db.Exec(insert, "etcdoperator.v0.6.1", testCSV, testBundle, "quay.io/image", "0.6.1", ">0.5.0 <0.6.1", "0.9.0", "0.9.1,0.9.2")
 	require.NoError(t, err)
-	valueStr := `{"packageName":"etcd-operator","type":"olm.package","version":">0.6.0"}`
+	valueStr := `{"packageName":"etcd-operator","version":">0.6.0"}`
 	_, err = db.Exec("insert into properties(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?)", "olm.package", valueStr, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit())

@@ -157,25 +157,25 @@ func TestGetBundle(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -214,25 +214,25 @@ func TestGetBundleForChannel(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -321,25 +321,25 @@ func TestGetBundleThatReplaces(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -378,25 +378,25 @@ func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -578,25 +578,25 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -637,25 +637,25 @@ func TestListBundles(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 		},
 		Properties: []*api.Property{
 			{
-				Type: "olm.package",
-				Value: `{"packageName":"etcd","type":"olm.package","version":"0.9.2"}`,
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -682,7 +682,6 @@ func TestListBundles(t *testing.T) {
 		"strimzi-cluster-operator.v0.12.1",
 		"strimzi-cluster-operator.v0.12.2",
 	}
-
 
 	var names []string
 	var actualBundle *api.Bundle
