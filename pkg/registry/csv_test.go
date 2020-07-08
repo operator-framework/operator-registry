@@ -802,6 +802,10 @@ func TestLoadingCsvFromBundleDirectory(t *testing.T) {
 			dir:  "testdata/invalidPackges/3scale-community-operator/0.3.0",
 			fail: true,
 		},
+		{
+			dir:  "testdata/invalidPackges/3scale-community-operator/0.4.0",
+			fail: true,
+		},
 	}
 
 	for _, tt := range tests {

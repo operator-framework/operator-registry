@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"context"
 	"database/sql"
-	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -68,35 +68,21 @@ func inTemporaryBuildContext(f func() error) (rerr error) {
 	return f()
 }
 
-func buildBundlesWith(containerTool string) error {
-	for tag, path := range map[string]string{
-		bundleTag1: bundlePath1,
-		bundleTag2: bundlePath2,
-		bundleTag3: bundlePath3,
-	} {
-		if err := inTemporaryBuildContext(func() error {
-			return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
-		}); err != nil {
-			return err
-		}
+func buildIndexWith(containerTool, indexImage, bundleImage string, bundleTags []string) error {
+	bundles := make([]string, len(bundleTags))
+	for _, tag := range bundleTags {
+		bundles = append(bundles, bundleImage+":"+tag)
 	}
-	return nil
-}
 
-func buildIndexWith(containerTool string) error {
-	bundles := []string{
-		bundleImage + ":" + bundleTag1,
-		bundleImage + ":" + bundleTag2,
-	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
 		FromIndex:         "",
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage1,
+		Tag:               indexImage,
 		Bundles:           bundles,
 		Permissive:        false,
 	}
@@ -109,7 +95,7 @@ func buildFromIndexWith(containerTool string) error {
 		bundleImage + ":" + bundleTag3,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
-	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
@@ -213,15 +199,23 @@ var _ = Describe("opm", func() {
 
 		It("builds and manipulates bundle and index images", func() {
 			By("building bundles")
-			err := buildBundlesWith(containerTool)
-			Expect(err).NotTo(HaveOccurred())
+			for tag, path := range map[string]string{
+				bundleTag1: bundlePath1,
+				bundleTag2: bundlePath2,
+				bundleTag3: bundlePath3,
+			} {
+				err := inTemporaryBuildContext(func() error {
+					return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
 
 			By("pushing bundles")
-			err = pushBundles(containerTool)
+			err := pushBundles(containerTool)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building an index")
-			err = buildIndexWith(containerTool)
+			err = buildIndexWith(containerTool, indexImage1, bundleImage, []string{bundleTag1, bundleTag2})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -262,6 +256,40 @@ var _ = Describe("opm", func() {
 
 			By("loading manifests from a containerd-extracted directory")
 			err = initialize()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("build bundles and index from inference", func() {
+
+			bundlePaths := []string{"./testdata/aqua/0.0.1", "./testdata/aqua/0.0.2", "./testdata/aqua/1.0.0",
+				"./testdata/aqua/1.0.1"}
+
+			bundleTags := func() (tags []string) {
+				for range bundlePaths {
+					tags = append(tags, rand.String(6))
+				}
+				return
+			}()
+
+			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
+
+			By("building bundles")
+			for i := range bundlePaths {
+				td, err := ioutil.TempDir("", "opm-")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = bundle.BuildFunc(bundlePaths[i], td, bundleImage+":"+bundleTags[i], containerTool, "", "", "", false)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("pushing bundles")
+			for _, tag := range bundleTags {
+				err := pushWith(containerTool, bundleImage+":"+tag)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("building an index")
+			err := buildIndexWith(containerTool, indexImage, bundleImage, bundleTags)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	}

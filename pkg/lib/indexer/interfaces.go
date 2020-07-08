@@ -15,14 +15,15 @@ type IndexAdder interface {
 }
 
 // NewIndexAdder is a constructor that returns an IndexAdder
-func NewIndexAdder(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexAdder {
+func NewIndexAdder(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexAdder {
 	return ImageIndexer{
 		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
-		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
-		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
+		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryAdder:       registry.NewRegistryAdder(logger),
-		ImageReader:         containertools.NewImageReader(containerTool, logger),
-		ContainerTool:       containerTool,
+		ImageReader:         containertools.NewImageReader(pullTool, logger),
+		BuildTool:           buildTool,
+		PullTool:            pullTool,
 		Logger:              logger,
 	}
 }
@@ -42,7 +43,8 @@ func NewIndexDeleter(containerTool containertools.ContainerTool, logger *logrus.
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		RegistryDeleter:     registry.NewRegistryDeleter(logger),
 		ImageReader:         containertools.NewImageReader(containerTool, logger),
-		ContainerTool:       containerTool,
+		BuildTool:           containerTool,
+		PullTool:            containerTool,
 		Logger:              logger,
 	}
 }
@@ -59,7 +61,8 @@ func NewIndexExporter(containerTool containertools.ContainerTool, logger *logrus
 		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		ImageReader:         containertools.NewImageReader(containerTool, logger),
-		ContainerTool:       containerTool,
+		BuildTool:           containerTool,
+		PullTool:            containerTool,
 		Logger:              logger,
 	}
 }
@@ -76,7 +79,8 @@ func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.E
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		RegistryPruner:      registry.NewRegistryPruner(logger),
 		ImageReader:         containertools.NewImageReader(containerTool, logger),
-		ContainerTool:       containerTool,
+		BuildTool:           containerTool,
+		PullTool:            containerTool,
 		Logger:              logger,
 	}
 }
