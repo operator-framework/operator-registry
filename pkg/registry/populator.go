@@ -63,7 +63,49 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 	return nil
 }
 
+func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error {
+	var errs []error
+	images := make(map[string]bool)
+	for _, image := range imagesToAdd {
+		images[image.bundle.BundleImage] = true
+	}
+	for _, image := range imagesToAdd {
+		bundlePaths, err := i.querier.GetBundlePathsForPackage(context.TODO(), image.bundle.Package)
+		if err != nil {
+			errs = append(errs, err)
+			return utilerrors.NewAggregate(errs)
+		}
+		for _, bundlePath := range bundlePaths {
+			if _, ok := images[bundlePath]; ok {
+				// raise error that bundlePath is already in the db
+				errs = append(errs, fmt.Errorf(" TODO "))
+				continue
+			}
+		}
+		for _, channel := range image.bundle.Channels {
+			bundle, err := i.querier.GetBundle(context.TODO(), image.bundle.Package, channel, image.bundle.csv.GetName())
+			if err != nil {
+				errs = append(errs, err)
+				return utilerrors.NewAggregate(errs)
+			}
+			if bundle != nil {
+				// raise error that this package + channel + csv combo is already in the db
+				errs = append(errs, fmt.Errorf(" TODO "))
+				continue
+			}
+		}
+	}
+
+	return utilerrors.NewAggregate(errs)
+}
+
 func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode) error {
+	// global sanity checks before insertion
+	err := i.globalSanityCheck(imagesToAdd)
+	if err != nil {
+		return err
+	}
+
 	switch mode {
 	case ReplacesMode:
 		// TODO: This is relatively inefficient. Ideally, we should be able to use a replaces
