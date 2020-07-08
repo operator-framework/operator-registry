@@ -13,8 +13,8 @@ jobs:
       sudo mv minikube /bin/
       minikube config set vm-driver none
       minikube config set kubernetes-version $(go list -f '{{.Version}}' -m k8s.io/api | sed 's/^v0\./v1./')
-  - os: linux-ppc64le
-    # arch: ppc64le
+  - os: linux
+    arch: ppc64le
     dist: xenial
     env: 
       MAKE: make
@@ -25,8 +25,6 @@ jobs:
       chmod +x minikube && sudo mv minikube /usr/local/bin/
       sudo minikube start --vm-driver=none --kubernetes-version=v1.18.0
       sudo minikube update-context
-      JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; \
-        until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
   - os: osx
     install: |
       brew install make
