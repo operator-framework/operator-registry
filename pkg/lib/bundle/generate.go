@@ -33,7 +33,7 @@ const (
 )
 
 type AnnotationMetadata struct {
-	Annotations map[string]string `yaml:"annotations"`
+	Annotations map[string]string `yaml:"annotations" json:"annotations"`
 }
 
 // GenerateFunc builds annotations.yaml with mediatype, manifests &
