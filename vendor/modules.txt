@@ -6,7 +6,8 @@ github.com/MakeNowJust/heredoc
 # github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/Microsoft/hcsshim v0.8.7
+github.com/Microsoft/go-winio/vhd
+# github.com/Microsoft/hcsshim v0.8.9
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/internal/cow
 github.com/Microsoft/hcsshim/internal/hcs
@@ -51,7 +52,7 @@ github.com/bugsnag/bugsnag-go/sessions
 github.com/bugsnag/panicwrap
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.3.2 => github.com/ecordell/containerd v1.3.1-0.20200501170002-47240ee83023
+# github.com/containerd/containerd v1.3.2 => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
 github.com/containerd/containerd/containers
@@ -77,11 +78,10 @@ github.com/containerd/containerd/remotes/docker/schema1
 github.com/containerd/containerd/snapshots
 github.com/containerd/containerd/sys
 github.com/containerd/containerd/version
-# github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c
+# github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb
 github.com/containerd/continuity/fs
-github.com/containerd/continuity/syscallx
 github.com/containerd/continuity/sysx
-# github.com/containerd/ttrpc v0.0.0-20190828154514-0e0f228740de
+# github.com/containerd/ttrpc v1.0.1
 github.com/containerd/ttrpc
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
@@ -200,7 +200,7 @@ github.com/go-openapi/swag
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gofrs/uuid v3.2.0+incompatible
+# github.com/gofrs/uuid v3.3.0+incompatible
 github.com/gofrs/uuid
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/gogoproto
@@ -215,14 +215,11 @@ github.com/golang-migrate/migrate/v4/source/file
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.3.1
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.3.2
+# github.com/golang/protobuf v1.4.2
+github.com/golang/protobuf/internal/gengogrpc
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/protoc-gen-go/descriptor
-github.com/golang/protobuf/protoc-gen-go/generator
-github.com/golang/protobuf/protoc-gen-go/generator/internal/remap
-github.com/golang/protobuf/protoc-gen-go/grpc
-github.com/golang/protobuf/protoc-gen-go/plugin
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
@@ -235,9 +232,9 @@ github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 # github.com/gorilla/handlers v1.4.2
 github.com/gorilla/handlers
-# github.com/gorilla/mux v1.7.4
+# github.com/gorilla/mux v1.7.2
 github.com/gorilla/mux
-# github.com/grpc-ecosystem/grpc-health-probe v0.2.1-0.20181220223928-2bf0a5b182db
+# github.com/grpc-ecosystem/grpc-health-probe v0.3.2
 github.com/grpc-ecosystem/grpc-health-probe
 # github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru
@@ -279,7 +276,7 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/morikuni/aec v1.0.0
+# github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c
 github.com/morikuni/aec
 # github.com/onsi/ginkgo v1.12.0
 github.com/onsi/ginkgo
@@ -326,18 +323,18 @@ github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.0.0-rc9
+# github.com/opencontainers/runc v0.1.1
 github.com/opencontainers/runc/libcontainer/system
-github.com/opencontainers/runc/libcontainer/user
-# github.com/operator-framework/api v0.3.4
+# github.com/operator-framework/api v0.3.7-0.20200602203552-431198de9fc2
 github.com/operator-framework/api/pkg/lib/version
+github.com/operator-framework/api/pkg/manifests
 github.com/operator-framework/api/pkg/operators
 github.com/operator-framework/api/pkg/operators/v1alpha1
 github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/otiai10/copy v1.0.2
+# github.com/otiai10/copy v1.2.0
 github.com/otiai10/copy
 # github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 github.com/phayes/freeport
@@ -391,13 +388,13 @@ go.opencensus.io/internal
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-# golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
+# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.2.0
 golang.org/x/mod/sumdb/dirhash
-# golang.org/x/net v0.0.0-20191028085509-fe3aa8a45271
+# golang.org/x/net v0.0.0-20200625001655-4c5254603344
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -415,10 +412,11 @@ golang.org/x/oauth2/internal
 # golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
+# golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.2
+# golang.org/x/text v0.3.3
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -467,14 +465,15 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
+# google.golang.org/genproto v0.0.0-20200701001935-0939c5918c31
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.26.0
+# google.golang.org/grpc v1.30.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
+google.golang.org/grpc/balancer/grpclb/state
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/codes
@@ -492,15 +491,18 @@ google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/buffer
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
+google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
+google.golang.org/grpc/internal/grpcutil
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
+google.golang.org/grpc/internal/serviceconfig
+google.golang.org/grpc/internal/status
 google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
-google.golang.org/grpc/naming
 google.golang.org/grpc/peer
 google.golang.org/grpc/reflection
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
@@ -509,6 +511,41 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
+# google.golang.org/protobuf v1.25.0
+google.golang.org/protobuf/cmd/protoc-gen-go/internal_gengo
+google.golang.org/protobuf/compiler/protogen
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/fieldsort
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/mapsort
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protodesc
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/descriptorpb
+google.golang.org/protobuf/types/known/anypb
+google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/timestamppb
+google.golang.org/protobuf/types/pluginpb
 # gopkg.in/fsnotify.v1 v1.4.7
 gopkg.in/fsnotify.v1
 # gopkg.in/inf.v0 v0.9.1

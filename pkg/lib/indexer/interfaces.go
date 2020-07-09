@@ -21,7 +21,6 @@ func NewIndexAdder(buildTool, pullTool containertools.ContainerTool, logger *log
 		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
 		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryAdder:       registry.NewRegistryAdder(logger),
-		ImageReader:         containertools.NewImageReader(pullTool, logger),
 		BuildTool:           buildTool,
 		PullTool:            pullTool,
 		Logger:              logger,
@@ -36,15 +35,14 @@ type IndexDeleter interface {
 }
 
 // NewIndexDeleter is a constructor that returns an IndexDeleter
-func NewIndexDeleter(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexDeleter {
+func NewIndexDeleter(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexDeleter {
 	return ImageIndexer{
 		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
-		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
-		LabelReader:         containertools.NewLabelReader(containerTool, logger),
+		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
+		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryDeleter:     registry.NewRegistryDeleter(logger),
-		ImageReader:         containertools.NewImageReader(containerTool, logger),
-		BuildTool:           containerTool,
-		PullTool:            containerTool,
+		BuildTool:           buildTool,
+		PullTool:            pullTool,
 		Logger:              logger,
 	}
 }
@@ -60,7 +58,6 @@ func NewIndexExporter(containerTool containertools.ContainerTool, logger *logrus
 		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
-		ImageReader:         containertools.NewImageReader(containerTool, logger),
 		BuildTool:           containerTool,
 		PullTool:            containerTool,
 		Logger:              logger,
@@ -78,7 +75,6 @@ func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.E
 		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		RegistryPruner:      registry.NewRegistryPruner(logger),
-		ImageReader:         containertools.NewImageReader(containerTool, logger),
 		BuildTool:           containerTool,
 		PullTool:            containerTool,
 		Logger:              logger,

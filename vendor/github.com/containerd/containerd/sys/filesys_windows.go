@@ -26,8 +26,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	winio "github.com/Microsoft/go-winio"
 	"github.com/Microsoft/hcsshim"
-	"golang.org/x/sys/windows"
 )
 
 const (
@@ -41,8 +41,7 @@ func MkdirAllWithACL(path string, perm os.FileMode) error {
 	return mkdirall(path, true)
 }
 
-// MkdirAll implementation that is volume path aware for Windows. It can be used
-// as a drop-in replacement for os.MkdirAll()
+// MkdirAll implementation that is volume path aware for Windows.
 func MkdirAll(path string, _ os.FileMode) error {
 	return mkdirall(path, false)
 }
@@ -112,26 +111,26 @@ func mkdirall(path string, adminAndLocalSystem bool) error {
 // mkdirWithACL creates a new directory. If there is an error, it will be of
 // type *PathError. .
 //
-// This is a modified and combined version of os.Mkdir and windows.Mkdir
+// This is a modified and combined version of os.Mkdir and syscall.Mkdir
 // in golang to cater for creating a directory am ACL permitting full
 // access, with inheritance, to any subfolder/file for Built-in Administrators
 // and Local System.
 func mkdirWithACL(name string) error {
-	sa := windows.SecurityAttributes{Length: 0}
-	sd, err := windows.SecurityDescriptorFromString(SddlAdministratorsLocalSystem)
+	sa := syscall.SecurityAttributes{Length: 0}
+	sd, err := winio.SddlToSecurityDescriptor(SddlAdministratorsLocalSystem)
 	if err != nil {
 		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
 	sa.Length = uint32(unsafe.Sizeof(sa))
 	sa.InheritHandle = 1
-	sa.SecurityDescriptor = sd
+	sa.SecurityDescriptor = uintptr(unsafe.Pointer(&sd[0]))
 
-	namep, err := windows.UTF16PtrFromString(name)
+	namep, err := syscall.UTF16PtrFromString(name)
 	if err != nil {
 		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
 
-	e := windows.CreateDirectory(namep, &sa)
+	e := syscall.CreateDirectory(namep, &sa)
 	if e != nil {
 		return &os.PathError{Op: "mkdir", Path: name, Err: e}
 	}
@@ -154,7 +153,7 @@ func IsAbs(path string) bool {
 	return true
 }
 
-// The origin of the functions below here are the golang OS and windows packages,
+// The origin of the functions below here are the golang OS and syscall packages,
 // slightly modified to only cope with files, not directories due to the
 // specific use case.
 //
@@ -186,74 +185,74 @@ func OpenFileSequential(name string, flag int, _ os.FileMode) (*os.File, error) 
 	if name == "" {
 		return nil, &os.PathError{Op: "open", Path: name, Err: syscall.ENOENT}
 	}
-	r, errf := windowsOpenFileSequential(name, flag, 0)
+	r, errf := syscallOpenFileSequential(name, flag, 0)
 	if errf == nil {
 		return r, nil
 	}
 	return nil, &os.PathError{Op: "open", Path: name, Err: errf}
 }
 
-func windowsOpenFileSequential(name string, flag int, _ os.FileMode) (file *os.File, err error) {
-	r, e := windowsOpenSequential(name, flag|windows.O_CLOEXEC, 0)
+func syscallOpenFileSequential(name string, flag int, _ os.FileMode) (file *os.File, err error) {
+	r, e := syscallOpenSequential(name, flag|syscall.O_CLOEXEC, 0)
 	if e != nil {
 		return nil, e
 	}
 	return os.NewFile(uintptr(r), name), nil
 }
 
-func makeInheritSa() *windows.SecurityAttributes {
-	var sa windows.SecurityAttributes
+func makeInheritSa() *syscall.SecurityAttributes {
+	var sa syscall.SecurityAttributes
 	sa.Length = uint32(unsafe.Sizeof(sa))
 	sa.InheritHandle = 1
 	return &sa
 }
 
-func windowsOpenSequential(path string, mode int, _ uint32) (fd windows.Handle, err error) {
+func syscallOpenSequential(path string, mode int, _ uint32) (fd syscall.Handle, err error) {
 	if len(path) == 0 {
-		return windows.InvalidHandle, windows.ERROR_FILE_NOT_FOUND
+		return syscall.InvalidHandle, syscall.ERROR_FILE_NOT_FOUND
 	}
-	pathp, err := windows.UTF16PtrFromString(path)
+	pathp, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
-		return windows.InvalidHandle, err
+		return syscall.InvalidHandle, err
 	}
 	var access uint32
-	switch mode & (windows.O_RDONLY | windows.O_WRONLY | windows.O_RDWR) {
-	case windows.O_RDONLY:
-		access = windows.GENERIC_READ
-	case windows.O_WRONLY:
-		access = windows.GENERIC_WRITE
-	case windows.O_RDWR:
-		access = windows.GENERIC_READ | windows.GENERIC_WRITE
+	switch mode & (syscall.O_RDONLY | syscall.O_WRONLY | syscall.O_RDWR) {
+	case syscall.O_RDONLY:
+		access = syscall.GENERIC_READ
+	case syscall.O_WRONLY:
+		access = syscall.GENERIC_WRITE
+	case syscall.O_RDWR:
+		access = syscall.GENERIC_READ | syscall.GENERIC_WRITE
 	}
-	if mode&windows.O_CREAT != 0 {
-		access |= windows.GENERIC_WRITE
+	if mode&syscall.O_CREAT != 0 {
+		access |= syscall.GENERIC_WRITE
 	}
-	if mode&windows.O_APPEND != 0 {
-		access &^= windows.GENERIC_WRITE
-		access |= windows.FILE_APPEND_DATA
+	if mode&syscall.O_APPEND != 0 {
+		access &^= syscall.GENERIC_WRITE
+		access |= syscall.FILE_APPEND_DATA
 	}
-	sharemode := uint32(windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE)
-	var sa *windows.SecurityAttributes
-	if mode&windows.O_CLOEXEC == 0 {
+	sharemode := uint32(syscall.FILE_SHARE_READ | syscall.FILE_SHARE_WRITE)
+	var sa *syscall.SecurityAttributes
+	if mode&syscall.O_CLOEXEC == 0 {
 		sa = makeInheritSa()
 	}
 	var createmode uint32
 	switch {
-	case mode&(windows.O_CREAT|windows.O_EXCL) == (windows.O_CREAT | windows.O_EXCL):
-		createmode = windows.CREATE_NEW
-	case mode&(windows.O_CREAT|windows.O_TRUNC) == (windows.O_CREAT | windows.O_TRUNC):
-		createmode = windows.CREATE_ALWAYS
-	case mode&windows.O_CREAT == windows.O_CREAT:
-		createmode = windows.OPEN_ALWAYS
-	case mode&windows.O_TRUNC == windows.O_TRUNC:
-		createmode = windows.TRUNCATE_EXISTING
+	case mode&(syscall.O_CREAT|syscall.O_EXCL) == (syscall.O_CREAT | syscall.O_EXCL):
+		createmode = syscall.CREATE_NEW
+	case mode&(syscall.O_CREAT|syscall.O_TRUNC) == (syscall.O_CREAT | syscall.O_TRUNC):
+		createmode = syscall.CREATE_ALWAYS
+	case mode&syscall.O_CREAT == syscall.O_CREAT:
+		createmode = syscall.OPEN_ALWAYS
+	case mode&syscall.O_TRUNC == syscall.O_TRUNC:
+		createmode = syscall.TRUNCATE_EXISTING
 	default:
-		createmode = windows.OPEN_EXISTING
+		createmode = syscall.OPEN_EXISTING
 	}
 	// Use FILE_FLAG_SEQUENTIAL_SCAN rather than FILE_ATTRIBUTE_NORMAL as implemented in golang.
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx
+	//https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx
 	const fileFlagSequentialScan = 0x08000000 // FILE_FLAG_SEQUENTIAL_SCAN
-	h, e := windows.CreateFile(pathp, access, sharemode, sa, createmode, fileFlagSequentialScan, 0)
+	h, e := syscall.CreateFile(pathp, access, sharemode, sa, createmode, fileFlagSequentialScan, 0)
 	return h, e
 }
 

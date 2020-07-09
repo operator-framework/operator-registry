@@ -4,6 +4,18 @@ go:
 jobs:
   include:
   - os: linux
+    arch: ppc64le
+    env:
+      MAKE: make
+  - os: linux
+    arch: s390x
+    env:
+      MAKE: make
+  - os: linux
+    dist: xenial
+    env:
+      MAKE: make
+  - os: linux
     dist: xenial
     env:
       MAKE: make
@@ -33,6 +45,17 @@ jobs:
   - os: windows
     env:
       MAKE: mingw32-make
+  - os: linux
+    dist: xenial
+    env:
+      MAKE: make
+      TEST: e2e
+    install: |
+      curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
+      chmod +x minikube
+      sudo mv minikube /bin/
+      minikube config set vm-driver none
+      minikube config set kubernetes-version $(go list -f '{{.Version}}' -m k8s.io/api | sed 's/^v0\./v1./')
 addons:
   apt:
     sources:
@@ -43,7 +66,7 @@ addons:
     - conntrack
 script: |
   "${MAKE}" unit build
-  if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+  if [[ "$TEST" == "e2e" ]]; then
     sudo minikube start # vm-driver=none requires root
     sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
     KUBECONFIG="$HOME/.kube/config" make e2e

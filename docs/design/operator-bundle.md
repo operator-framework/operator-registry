@@ -17,7 +17,7 @@ An `Operator Bundle` is built as a scratch (non-runnable) container image that c
 
 ### Bundle Manifest Format
 
-The standard bundle format requires two directories named `manifests` and `metatdata`. The `manifests` directory is where all operator manifests are resided including ClusterServiceVersion (CSV), CustomResourceDefinition (CRD) and other supported Kubernetes types. The `metadata` directory is where operator metadata is located including `annotations.yaml` which contains additional information such as package name, channels and media type. Also, `dependencies.yaml` which contains the operator dependency information can be included in `metadata` directory.
+The standard bundle format requires two directories named `manifests` and `metadata`. The `manifests` directory is where all operator manifests are resided including ClusterServiceVersion (CSV), CustomResourceDefinition (CRD) and other supported Kubernetes types. The `metadata` directory is where operator metadata is located including `annotations.yaml` which contains additional information such as package name, channels and media type. Also, `dependencies.yaml` which contains the operator dependency information can be included in `metadata` directory.
 
 Below is the directory layout of an operator bundle inside a bundle image:
 ```bash
@@ -76,12 +76,14 @@ An example of a `dependencies.yaml` that specifies Prometheus operator and etcd 
 ```
 dependencies:
   - type: olm.package
-    packgeName: prometheus
-    version: >0.27.0
+    value: 
+      packageName: prometheus
+      version: >0.27.0
   - type: olm.gvk
-    group: etcd.database.coreos.com
-    kind: EtcdCluster
-    version: v1beta2
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdCluster
+      version: v1beta2
 ```
 
 ### Bundle Dockerfile

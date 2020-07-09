@@ -138,7 +138,25 @@ func TestQuerierForDirectory(t *testing.T) {
 		Dependencies: []*api.Dependency{
 			{
 				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+		},
+		Properties: []*api.Property{
+			{
+				Type:  "olm.package",
+				Value: `{"packageName":"etcd","version":"0.9.2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`,
+			},
+			{
+				Type:  "olm.gvk",
+				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdRestore","version":"v1beta2"}`,
 			},
 		},
 		ProvidedApis: []*api.GroupVersionKind{
@@ -245,6 +263,9 @@ func TestQuerierForDirectory(t *testing.T) {
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	require.ElementsMatch(t, expected.ProvidedApis, actual.ProvidedApis)
 	require.ElementsMatch(t, expected.RequiredApis, actual.RequiredApis)
+	require.ElementsMatch(t, expected.Dependencies, actual.Dependencies)
+	require.ElementsMatch(t, expected.Properties, actual.Properties)
 	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
+	expected.Dependencies, expected.Properties, actual.Dependencies, actual.Properties = nil, nil, nil, nil
 	require.EqualValues(t, expected, actual)
 }
