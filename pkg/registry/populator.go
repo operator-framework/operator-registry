@@ -69,17 +69,17 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 	for _, image := range imagesToAdd {
 		images[image.bundle.BundleImage] = true
 	}
+
 	for _, image := range imagesToAdd {
 		bundlePaths, err := i.querier.GetBundlePathsForPackage(context.TODO(), image.bundle.Package)
 		if err != nil {
 			errs = append(errs, err)
 			return utilerrors.NewAggregate(errs)
 		}
+		isExactImage := false
 		for _, bundlePath := range bundlePaths {
 			if _, ok := images[bundlePath]; ok {
-				// raise error that bundlePath is already in the db
-				errs = append(errs, fmt.Errorf(" TODO "))
-				continue
+				isExactImage = true
 			}
 		}
 		for _, channel := range image.bundle.Channels {
@@ -88,9 +88,14 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 				errs = append(errs, err)
 				return utilerrors.NewAggregate(errs)
 			}
-			if bundle != nil {
+			if bundle != nil && !isExactImage {
 				// raise error that this package + channel + csv combo is already in the db
-				errs = append(errs, fmt.Errorf(" TODO "))
+				errs = append(errs, fmt.Errorf("bundle already added that provides package: %v and CSV: %v", image.bundle.Package, image.bundle.csv.GetName()))
+				continue
+			}
+			if bundle != nil && isExactImage {
+				// raise error that this package + channel + csv combo is already in the db
+				errs = append(errs, fmt.Errorf("bundle already added %v", image.bundle.BundleImage))
 				continue
 			}
 		}
