@@ -1,9 +1,11 @@
 syntax = "proto3";
 
+option go_package = ".;api";
+
 package api;
 
 service Registry {
-    rpc ListPackages(ListPackageRequest) returns (stream PackageName) {}
+	rpc ListPackages(ListPackageRequest) returns (stream PackageName) {}
 	rpc GetPackage(GetPackageRequest) returns (Package) {}
 	rpc GetBundle(GetBundleRequest) returns (Bundle) {}
 	rpc GetBundleForChannel(GetBundleInChannelRequest) returns (Bundle) {}
@@ -14,7 +16,6 @@ service Registry {
 	rpc GetDefaultBundleThatProvides(GetDefaultProviderRequest) returns (Bundle) {}
 	rpc ListBundles(ListBundlesRequest) returns (stream Bundle) {}
 }
-
 
 message Channel{
 	string name = 1;
@@ -61,6 +62,8 @@ message Bundle{
 	string skipRange = 10;
 	repeated Dependency dependencies = 11;
 	repeated Property properties = 12;
+	string replaces = 13;
+	repeated string skips = 14;
 }
 
 message ChannelEntry{

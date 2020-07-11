@@ -902,7 +902,7 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 
 func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, err error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
-	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces,
+	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, operatorbundle.replaces, operatorbundle.skips,
 	operatorbundle.version, operatorbundle.skiprange,
 	dependencies.type, dependencies.value,
 	properties.type, properties.value
@@ -928,13 +928,14 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		var pkgName sql.NullString
 		var channelName sql.NullString
 		var replaces sql.NullString
+		var skips sql.NullString
 		var version sql.NullString
 		var skipRange sql.NullString
 		var depType sql.NullString
 		var depValue sql.NullString
 		var propType sql.NullString
 		var propValue sql.NullString
-		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
+		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
 			return nil, err
 		}
 
@@ -982,6 +983,8 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			out.BundlePath = bundlePath.String
 			out.Version = version.String
 			out.SkipRange = skipRange.String
+			out.Replaces = replaces.String
+			out.Skips = strings.Split(skips.String, ",")
 
 			provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
 			if err != nil {
