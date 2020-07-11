@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -133,7 +135,8 @@ func TestGetPackage(t *testing.T) {
 		},
 		DefaultChannelName: "alpha",
 	}
-	require.Equal(t, expected, pkg)
+	opts := []cmp.Option{cmpopts.IgnoreUnexported(api.Package{}),  cmpopts.IgnoreUnexported(api.Channel{})}
+	require.True(t, cmp.Equal(expected, pkg, opts...))
 }
 
 func TestGetBundle(t *testing.T) {
@@ -296,8 +299,11 @@ func TestGetChannelEntriesThatReplace(t *testing.T) {
 			Replaces:    "etcdoperator.v0.6.1",
 		},
 	}
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(api.ChannelEntry{}),
+	}
 
-	require.ElementsMatch(t, expected, channelEntries)
+	require.Truef(t, cmp.Equal(expected, channelEntries, opts...), cmp.Diff(expected, channelEntries, opts...))
 }
 
 func TestGetBundleThatReplaces(t *testing.T) {
@@ -420,7 +426,7 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 	stream, err := c.GetChannelEntriesThatProvide(context.TODO(), &api.GetAllProvidersRequest{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster"})
 	require.NoError(t, err)
 
-	channelEntries := []*api.ChannelEntry{}
+	channelEntries := []api.ChannelEntry{}
 	waitc := make(chan struct{})
 	go func(t *testing.T) {
 		for {
@@ -435,12 +441,12 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 				close(waitc)
 				return
 			}
-			channelEntries = append(channelEntries, in)
+			channelEntries = append(channelEntries, *in)
 		}
 	}(t)
 	<-waitc
 
-	expected := []*api.ChannelEntry{
+	expected := []api.ChannelEntry{
 		{
 			PackageName: "etcd",
 			ChannelName: "alpha",
@@ -502,8 +508,25 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 			Replaces:    "etcdoperator.v0.9.0",
 		},
 	}
-
-	require.ElementsMatch(t, expected, channelEntries)
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(api.ChannelEntry{}),
+		cmpopts.SortSlices(func(x,y api.ChannelEntry) bool {
+			if x.PackageName != y.PackageName {
+				return x.PackageName < y.PackageName
+			}
+			if x.ChannelName != y.ChannelName {
+				return x.ChannelName < y.ChannelName
+			}
+			if x.BundleName != y.BundleName {
+				return x.BundleName < y.BundleName
+			}
+			if x.Replaces != y.Replaces {
+				return x.Replaces < y.Replaces
+			}
+			return false
+		}),
+	}
+	require.Truef(t, cmp.Equal(expected, channelEntries, opts...), cmp.Diff(expected, channelEntries, opts...))
 }
 
 func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
@@ -554,7 +577,25 @@ func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 		},
 	}
 
-	require.ElementsMatch(t, expected, channelEntries)
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(api.ChannelEntry{}),
+		cmpopts.SortSlices(func(x,y api.ChannelEntry) bool {
+			if x.PackageName != y.PackageName {
+				return x.PackageName < y.PackageName
+			}
+			if x.ChannelName != y.ChannelName {
+				return x.ChannelName < y.ChannelName
+			}
+			if x.BundleName != y.BundleName {
+				return x.BundleName < y.BundleName
+			}
+			if x.Replaces != y.Replaces {
+				return x.Replaces < y.Replaces
+			}
+			return false
+		}),
+	}
+	require.Truef(t, cmp.Equal(expected, channelEntries, opts...), cmp.Diff(expected, channelEntries, opts...))
 }
 
 func TestGetDefaultBundleThatProvides(t *testing.T) {
@@ -668,6 +709,8 @@ func TestListBundles(t *testing.T) {
 		},
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
+		Replaces:  "etcdoperator.v0.9.0",
+		Skips: []string{"etcdoperator.v0.9.1"},
 	}
 
 	expected := []string{
@@ -688,6 +731,7 @@ func TestListBundles(t *testing.T) {
 
 	waitc := make(chan struct{})
 	go func(t *testing.T) {
+		tt := t
 		for {
 			in, err := stream.Recv()
 			if err == io.EOF {
@@ -696,7 +740,7 @@ func TestListBundles(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Error(err)
+				tt.Error(err)
 				close(waitc)
 				return
 			}
@@ -720,5 +764,12 @@ func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	require.ElementsMatch(t, expected.Properties, actual.Properties, "properties don't match %#v\n%#v", expected.Properties, actual.Properties)
 	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
 	expected.Dependencies, expected.Properties, actual.Dependencies, actual.Properties = nil, nil, nil, nil
-	require.EqualValues(t, expected, actual)
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(api.Bundle{}),
+		cmpopts.IgnoreUnexported(api.GroupVersionKind{}),
+		cmpopts.IgnoreUnexported(api.Property{}),
+		cmpopts.IgnoreUnexported(api.Dependency{}),
+	}
+
+	require.Truef(t, cmp.Equal(expected, actual, opts...), cmp.Diff(expected, actual, opts...))
 }
