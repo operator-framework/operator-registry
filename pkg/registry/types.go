@@ -14,6 +14,24 @@ var (
 	ErrPackageNotInDatabase = errors.New("Package not in database")
 )
 
+// BundleAlreadyAddedError is an error that describes a bundle is already added
+type BundleAlreadyAddedError struct {
+	ErrorString string
+}
+
+func (e BundleAlreadyAddedError) Error() string {
+	return e.ErrorString
+}
+
+// BundleAlreadyInDatabseError is an error that describes that a bundle that is already in the databse that provides this CSV
+type BundleAlreadyInDatabaseError struct {
+	ErrorString string
+}
+
+func (e BundleAlreadyInDatabaseError) Error() string {
+	return e.ErrorString
+}
+
 const (
 	GVKType     = "olm.gvk"
 	PackageType = "olm.package"

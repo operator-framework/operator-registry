@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
+
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 func init() {
@@ -246,6 +249,7 @@ func TestImageLoading(t *testing.T) {
 		addImage     img
 		wantPackages []*registry.Package
 		wantErr      bool
+		err          error
 	}{
 		{
 			name: "OneChannel/AddBundleToTwoChannels",
@@ -386,6 +390,76 @@ func TestImageLoading(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "AddBundleAlreadyExists",
+			initImages: []img{
+				{
+					// this is in the "preview" channel
+					ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+					dir: "../../bundles/prometheus.0.14.0",
+				},
+			},
+			addImage: img{
+				//Adding same bundle different bundle
+				ref: image.SimpleReference("quay.io/prometheus/operator-test:testing"),
+				dir: "../../bundles/prometheus.0.14.0",
+			},
+			wantPackages: []*registry.Package{
+				{
+					Name:           "prometheus",
+					DefaultChannel: "stable",
+					Channels: map[string]registry.Channel{
+						"preview": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.14.0",
+								Version:    "0.14.0",
+								CsvName:    "prometheusoperator.0.14.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+			err:     registry.BundleAlreadyInDatabaseError{},
+		},
+		{
+			name: "AddExactBundleAlreadyExists",
+			initImages: []img{
+				{
+					// this is in the "preview" channel
+					ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+					dir: "../../bundles/prometheus.0.14.0",
+				},
+			},
+			addImage: img{
+				// Add the same package
+				ref: image.SimpleReference("quay.io/prometheus/operator:0.14.0"),
+				dir: "../../bundles/prometheus.0.14.0",
+			},
+			wantPackages: []*registry.Package{
+				{
+					Name:           "prometheus",
+					DefaultChannel: "stable",
+					Channels: map[string]registry.Channel{
+						"preview": {
+							Head: registry.BundleKey{
+								BundlePath: "quay.io/prometheus/operator:0.14.0",
+								Version:    "0.14.0",
+								CsvName:    "prometheusoperator.0.14.0",
+							},
+							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+								{BundlePath: "quay.io/prometheus/operator:0.14.0", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0"}: {},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+			err:     registry.BundleAlreadyAddedError{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -411,7 +485,12 @@ func TestImageLoading(t *testing.T) {
 				graphLoader,
 				query,
 				map[image.Reference]string{tt.addImage.ref: tt.addImage.dir})
-			require.NoError(t, add.Populate(registry.ReplacesMode))
+			err = add.Populate(registry.ReplacesMode)
+			if tt.wantErr {
+				require.True(t, checkAggErr(err, tt.err))
+				return
+			}
+			require.NoError(t, err)
 
 			for _, p := range tt.wantPackages {
 				graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
@@ -424,6 +503,18 @@ func TestImageLoading(t *testing.T) {
 			CheckInvariants(t, db)
 		})
 	}
+}
+
+func checkAggErr(aggErr, wantErr error) bool {
+	if a, ok := aggErr.(utilerrors.Aggregate); ok {
+		for _, e := range a.Errors() {
+			if reflect.TypeOf(e).String() == reflect.TypeOf(wantErr).String() {
+				return true
+			}
+		}
+		return false
+	}
+	return reflect.TypeOf(aggErr).String() == reflect.TypeOf(wantErr).String()
 }
 
 func TestQuerierForDependencies(t *testing.T) {
