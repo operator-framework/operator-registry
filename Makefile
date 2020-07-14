@@ -9,7 +9,7 @@ BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 
 .PHONY: all
-all: clean test build sanity-check
+all: clean test build
 
 $(CMDS):
 	$(GO) build $(extra_flags) -o $@ ./cmd/$(notdir $@)
