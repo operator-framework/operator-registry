@@ -8,7 +8,7 @@ OPM_VERSION := $(shell cat OPM_VERSION)
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 TAGS := -tags "json1"
 # -race is only supported on linux/amd64, linux/ppc64le, linux/arm64, freebsd/amd64, netbsd/amd64, darwin/amd64 and windows/amd64
-ifeq ($(GOARCH),s390x)
+ifeq ($(shell go env GOARCH),s390x)
 TEST_RACE :=
 else
 TEST_RACE := -race
