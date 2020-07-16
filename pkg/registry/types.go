@@ -14,21 +14,21 @@ var (
 	ErrPackageNotInDatabase = errors.New("Package not in database")
 )
 
-// BundleAlreadyAddedError is an error that describes a bundle is already added
-type BundleAlreadyAddedError struct {
+// BundleImageAlreadyAddedErr is an error that describes a bundle is already added
+type BundleImageAlreadyAddedErr struct {
 	ErrorString string
 }
 
-func (e BundleAlreadyAddedError) Error() string {
+func (e BundleImageAlreadyAddedErr) Error() string {
 	return e.ErrorString
 }
 
-// BundleAlreadyInDatabseError is an error that describes that a bundle that is already in the databse that provides this CSV
-type BundleAlreadyInDatabaseError struct {
+// PackageVersionAlreadyAddedErr is an error that describes that a bundle that is already in the databse that provides this package and version
+type PackageVersionAlreadyAddedErr struct {
 	ErrorString string
 }
 
-func (e BundleAlreadyInDatabaseError) Error() string {
+func (e PackageVersionAlreadyAddedErr) Error() string {
 	return e.ErrorString
 }
 

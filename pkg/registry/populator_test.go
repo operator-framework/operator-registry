@@ -423,7 +423,7 @@ func TestImageLoading(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			err:     registry.BundleAlreadyInDatabaseError{},
+			err:     registry.PackageVersionAlreadyAddedErr{},
 		},
 		{
 			name: "AddExactBundleAlreadyExists",
@@ -458,7 +458,7 @@ func TestImageLoading(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			err:     registry.BundleAlreadyAddedError{},
+			err:     registry.BundleImageAlreadyAddedErr{},
 		},
 	}
 	for _, tt := range tests {
