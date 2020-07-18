@@ -5,16 +5,16 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"io/ioutil"
 	"os"
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -34,8 +34,6 @@ type AddToRegistryRequest struct {
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
-	var errs []error
-
 	db, err := sql.Open("sqlite3", request.InputDatabase)
 	if err != nil {
 		return err
@@ -96,16 +94,17 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	}
 
 	if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, simpleRefs, request.Mode); err != nil {
-		err = fmt.Errorf("error loading bundle from image: %s", err)
+		r.Logger.Debugf("unable to populate database: %s", err)
+
 		if !request.Permissive {
 			r.Logger.WithError(err).Error("permissive mode disabled")
-			errs = append(errs, err)
+			return err
 		} else {
 			r.Logger.WithError(err).Warn("permissive mode enabled")
 		}
 	}
 
-	return utilerrors.NewAggregate(errs) // nil if no errors
+	return nil
 }
 
 func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode) error {

@@ -85,6 +85,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 	// Add the bundles to the registry
 	err = i.RegistryAdder.AddToRegistry(addToRegistryReq)
 	if err != nil {
+		i.Logger.WithError(err).Debugf("unable to add bundle to registry")
 		return err
 	}
 
@@ -221,7 +222,6 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 
 	return nil
 }
-
 
 // extractDatabase sets a temp directory for unpacking an image
 func (i ImageIndexer) extractDatabase(buildDir, fromIndex string) (string, error) {

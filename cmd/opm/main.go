@@ -5,11 +5,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
 	"github.com/operator-framework/operator-registry/cmd/opm/index"
 	"github.com/operator-framework/operator-registry/cmd/opm/registry"
 	"github.com/operator-framework/operator-registry/cmd/opm/version"
+	registrylib "github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func main() {
@@ -35,6 +37,18 @@ func main() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
+		agg, ok := err.(utilerrors.Aggregate)
+		if !ok {
+			os.Exit(1)
+		}
+		for _, e := range agg.Errors() {
+			if _, ok := e.(registrylib.BundleImageAlreadyAddedErr); ok {
+				os.Exit(2)
+			}
+			if _, ok := e.(registrylib.PackageVersionAlreadyAddedErr); ok {
+				os.Exit(3)
+			}
+		}
 		os.Exit(1)
 	}
 }
