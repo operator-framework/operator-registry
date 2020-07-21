@@ -8,13 +8,16 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
 type RegistryClientStub struct {
 	ListBundlesClient api.Registry_ListBundlesClient
-	error             error
+	PackageName       string
+	Package           *api.Package
+	Error             error
 }
 
 func (s *RegistryClientStub) ListPackages(ctx context.Context, in *api.ListPackageRequest, opts ...grpc.CallOption) (api.Registry_ListPackagesClient, error) {
@@ -22,7 +25,8 @@ func (s *RegistryClientStub) ListPackages(ctx context.Context, in *api.ListPacka
 }
 
 func (s *RegistryClientStub) GetPackage(ctx context.Context, in *api.GetPackageRequest, opts ...grpc.CallOption) (*api.Package, error) {
-	return nil, nil
+	s.PackageName = in.GetName()
+	return s.Package, s.Error
 }
 
 func (s *RegistryClientStub) GetBundle(ctx context.Context, in *api.GetBundleRequest, opts ...grpc.CallOption) (*api.Bundle, error) {
@@ -54,7 +58,7 @@ func (s *RegistryClientStub) GetDefaultBundleThatProvides(ctx context.Context, i
 }
 
 func (s *RegistryClientStub) ListBundles(ctx context.Context, in *api.ListBundlesRequest, opts ...grpc.CallOption) (api.Registry_ListBundlesClient, error) {
-	return s.ListBundlesClient, s.error
+	return s.ListBundlesClient, s.Error
 }
 
 func (s *RegistryClientStub) Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
@@ -63,18 +67,18 @@ func (s *RegistryClientStub) Check(ctx context.Context, in *grpc_health_v1.Healt
 
 type BundleReceiverStub struct {
 	Bundle *api.Bundle
-	error  error
+	Error  error
 	grpc.ClientStream
 }
 
 func (s *BundleReceiverStub) Recv() (*api.Bundle, error) {
-	return s.Bundle, s.error
+	return s.Bundle, s.Error
 }
 
 func TestListBundlesError(t *testing.T) {
 	expected := errors.New("test error")
 	stub := &RegistryClientStub{
-		error: expected,
+		Error: expected,
 	}
 	c := Client{
 		Registry: stub,
@@ -88,7 +92,7 @@ func TestListBundlesError(t *testing.T) {
 func TestListBundlesRecvError(t *testing.T) {
 	expected := errors.New("test error")
 	rstub := &BundleReceiverStub{
-		error: expected,
+		Error: expected,
 	}
 	cstub := &RegistryClientStub{
 		ListBundlesClient: rstub,
@@ -124,4 +128,45 @@ func TestListBundlesNext(t *testing.T) {
 	actual := it.Next()
 	require.NoError(t, it.Error())
 	require.Equal(t, expected, actual)
+}
+
+func TestGetPackage(t *testing.T) {
+	for _, tt := range []struct {
+		Name        string
+		PackageName string
+		Package     *api.Package
+		Error       error
+	}{
+		{
+			Name:        "success",
+			PackageName: "name-success",
+			Package: &api.Package{
+				Name: "expected-name",
+				Channels: []*api.Channel{
+					{
+						Name:    "expected-channel-name",
+						CsvName: "expected-csv-name",
+					},
+				},
+				DefaultChannelName: "expected-default-channel-name",
+			},
+		},
+		{
+			Name:        "error",
+			PackageName: "name-error",
+			Error:       errors.New("test error"),
+		},
+	} {
+		t.Run(tt.Name, func(t *testing.T) {
+			stub := &RegistryClientStub{
+				Package: tt.Package,
+				Error:   tt.Error,
+			}
+			c := Client{Registry: stub, Health: stub}
+			actual, err := c.GetPackage(context.TODO(), tt.PackageName)
+			assert.Equal(t, stub.PackageName, tt.PackageName)
+			assert.Equal(t, tt.Error, err)
+			assert.Equal(t, tt.Package, actual)
+		})
+	}
 }
