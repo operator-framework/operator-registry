@@ -9,7 +9,6 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
 WORKDIR /src
 
-COPY OPM_VERSION OPM_VERSION
 COPY vendor vendor
 COPY cmd cmd
 COPY pkg pkg
