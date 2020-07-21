@@ -3,8 +3,8 @@ CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
 PKG := github.com/operator-framework/operator-registry
-GIT_COMMIT := $(shell git rev-parse --short HEAD)
-OPM_VERSION := $(shell cat OPM_VERSION)
+GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
+OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 TAGS := -tags "json1"
 # -race is only supported on linux/amd64, linux/ppc64le, linux/arm64, freebsd/amd64, netbsd/amd64, darwin/amd64 and windows/amd64
