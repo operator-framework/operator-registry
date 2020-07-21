@@ -80,3 +80,20 @@ func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.E
 		Logger:              logger,
 	}
 }
+
+// IndexDeprecator prunes operators out of an index
+type IndexDeprecator interface {
+	DeprecateFromIndex(DeprecateFromIndexRequest) error
+}
+
+func NewIndexDeprecator(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexDeprecator {
+	return ImageIndexer{
+		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
+		LabelReader:         containertools.NewLabelReader(pullTool, logger),
+		RegistryDeprecator:  registry.NewRegistryDeprecator(logger),
+		BuildTool:           buildTool,
+		PullTool:            pullTool,
+		Logger:              logger,
+	}
+}

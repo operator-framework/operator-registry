@@ -228,3 +228,37 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 
 	return nil
 }
+
+type DeprecateFromRegistryRequest struct {
+	Permissive    bool
+	InputDatabase string
+	Bundles       []string
+}
+
+func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequest) error {
+	db, err := sql.Open("sqlite3", request.InputDatabase)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := dbLoader.Migrate(context.TODO()); err != nil {
+		return fmt.Errorf("unable to migrate database: %s", err)
+	}
+
+	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, request.Bundles)
+	if err := deprecator.Deprecate(); err != nil {
+		r.Logger.Debugf("unable to deprecate bundles from database: %s", err)
+		if !request.Permissive {
+			r.Logger.WithError(err).Error("permissive mode disabled")
+			return err
+		}
+		r.Logger.WithError(err).Warn("permissive mode enabled")
+	}
+
+	return nil
+}
