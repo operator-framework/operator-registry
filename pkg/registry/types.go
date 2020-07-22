@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var (
@@ -143,16 +144,12 @@ type Annotations struct {
 // DependenciesFile holds dependency information about a bundle
 type DependenciesFile struct {
 	// Dependencies is a list of dependencies for a given bundle
-	Dependencies []Dependency `json:"dependencies" yaml:"dependencies"`
+	Dependencies []string `json:"dependencies" yaml:"dependencies"`
 }
 
-// Dependency specifies a single constraint that can be satisfied by a property on another bundle..
+// Dependency specifies a single constraint that can be satisfied by a property on another bundle
 type Dependency struct {
-	// The type of dependency. This field is required.
-	Type string `json:"type" yaml:"type"`
-
-	// The serialized value of the dependency
-	Value json.RawMessage `json:"value" yaml:"value"`
+	Value string
 }
 
 // Property defines a single piece of the public interface for a bundle. Dependencies are specified over properties.
@@ -167,22 +164,11 @@ type Property struct {
 }
 
 type GVKDependency struct {
-	// The group of GVK based dependency
-	Group string `json:"group" yaml:"group"`
-
-	// The kind of GVK based dependency
-	Kind string `json:"kind" yaml:"kind"`
-
-	// The version of GVK based dependency
-	Version string `json:"version" yaml:"version"`
+	Value string `json:"olm.gvk" yaml:"olm.gvk"`
 }
 
 type PackageDependency struct {
-	// The name of dependency such as 'etcd'
-	PackageName string `json:"packageName" yaml:"packageName"`
-
-	// The version range of dependency in semver range format
-	Version string `json:"version" yaml:"version"`
+	Value string `json:"olm.package" yaml:"olm.package"`
 }
 
 type GVKProperty struct {
@@ -206,71 +192,124 @@ type PackageProperty struct {
 
 // Validate will validate GVK dependency type and return error(s)
 func (gd *GVKDependency) Validate() []error {
-	errs := []error{}
-	if gd.Group == "" {
-		errs = append(errs, fmt.Errorf("API Group is empty"))
+	var errs []error
+	if gd.Value == "" {
+		errs = append(errs, fmt.Errorf("GVK information is empty"))
 	}
-	if gd.Version == "" {
-		errs = append(errs, fmt.Errorf("API Version is empty"))
+	s := strings.Split(strings.TrimSpace(gd.Value), "/")
+
+	if len(s) != 3 {
+		errs = append(errs, fmt.Errorf("Unable to parse GVK info: %s", s))
 	}
-	if gd.Kind == "" {
-		errs = append(errs, fmt.Errorf("API Kind is empty"))
+
+	for _, item := range s {
+		if item == "" {
+			errs = append(errs, fmt.Errorf("Unable to parse GVK info: %s", s))
+			return errs
+		}
 	}
 	return errs
 }
 
+func (gd *GVKDependency) GetValue() (schema.GroupVersionKind, []error) {
+	var gvk schema.GroupVersionKind
+	errs := gd.Validate()
+	if len(errs) != 0 {
+		return gvk, errs
+	}
+
+	s := strings.Split(strings.TrimSpace(gd.Value), "/")
+	gvk = schema.GroupVersionKind{
+		Group:   s[0],
+		Version: s[1],
+		Kind:    s[2],
+	}
+	return gvk, nil
+}
+
 // Validate will validate package dependency type and return error(s)
 func (pd *PackageDependency) Validate() []error {
-	errs := []error{}
-	if pd.PackageName == "" {
-		errs = append(errs, fmt.Errorf("Package name is empty"))
+	var errs []error
+	if pd.Value == "" {
+		errs = append(errs, fmt.Errorf("Package information is empty"))
 	}
-	if pd.Version == "" {
-		errs = append(errs, fmt.Errorf("Package version is empty"))
-	} else {
-		_, err := semver.ParseRange(pd.Version)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("Invalid semver format version"))
+	s := strings.Split(strings.TrimSpace(pd.Value), ",")
+
+	if len(s) != 2 {
+		errs = append(errs, fmt.Errorf("Unable to parse package info: %s", s))
+	}
+
+	for _, item := range s {
+		if item == "" {
+			errs = append(errs, fmt.Errorf("Unable to parse package info: %s", s))
+			return errs
 		}
 	}
+
+	_, err := semver.ParseRange(strings.TrimSpace(s[1]))
+	if err != nil {
+		errs = append(errs, fmt.Errorf("Invalid semver format version"))
+	}
 	return errs
+}
+
+func (pd *PackageDependency) GetValue() (string, string, []error) {
+	errs := pd.Validate()
+	if len(errs) != 0 {
+		return "", "", errs
+	}
+
+	s := strings.Split(strings.TrimSpace(pd.Value), ",")
+	return strings.TrimSpace(s[0]), strings.TrimSpace(s[1]), nil
 }
 
 // GetDependencies returns the list of dependency
 func (d *DependenciesFile) GetDependencies() []*Dependency {
 	var dependencies []*Dependency
 	for _, item := range d.Dependencies {
-		dep := item
+		dep := Dependency{
+			Value: item,
+		}
 		dependencies = append(dependencies, &dep)
 	}
 	return dependencies
 }
 
-// GetType returns the type of dependency
-func (e *Dependency) GetType() string {
-	return e.Type
-}
-
-// GetTypeValue returns the dependency object that is converted
-// from value string
-func (e *Dependency) GetTypeValue() interface{} {
-	switch e.GetType() {
-	case GVKType:
-		dep := GVKDependency{}
-		err := json.Unmarshal([]byte(e.GetValue()), &dep)
-		if err != nil {
-			return nil
-		}
-		return dep
-	case PackageType:
-		dep := PackageDependency{}
-		err := json.Unmarshal([]byte(e.GetValue()), &dep)
-		if err != nil {
-			return nil
-		}
-		return dep
+func (e *Dependency) GetTypeValue() ([]interface{}, []error) {
+	if e.Value == "" {
+		return nil, []error{fmt.Errorf("Dependency information is empty")}
 	}
-	return nil
+	var errs []error
+	var deps []interface{}
+	s := strings.Split(e.Value, ";")
+	for _, item := range s {
+		dgvk := GVKDependency{}
+		err := json.Unmarshal([]byte(strings.TrimSpace(item)), &dgvk)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if dgvk.Value != "" {
+			deps = append(deps, dgvk)
+			continue
+		}
+
+		dpkg := PackageDependency{}
+		err = json.Unmarshal([]byte(e.GetValue()), &dpkg)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		if dpkg.Value != "" {
+			deps = append(deps, dpkg)
+			continue
+		}
+
+		errs = append(errs, fmt.Errorf("Unsupported dependency format: %s", item))
+	}
+
+	return deps, errs
 }
 
 // GetValue returns the value content of dependency

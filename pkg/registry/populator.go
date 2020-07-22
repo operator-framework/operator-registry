@@ -17,10 +17,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
-type Dependencies struct {
-	RawMessage []map[string]interface{} `json:"dependencies" yaml:"dependencies"`
-}
-
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
 	loader      Load

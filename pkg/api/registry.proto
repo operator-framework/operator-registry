@@ -40,8 +40,7 @@ message GroupVersionKind{
 }
 
 message Dependency{
-  string type = 1;
-  string value = 2;
+  string value = 1;
 }
 
 message Property{
