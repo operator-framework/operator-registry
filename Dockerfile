@@ -2,7 +2,7 @@ FROM openshift/origin-release:golang-1.14 as builder
 
 RUN yum update -y && \
     yum install -y make git sqlite glibc-static openssl-static zlib-static && \
-    yum groupinstall -y "Development Tools" "Development Libraries"
+    yum groupinstall -y "Development Tools"
 
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
