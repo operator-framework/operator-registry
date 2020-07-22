@@ -69,7 +69,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -120,6 +120,7 @@ type DeleteFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Operators         []string
+	SkipTLS           bool
 }
 
 // DeleteFromIndex is an aggregate API used to generate a registry index image
@@ -131,7 +132,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -231,6 +232,7 @@ type PruneFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Packages          []string
+	SkipTLS           bool
 }
 
 func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
@@ -240,7 +242,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -279,14 +281,14 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 }
 
 // extractDatabase sets a temp directory for unpacking an image
-func (i ImageIndexer) extractDatabase(buildDir, fromIndex string) (string, error) {
+func (i ImageIndexer) extractDatabase(buildDir, fromIndex string, skipTLS bool) (string, error) {
 	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmpDir)
 
-	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex)
+	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex, skipTLS)
 	if err != nil {
 		return "", err
 	}
@@ -294,7 +296,7 @@ func (i ImageIndexer) extractDatabase(buildDir, fromIndex string) (string, error
 	return copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder))
 }
 
-func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, error) {
+func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string, skipTLS bool) (string, error) {
 	if fromIndex == "" {
 		return path.Join(workingDir, defaultDatabaseFile), nil
 	}
@@ -306,7 +308,7 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string) (string, err
 	var rerr error
 	switch i.PullTool {
 	case containertools.NoneTool:
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(i.Logger))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(skipTLS), containerdregistry.WithLog(i.Logger))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
@@ -458,6 +460,7 @@ type ExportFromIndexRequest struct {
 	Package       string
 	DownloadPath  string
 	ContainerTool containertools.ContainerTool
+	SkipTLS       bool
 }
 
 // ExportFromIndex is an aggregate API used to specify operators from
@@ -471,7 +474,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer os.RemoveAll(workingDir)
 
 	// extract the index database to the file
-	databaseFile, err := i.getDatabaseFile(workingDir, request.Index)
+	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -592,6 +595,7 @@ type DeprecateFromIndexRequest struct {
 	OutDockerfile     string
 	Bundles           []string
 	Tag               string
+	SkipTLS           bool
 }
 
 // DeprecateFromIndex takes a DeprecateFromIndexRequest and deprecates the requested
@@ -603,7 +607,7 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
 	if err != nil {
 		return err
 	}

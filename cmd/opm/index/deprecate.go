@@ -57,6 +57,7 @@ func newIndexDeprecateTruncateCmd() *cobra.Command {
 	indexCmd.Flags().StringP("pull-tool", "p", "", "tool to pull container images. One of: [none, docker, podman]. Defaults to none. Overrides part of container-tool.")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
+	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling index")
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -105,6 +106,11 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("deprecating bundles from the index")
@@ -122,6 +128,7 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		Tag:               tag,
 		Bundles:           bundles,
 		Permissive:        permissive,
+		SkipTLS:           skipTLS,
 	}
 
 	err = indexDeprecator.DeprecateFromIndex(request)

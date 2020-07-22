@@ -53,7 +53,7 @@ func addIndexAddCmd(parent *cobra.Command) {
 	if err := indexCmd.MarkFlagRequired("bundles"); err != nil {
 		logrus.Panic("Failed to set required `bundles` flag for `index add`")
 	}
-	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
+	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
 	indexCmd.Flags().StringP("container-tool", "c", "", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("build-tool", "u", "", "tool to build container images. One of: [docker, podman]. Defaults to podman. Overrides part of container-tool.")
