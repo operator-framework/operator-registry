@@ -659,9 +659,9 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 
 	requiredQuery := `SELECT DISTINCT dependencies.value FROM dependencies
 					  INNER JOIN channel_entry ON channel_entry.operatorbundle_name = dependencies.operatorbundle_name
-					  WHERE dependencies.type=? AND channel_entry.entry_id=?`
+					  WHERE channel_entry.entry_id=?`
 
-	requiredRows, err := s.db.QueryContext(ctx, requiredQuery, registry.GVKType, entryID)
+	requiredRows, err := s.db.QueryContext(ctx, requiredQuery, entryID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -677,19 +677,32 @@ func (s *SQLQuerier) GetApisForEntry(ctx context.Context, entryID int64) (provid
 		if !value.Valid {
 			continue
 		}
-		dep := registry.GVKDependency{}
-		if err := json.Unmarshal([]byte(value.String), &dep); err != nil {
-			continue
+		depObject := registry.Dependency{Value: value.String}
+		deps, err := depObject.GetTypeValue()
+		if err != nil {
+			return nil, nil, err
 		}
 
-		required = append(required, &api.GroupVersionKind{
-			Group:   dep.Group,
-			Version: dep.Version,
-			Kind:    dep.Kind,
-		})
-		groups[dep.Group] = struct{}{}
-		versions[dep.Version] = struct{}{}
-		kinds[dep.Kind] = struct{}{}
+		for _, d := range deps {
+			switch dp := d.(type) {
+			case registry.GVKDependency:
+				key, err := dp.GetValue()
+				if err != nil {
+					return nil, nil, err
+				}
+
+				required = append(required, &api.GroupVersionKind{
+					Group:   key.Group,
+					Version: key.Version,
+					Kind:    key.Kind,
+				})
+				groups[key.Group] = struct{}{}
+				versions[key.Version] = struct{}{}
+				kinds[key.Kind] = struct{}{}
+			default:
+				continue
+			}
+		}
 	}
 
 	argsFor := func(s map[string]struct{}) string {
@@ -904,7 +917,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
 	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, operatorbundle.replaces, operatorbundle.skips,
 	operatorbundle.version, operatorbundle.skiprange,
-	dependencies.type, dependencies.value,
+	dependencies.value,
 	properties.type, properties.value
 	FROM channel_entry
 	INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
@@ -931,11 +944,10 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		var skips sql.NullString
 		var version sql.NullString
 		var skipRange sql.NullString
-		var depType sql.NullString
 		var depValue sql.NullString
 		var propType sql.NullString
 		var propValue sql.NullString
-		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
+		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depValue, &propType, &propValue); err != nil {
 			return nil, err
 		}
 
@@ -944,10 +956,9 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		if ok {
 			// Create new dependency object
 			dep := &api.Dependency{}
-			if !depType.Valid || !depValue.Valid {
+			if !depValue.Valid {
 				continue
 			}
-			dep.Type = depType.String
 			dep.Value = depValue.String
 
 			// Add new dependency to the existing list
@@ -994,19 +1005,22 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			out.RequiredApis = required
 
 			// Create new dependency and dependency list
-			dep := &api.Dependency{}
 			dependencies := []*api.Dependency{}
-			dep.Type = depType.String
-			dep.Value = depValue.String
-			dependencies = append(dependencies, dep)
+			if depValue.Valid {
+				dep := &api.Dependency{}
+				dep.Value = depValue.String
+				dependencies = append(dependencies, dep)
+			}
 			out.Dependencies = dependencies
 
 			// Create new property and property list
-			prop := &api.Property{}
 			properties := []*api.Property{}
-			prop.Type = propType.String
-			prop.Value = propValue.String
-			properties = append(properties, prop)
+			if propValue.Valid && propType.Valid {
+				prop := &api.Property{}
+				prop.Type = propType.String
+				prop.Value = propValue.String
+				properties = append(properties, prop)
+			}
 			out.Properties = properties
 
 			bundlesMap[bundleKey] = out
@@ -1029,13 +1043,16 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 }
 
 func unique(deps []*api.Dependency) []*api.Dependency {
+	// TODO: This can be simplified
 	keys := make(map[string]bool)
 	list := []*api.Dependency{}
 	for _, entry := range deps {
-		depKey := fmt.Sprintf("%s/%s", entry.Type, entry.Value)
-		if _, value := keys[depKey]; !value {
-			keys[depKey] = true
-			list = append(list, entry)
+		if entry.Value != "" {
+			depKey := fmt.Sprintf("%s", entry.Value)
+			if _, value := keys[depKey]; !value {
+				keys[depKey] = true
+				list = append(list, entry)
+			}
 		}
 	}
 	return list
@@ -1055,7 +1072,7 @@ func uniqueProps(props []*api.Property) []*api.Property {
 }
 
 func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
-	depQuery := `SELECT DISTINCT type, value FROM dependencies
+	depQuery := `SELECT DISTINCT value FROM dependencies
 	WHERE operatorbundle_name=?
 	AND (operatorbundle_version=? OR operatorbundle_version is NULL)
 	AND (operatorbundle_path=? OR operatorbundle_path is NULL)`
@@ -1068,17 +1085,15 @@ func (s *SQLQuerier) GetDependenciesForBundle(ctx context.Context, name, version
 
 	dependencies = []*api.Dependency{}
 	for rows.Next() {
-		var typeName sql.NullString
 		var value sql.NullString
 
-		if err := rows.Scan(&typeName, &value); err != nil {
+		if err := rows.Scan(&value); err != nil {
 			return nil, err
 		}
-		if !typeName.Valid || !value.Valid {
+		if !value.Valid {
 			return nil, err
 		}
 		dependencies = append(dependencies, &api.Dependency{
-			Type:  typeName.String,
 			Value: value.String,
 		})
 	}

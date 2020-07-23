@@ -225,21 +225,21 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 	// Validate dependencies if exists
 	for _, d := range dependenciesFile.GetDependencies() {
 		var errors []error
-		deps, errs := d.GetTypeValue()
-		if errs != nil {
-			errors = append(errors, errs...)
+		deps, err := d.GetTypeValue()
+		if err != nil {
+			errors = append(errors, fmt.Errorf("unable to parse type and extract value from dep %s: %s", d.Value, err.Error()))
 		}
 		for _, dep := range deps {
 			switch dp := dep.(type) {
 			case registry.GVKDependency:
-				errs = dp.Validate()
+				errors = append(errors, dp.Validate()...)
 			case registry.PackageDependency:
-				errs = dp.Validate()
+				errors = append(errors, dp.Validate()...)
 			default:
-				errs = append(errs, fmt.Errorf("unsupported dependency type: %v", dp))
+				errors = append(errors, fmt.Errorf("unsupported dependency type: %v", dp))
 			}
 		}
-		validationErrors = append(validationErrors, errs...)
+		validationErrors = append(validationErrors, errors...)
 	}
 
 	return validationErrors

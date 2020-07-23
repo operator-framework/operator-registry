@@ -71,19 +71,15 @@ The dependencies of an operator are listed as a list in `dependencies.yaml` file
 
 The dependency list will contain a `type` field for each item to specify what kind of dependency this is. There are two supported `type` of operator dependencies. It can be a package type (`olm.package`) meaning this is a dependency for a specific operator version. For `olm.package` type, the dependency information should include the `package` name and the `version` of the package in semver format. We use `blang/semver` library for semver parsing (https://github.com/blang/semver). For example, you can specify an exact version such as `0.5.2` or a range of version such as `>0.5.1` (https://github.com/blang/semver#ranges). In addition, the author can specify dependency that is similiar to existing CRD/API-based using `olm.gvk` type and then specify GVK information as how it is done in CSV. This is a path to enable operator authors to consolidate all dependencies (API or explicit version) to be in the same place.
 
-An example of a `dependencies.yaml` that specifies Prometheus operator and etcd CRD dependencies:
+Also note that you can group dependencies for a particular resolution set -- in this way you can specify multiple properties of your dependency. At the moment, the registry supports gvk and package version dependencies.
+
+An example of a `dependencies.yaml` that specifies operator and CRD dependencies:
 
 ```
 dependencies:
-  - type: olm.package
-    value: 
-      packageName: prometheus
-      version: >0.27.0
-  - type: olm.gvk
-    value:
-      group: etcd.database.coreos.com
-      kind: EtcdCluster
-      version: v1beta2
+- "olm.package: prometheus, >0.27.0"
+- "olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster"
+- "olm.gvk: test.coreos.com/v1/exampleapi; olm.package: testpackage, 1.2.15"
 ```
 
 ### Bundle Dockerfile

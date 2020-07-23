@@ -1,13 +1,13 @@
 package registry
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/blang/semver"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 var (
@@ -167,8 +167,27 @@ type GVKDependency struct {
 	Value string `json:"olm.gvk" yaml:"olm.gvk"`
 }
 
+type LegacyGVKDependency struct {
+	// The group of GVK based dependency
+	Group string `json:"group" yaml:"group"`
+
+	// The kind of GVK based dependency
+	Kind string `json:"kind" yaml:"kind"`
+
+	// The version of GVK based dependency
+	Version string `json:"version" yaml:"version"`
+}
+
 type PackageDependency struct {
 	Value string `json:"olm.package" yaml:"olm.package"`
+}
+
+type LegacyPackageDependency struct {
+	// The name of dependency such as 'etcd'
+	PackageName string `json:"packageName" yaml:"packageName"`
+
+	// The version range of dependency in semver range format
+	Version string `json:"version" yaml:"version"`
 }
 
 type GVKProperty struct {
@@ -211,11 +230,11 @@ func (gd *GVKDependency) Validate() []error {
 	return errs
 }
 
-func (gd *GVKDependency) GetValue() (schema.GroupVersionKind, []error) {
+func (gd *GVKDependency) GetValue() (schema.GroupVersionKind, error) {
 	var gvk schema.GroupVersionKind
 	errs := gd.Validate()
 	if len(errs) != 0 {
-		return gvk, errs
+		return gvk, utilerrors.NewAggregate(errs)
 	}
 
 	s := strings.Split(strings.TrimSpace(gd.Value), "/")
@@ -236,27 +255,28 @@ func (pd *PackageDependency) Validate() []error {
 	s := strings.Split(strings.TrimSpace(pd.Value), ",")
 
 	if len(s) != 2 {
-		errs = append(errs, fmt.Errorf("Unable to parse package info: %s", s))
+		errs = append(errs, fmt.Errorf("Package name and version not delimited correctly: %s", s))
+		return errs
 	}
 
 	for _, item := range s {
 		if item == "" {
-			errs = append(errs, fmt.Errorf("Unable to parse package info: %s", s))
+			errs = append(errs, fmt.Errorf("Package name or version not set: %s", s))
 			return errs
 		}
 	}
 
 	_, err := semver.ParseRange(strings.TrimSpace(s[1]))
 	if err != nil {
-		errs = append(errs, fmt.Errorf("Invalid semver format version"))
+		errs = append(errs, fmt.Errorf("Invalid semver format version %s", strings.TrimSpace(s[1])))
 	}
 	return errs
 }
 
-func (pd *PackageDependency) GetValue() (string, string, []error) {
+func (pd *PackageDependency) GetValue() (string, string, error) {
 	errs := pd.Validate()
 	if len(errs) != 0 {
-		return "", "", errs
+		return "", "", utilerrors.NewAggregate(errs)
 	}
 
 	s := strings.Split(strings.TrimSpace(pd.Value), ",")
@@ -275,41 +295,35 @@ func (d *DependenciesFile) GetDependencies() []*Dependency {
 	return dependencies
 }
 
-func (e *Dependency) GetTypeValue() ([]interface{}, []error) {
+func (e *Dependency) GetTypeValue() ([]interface{}, error) {
 	if e.Value == "" {
-		return nil, []error{fmt.Errorf("Dependency information is empty")}
+		return nil, fmt.Errorf("Dependency information is empty")
 	}
 	var errs []error
 	var deps []interface{}
 	s := strings.Split(e.Value, ";")
 	for _, item := range s {
-		dgvk := GVKDependency{}
-		err := json.Unmarshal([]byte(strings.TrimSpace(item)), &dgvk)
-		if err != nil {
-			errs = append(errs, err)
+		itemTypeVal := strings.Split(item, ":")
+		if len(itemTypeVal) != 2 {
+			errs = append(errs, fmt.Errorf("dependency malformed: %s", item))
 			continue
 		}
-		if dgvk.Value != "" {
+
+		val := strings.TrimSpace(itemTypeVal[1])
+
+		switch strings.TrimSpace(itemTypeVal[0]) {
+		case GVKType:
+			dgvk := GVKDependency{Value: val}
 			deps = append(deps, dgvk)
-			continue
-		}
-
-		dpkg := PackageDependency{}
-		err = json.Unmarshal([]byte(e.GetValue()), &dpkg)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		if dpkg.Value != "" {
+		case PackageType:
+			dpkg := PackageDependency{Value: val}
 			deps = append(deps, dpkg)
-			continue
+		default:
+			errs = append(errs, fmt.Errorf("Unsupported dependency format: %s", item))
 		}
-
-		errs = append(errs, fmt.Errorf("Unsupported dependency format: %s", item))
 	}
 
-	return deps, errs
+	return deps, utilerrors.NewAggregate(errs)
 }
 
 // GetValue returns the value content of dependency

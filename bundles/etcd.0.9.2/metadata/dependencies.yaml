@@ -1,6 +1,2 @@
 dependencies:
-- type: olm.gvk
-  value:
-    group: testapi.coreos.com
-    kind: testapi
-    version: v1
+- "olm.gvk: testapi.coreos.com/v1/testapi"

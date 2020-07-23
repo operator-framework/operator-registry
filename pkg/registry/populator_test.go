@@ -128,12 +128,10 @@ func TestQuerierForImage(t *testing.T) {
 		SkipRange: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
+				Value: `olm.gvk: testapi.coreos.com/v1/testapi`,
 			},
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -527,20 +525,16 @@ func TestQuerierForDependencies(t *testing.T) {
 
 	expectedDependencies := []*api.Dependency{
 		{
-			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
+			Value: `olm.package: testoperator, >0.2.0; olm.gvk: testapi.test.com/v1alpha1/test`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
+			Value: `olm.gvk: testapi.coreos.com/v1/testapi`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
+			Value: `olm.gvk: testprometheus.coreos.com/v1/testtestprometheus`,
 		},
 	}
 
@@ -587,20 +581,16 @@ func TestListBundles(t *testing.T) {
 
 	expectedDependencies := []*api.Dependency{
 		{
-			Type:  "olm.package",
-			Value: `{"packageName":"testoperator","version":"\u003e 0.2.0"}`,
+			Value: `olm.package: testoperator, >0.2.0; olm.gvk: testapi.test.com/v1alpha1/test`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"testapi.coreos.com","kind":"testapi","version":"v1"}`,
+			Value: `olm.gvk: testapi.coreos.com/v1/testapi`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+			Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 		},
 		{
-			Type:  "olm.gvk",
-			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
+			Value: `olm.gvk: testprometheus.coreos.com/v1/testtestprometheus`,
 		},
 	}
 
@@ -609,9 +599,7 @@ func TestListBundles(t *testing.T) {
 	require.NoError(t, err)
 	for _, b := range bundles {
 		for _, d := range b.Dependencies {
-			if d.GetType() != "" {
-				dependencies = append(dependencies, d)
-			}
+			dependencies = append(dependencies, d)
 		}
 	}
 	require.Equal(t, count, len(bundles))

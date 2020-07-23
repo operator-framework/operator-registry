@@ -135,7 +135,7 @@ func TestGetPackage(t *testing.T) {
 		},
 		DefaultChannelName: "alpha",
 	}
-	opts := []cmp.Option{cmpopts.IgnoreUnexported(api.Package{}),  cmpopts.IgnoreUnexported(api.Channel{})}
+	opts := []cmp.Option{cmpopts.IgnoreUnexported(api.Package{}), cmpopts.IgnoreUnexported(api.Channel{})}
 	require.True(t, cmp.Equal(expected, pkg, opts...))
 }
 
@@ -159,8 +159,7 @@ func TestGetBundle(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -216,8 +215,7 @@ func TestGetBundleForChannel(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -326,8 +324,7 @@ func TestGetBundleThatReplaces(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -383,8 +380,7 @@ func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -510,7 +506,7 @@ func TestGetChannelEntriesThatProvide(t *testing.T) {
 	}
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(api.ChannelEntry{}),
-		cmpopts.SortSlices(func(x,y api.ChannelEntry) bool {
+		cmpopts.SortSlices(func(x, y api.ChannelEntry) bool {
 			if x.PackageName != y.PackageName {
 				return x.PackageName < y.PackageName
 			}
@@ -579,7 +575,7 @@ func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(api.ChannelEntry{}),
-		cmpopts.SortSlices(func(x,y api.ChannelEntry) bool {
+		cmpopts.SortSlices(func(x, y api.ChannelEntry) bool {
 			if x.PackageName != y.PackageName {
 				return x.PackageName < y.PackageName
 			}
@@ -618,8 +614,7 @@ func TestGetDefaultBundleThatProvides(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -677,8 +672,7 @@ func TestListBundles(t *testing.T) {
 		BundlePath: "",
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
@@ -710,7 +704,7 @@ func TestListBundles(t *testing.T) {
 		Version:   "0.9.2",
 		SkipRange: "< 0.6.0",
 		Replaces:  "etcdoperator.v0.9.0",
-		Skips: []string{"etcdoperator.v0.9.1"},
+		Skips:     []string{"etcdoperator.v0.9.1"},
 	}
 
 	expected := []string{
