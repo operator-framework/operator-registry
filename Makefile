@@ -72,4 +72,4 @@ clean:
 
 .PHONY: e2e
 e2e:
-	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race ./test/e2e
+	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(TAGS) ./test/e2e
