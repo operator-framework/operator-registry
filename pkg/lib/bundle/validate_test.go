@@ -40,7 +40,7 @@ func TestValidateBundleDependencies(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_gvk_dependency/",
 			errs: []error{
-				fmt.Errorf("couldn't parse dependency of type olm.gvk"),
+				fmt.Errorf("unable to parse type and extract value from dep olm.gvk: dependency malformed: olm.gvk"),
 			},
 		},
 		{
@@ -48,9 +48,9 @@ func TestValidateBundleDependencies(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_package_dependency/",
 			errs: []error{
-				fmt.Errorf("Invalid semver format version"),
-				fmt.Errorf("Package version is empty"),
-				fmt.Errorf("Package name is empty"),
+				fmt.Errorf("Invalid semver format version >!0.2.0"),
+				fmt.Errorf("Package name and version not delimited correctly: [0.2.0]"),
+				fmt.Errorf("Package name or version not set: [testoperator2 ]"),
 			},
 		},
 		{
@@ -58,8 +58,13 @@ func TestValidateBundleDependencies(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_dependency_type/",
 			errs: []error{
-				fmt.Errorf("couldn't parse dependency of type olm.crd"),
+				fmt.Errorf("unable to parse type and extract value from dep olm.crd: test.coreos.com/v1alpha1/testcrd: Unsupported dependency format: olm.crd: test.coreos.com/v1alpha1/testcrd"),
 			},
+		},
+		{
+			description: "registryv1 bundle valid dependency type",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/valid_dependencies_bundle/",
 		},
 	}
 
@@ -71,6 +76,8 @@ func TestValidateBundleDependencies(t *testing.T) {
 			isValidationErr := errors.As(err, &validationError)
 			require.True(t, isValidationErr)
 		}
+		t.Log(tt.errs)
+		t.Log(validationError.Errors)
 		require.ElementsMatch(t, tt.errs, validationError.Errors)
 	}
 }

@@ -144,8 +144,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 		},
 		Dependencies: []*api.Dependency{
 			{
-				Type:  "olm.gvk",
-				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+				Value: `olm.gvk: etcd.database.coreos.com/v1beta2/EtcdCluster`,
 			},
 		},
 		Properties: []*api.Property{
