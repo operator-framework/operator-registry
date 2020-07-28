@@ -61,6 +61,14 @@ func TestValidateBundleDependencies(t *testing.T) {
 				fmt.Errorf("couldn't parse dependency of type olm.crd"),
 			},
 		},
+		{
+			description: "registryv1 bundle/invalid label type",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_label_dependency/",
+			errs: []error{
+				fmt.Errorf("Label information is missing"),
+			},
+		},
 	}
 
 	for _, tt := range table {

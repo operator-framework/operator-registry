@@ -1,9 +1,0 @@
-dependencies:
-  - type: olm.package
-    value:
-      packgeName: testoperator
-      version: >0.2.0
-  - type: olm.gvk
-      group: test.coreos.com
-      kind: testapi
-      version: v1

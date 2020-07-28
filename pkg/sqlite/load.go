@@ -803,6 +803,24 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		}
 	}
 
+	// Add label properties
+	if csv, err := bundle.ClusterServiceVersion(); err == nil {
+		for k, v := range csv.GetLabels() {
+			if strings.HasPrefix(k, registry.LabelType) {
+				prop := registry.LabelProperty{
+					Label: v,
+				}
+				value, err := json.Marshal(prop)
+				if err != nil {
+					continue
+				}
+				if err := s.addProperty(tx, registry.LabelType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+					continue
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
