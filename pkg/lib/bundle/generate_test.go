@@ -49,43 +49,6 @@ func TestGetMediaType(t *testing.T) {
 	}
 }
 
-func TestValidateChannelDefault(t *testing.T) {
-	tests := []struct {
-		channels       string
-		channelDefault string
-		result         string
-		errorMsg       string
-	}{
-		{
-			"test5,test6",
-			"",
-			"",
-			"",
-		},
-		{
-			"test5,test6",
-			"test7",
-			"test5",
-			`The channel list "test5,test6" doesn't contain channelDefault "test7"`,
-		},
-		{
-			",",
-			"",
-			"",
-			`invalid channels are provided: ,`,
-		},
-	}
-
-	for _, item := range tests {
-		output, err := ValidateChannelDefault(item.channels, item.channelDefault)
-		if item.errorMsg == "" {
-			require.Equal(t, item.result, output)
-		} else {
-			require.Equal(t, item.errorMsg, err.Error())
-		}
-	}
-}
-
 func TestValidateAnnotations(t *testing.T) {
 	tests := []struct {
 		existing []byte
