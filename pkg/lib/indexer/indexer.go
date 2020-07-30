@@ -41,6 +41,7 @@ type ImageIndexer struct {
 	RegistryAdder       registry.RegistryAdder
 	RegistryDeleter     registry.RegistryDeleter
 	RegistryPruner      registry.RegistryPruner
+	RegistryDeprecator  registry.RegistryDeprecator
 	BuildTool           containertools.ContainerTool
 	PullTool            containertools.ContainerTool
 	Logger              *logrus.Entry
@@ -526,4 +527,62 @@ func generatePackageYaml(dbQuerier pregistry.Query, packageName, downloadPath st
 	}
 
 	return utilerrors.NewAggregate(errs)
+}
+
+// DeprecateFromIndexRequest defines the parameters to send to the PruneFromIndex API
+type DeprecateFromIndexRequest struct {
+	Generate          bool
+	Permissive        bool
+	BinarySourceImage string
+	FromIndex         string
+	OutDockerfile     string
+	Bundles           []string
+	Tag               string
+}
+
+// DeprecateFromIndex takes a DeprecateFromIndexRequest and deprecates the requested
+// bundles.
+func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) error {
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	if err != nil {
+		return err
+	}
+
+	// Run opm registry prune on the database
+	deprecateFromRegistryReq := registry.DeprecateFromRegistryRequest{
+		Bundles:       request.Bundles,
+		InputDatabase: databasePath,
+		Permissive:    request.Permissive,
+	}
+
+	// Prune the bundles from the registry
+	err = i.RegistryDeprecator.DeprecateFromRegistry(deprecateFromRegistryReq)
+	if err != nil {
+		return err
+	}
+
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	if request.Generate {
+		return nil
+	}
+
+	// build the dockerfile with requested tooling
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

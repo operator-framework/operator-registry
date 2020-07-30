@@ -25,4 +25,5 @@ func AddCommand(parent *cobra.Command) {
 	addIndexAddCmd(cmd)
 	cmd.AddCommand(newIndexExportCmd())
 	cmd.AddCommand(newIndexPruneCmd())
+	cmd.AddCommand(newIndexDeprecateTruncateCmd())
 }

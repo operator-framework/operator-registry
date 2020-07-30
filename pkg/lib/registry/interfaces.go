@@ -36,3 +36,13 @@ func NewRegistryPruner(logger *logrus.Entry) RegistryPruner {
 		Logger: logger,
 	}
 }
+
+type RegistryDeprecator interface {
+	DeprecateFromRegistry(DeprecateFromRegistryRequest) error
+}
+
+func NewRegistryDeprecator(logger *logrus.Entry) RegistryDeprecator {
+	return RegistryUpdater{
+		Logger: logger,
+	}
+}

@@ -3,6 +3,7 @@ package registry_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 
+	"k8s.io/apimachinery/pkg/util/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
@@ -110,6 +112,10 @@ func TestQuerierForImage(t *testing.T) {
 				CurrentCSVName: "etcdoperator.v0.9.2",
 			},
 			{
+				Name:           "beta",
+				CurrentCSVName: "etcdoperator.v0.9.0",
+			},
+			{
 				Name:           "stable",
 				CurrentCSVName: "etcdoperator.v0.9.2",
 			},
@@ -185,12 +191,14 @@ func TestQuerierForImage(t *testing.T) {
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
 		{"etcd", "stable", "etcdoperator.v0.9.0", ""},
 		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
-		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
+		{"etcd", "beta", "etcdoperator.v0.9.0", ""}}, etcdChannelEntriesThatProvide)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
-		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
+		{"etcd", "beta", "etcdoperator.v0.9.0", ""}}, etcdLatestChannelEntriesThatProvide)
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
@@ -229,7 +237,7 @@ func TestQuerierForImage(t *testing.T) {
 
 	listChannels, err := store.ListChannels(context.TODO(), "etcd")
 	require.NoError(t, err)
-	expectedListChannels := []string{"alpha", "stable"}
+	expectedListChannels := []string{"alpha", "stable", "beta"}
 	require.ElementsMatch(t, expectedListChannels, listChannels)
 
 	currentCSVName, err := store.GetCurrentCSVNameForChannel(context.TODO(), "etcd", "alpha")
@@ -668,5 +676,175 @@ func CheckBundlesHaveContentsIfNoPath(t *testing.T, db *sql.DB) {
 		t.Logf("bundle %s has csvlen %d and bundlelen %d", name.String, csvlen.Int64, bundlelen.Int64)
 		require.NotZero(t, csvlen.Int64, "length of csv for %s should not be zero, it has no bundle path", name.String)
 		require.NotZero(t, bundlelen.Int64, "length of bundle for %s should not be zero, it has no bundle path", name.String)
+	}
+}
+
+func TestDeprecateBundle(t *testing.T) {
+	type args struct {
+		bundles []string
+	}
+	type pkgChannel map[string][]string
+	type expected struct {
+		err                  error
+		remainingBundles     []string
+		deprecatedBundles    []string
+		remainingPkgChannels pkgChannel
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "BundleDeprecated/IgnoreIfNotInIndex",
+			args: args{
+				bundles: []string{
+					"quay.io/test/etcd.0.6.0",
+				},
+			},
+			expected: expected{
+				err: errors.NewAggregate([]error{fmt.Errorf("error deprecating bundle quay.io/test/etcd.0.6.0: %s", registry.ErrBundleImageNotInDatabase)}),
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.0",
+					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0",
+				},
+				deprecatedBundles: []string{},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"beta",
+						"alpha",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+		{
+			description: "BundleDeprecated/SingleChannel",
+			args: args{
+				bundles: []string{
+					"quay.io/test/prometheus.0.15.0",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.0",
+					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.15.0",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/prometheus.0.15.0",
+				},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"beta",
+						"alpha",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+		{
+			description: "BundleDeprecated/ChannelRemoved",
+			args: args{
+				bundles: []string{
+					"quay.io/test/etcd.0.9.2",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/etcd.0.9.2",
+				},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"alpha",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			querier, err := createAndPopulateDB(db)
+			require.NoError(t, err)
+
+			store, err := sqlite.NewSQLLiteLoader(db)
+			require.NoError(t, err)
+
+			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
+			err = deprecator.Deprecate()
+			require.Equal(t, tt.expected.err, err)
+
+			// Ensure remaining bundlePaths in db match
+			bundles, err := querier.ListBundles(context.Background())
+			require.NoError(t, err)
+			var bundlePaths []string
+			for _, bundle := range bundles {
+				bundlePaths = append(bundlePaths, bundle.BundlePath)
+			}
+			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
+
+			// Ensure deprecated bundles match
+			var deprecatedBundles []string
+			deprecatedProperty, err := json.Marshal(registry.DeprecatedProperty{})
+			require.NoError(t, err)
+			for _, bundle := range bundles {
+				for _, prop := range bundle.Properties {
+					if prop.Type == registry.DeprecatedType && prop.Value == string(deprecatedProperty) {
+						deprecatedBundles = append(deprecatedBundles, bundle.BundlePath)
+					}
+				}
+			}
+
+			require.ElementsMatch(t, tt.expected.deprecatedBundles, deprecatedBundles)
+
+			// Ensure remaining channels match
+			packages, err := querier.ListPackages(context.Background())
+			require.NoError(t, err)
+
+			for _, pkg := range packages {
+				channelEntries, err := querier.GetChannelEntriesFromPackage(context.Background(), pkg)
+				require.NoError(t, err)
+
+				uniqueChannels := make(map[string]struct{})
+				var channels []string
+				for _, ch := range channelEntries {
+					uniqueChannels[ch.ChannelName] = struct{}{}
+				}
+				for k := range uniqueChannels {
+					channels = append(channels, k)
+				}
+				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
+			}
+		})
 	}
 }

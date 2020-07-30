@@ -779,7 +779,7 @@ func (s *SQLQuerier) GetBundleVersion(ctx context.Context, image string) (string
 	if version.Valid {
 		return version.String, nil
 	}
-	return "", fmt.Errorf("bundle %s not found", image)
+	return "", nil
 }
 
 func (s *SQLQuerier) GetBundlePathsForPackage(ctx context.Context, pkgName string) ([]string, error) {
