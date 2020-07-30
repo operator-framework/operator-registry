@@ -777,7 +777,8 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 	}
 
 	for _, prop := range bundle.Properties {
-		if err := s.addProperty(tx, prop.Type, prop.Value, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+		value, _ := json.Marshal(prop.Value)
+		if err := s.addProperty(tx, prop.Type, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
 			return err
 		}
 	}
@@ -805,17 +806,27 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 
 	// Add label properties
 	if csv, err := bundle.ClusterServiceVersion(); err == nil {
-		for k, v := range csv.GetLabels() {
-			if strings.HasPrefix(k, registry.LabelType) {
-				prop := registry.LabelProperty{
-					Label: v,
-				}
-				value, err := json.Marshal(prop)
-				if err != nil {
-					continue
-				}
-				if err := s.addProperty(tx, registry.LabelType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-					continue
+		annotations := csv.ObjectMeta.GetAnnotations()
+		if v, ok := annotations[registry.PropertyKey]; ok {
+			var props []registry.Property
+			if err := json.Unmarshal([]byte(v), &props); err == nil {
+				for _, prop := range props {
+					// Only add label type from the list
+					// TODO: Support more types such as GVK and package
+					if prop.Type == registry.LabelType {
+						var label registry.LabelProperty
+						err := json.Unmarshal(prop.Value, &label)
+						if err != nil {
+							continue
+						}
+						value, err := json.Marshal(label)
+						if err != nil {
+							continue
+						}
+						if err := s.addProperty(tx, registry.LabelType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+							continue
+						}
+					}
 				}
 			}
 		}

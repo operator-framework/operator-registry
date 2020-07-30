@@ -4,10 +4,8 @@ kind: ClusterServiceVersion
 metadata:
   name: etcdoperator.v0.9.2
   namespace: placeholder
-  labels:
-    olm.label: testlabel
-    olm.label.1: testlabel1
   annotations:
+    olm.properties: '[{"type":"olm.label","value":{"label":"testlabel"}},{"type":"olm.label","value":{"label":"testlabel1"}}]'
     tectonic-visibility: ocs
     olm.skipRange: "< 0.6.0"
     alm-examples: '[{"apiVersion":"etcd.database.coreos.com/v1beta2","kind":"EtcdCluster","metadata":{"name":"example","namespace":"default"},"spec":{"size":3,"version":"3.2.13"}},{"apiVersion":"etcd.database.coreos.com/v1beta2","kind":"EtcdRestore","metadata":{"name":"example-etcd-cluster"},"spec":{"etcdCluster":{"name":"example-etcd-cluster"},"backupStorageType":"S3","s3":{"path":"<full-s3-path>","awsSecret":"<aws-secret>"}}},{"apiVersion":"etcd.database.coreos.com/v1beta2","kind":"EtcdBackup","metadata":{"name":"example-etcd-cluster-backup"},"spec":{"etcdEndpoints":["<etcd-cluster-endpoints>"],"storageType":"S3","s3":{"path":"<full-s3-path>","awsSecret":"<aws-secret>"}}}]'

@@ -44,6 +44,7 @@ const (
 	PackageType    = "olm.package"
 	DeprecatedType = "olm.deprecated"
 	LabelType      = "olm.label"
+	PropertyKey    = "olm.properties"
 )
 
 // APIKey stores GroupVersionKind for use as map keys
@@ -172,7 +173,7 @@ type Property struct {
 	Type string `json:"type" yaml:"type"`
 
 	// The serialized value of the propertuy
-	Value string `json:"value" yaml:"value"`
+	Value json.RawMessage `json:"value" yaml:"value"`
 }
 
 type GVKDependency struct {
