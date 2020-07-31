@@ -69,14 +69,14 @@ annotations:
 
 The dependencies of an operator are listed as a list in `dependencies.yaml` file inside `/metadata` folder of a bundle. This file is optional and only used to specify explicit operator version dependencies at first. Eventually, operator authors can migrate the API-based dependencies into `dependencies.yaml` as well in the future. The ultimate goal is to have `dependencies.yaml` as a centralized metadata for operator dependencies and moving the dependency information away from CSV.
 
-The dependency list will contain a `type` field for each item to specify what kind of dependency this is. There are two supported `type` of operator dependencies. It can be a package type (`olm.package`) meaning this is a dependency for a specific operator version. For `olm.package` type, the dependency information should include the `package` name and the `version` of the package in semver format. We use `blang/semver` library for semver parsing (https://github.com/blang/semver). For example, you can specify an exact version such as `0.5.2` or a range of version such as `>0.5.1` (https://github.com/blang/semver#ranges). In addition, the author can specify dependency that is similiar to existing CRD/API-based using `olm.gvk` type and then specify GVK information as how it is done in CSV. This is a path to enable operator authors to consolidate all dependencies (API or explicit version) to be in the same place.
+The dependency list will contain a `type` field for each item to specify what kind of dependency this is. There are two supported `type` of operator dependencies. It can be a package type (`olm.package`) meaning this is a dependency for a specific operator version. For `olm.package` type, the dependency information should include the `package` name and the `version` of the package in semver format. We use `blang/semver` library for semver parsing (https://github.com/blang/semver). For example, you can specify an exact version such as `0.5.2` or a range of version such as `>0.5.1` (https://github.com/blang/semver#ranges). In addition, the author can specify dependency that is similar to existing CRD/API-based using `olm.gvk` type and then specify GVK information as how it is done in CSV. The author can also specify CSV labels as dependency constraints using `olm.label` type. The value of `olm.label` type will be matched against labels in CSV with the key starting with the phrase `olm.label`. This is a path to enable operator authors to consolidate all dependencies (API or explicit version) to be in the same place.
 
 An example of a `dependencies.yaml` that specifies Prometheus operator and etcd CRD dependencies:
 
 ```
 dependencies:
   - type: olm.package
-    value: 
+    value:
       packageName: prometheus
       version: >0.27.0
   - type: olm.gvk
@@ -84,6 +84,9 @@ dependencies:
       group: etcd.database.coreos.com
       kind: EtcdCluster
       version: v1beta2
+  - type: olm.label
+    value:
+      label: lts
 ```
 
 ### Bundle Dockerfile
