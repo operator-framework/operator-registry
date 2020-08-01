@@ -939,7 +939,11 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			return nil, err
 		}
 
-		bundleKey := fmt.Sprintf("%s/%s/%s", bundleName.String, version.String, bundlePath.String)
+		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
+			continue
+		}
+
+		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
 		bundleItem, ok := bundlesMap[bundleKey]
 		if ok {
 			// Create new dependency object
