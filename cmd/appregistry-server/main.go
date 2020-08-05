@@ -13,6 +13,7 @@ import (
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/appregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
+	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
@@ -128,9 +129,9 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	reflection.Register(s)
 
 	logger.Info("serving registry")
-	if err := s.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %s", err)
-	}
-
-	return nil
+	return graceful.Shutdown(logger, func() error {
+		return s.Serve(lis)
+	}, func() {
+		s.GracefulStop()
+	})
 }
