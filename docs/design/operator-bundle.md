@@ -125,7 +125,7 @@ $ git clone https://github.com/operator-framework/operator-registry
 2. Build `opm` binary using this command:
 
 ```bash
-$ go build ./cmd/opm/
+$ make build
 ```
 
 Now, a binary named `opm` is now built in current directory and ready to be used.
