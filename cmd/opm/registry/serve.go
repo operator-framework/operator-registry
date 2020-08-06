@@ -44,7 +44,7 @@ func newRegistryServeCmd() *cobra.Command {
 	rootCmd.Flags().StringP("database", "d", "bundles.db", "relative path to sqlite db")
 	rootCmd.Flags().StringP("port", "p", "50051", "port number to serve on")
 	rootCmd.Flags().StringP("termination-log", "t", "/dev/termination-log", "path to a container termination log file")
-	rootCmd.Flags().Bool("skip-migrate", false, "do  not attempt to migrate to the latest db revision when starting")
+	rootCmd.Flags().Bool("skip-migrate", false, "do not attempt to migrate to the latest db revision when starting")
 	rootCmd.Flags().String("timeout-seconds", "infinite", "Timeout in seconds. This flag will be removed later.")
 
 	return rootCmd
