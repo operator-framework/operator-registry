@@ -35,16 +35,17 @@ const (
 
 // ImageIndexer is a struct implementation of the Indexer interface
 type ImageIndexer struct {
-	DockerfileGenerator containertools.DockerfileGenerator
-	CommandRunner       containertools.CommandRunner
-	LabelReader         containertools.LabelReader
-	RegistryAdder       registry.RegistryAdder
-	RegistryDeleter     registry.RegistryDeleter
-	RegistryPruner      registry.RegistryPruner
-	RegistryDeprecator  registry.RegistryDeprecator
-	BuildTool           containertools.ContainerTool
-	PullTool            containertools.ContainerTool
-	Logger              *logrus.Entry
+	DockerfileGenerator    containertools.DockerfileGenerator
+	CommandRunner          containertools.CommandRunner
+	LabelReader            containertools.LabelReader
+	RegistryAdder          registry.RegistryAdder
+	RegistryDeleter        registry.RegistryDeleter
+	RegistryPruner         registry.RegistryPruner
+	RegistryStrandedPruner registry.RegistryStrandedPruner
+	RegistryDeprecator     registry.RegistryDeprecator
+	BuildTool              containertools.ContainerTool
+	PullTool               containertools.ContainerTool
+	Logger                 *logrus.Entry
 }
 
 // AddToIndexRequest defines the parameters to send to the AddToIndex API
@@ -165,6 +166,59 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		return err
 	}
 
+	return nil
+}
+
+// PruneStrandedFromIndexRequest defines the parameters to send to the PruneStrandedFromIndex API
+type PruneStrandedFromIndexRequest struct {
+	Generate          bool
+	BinarySourceImage string
+	FromIndex         string
+	OutDockerfile     string
+	Tag               string
+}
+
+// PruneStrandedFromIndex is an aggregate API used to generate a registry index image
+// that has removed stranded bundles from the index
+func (i ImageIndexer) PruneStrandedFromIndex(request PruneStrandedFromIndexRequest) error {
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex)
+	if err != nil {
+		return err
+	}
+
+	// Run opm registry prune-stranded on the database
+	pruneStrandedFromRegistryReq := registry.PruneStrandedFromRegistryRequest{
+		InputDatabase: databasePath,
+	}
+
+	// Delete the stranded bundles from the registry
+	err = i.RegistryStrandedPruner.PruneStrandedFromRegistry(pruneStrandedFromRegistryReq)
+	if err != nil {
+		return err
+	}
+
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	if request.Generate {
+		return nil
+	}
+
+	// build the dockerfile
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

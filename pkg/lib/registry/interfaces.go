@@ -27,6 +27,16 @@ func NewRegistryDeleter(logger *logrus.Entry) RegistryDeleter {
 	}
 }
 
+type RegistryStrandedPruner interface {
+	PruneStrandedFromRegistry(PruneStrandedFromRegistryRequest) error
+}
+
+func NewRegistryStrandedPruner(logger *logrus.Entry) RegistryStrandedPruner {
+	return RegistryUpdater{
+		Logger: logger,
+	}
+}
+
 type RegistryPruner interface {
 	PruneFromRegistry(PruneFromRegistryRequest) error
 }

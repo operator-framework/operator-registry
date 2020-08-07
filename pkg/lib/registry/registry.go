@@ -174,6 +174,40 @@ func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) e
 		}
 	}
 
+	// remove any stranded bundles from the database
+	// TODO: This is unnecessary if the db schema can prevent this orphaned data from existing
+	remover := sqlite.NewSQLStrandedBundleRemover(dbLoader)
+	if err := remover.Remove(); err != nil {
+		return fmt.Errorf("error removing stranded packages from database: %s", err)
+	}
+
+	return nil
+}
+
+type PruneStrandedFromRegistryRequest struct {
+	InputDatabase string
+}
+
+func (r RegistryUpdater) PruneStrandedFromRegistry(request PruneStrandedFromRegistryRequest) error {
+	db, err := sql.Open("sqlite3", request.InputDatabase)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := dbLoader.Migrate(context.TODO()); err != nil {
+		return err
+	}
+
+	remover := sqlite.NewSQLStrandedBundleRemover(dbLoader)
+	if err := remover.Remove(); err != nil {
+		return fmt.Errorf("error removing stranded packages from database: %s", err)
+	}
+
 	return nil
 }
 
