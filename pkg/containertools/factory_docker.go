@@ -22,6 +22,10 @@ func (d *DockerCommandFactory) BuildCommand(o BuildOptions) (*exec.Cmd, error) {
 		args = append(args, "-t", tag)
 	}
 
+	if o.secure {
+		args = append(args, "--tls")
+	}
+
 	if o.context == "" {
 		return nil, fmt.Errorf("context not provided")
 	}

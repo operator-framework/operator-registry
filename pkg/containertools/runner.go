@@ -22,14 +22,75 @@ type CommandRunner interface {
 type ContainerCommandRunner struct {
 	logger        *logrus.Entry
 	containerTool ContainerTool
+	config        *RunnerConfig
+}
+
+type RunnerConfig struct {
+	SkipTLS bool
+}
+
+type RunnerOption func(config *RunnerConfig)
+
+func SkipTLS(skip *bool) RunnerOption {
+	return func(config *RunnerConfig) {
+		if skip != nil {
+			config.SkipTLS = *skip
+		}
+	}
+}
+
+func (r *RunnerConfig) apply(options []RunnerOption) {
+	for _, option := range options {
+		option(r)
+	}
+}
+
+func (r *ContainerCommandRunner) argsForCmd(cmd string, args... string) []string {
+	cmdArgs := []string{cmd}
+	switch r.containerTool {
+	case PodmanTool:
+		switch cmd {
+		case "build", "pull", "push", "login", "search":
+			// --tls-verify is a valid flag for these podman subcommands
+			if r.config.SkipTLS {
+				cmdArgs = append(cmdArgs, "--tls-verify=false")
+			}
+		}
+	case DockerTool:
+		if !r.config.SkipTLS {
+			cmdArgs = append(cmdArgs, "--tls")
+		}
+	default:
+	}
+	cmdArgs = append(cmdArgs, args...)
+	return cmdArgs
+}
+
+func defaultConfig(toolName string) *RunnerConfig {
+	switch toolName {
+	case "docker":
+		// docker disables tls verify by default, mimic that behavior
+		return &RunnerConfig{
+			SkipTLS: true,
+		}
+	case "podman":
+		return &RunnerConfig{
+			SkipTLS: false,
+		}
+	default:
+		return &RunnerConfig{}
+	}
 }
 
 // NewCommandRunner takes the containerTool as an input string and returns a
 // CommandRunner to run commands with that cli tool
-func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry) *ContainerCommandRunner {
+func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry, opts... RunnerOption) *ContainerCommandRunner {
+	config := defaultConfig(containerTool.String())
+	config.apply(opts)
 	r := &ContainerCommandRunner{
 		logger:        logger,
 		containerTool: containerTool,
+		config:        config,
 	}
 	return r
 }
@@ -42,7 +103,7 @@ func (r *ContainerCommandRunner) GetToolName() string {
 // Pull takes a container image path hosted on a container registry and runs the
 // pull command to download it onto the local environment
 func (r *ContainerCommandRunner) Pull(image string) error {
-	args := []string{"pull", image}
+	args := r.argsForCmd("pull", image)
 
 	command := exec.Command(r.containerTool.String(), args...)
 
@@ -65,6 +126,7 @@ func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 	}
 	o.SetDockerfile(dockerfile)
 	o.SetContext(".")
+	o.SetSkipTLS(r.config.SkipTLS)
 	command, err := r.containerTool.CommandFactory().BuildCommand(o)
 	if err != nil {
 		return fmt.Errorf("unable to perform build: %v", err)
@@ -84,7 +146,7 @@ func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 
 // Unpack copies a directory from a local container image to a directory in the local filesystem.
 func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
-	args := []string{"create", image, ""}
+	args := r.argsForCmd("create", image, "")
 
 	command := exec.Command(r.containerTool.String(), args...)
 
@@ -98,7 +160,7 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 	}
 
 	id := strings.TrimSuffix(string(out), "\n")
-	args = []string{"cp", id + ":" + src, dst}
+	args = r.argsForCmd("cp", id + ":" + src, dst)
 	command = exec.Command(r.containerTool.String(), args...)
 
 	r.logger.Infof("running %s cp", r.containerTool)
@@ -110,7 +172,7 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 		return fmt.Errorf("error copying container directory %s: %v", string(out), err)
 	}
 
-	args = []string{"rm", id}
+	args = r.argsForCmd("rm", id)
 	command = exec.Command(r.containerTool.String(), args...)
 
 	r.logger.Infof("running %s rm", r.containerTool)
@@ -128,7 +190,7 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 // Inspect runs the 'inspect' command to get image metadata of a local container
 // image and returns a byte array of the command's output
 func (r *ContainerCommandRunner) Inspect(image string) ([]byte, error) {
-	args := []string{"inspect", image}
+	args := r.argsForCmd("inspect", image)
 
 	command := exec.Command(r.containerTool.String(), args...)
 

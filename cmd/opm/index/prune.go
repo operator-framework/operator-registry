@@ -96,9 +96,13 @@ func runIndexPruneCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
-	if err != nil {
-		return err
+	var skipTLS *bool
+	if cmd.Flags().Changed("skip-tls") {
+		skipTLSVal, err := cmd.Flags().GetBool("skip-tls")
+		if err != nil {
+			return err
+		}
+		skipTLS = &skipTLSVal
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"packages": packages})
