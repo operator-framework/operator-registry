@@ -46,7 +46,6 @@ func newIndexExportCmd() *cobra.Command {
 	}
 	indexCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded operator bundle(s) will be stored")
 	indexCmd.Flags().StringP("container-tool", "c", "none", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
-	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling index")
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -76,13 +75,9 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var skipTLS *bool
-	if cmd.Flags().Changed("skip-tls") {
-		skipTLSVal, err := cmd.Flags().GetBool("skip-tls")
-		if err != nil {
-			return err
-		}
-		skipTLS = &skipTLSVal
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packageName})
@@ -96,7 +91,7 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		Package:       packageName,
 		DownloadPath:  downloadPath,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
-		SkipTLS:           skipTLS,
+		SkipTLS:       skipTLS,
 	}
 
 	err = indexExporter.ExportFromIndex(request)

@@ -77,7 +77,7 @@ func TestBuildCommand(t *testing.T) {
 			Factory: &PodmanCommandFactory{},
 			Options: DefaultBuildOptions(),
 			Args: []string{
-				"podman", "build", "--format", "docker", "--tls-verify=false", ".",
+				"podman", "build", "--format", "docker", ".",
 			},
 		},
 		{
@@ -88,7 +88,7 @@ func TestBuildCommand(t *testing.T) {
 				format:  "oci",
 			},
 			Args: []string{
-				"podman", "build", "--format", "oci", "--tls-verify=false", ".",
+				"podman", "build", "--format", "oci", ".",
 			},
 		},
 		{
@@ -98,7 +98,7 @@ func TestBuildCommand(t *testing.T) {
 				context: "foo",
 			},
 			Args: []string{
-				"podman", "build", "--format", "docker", "--tls-verify=false", "foo",
+				"podman", "build", "--format", "docker", "foo",
 			},
 		},
 		{
@@ -109,7 +109,7 @@ func TestBuildCommand(t *testing.T) {
 				dockerfile: "foo",
 			},
 			Args: []string{
-				"podman", "build", "--format", "docker", "-f", "foo", "--tls-verify=false", ".",
+				"podman", "build", "--format", "docker", "-f", "foo", ".",
 			},
 		},
 		{
@@ -120,7 +120,7 @@ func TestBuildCommand(t *testing.T) {
 				tags:    []string{"foo"},
 			},
 			Args: []string{
-				"podman", "build", "--format", "docker", "-t", "foo", "--tls-verify=false", ".",
+				"podman", "build", "--format", "docker", "-t", "foo", ".",
 			},
 		},
 		{
@@ -131,7 +131,7 @@ func TestBuildCommand(t *testing.T) {
 				tags:    []string{"foo", "bar"},
 			},
 			Args: []string{
-				"podman", "build", "--format", "docker", "-t", "foo", "-t", "bar", "--tls-verify=false", ".",
+				"podman", "build", "--format", "docker", "-t", "foo", "-t", "bar", ".",
 			},
 		},
 		{

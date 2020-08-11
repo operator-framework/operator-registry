@@ -41,13 +41,9 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var skipTLS *bool
-	if cmd.Flags().Changed("skip-tls") {
-		skipTLSVal, err := cmd.Flags().GetBool("skip-tls")
-		if err != nil {
-			return err
-		}
-		skipTLS = &skipTLSVal
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
 	}
 	fromFilename, err := cmd.Flags().GetString("database")
 	if err != nil {
@@ -80,6 +76,10 @@ func addFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
+
+	if skipTLS {
+		logger.Warn("--skip-tls flag is set: this mode is insecure and meant for development purposes only.")
+	}
 
 	logger.Info("adding to the registry")
 

@@ -24,10 +24,6 @@ func (p *PodmanCommandFactory) BuildCommand(o BuildOptions) (*exec.Cmd, error) {
 		args = append(args, "-t", tag)
 	}
 
-	if !o.secure {
-		args = append(args, "--tls-verify=false")
-	}
-
 	if o.context == "" {
 		return nil, fmt.Errorf("context not provided")
 	}

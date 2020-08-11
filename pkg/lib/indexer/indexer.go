@@ -19,6 +19,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -58,7 +59,8 @@ type AddToIndexRequest struct {
 	Bundles           []string
 	Tag               string
 	Mode              pregistry.Mode
-	SkipTLS           *bool
+	CaFile            string
+	SkipTLS           bool
 }
 
 // AddToIndex is an aggregate API used to generate a registry index image with additional bundles
@@ -69,7 +71,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -120,7 +122,8 @@ type DeleteFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Operators         []string
-	SkipTLS           *bool
+	SkipTLS           bool
+	CaFile            string
 }
 
 // DeleteFromIndex is an aggregate API used to generate a registry index image
@@ -132,7 +135,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -177,7 +180,8 @@ type PruneStrandedFromIndexRequest struct {
 	FromIndex         string
 	OutDockerfile     string
 	Tag               string
-	SkipTLS           *bool
+	CaFile            string
+	SkipTLS           bool
 }
 
 // PruneStrandedFromIndex is an aggregate API used to generate a registry index image
@@ -189,7 +193,7 @@ func (i ImageIndexer) PruneStrandedFromIndex(request PruneStrandedFromIndexReque
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -233,7 +237,8 @@ type PruneFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Packages          []string
-	SkipTLS           *bool
+	CaFile            string
+	SkipTLS           bool
 }
 
 func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
@@ -243,7 +248,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -282,14 +287,14 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 }
 
 // extractDatabase sets a temp directory for unpacking an image
-func (i ImageIndexer) extractDatabase(buildDir, fromIndex string, skipTLS *bool) (string, error) {
+func (i ImageIndexer) extractDatabase(buildDir, fromIndex, caFile string, skipTLS bool) (string, error) {
 	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmpDir)
 
-	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex, skipTLS)
+	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex, caFile, skipTLS)
 	if err != nil {
 		return "", err
 	}
@@ -297,7 +302,7 @@ func (i ImageIndexer) extractDatabase(buildDir, fromIndex string, skipTLS *bool)
 	return copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder))
 }
 
-func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string, skipTLS *bool) (string, error) {
+func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skipTLS bool) (string, error) {
 	if fromIndex == "" {
 		return path.Join(workingDir, defaultDatabaseFile), nil
 	}
@@ -309,11 +314,11 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex string, skipTLS *boo
 	var rerr error
 	switch i.PullTool {
 	case containertools.NoneTool:
-		//if skipTLS is nil, fall back to default containertool behavior
-		if skipTLS == nil {
-			skipTLS = new(bool)
+		rootCAs, err := certs.RootCAs(caFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to get RootCAs: %v", err)
 		}
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(*skipTLS), containerdregistry.WithLog(i.Logger))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(skipTLS), containerdregistry.WithLog(i.Logger), containerdregistry.WithRootCAs(rootCAs))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
@@ -465,7 +470,8 @@ type ExportFromIndexRequest struct {
 	Package       string
 	DownloadPath  string
 	ContainerTool containertools.ContainerTool
-	SkipTLS       *bool
+	CaFile        string
+	SkipTLS       bool
 }
 
 // ExportFromIndex is an aggregate API used to specify operators from
@@ -479,7 +485,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer os.RemoveAll(workingDir)
 
 	// extract the index database to the file
-	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.SkipTLS)
+	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
@@ -600,7 +606,8 @@ type DeprecateFromIndexRequest struct {
 	OutDockerfile     string
 	Bundles           []string
 	Tag               string
-	SkipTLS           *bool
+	CaFile            string
+	SkipTLS           bool
 }
 
 // DeprecateFromIndex takes a DeprecateFromIndexRequest and deprecates the requested
@@ -612,7 +619,7 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 		return err
 	}
 
-	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.SkipTLS)
+	databasePath, err := i.extractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}

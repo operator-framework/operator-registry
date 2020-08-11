@@ -5,7 +5,6 @@ type BuildOptions struct {
 	tags       []string
 	dockerfile string
 	context    string
-	secure    bool
 }
 
 func (o *BuildOptions) SetFormatDocker() {
@@ -26,10 +25,6 @@ func (o *BuildOptions) SetDockerfile(dockerfile string) {
 
 func (o *BuildOptions) SetContext(context string) {
 	o.context = context
-}
-
-func (o *BuildOptions) SetSkipTLS(skipTLS bool) {
-	o.secure = !skipTLS
 }
 
 func DefaultBuildOptions() BuildOptions {

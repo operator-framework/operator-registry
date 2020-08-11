@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
+	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -25,7 +25,7 @@ type RegistryUpdater struct {
 
 type AddToRegistryRequest struct {
 	Permissive    bool
-	SkipTLS       *bool
+	SkipTLS       bool
 	CaFile        string
 	InputDatabase string
 	Bundles       []string
@@ -55,29 +55,16 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
 
 	// add custom ca certs to resolver
-	rootCAs, err := x509.SystemCertPool()
-	if err != nil || rootCAs == nil {
-		rootCAs = x509.NewCertPool()
-	}
-	if len(request.CaFile) > 0 {
-		certs, err := ioutil.ReadFile(request.CaFile)
-		if err != nil {
-			return fmt.Errorf("failed to append %q to RootCAs: %v", certs, err)
-		}
-		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-			return fmt.Errorf("unable to add certs specified in %s", request.CaFile)
-		}
-	}
 
 	var reg image.Registry
 	var rerr error
 	switch request.ContainerTool {
 	case containertools.NoneTool:
-		//if skipTLS is nil, fall back to default containertool behavior
-		if request.SkipTLS == nil {
-			request.SkipTLS = new(bool)
+		rootCAs, err := certs.RootCAs(request.CaFile)
+		if err != nil {
+			return fmt.Errorf("failed to get RootCAs: %v", err)
 		}
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(*request.SkipTLS), containerdregistry.WithRootCAs(rootCAs))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(request.SkipTLS), containerdregistry.WithRootCAs(rootCAs))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:

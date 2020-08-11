@@ -31,11 +31,9 @@ type RunnerConfig struct {
 
 type RunnerOption func(config *RunnerConfig)
 
-func SkipTLS(skip *bool) RunnerOption {
+func SkipTLS(skip bool) RunnerOption {
 	return func(config *RunnerConfig) {
-		if skip != nil {
-			config.SkipTLS = *skip
-		}
+		config.SkipTLS = skip
 	}
 }
 
@@ -45,20 +43,16 @@ func (r *RunnerConfig) apply(options []RunnerOption) {
 	}
 }
 
-func (r *ContainerCommandRunner) argsForCmd(cmd string, args... string) []string {
+func (r *ContainerCommandRunner) argsForCmd(cmd string, args ...string) []string {
 	cmdArgs := []string{cmd}
 	switch r.containerTool {
 	case PodmanTool:
 		switch cmd {
-		case "build", "pull", "push", "login", "search":
+		case "pull", "push", "login", "search":
 			// --tls-verify is a valid flag for these podman subcommands
 			if r.config.SkipTLS {
 				cmdArgs = append(cmdArgs, "--tls-verify=false")
 			}
-		}
-	case DockerTool:
-		if !r.config.SkipTLS {
-			cmdArgs = append(cmdArgs, "--tls")
 		}
 	default:
 	}
@@ -66,31 +60,15 @@ func (r *ContainerCommandRunner) argsForCmd(cmd string, args... string) []string
 	return cmdArgs
 }
 
-func defaultConfig(toolName string) *RunnerConfig {
-	switch toolName {
-	case "docker":
-		// docker disables tls verify by default, mimic that behavior
-		return &RunnerConfig{
-			SkipTLS: true,
-		}
-	case "podman":
-		return &RunnerConfig{
-			SkipTLS: false,
-		}
-	default:
-		return &RunnerConfig{}
-	}
-}
-
 // NewCommandRunner takes the containerTool as an input string and returns a
 // CommandRunner to run commands with that cli tool
-func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry, opts... RunnerOption) *ContainerCommandRunner {
-	config := defaultConfig(containerTool.String())
+func NewCommandRunner(containerTool ContainerTool, logger *logrus.Entry, opts ...RunnerOption) *ContainerCommandRunner {
+	var config RunnerConfig
 	config.apply(opts)
 	r := &ContainerCommandRunner{
 		logger:        logger,
 		containerTool: containerTool,
-		config:        config,
+		config:        &config,
 	}
 	return r
 }
@@ -126,7 +104,6 @@ func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 	}
 	o.SetDockerfile(dockerfile)
 	o.SetContext(".")
-	o.SetSkipTLS(r.config.SkipTLS)
 	command, err := r.containerTool.CommandFactory().BuildCommand(o)
 	if err != nil {
 		return fmt.Errorf("unable to perform build: %v", err)
@@ -160,7 +137,7 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 	}
 
 	id := strings.TrimSuffix(string(out), "\n")
-	args = r.argsForCmd("cp", id + ":" + src, dst)
+	args = r.argsForCmd("cp", id+":"+src, dst)
 	command = exec.Command(r.containerTool.String(), args...)
 
 	r.logger.Infof("running %s cp", r.containerTool)

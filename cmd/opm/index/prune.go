@@ -41,7 +41,6 @@ func newIndexPruneCmd() *cobra.Command {
 	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
-	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling index")
 
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
@@ -96,13 +95,9 @@ func runIndexPruneCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var skipTLS *bool
-	if cmd.Flags().Changed("skip-tls") {
-		skipTLSVal, err := cmd.Flags().GetBool("skip-tls")
-		if err != nil {
-			return err
-		}
-		skipTLS = &skipTLSVal
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"packages": packages})

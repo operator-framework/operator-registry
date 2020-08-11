@@ -18,9 +18,15 @@ func AddCommand(parent *cobra.Command) {
 			}
 			return nil
 		},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if skipTLS, err := cmd.Flags().GetBool("skip-tls"); err == nil && skipTLS {
+				logrus.Warn("--skip-tls flag is set: this mode is insecure and meant for development purposes only.")
+			}
+		},
 	}
 
 	parent.AddCommand(cmd)
+	parent.PersistentFlags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
 	cmd.AddCommand(newIndexDeleteCmd())
 	addIndexAddCmd(cmd)
 	cmd.AddCommand(newIndexExportCmd())
