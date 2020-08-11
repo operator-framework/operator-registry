@@ -51,7 +51,7 @@ func newIndexDeprecateTruncateCmd() *cobra.Command {
 	if err := indexCmd.MarkFlagRequired("bundles"); err != nil {
 		logrus.Panic("Failed to set required `bundles` flag for `index add`")
 	}
-	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
+	indexCmd.Flags().StringP("binary-image", "i", "", "base image for the index to serve the catalog. Default: quay.io/operator-framework/upstream-opm-builder:latest")
 	indexCmd.Flags().StringP("container-tool", "c", "", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("build-tool", "u", "", "tool to build container images. One of: [docker, podman]. Defaults to podman. Overrides part of container-tool.")
 	indexCmd.Flags().StringP("pull-tool", "p", "", "tool to pull container images. One of: [none, docker, podman]. Defaults to none. Overrides part of container-tool.")

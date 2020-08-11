@@ -33,7 +33,7 @@ func newIndexPruneStrandedCmd() *cobra.Command {
 	if err := indexCmd.MarkFlagRequired("from-index"); err != nil {
 		logrus.Panic("Failed to set required `from-index` flag for `index prune-stranded`")
 	}
-	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
+	indexCmd.Flags().StringP("binary-image", "i", "", "base image for the index to serve the catalog. Default: quay.io/operator-framework/upstream-opm-builder:latest")
 	indexCmd.Flags().StringP("container-tool", "c", "podman", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 
