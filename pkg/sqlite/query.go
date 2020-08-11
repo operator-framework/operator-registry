@@ -1,3 +1,5 @@
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o sqlitefakes/fake_rowscanner.go . RowScanner
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o sqlitefakes/fake_querier.go . Querier
 package sqlite
 
 import (
@@ -13,8 +15,26 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-type SQLQuerier struct {
+type RowScanner interface {
+	Next() bool
+	Close() error
+	Scan(dest ...interface{}) error
+}
+
+type Querier interface {
+	QueryContext(ctx context.Context, query string, args ...interface{}) (RowScanner, error)
+}
+
+type dbQuerierAdapter struct {
 	db *sql.DB
+}
+
+func (a dbQuerierAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (RowScanner, error) {
+	return a.db.QueryContext(ctx, query, args...)
+}
+
+type SQLQuerier struct {
+	db Querier
 }
 
 var _ registry.Query = &SQLQuerier{}
@@ -25,11 +45,15 @@ func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
 		return nil, err
 	}
 
-	return &SQLQuerier{db}, nil
+	return &SQLQuerier{dbQuerierAdapter{db}}, nil
 }
 
 func NewSQLLiteQuerierFromDb(db *sql.DB) *SQLQuerier {
-	return &SQLQuerier{db}
+	return &SQLQuerier{dbQuerierAdapter{db}}
+}
+
+func NewSQLLiteQuerierFromDBQuerier(q Querier) *SQLQuerier {
+	return &SQLQuerier{q}
 }
 
 func (s *SQLQuerier) ListTables(ctx context.Context) ([]string, error) {
@@ -900,7 +924,7 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 	return "", nil
 }
 
-func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, err error) {
+func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
 	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, operatorbundle.replaces, operatorbundle.skips,
 	operatorbundle.version, operatorbundle.skiprange,
@@ -918,23 +942,25 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 	}
 	defer rows.Close()
 
-	bundles = []*api.Bundle{}
+	var bundles []*api.Bundle
 	bundlesMap := map[string]*api.Bundle{}
 	for rows.Next() {
-		var entryID sql.NullInt64
-		var bundle sql.NullString
-		var bundlePath sql.NullString
-		var bundleName sql.NullString
-		var pkgName sql.NullString
-		var channelName sql.NullString
-		var replaces sql.NullString
-		var skips sql.NullString
-		var version sql.NullString
-		var skipRange sql.NullString
-		var depType sql.NullString
-		var depValue sql.NullString
-		var propType sql.NullString
-		var propValue sql.NullString
+		var (
+			entryID     sql.NullInt64
+			bundle      sql.NullString
+			bundlePath  sql.NullString
+			bundleName  sql.NullString
+			pkgName     sql.NullString
+			channelName sql.NullString
+			replaces    sql.NullString
+			skips       sql.NullString
+			version     sql.NullString
+			skipRange   sql.NullString
+			depType     sql.NullString
+			depValue    sql.NullString
+			propType    sql.NullString
+			propValue   sql.NullString
+		)
 		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
 			return nil, err
 		}
@@ -946,29 +972,18 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
 		bundleItem, ok := bundlesMap[bundleKey]
 		if ok {
-			// Create new dependency object
 			if depType.Valid && depValue.Valid {
-				dep := &api.Dependency{}
-				dep.Type = depType.String
-				dep.Value = depValue.String
-
-				// Add new dependency to the existing list
-				existingDeps := bundleItem.Dependencies
-				existingDeps = append(existingDeps, dep)
-				bundleItem.Dependencies = existingDeps
+				bundleItem.Dependencies = append(bundleItem.Dependencies, &api.Dependency{
+					Type:  depType.String,
+					Value: depValue.String,
+				})
 			}
 
-
-			// Create new property object
 			if propType.Valid && propValue.Valid {
-				prop := &api.Property{}
-				prop.Type = propType.String
-				prop.Value = propValue.String
-
-				// Add new property to the existing list
-				existingProps := bundleItem.Properties
-				existingProps = append(existingProps, prop)
-				bundleItem.Properties = existingProps
+				bundleItem.Properties = append(bundleItem.Properties, &api.Property{
+					Type:  propType.String,
+					Value: propValue.String,
+				})
 			}
 		} else {
 			// Create new bundle
@@ -987,30 +1002,34 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			out.Version = version.String
 			out.SkipRange = skipRange.String
 			out.Replaces = replaces.String
-			out.Skips = strings.Split(skips.String, ",")
+			if skips.Valid {
+				out.Skips = strings.Split(skips.String, ",")
+			}
 
 			provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
 			if err != nil {
 				return nil, err
 			}
-			out.ProvidedApis = provided
-			out.RequiredApis = required
+			if len(provided) > 0 {
+				out.ProvidedApis = provided
+			}
+			if len(required) > 0 {
+				out.RequiredApis = required
+			}
 
-			// Create new dependency and dependency list
-			dep := &api.Dependency{}
-			dependencies := []*api.Dependency{}
-			dep.Type = depType.String
-			dep.Value = depValue.String
-			dependencies = append(dependencies, dep)
-			out.Dependencies = dependencies
+			if depType.Valid && depValue.Valid {
+				out.Dependencies = []*api.Dependency{{
+					Type:  depType.String,
+					Value: depValue.String,
+				}}
+			}
 
-			// Create new property and property list
-			prop := &api.Property{}
-			properties := []*api.Property{}
-			prop.Type = propType.String
-			prop.Value = propValue.String
-			properties = append(properties, prop)
-			out.Properties = properties
+			if propType.Valid && propValue.Valid {
+				out.Properties = []*api.Property{{
+					Type:  propType.String,
+					Value: propValue.String,
+				}}
+			}
 
 			bundlesMap[bundleKey] = out
 		}
@@ -1028,16 +1047,16 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		bundles = append(bundles, v)
 	}
 
-	return
+	return bundles, nil
 }
 
 func unique(deps []*api.Dependency) []*api.Dependency {
-	keys := make(map[string]bool)
-	list := []*api.Dependency{}
+	keys := make(map[string]struct{})
+	var list []*api.Dependency
 	for _, entry := range deps {
 		depKey := fmt.Sprintf("%s/%s", entry.Type, entry.Value)
 		if _, value := keys[depKey]; !value {
-			keys[depKey] = true
+			keys[depKey] = struct{}{}
 			list = append(list, entry)
 		}
 	}
@@ -1045,12 +1064,12 @@ func unique(deps []*api.Dependency) []*api.Dependency {
 }
 
 func uniqueProps(props []*api.Property) []*api.Property {
-	keys := make(map[string]bool)
-	list := []*api.Property{}
+	keys := make(map[string]struct{})
+	var list []*api.Property
 	for _, entry := range props {
 		propKey := fmt.Sprintf("%s/%s", entry.Type, entry.Value)
 		if _, value := keys[propKey]; !value {
-			keys[propKey] = true
+			keys[propKey] = struct{}{}
 			list = append(list, entry)
 		}
 	}
