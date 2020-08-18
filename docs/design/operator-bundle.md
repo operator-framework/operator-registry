@@ -234,13 +234,13 @@ $ ./opm alpha bundle build --directory /test --tag quay.io/coreos/test-operator.
 
 The `--directory` or `-d` specifies the directory where the operator manifests for a specific version are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
-The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can specified via `--image-builder` or `-b` optional tag in `build` command. For example:
+The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can be specified via `--image-builder` or `-b` optional tag in `build` command. For example:
 ```bash
 $ ./opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
 --image-builder podman --package test-operator --channels stable,beta --default stable
 ```
 
-The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
+The `--package` or `-p` is the name of package for the operator such as `etcd` which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
 
 *Notes:*
 * If there is `Dockerfile` existing in the directory, it will be overwritten.
@@ -264,7 +264,7 @@ The command for `validate` task is:
 $ ./opm alpha bundle validate --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
 ```
 
-The `validate` command will first extract the contents of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
+The `validate` command will first extract the content of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
 
 After the bundle image format is confirmed, the command will validate the bundle contents such as manifests and metadata files if the bundle format is `RegistryV1` or "Plain" type. "RegistryV1" format means it contains `ClusterResourceVersion` and its associated Kubernetes objects while `PlainType` means it contains all Kubernetes objects. The content validation process will ensure the individual file in the bundle image is valid and can be applied to an OLM-enabled cluster provided all necessary permissions and configurations are met.
 
