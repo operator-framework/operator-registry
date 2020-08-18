@@ -20,7 +20,7 @@ var deprecateLong = templates.LongDesc(`
 		1.4.0 -- replaces -> 1.3.0 -- replaces -> 1.2.0 -- replaces -> 1.1.0
 
 		Applying the command:
-		opm index deprecate --bundles "quay.io/my/bundle:1.3.0" --from-index "quay.io/my/index:v1" --tag "quay.io/my/index:v2"
+		opm index deprecatetruncate --bundles "quay.io/my/bundle:1.3.0" --from-index "quay.io/my/index:v1" --tag "quay.io/my/index:v2"
 
 		Produces the following update graph in quay.io/my/index:v2
 		1.4.0 -- replaces -> 1.3.0 [deprecated]
