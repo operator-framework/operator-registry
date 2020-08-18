@@ -78,7 +78,7 @@ dependencies:
   - type: olm.package
     value:
       packageName: prometheus
-      version: >0.27.0
+      version: ">0.27.0"
   - type: olm.gvk
     value:
       group: etcd.database.coreos.com
