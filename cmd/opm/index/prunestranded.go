@@ -80,6 +80,11 @@ func runIndexPruneStrandedCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{})
 
 	logger.Info("pruning stranded bundles from the index")
@@ -92,6 +97,7 @@ func runIndexPruneStrandedCmdFunc(cmd *cobra.Command, args []string) error {
 		BinarySourceImage: binaryImage,
 		OutDockerfile:     outDockerfile,
 		Tag:               tag,
+		SkipTLS:           skipTLS,
 	}
 
 	err = indexPruner.PruneStrandedFromIndex(request)

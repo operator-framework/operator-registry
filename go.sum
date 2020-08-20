@@ -358,11 +358,8 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.9.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
-github.com/grpc-ecosystem/grpc-health-probe v0.2.1-0.20181220223928-2bf0a5b182db h1:UxmGBzaBcWDQuQh9E1iT1dWKQFbizZ+SpTd1EL4MSqs=
-github.com/grpc-ecosystem/grpc-health-probe v0.2.1-0.20181220223928-2bf0a5b182db/go.mod h1:uBKkC2RbarFsvS5jMJHpVhTLvGlGQj9JJwkaePE3FWI=
 github.com/grpc-ecosystem/grpc-health-probe v0.3.2 h1:daShAySXI1DnGc8U9B1E4Qm6o7qzmFR4aRIJ4vY/TUo=
 github.com/grpc-ecosystem/grpc-health-probe v0.3.2/go.mod h1:izVOQ4RWbjUR6lm4nn+VLJyQ+FyaiGmprEYgI04Gs7U=
-github.com/grpc/grpc-go v1.30.0 h1:3ttCZRhSqhlKmQ6UrrTukz9LjJF/Bi8RuRo8rlyxKhA=
 github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed/go.mod h1:tMWxXQ9wFIaZeTI9F+hmhFiGpFmhOHzyShyFUhRm0H4=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=

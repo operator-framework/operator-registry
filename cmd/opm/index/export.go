@@ -75,6 +75,11 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packageName})
 
 	logger.Info("export from the index")
@@ -86,6 +91,7 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		Package:       packageName,
 		DownloadPath:  downloadPath,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		SkipTLS:       skipTLS,
 	}
 
 	err = indexExporter.ExportFromIndex(request)

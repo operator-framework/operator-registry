@@ -91,6 +91,11 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"operators": operators})
 
 	logger.Info("building the index")
@@ -108,6 +113,7 @@ func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
 		Operators:         operators,
 		Tag:               tag,
 		Permissive:        permissive,
+		SkipTLS:           skipTLS,
 	}
 
 	err = indexDeleter.DeleteFromIndex(request)

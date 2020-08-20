@@ -105,6 +105,11 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("deprecating bundles from the index")
@@ -122,6 +127,7 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		Tag:               tag,
 		Bundles:           bundles,
 		Permissive:        permissive,
+		SkipTLS:           skipTLS,
 	}
 
 	err = indexDeprecator.DeprecateFromIndex(request)
