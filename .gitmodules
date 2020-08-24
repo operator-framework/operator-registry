@@ -1,0 +1,3 @@
+[submodule "cross/osxcross"]
+	path = cross/osxcross
+	url = https://github.com/tpoechtrager/osxcross.git
