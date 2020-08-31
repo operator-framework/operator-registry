@@ -30,7 +30,7 @@ var deprecateLong = templates.LongDesc(`
 
 func newIndexDeprecateTruncateCmd() *cobra.Command {
 	indexCmd := &cobra.Command{
-		Hidden: true,
+		Hidden: false,
 		Use:    "deprecatetruncate",
 		Short:  "Deprecate and truncate operator bundles from an index.",
 		Long:   deprecateLong,
