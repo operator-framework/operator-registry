@@ -44,7 +44,7 @@ func (i *BundleExporter) Export() error {
 	var rerr error
 	switch i.containerTool {
 	case containertools.NoneTool:
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(log))
+		reg, rerr = containerdregistry.NewRegistry(containerdregistry.WithLog(log), containerdregistry.WithCacheDir(filepath.Join(tmpDir, "cacheDir")))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:

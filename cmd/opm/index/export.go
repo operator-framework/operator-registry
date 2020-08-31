@@ -12,8 +12,8 @@ import (
 var exportLong = templates.LongDesc(`
 	Export an operator from an index image into the appregistry format. 
 
-	This command will take an index image (specified by the --index option), parse it for the given operator (set by 
-	the --operator option) and export the operator metadata into an appregistry compliant format (a package.yaml file). 
+	This command will take an index image (specified by the --index option), parse it for the given operator(s) (set by 
+	the --package option) and export the operator metadata into an appregistry compliant format (a package.yaml file). 
 	This command requires access to docker or podman to complete successfully.
 
 	Note: the appregistry format is being deprecated in favor of the new index image and image bundle format. 
@@ -40,10 +40,7 @@ func newIndexExportCmd() *cobra.Command {
 	if err := indexCmd.MarkFlagRequired("index"); err != nil {
 		logrus.Panic("Failed to set required `index` flag for `index export`")
 	}
-	indexCmd.Flags().StringP("package", "o", "", "the package to export")
-	if err := indexCmd.MarkFlagRequired("package"); err != nil {
-		logrus.Panic("Failed to set required `package` flag for `index export`")
-	}
+	indexCmd.Flags().StringSliceP("package", "p", nil, "comma separated list of packages to export")
 	indexCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded operator bundle(s) will be stored")
 	indexCmd.Flags().StringP("container-tool", "c", "none", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
@@ -60,7 +57,7 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	packageName, err := cmd.Flags().GetString("package")
+	packages, err := cmd.Flags().GetStringSlice("package")
 	if err != nil {
 		return err
 	}
@@ -80,7 +77,7 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packageName})
+	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packages})
 
 	logger.Info("export from the index")
 
@@ -88,7 +85,7 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 
 	request := indexer.ExportFromIndexRequest{
 		Index:         index,
-		Package:       packageName,
+		Packages:      packages,
 		DownloadPath:  downloadPath,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
 		SkipTLS:       skipTLS,
