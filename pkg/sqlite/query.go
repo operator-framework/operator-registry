@@ -843,7 +843,11 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 			return nil, err
 		}
 
-		bundleKey := fmt.Sprintf("%s/%s/%s", bundleName.String, version.String, bundlePath.String)
+		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
+			continue
+		}
+
+		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
 		bundleItem, ok := bundlesMap[bundleKey]
 		if ok {
 			if depType.Valid && depValue.Valid {

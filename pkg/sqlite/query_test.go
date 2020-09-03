@@ -27,8 +27,6 @@ func TestListBundles(t *testing.T) {
 		SkipRange       sql.NullString
 		DependencyType  sql.NullString
 		DependencyValue sql.NullString
-		PropertyType    sql.NullString
-		PropertyValue   sql.NullString
 	}
 
 	var NoRows sqlitefakes.FakeRowScanner
@@ -82,86 +80,6 @@ func TestListBundles(t *testing.T) {
 			ErrorMessage: "test",
 		},
 		{
-			Name: "skips row without valid bundle name",
-			Querier: func(t *testing.T) sqlite.Querier {
-				var (
-					q sqlitefakes.FakeQuerier
-					r sqlitefakes.FakeRowScanner
-				)
-				q.QueryContextReturns(&r, nil)
-				r.NextReturnsOnCall(0, true)
-				r.ScanCalls(func(args ...interface{}) error {
-					ScanFromColumns(t, args, Columns{
-						Version:     sql.NullString{Valid: true},
-						BundlePath:  sql.NullString{Valid: true},
-						ChannelName: sql.NullString{Valid: true},
-					})
-					return nil
-				})
-				return &q
-			},
-		},
-		{
-			Name: "skips row without valid version",
-			Querier: func(t *testing.T) sqlite.Querier {
-				var (
-					q sqlitefakes.FakeQuerier
-					r sqlitefakes.FakeRowScanner
-				)
-				q.QueryContextReturns(&r, nil)
-				r.NextReturnsOnCall(0, true)
-				r.ScanCalls(func(args ...interface{}) error {
-					ScanFromColumns(t, args, Columns{
-						BundleName:  sql.NullString{Valid: true},
-						BundlePath:  sql.NullString{Valid: true},
-						ChannelName: sql.NullString{Valid: true},
-					})
-					return nil
-				})
-				return &q
-			},
-		},
-		{
-			Name: "skips row without valid bundle path",
-			Querier: func(t *testing.T) sqlite.Querier {
-				var (
-					q sqlitefakes.FakeQuerier
-					r sqlitefakes.FakeRowScanner
-				)
-				q.QueryContextReturns(&r, nil)
-				r.NextReturnsOnCall(0, true)
-				r.ScanCalls(func(args ...interface{}) error {
-					ScanFromColumns(t, args, Columns{
-						BundleName:  sql.NullString{Valid: true},
-						Version:     sql.NullString{Valid: true},
-						ChannelName: sql.NullString{Valid: true},
-					})
-					return nil
-				})
-				return &q
-			},
-		},
-		{
-			Name: "skips row without valid channel name",
-			Querier: func(t *testing.T) sqlite.Querier {
-				var (
-					q sqlitefakes.FakeQuerier
-					r sqlitefakes.FakeRowScanner
-				)
-				q.QueryContextReturns(&r, nil)
-				r.NextReturnsOnCall(0, true)
-				r.ScanCalls(func(args ...interface{}) error {
-					ScanFromColumns(t, args, Columns{
-						BundleName: sql.NullString{Valid: true},
-						Version:    sql.NullString{Valid: true},
-						BundlePath: sql.NullString{Valid: true},
-					})
-					return nil
-				})
-				return &q
-			},
-		},
-		{
 			Name: "bundle dependencies are null when dependency type or value is null",
 			Querier: func(t *testing.T) sqlite.Querier {
 				var (
@@ -186,7 +104,7 @@ func TestListBundles(t *testing.T) {
 			},
 		},
 		{
-			Name: "all dependencies and properties are returned",
+			Name: "all dependencies are returned",
 			Querier: func(t *testing.T) sqlite.Querier {
 				var (
 					q sqlitefakes.FakeQuerier
@@ -204,8 +122,6 @@ func TestListBundles(t *testing.T) {
 						BundlePath:      sql.NullString{Valid: true, String: "BundlePath"},
 						DependencyType:  sql.NullString{Valid: true, String: "Dependency1Type"},
 						DependencyValue: sql.NullString{Valid: true, String: "Dependency1Value"},
-						PropertyType:    sql.NullString{Valid: true, String: "Property1Type"},
-						PropertyValue:   sql.NullString{Valid: true, String: "Property1Value"},
 					},
 					{
 						BundleName:      sql.NullString{Valid: true, String: "BundleName"},
@@ -214,8 +130,6 @@ func TestListBundles(t *testing.T) {
 						BundlePath:      sql.NullString{Valid: true, String: "BundlePath"},
 						DependencyType:  sql.NullString{Valid: true, String: "Dependency2Type"},
 						DependencyValue: sql.NullString{Valid: true, String: "Dependency2Value"},
-						PropertyType:    sql.NullString{Valid: true, String: "Property2Type"},
-						PropertyValue:   sql.NullString{Valid: true, String: "Property2Value"},
 					},
 				}
 				var i int
@@ -242,16 +156,6 @@ func TestListBundles(t *testing.T) {
 						{
 							Type:  "Dependency2Type",
 							Value: "Dependency2Value",
-						},
-					},
-					Properties: []*api.Property{
-						{
-							Type:  "Property1Type",
-							Value: "Property1Value",
-						},
-						{
-							Type:  "Property2Type",
-							Value: "Property2Value",
 						},
 					},
 				},
