@@ -42,8 +42,10 @@ vendor:
 
 .PHONY: codegen
 codegen:
-	protoc -I pkg/api/ --go_out=plugins=grpc:pkg/api pkg/api/*.proto
-	protoc -I pkg/api/grpc_health_v1 --go_out=plugins=grpc:pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
+	protoc -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
+	protoc -I pkg/api/ --go-grpc_out=pkg/api pkg/api/*.proto
+	protoc -I pkg/api/grpc_health_v1 --go_out=pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
+	protoc -I pkg/api/grpc_health_v1 --go-grpc_out=pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
 
 .PHONY: container-codegen
 container-codegen:

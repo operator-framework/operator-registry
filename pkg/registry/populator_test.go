@@ -470,11 +470,6 @@ func TestListBundles(t *testing.T) {
 	store, err := createAndPopulateDB(db)
 	require.NoError(t, err)
 
-	var count int
-	row := db.QueryRow("SELECT COUNT(*) FROM operatorbundle")
-	err = row.Scan(&count)
-	require.NoError(t, err)
-
 	expectedDependencies := []*api.Dependency{
 		{
 			Type:  "olm.package",
@@ -492,19 +487,26 @@ func TestListBundles(t *testing.T) {
 			Type:  "olm.gvk",
 			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","type":"olm.gvk","version":"v1"}`,
 		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"testapi.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`,
+		},
+		{
+			Type:  "olm.gvk",
+			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","type":"olm.gvk","version":"v1beta2"}`,
+		},
 	}
 
 	dependencies := []*api.Dependency{}
 	bundles, err := store.ListBundles(context.TODO())
 	require.NoError(t, err)
+
 	for _, b := range bundles {
 		for _, d := range b.Dependencies {
-			if d.GetType() != "" {
-				dependencies = append(dependencies, d)
-			}
+			dependencies = append(dependencies, d)
 		}
 	}
-	require.Equal(t, count, len(bundles))
+	require.Equal(t, 9, len(bundles))
 	require.ElementsMatch(t, expectedDependencies, dependencies)
 }
 

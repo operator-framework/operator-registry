@@ -35,6 +35,7 @@ import (
 var (
 	flAddr          string
 	flService       string
+	flUserAgent     string
 	flConnTimeout   time.Duration
 	flRPCTimeout    time.Duration
 	flTLS           bool
@@ -61,6 +62,7 @@ func init() {
 	log.SetFlags(0)
 	flag.StringVar(&flAddr, "addr", "", "(required) tcp host:port to connect")
 	flag.StringVar(&flService, "service", "", "service name to check (default: \"\")")
+	flag.StringVar(&flUserAgent, "user-agent", "grpc_health_probe", "user-agent header value of health check requests")
 	// timeouts
 	flag.DurationVar(&flConnTimeout, "connect-timeout", time.Second, "timeout for establishing connection")
 	flag.DurationVar(&flRPCTimeout, "rpc-timeout", time.Second, "timeout for health check rpc")
@@ -160,6 +162,9 @@ func buildCredentials(skipVerify bool, caCerts, clientCert, clientKey, serverNam
 }
 
 func main() {
+	retcode := 0
+	defer func() { os.Exit(retcode) }()
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := make(chan os.Signal, 1)
@@ -172,36 +177,43 @@ func main() {
 			return
 		}
 	}()
-	if flVerbose {
-		log.Printf("establishing connection")
-	}
 
 	opts := []grpc.DialOption{
-		grpc.WithUserAgent("grpc_health_probe"),
-		grpc.WithBlock(),
-		grpc.WithTimeout(flConnTimeout)}
+		grpc.WithUserAgent(flUserAgent),
+		grpc.WithBlock()}
 	if flTLS {
 		creds, err := buildCredentials(flTLSNoVerify, flTLSCACert, flTLSClientCert, flTLSClientKey, flTLSServerName)
 		if err != nil {
 			log.Printf("failed to initialize tls credentials. error=%v", err)
-			os.Exit(StatusInvalidArguments)
+			retcode = StatusInvalidArguments
+			return
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
 		opts = append(opts, grpc.WithInsecure())
 	}
+
+	if flVerbose {
+		log.Print("establishing connection")
+	}
 	connStart := time.Now()
-	conn, err := grpc.DialContext(ctx, flAddr, opts...)
+	dialCtx, cancel2 := context.WithTimeout(ctx, flConnTimeout)
+	defer cancel2()
+	conn, err := grpc.DialContext(dialCtx, flAddr, opts...)
 	if err != nil {
 		if err == context.DeadlineExceeded {
 			log.Printf("timeout: failed to connect service %q within %v", flAddr, flConnTimeout)
 		} else {
 			log.Printf("error: failed to connect service at %q: %+v", flAddr, err)
 		}
-		os.Exit(StatusConnectionFailure)
+		retcode = StatusConnectionFailure
+		return
 	}
 	connDuration := time.Since(connStart)
 	defer conn.Close()
+	if flVerbose {
+		log.Printf("connection establisted (took %v)", connDuration)
+	}
 
 	rpcStart := time.Now()
 	rpcCtx, rpcCancel := context.WithTimeout(ctx, flRPCTimeout)
@@ -215,13 +227,15 @@ func main() {
 		} else {
 			log.Printf("error: health rpc failed: %+v", err)
 		}
-		os.Exit(StatusRPCFailure)
+		retcode = StatusRPCFailure
+		return
 	}
 	rpcDuration := time.Since(rpcStart)
 
 	if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
 		log.Printf("service unhealthy (responded with %q)", resp.GetStatus().String())
-		os.Exit(StatusUnhealthy)
+		retcode = StatusUnhealthy
+		return
 	}
 	if flVerbose {
 		log.Printf("time elapsed: connect=%v rpc=%v", connDuration, rpcDuration)

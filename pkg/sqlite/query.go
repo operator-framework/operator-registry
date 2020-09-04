@@ -1,9 +1,12 @@
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o sqlitefakes/fake_rowscanner.go . RowScanner
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o sqlitefakes/fake_querier.go . Querier
 package sqlite
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -11,8 +14,26 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-type SQLQuerier struct {
+type RowScanner interface {
+	Next() bool
+	Close() error
+	Scan(dest ...interface{}) error
+}
+
+type Querier interface {
+	QueryContext(ctx context.Context, query string, args ...interface{}) (RowScanner, error)
+}
+
+type dbQuerierAdapter struct {
 	db *sql.DB
+}
+
+func (a dbQuerierAdapter) QueryContext(ctx context.Context, query string, args ...interface{}) (RowScanner, error) {
+	return a.db.QueryContext(ctx, query, args...)
+}
+
+type SQLQuerier struct {
+	db Querier
 }
 
 var _ registry.Query = &SQLQuerier{}
@@ -23,11 +44,15 @@ func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
 		return nil, err
 	}
 
-	return &SQLQuerier{db}, nil
+	return &SQLQuerier{dbQuerierAdapter{db}}, nil
 }
 
 func NewSQLLiteQuerierFromDb(db *sql.DB) *SQLQuerier {
-	return &SQLQuerier{db}
+	return &SQLQuerier{dbQuerierAdapter{db}}
+}
+
+func NewSQLLiteQuerierFromDBQuerier(q Querier) *SQLQuerier {
+	return &SQLQuerier{q}
 }
 
 func (s *SQLQuerier) ListTables(ctx context.Context) ([]string, error) {
@@ -781,9 +806,9 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 	return "", nil
 }
 
-func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, err error) {
+func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
-	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, channel_entry.replaces,
+	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, operatorbundle.replaces, operatorbundle.skips,
 	operatorbundle.version, operatorbundle.skiprange,
 	dependencies.type, dependencies.value
 	FROM channel_entry
@@ -797,39 +822,40 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 	}
 	defer rows.Close()
 
-	bundles = []*api.Bundle{}
+	var bundles []*api.Bundle
 	bundlesMap := map[string]*api.Bundle{}
 	for rows.Next() {
-		var entryID sql.NullInt64
-		var bundle sql.NullString
-		var bundlePath sql.NullString
-		var bundleName sql.NullString
-		var pkgName sql.NullString
-		var channelName sql.NullString
-		var replaces sql.NullString
-		var version sql.NullString
-		var skipRange sql.NullString
-		var depType sql.NullString
-		var depValue sql.NullString
-		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &version, &skipRange, &depType, &depValue); err != nil {
+		var (
+			entryID     sql.NullInt64
+			bundle      sql.NullString
+			bundlePath  sql.NullString
+			bundleName  sql.NullString
+			pkgName     sql.NullString
+			channelName sql.NullString
+			replaces    sql.NullString
+			skips       sql.NullString
+			version     sql.NullString
+			skipRange   sql.NullString
+			depType     sql.NullString
+			depValue    sql.NullString
+		)
+		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue); err != nil {
 			return nil, err
 		}
 
-		bundleKey := fmt.Sprintf("%s/%s/%s", bundleName.String, version.String, bundlePath.String)
+		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
+			continue
+		}
+
+		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
 		bundleItem, ok := bundlesMap[bundleKey]
 		if ok {
-			// Create new dependency object
-			dep := &api.Dependency{}
-			if !depType.Valid || !depValue.Valid {
-				continue
+			if depType.Valid && depValue.Valid {
+				bundleItem.Dependencies = append(bundleItem.Dependencies, &api.Dependency{
+					Type:  depType.String,
+					Value: depValue.String,
+				})
 			}
-			dep.Type = depType.String
-			dep.Value = depValue.String
-
-			// Add new dependency to the existing list
-			existingDeps := bundleItem.Dependencies
-			existingDeps = append(existingDeps, dep)
-			bundleItem.Dependencies = existingDeps
 		} else {
 			// Create new bundle
 			out := &api.Bundle{}
@@ -846,21 +872,28 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 			out.BundlePath = bundlePath.String
 			out.Version = version.String
 			out.SkipRange = skipRange.String
+			out.Replaces = replaces.String
+			if skips.Valid {
+				out.Skips = strings.Split(skips.String, ",")
+			}
 
 			provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
 			if err != nil {
 				return nil, err
 			}
-			out.ProvidedApis = provided
-			out.RequiredApis = required
+			if len(provided) > 0 {
+				out.ProvidedApis = provided
+			}
+			if len(required) > 0 {
+				out.RequiredApis = required
+			}
 
-			// Create new dependency and dependency list
-			dep := &api.Dependency{}
-			dependencies := []*api.Dependency{}
-			dep.Type = depType.String
-			dep.Value = depValue.String
-			dependencies = append(dependencies, dep)
-			out.Dependencies = dependencies
+			if depType.Valid && depValue.Valid {
+				out.Dependencies = []*api.Dependency{{
+					Type:  depType.String,
+					Value: depValue.String,
+				}}
+			}
 
 			bundlesMap[bundleKey] = out
 		}
@@ -874,16 +907,16 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) (bundles []*api.Bundle, er
 		bundles = append(bundles, v)
 	}
 
-	return
+	return bundles, nil
 }
 
 func unique(deps []*api.Dependency) []*api.Dependency {
-	keys := make(map[string]bool)
-	list := []*api.Dependency{}
+	keys := make(map[string]struct{})
+	var list []*api.Dependency
 	for _, entry := range deps {
 		depKey := fmt.Sprintf("%s/%s", entry.Type, entry.Value)
 		if _, value := keys[depKey]; !value {
-			keys[depKey] = true
+			keys[depKey] = struct{}{}
 			list = append(list, entry)
 		}
 	}
