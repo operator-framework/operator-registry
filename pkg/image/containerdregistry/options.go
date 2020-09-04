@@ -10,7 +10,9 @@ import (
 	"github.com/containerd/containerd/metadata"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
+	"github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
 )
@@ -23,6 +25,7 @@ type RegistryConfig struct {
 	PreserveCache     bool
 	SkipTLS           bool
 	Roots             *x509.CertPool
+	Digester          digest.Algorithm
 }
 
 func (r *RegistryConfig) apply(options []RegistryOption) {
@@ -104,8 +107,21 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, err error) {
 			OS:           "linux",
 			Architecture: "amd64",
 		}),
+		builder: newBuilder(config.Digester),
 	}
 	return
+}
+
+func newBuilder(algorithm digest.Algorithm) builder {
+	b := builder{
+		buildRoot: make(map[image.Reference]fileTree),
+		digester:  digest.SHA256.Digester(),
+	}
+	if len(algorithm) != 0 {
+		b.digester = algorithm.Digester()
+	}
+	digest.SHA256.Digester()
+	return b
 }
 
 type RegistryOption func(config *RegistryConfig)
@@ -143,5 +159,11 @@ func PreserveCache(preserve bool) RegistryOption {
 func SkipTLS(skip bool) RegistryOption {
 	return func(config *RegistryConfig) {
 		config.SkipTLS = skip
+	}
+}
+
+func WithDigestAlgorithm(algorithm digest.Algorithm) RegistryOption {
+	return func(config *RegistryConfig) {
+		config.Digester = algorithm
 	}
 }

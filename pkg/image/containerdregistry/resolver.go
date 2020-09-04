@@ -19,8 +19,9 @@ func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:       30 * time.Second,
+			KeepAlive:     30 * time.Second,
+			FallbackDelay: 300 * time.Millisecond,
 		}).DialContext,
 		MaxIdleConns:          10,
 		IdleConnTimeout:       30 * time.Second,
@@ -28,7 +29,7 @@ func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes
 		ExpectContinueTimeout: 5 * time.Second,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: false,
-			RootCAs: roots,
+			RootCAs:            roots,
 		},
 	}
 
@@ -61,7 +62,7 @@ func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes
 	}
 
 	opts := docker.ResolverOptions{
-		Hosts: docker.ConfigureDefaultRegistries(regopts...),
+		Hosts:   docker.ConfigureDefaultRegistries(regopts...),
 		Headers: headers,
 	}
 

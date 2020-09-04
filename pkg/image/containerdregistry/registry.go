@@ -8,16 +8,24 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
+	"github.com/containerd/containerd/remotes/docker"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
@@ -29,6 +37,20 @@ type Registry struct {
 	log      *logrus.Entry
 	resolver remotes.Resolver
 	platform platforms.MatchComparer
+	tracker  docker.StatusTracker
+	builder  builder
+}
+
+type builder struct {
+	buildRoot map[image.Reference]fileTree
+	digester  digest.Digester
+}
+
+type fileTree map[string]*fileInfo
+
+type fileInfo struct {
+	info os.FileInfo
+	hash string
 }
 
 var _ image.Registry = &Registry{}
@@ -66,29 +88,64 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 	return err
 }
 
-// Unpack writes the unpackaged content of an image to a directory.
-// If the referenced image does not exist in the registry, an error is returned.
-func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) error {
+// Push pushes a local image reference to a remote registry
+func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef image.Reference) error {
 	// Set the default namespace if unset
 	ctx = ensureNamespace(ctx)
 
-	manifest, err := r.getManifest(ctx, ref)
+	img, err := r.Images().Get(ctx, localRef.String())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to resolve image to manifest")
 	}
+	desc := img.Target
+	eg, ctx := errgroup.WithContext(ctx)
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return err
-	}
+	doneCh := make(chan struct{})
 
-	for _, layer := range manifest.Layers {
-		r.log.Infof("unpacking layer: %v", layer)
-		if err := r.unpackLayer(ctx, layer, dir); err != nil {
+	ref := remoteRef.String()
+	eg.Go(func() error {
+		defer close(doneCh)
+
+		log.G(ctx).WithField("image", ref).WithField("digest", desc.Digest).Debug("pushing")
+
+		visitor := images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+			r.log.WithField("digest", desc.Digest).Info("push")
+			r.log.Debug(desc)
+			return nil, nil
+		})
+
+		if !strings.Contains(ref, "@") {
+			ref = ref + "@" + desc.Digest.String()
+		}
+		ref = ensureTag(ref)
+
+		pusher, err := r.resolver.Pusher(ctx, ref)
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		var wrapper func(images.Handler) images.Handler = func(h images.Handler) images.Handler {
+			h = images.Handlers(append([]images.Handler{visitor}, h)...)
+			return h
+		}
+
+		return remotes.PushContent(ctx, pusher, desc, r.Content(), platforms.All, wrapper) //pushCtx.PlatformMatcher, wrapper)
+
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-time.After(5 * time.Minute):
+				return fmt.Errorf("push timed out")
+			case <-doneCh:
+				return nil
+			case <-ctx.Done():
+				return nil
+			}
+		}
+	})
+	return eg.Wait()
 }
 
 // Labels gets the labels for an image reference.
@@ -206,4 +263,22 @@ func adjustPerms(h *tar.Header) (bool, error) {
 	h.Mode |= 0200
 
 	return true, nil
+}
+
+var isTag = regexp.MustCompile(`^[A-Za-z0-9_][-.A-Za-z0-9_]{0,127}$`).MatchString
+
+const defaultTag = "latest"
+
+// if a tag is not present on the image reference, add a default tag
+func ensureTag(ref string) string {
+	s := strings.Split(ref, "@")
+	nonref := len(s) - 1
+	if len(s) > 1 {
+		nonref = len(s) - 2
+	}
+	tagIndex := strings.LastIndexAny(s[nonref], ":")
+	if tagIndex == -1 || !isTag(s[nonref][tagIndex+1:]) {
+		s[nonref] = fmt.Sprintf("%s:%s", s[nonref], defaultTag)
+	}
+	return strings.Join(s, "@")
 }
