@@ -16,8 +16,10 @@ RUN CGO_ENABLED=0 go build -mod=vendor -tags netgo -ldflags "-w" ./vendor/github
 
 FROM registry.svc.ci.openshift.org/ocp/4.6:base
 
-COPY --from=builder /src/bin/* /bin/
+COPY --from=builder /src/bin/* /tmp/bin/
 COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
+
+RUN cp -avr /tmp/bin/. /bin/
 
 RUN mkdir /registry
 RUN chgrp -R 0 /registry && \
