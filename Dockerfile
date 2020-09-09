@@ -19,6 +19,11 @@ FROM registry.svc.ci.openshift.org/ocp/4.6:base
 COPY --from=builder /src/bin/* /bin/
 COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
 
+RUN mkdir /registry
+RUN chgrp -R 0 /registry && \
+    chmod -R g+rwx /registry
+WORKDIR /registry
+
 # This image doesn't need to run as root user
 USER 1001
 
