@@ -33,7 +33,9 @@ const (
 )
 
 // NewImage creates a new image from the provided base image and the given tag.
-func (r *Registry) NewImage(ctx context.Context, from, imageTag image.Reference, opts ...BuildOpt) error {
+func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts ...BuildOpt) error {
+	ctx = ensureNamespace(ctx)
+
 	if len(imageTag.String()) == 0 {
 		return fmt.Errorf("imageTag must not be empty")
 	}
@@ -42,25 +44,36 @@ func (r *Registry) NewImage(ctx context.Context, from, imageTag image.Reference,
 		opt(buildConfig)
 	}
 
-	ctx = ensureNamespace(ctx)
 	var indexDesc *ocispecv1.Descriptor
 	var err error
-	if len(from.String()) == 0 || from.String() == emptyBaseImage {
-		indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, nil, *buildConfig)
+	if len(buildConfig.BaseImage.String()) == 0 || buildConfig.BaseImage.String() == emptyBaseImage {
+		indexImg, err := r.Images().Get(ctx, imageTag.String())
 		if err != nil {
-			return fmt.Errorf("error creating empty image: %v", err)
+			// if not found, then that means the image doesn't exist yet. create the image
+			indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, nil, *buildConfig)
+			if err != nil {
+				return fmt.Errorf("error creating empty image: %v", err)
+			}
+			//			return fmt.Errorf("error fetching image %s: %v", imageTag, err)
+		} else {
+			indexDesc, err = r.builder.updateManifests(ctx, r.Content(), indexImg.Target, indexImg.Target, imageTag, r.platform, func(manifest *ocispecv1.Manifest) error {
+				return r.builder.updateImageConfig(ctx, r.Content(), imageTag, manifest, *buildConfig)
+			})
+			if err != nil {
+				return fmt.Errorf("error updating manifests: %v", err)
+			}
 		}
 	} else {
-		if err := r.Pull(ctx, from); err != nil {
-			return fmt.Errorf("failed to pull base image %s: %v", from, err)
+		if err := r.Pull(ctx, buildConfig.BaseImage); err != nil {
+			return fmt.Errorf("failed to pull base image %s: %v", buildConfig.BaseImage.String(), err)
 		}
 
-		img, err := r.Images().Get(ctx, from.String())
+		img, err := r.Images().Get(ctx, buildConfig.BaseImage.String())
 		if err != nil {
-			return fmt.Errorf("unable to find pulled base image %s: %v", from, err)
+			return fmt.Errorf("unable to find pulled base image %s: %v", buildConfig.BaseImage.String(), err)
 		}
 		indexDesc := &img.Target
-		_, err = r.getManifest(ctx, from)
+		_, err = r.getManifest(ctx, buildConfig.BaseImage)
 		if err != nil {
 			// manifest is missing, create an empty one and update the index with it
 			indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, indexDesc, *buildConfig)
@@ -85,9 +98,10 @@ func (r *Registry) NewImage(ctx context.Context, from, imageTag image.Reference,
 		return fmt.Errorf("failed to update image descriptor: %v", err)
 	}
 	return nil
+
 }
 
-// cloneImage creates a copy of the image. If the image does not have a manifest or config associated with it, it initializes them
+// newImage creates a copy of the image. If the image does not have a manifest or config associated with it, it initializes them
 func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image.Reference, indexDesc *ocispecv1.Descriptor, buildConfig BuildConfig) (*ocispecv1.Descriptor, error) {
 	ctx = ensureNamespace(ctx)
 	configDesc, configBytes, err := b.newConfig(buildConfig)
@@ -213,55 +227,8 @@ func (b *builder) newIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descrip
 	return b.getDescriptorAndJSONBytes(index, map[string]string{}, nil)
 }
 
-// AddLayerFromDir adds a new layer to an image from a directory and updates its manifests.
-// The directory added must not contain any files beginning with the reserved whiteout prefix '.wh.'
-func (r *Registry) AddLayerFromDir(ctx context.Context, ref image.Reference, src string, opts ...BuildOpt) error {
-	ctx = ensureNamespace(ctx)
-
-	layerDesc, layerBytes, layerDiffID, err := r.builder.newLayer(false, src)
-	if err != nil {
-		return fmt.Errorf("could not create new layer: %v", err)
-	}
-
-	if err := content.WriteBlob(ctx, r.Content(), ref.String(), bytes.NewBuffer(layerBytes), *layerDesc); err != nil {
-		return fmt.Errorf("error writing blob: %v", err)
-	}
-
-	opts = append(opts, addLayer(layerDesc, layerDiffID))
-	buildConfig := DefaultBuildConfig()
-	for _, opt := range opts {
-		opt(buildConfig)
-	}
-
-	indexImg, err := r.Images().Get(ctx, ref.String())
-	if err != nil {
-		return fmt.Errorf("error fetching image %s: %v", ref, err)
-	}
-
-	indexDesc, err := r.builder.updateManifests(ctx, r.Content(), indexImg.Target, indexImg.Target, ref, r.platform, func(manifest *ocispecv1.Manifest) error {
-		return r.builder.updateImageConfig(ctx, r.Content(), ref, manifest, *buildConfig)
-	})
-	if err != nil {
-		return fmt.Errorf("error updating manifests: %v", err)
-	}
-
-	newImg := images.Image{
-		Name:   indexImg.Name,
-		Target: *indexDesc,
-	}
-
-	if _, err = r.Images().Create(ctx, newImg); err != nil {
-		if errdefs.IsAlreadyExists(err) {
-			_, err = r.Images().Update(ctx, newImg)
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("error updating image for %s: %v", ref, err)
-	}
-	return nil
-}
-
-func (b *builder) newLayer(allowWhiteouts bool, srcs ...string) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
+// NewLayer creates a new layer from the given src-dst mapping
+func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
 	var diffID digest.Digest
 	var buf bytes.Buffer
 
@@ -269,14 +236,21 @@ func (b *builder) newLayer(allowWhiteouts bool, srcs ...string) (*ocispecv1.Desc
 
 	tarWriter := tar.NewWriter(io.MultiWriter(gzipWriter, b.digester.Hash()))
 
-	for _, src := range srcs {
-		if _, name := filepath.Split(src); !allowWhiteouts || !strings.HasPrefix(name, whPrefix) {
+	for src, dst := range srcs {
+		if _, name := filepath.Split(dst); !allowWhiteouts || !strings.HasPrefix(name, whPrefix) {
 			if _, err := os.Stat(src); err != nil {
 				return nil, nil, diffID, err
 			}
 		}
 
 		filepath.Walk(filepath.Clean(src), func(name string, info os.FileInfo, err error) error {
+			if filepath.Clean(src) != filepath.Clean(dst) {
+				relPath, err := filepath.Rel(src, name)
+				if err != nil {
+					return err
+				}
+				name = filepath.Join(dst, relPath)
+			}
 			if strings.HasPrefix(filepath.Base(name), whPrefix) {
 				if !allowWhiteouts {
 					return fmt.Errorf("error adding file %s to layer: file has disallowed whiteout prefix %s", name, whPrefix)
@@ -291,6 +265,11 @@ func (b *builder) newLayer(allowWhiteouts bool, srcs ...string) (*ocispecv1.Desc
 			}
 
 			linkname := info.Name()
+			if filepath.Clean(name) == filepath.Clean(src) && filepath.Clean(src) != filepath.Clean(dst) {
+				if linkname == filepath.Base(filepath.Clean(src)) {
+					linkname = filepath.Base(filepath.Clean(dst))
+				}
+			}
 			if info.Mode()&os.ModeSymlink == os.ModeSymlink {
 				if linkname, err = os.Readlink(name); err != nil {
 					return fmt.Errorf("error following symlink %s: %v", name, err)
@@ -503,6 +482,7 @@ func (b *builder) updateManifests(ctx context.Context, cs content.Store, root, d
 }
 
 // make changes to the image config in a manifest according to options. Also update the manifest if layers are added.
+// This should be used as an argument to updateManifests, or the manifest will not have the updated config or layer information.
 func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref image.Reference, manifest *ocispecv1.Manifest, options BuildConfig) error {
 	p, err := content.ReadBlob(ctx, cs, manifest.Config)
 	if err != nil {
@@ -583,7 +563,7 @@ func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref i
 			manifest.Layers = make([]ocispecv1.Descriptor, 0)
 		}
 
-		if options.MergeLayers && len(manifest.Layers)+len(options.Layers) > 1 {
+		if options.SquashLayers && len(manifest.Layers)+len(options.Layers) > 1 {
 			layers := manifest.Layers
 			for _, l := range options.Layers {
 				layers = append(layers, *l.descriptor)

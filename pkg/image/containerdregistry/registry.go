@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/containerd/containerd/archive"
@@ -102,11 +100,10 @@ func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef
 
 	doneCh := make(chan struct{})
 
-	ref := remoteRef.String()
 	eg.Go(func() error {
 		defer close(doneCh)
 
-		log.G(ctx).WithField("image", ref).WithField("digest", desc.Digest).Debug("pushing")
+		log.G(ctx).WithField("image", remoteRef.String()).WithField("digest", desc.Digest).Debug("pushing")
 
 		visitor := images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 			r.log.WithField("digest", desc.Digest).Info("push")
@@ -114,12 +111,10 @@ func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef
 			return nil, nil
 		})
 
-		if !strings.Contains(ref, "@") {
-			ref = ref + "@" + desc.Digest.String()
-		}
-		ref = ensureTag(ref)
+		remoteRef.WithDigest(desc.Digest)
+		ensureTag(remoteRef)
 
-		pusher, err := r.resolver.Pusher(ctx, ref)
+		pusher, err := r.resolver.Pusher(ctx, remoteRef.String())
 		if err != nil {
 			return err
 		}
@@ -265,20 +260,11 @@ func adjustPerms(h *tar.Header) (bool, error) {
 	return true, nil
 }
 
-var isTag = regexp.MustCompile(`^[A-Za-z0-9_][-.A-Za-z0-9_]{0,127}$`).MatchString
-
 const defaultTag = "latest"
 
 // if a tag is not present on the image reference, add a default tag
-func ensureTag(ref string) string {
-	s := strings.Split(ref, "@")
-	nonref := len(s) - 1
-	if len(s) > 1 {
-		nonref = len(s) - 2
+func ensureTag(img image.Reference) {
+	if len(img.Tag()) == 0 {
+		img.WithTag(defaultTag)
 	}
-	tagIndex := strings.LastIndexAny(s[nonref], ":")
-	if tagIndex == -1 || !isTag(s[nonref][tagIndex+1:]) {
-		s[nonref] = fmt.Sprintf("%s:%s", s[nonref], defaultTag)
-	}
-	return strings.Join(s, "@")
 }

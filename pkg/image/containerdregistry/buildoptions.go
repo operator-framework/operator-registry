@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 type layer struct {
@@ -39,7 +40,8 @@ type BuildConfig struct {
 	Entrypoint        *[]string
 	Cmd               *[]string
 	Platform          *ocispecv1.Platform
-	MergeLayers       bool
+	SquashLayers      bool
+	BaseImage         image.Reference
 }
 
 // BuildOpt provides a set of options that can be used in image manifest and config updates
@@ -47,7 +49,9 @@ type BuildOpt func(config *BuildConfig)
 
 // DefaultBuildConfig provides an empty BuildConfig
 func DefaultBuildConfig() *BuildConfig {
-	return &BuildConfig{}
+	return &BuildConfig{
+		BaseImage: image.SimpleReference(emptyBaseImage),
+	}
 }
 
 // WithAuthor sets the author for for the current operation
@@ -192,8 +196,15 @@ func WithPlatform(p ocispecv1.Platform) BuildOpt {
 }
 
 // MergeLayers creates a single layer image from the current image root
-func MergeLayers() BuildOpt {
+func SquashLayers() BuildOpt {
 	return func(config *BuildConfig) {
-		config.MergeLayers = true
+		config.SquashLayers = true
+	}
+}
+
+// WithBaseImage sets a base image to pull when building the new image
+func WithBaseImage(img image.Reference) BuildOpt {
+	return func(config *BuildConfig) {
+		config.BaseImage = img
 	}
 }

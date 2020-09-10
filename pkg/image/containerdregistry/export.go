@@ -10,12 +10,13 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd/images/archive"
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 // Export exports the given image ref into an oci bundle
 // Export does not unpack the root filesystem of the bundle
-func (r *Registry) Export(ctx context.Context, ref, out string) error {
-	err := os.MkdirAll(out, 0700)
+func (r *Registry) Export(ctx context.Context, ref, out image.Reference) error {
+	err := os.MkdirAll(out.String(), 0700)
 	if err != nil {
 		return fmt.Errorf("error creating parent directory %s: %v", out, err)
 	}
@@ -24,7 +25,7 @@ func (r *Registry) Export(ctx context.Context, ref, out string) error {
 
 	buf := new(bytes.Buffer)
 
-	err = archive.Export(ctx, r.Store.Content(), buf, archive.WithPlatform(r.platform), archive.WithImage(r.Store.Images(), ref))
+	err = archive.Export(ctx, r.Store.Content(), buf, archive.WithPlatform(r.platform), archive.WithImage(r.Store.Images(), ref.String()))
 	if err != nil {
 		return fmt.Errorf("error exporting image %s to oci format: %v", ref, err)
 	}
@@ -45,7 +46,7 @@ func (r *Registry) Export(ctx context.Context, ref, out string) error {
 		if err != nil {
 			return fmt.Errorf("Invalid entry in image %s: %v", ref, err)
 		}
-		dstPath := filepath.Join(out, filepath.Clean(hdr.Name))
+		dstPath := filepath.Join(out.String(), filepath.Clean(hdr.Name))
 
 		switch hdr.Typeflag {
 		case tar.TypeReg, tar.TypeRegA:

@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
+
+var errNotUnpacked error = fmt.Errorf("directory not unpacked")
 
 // Unpack writes the unpackaged content of an image to a directory.
 // If the referenced image does not exist in the registry, an error is returned.
@@ -40,62 +39,32 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) 
 	return nil
 }
 
-// Repack calculates the diff of a directory from the recorded values, makes a new layer from this diff
+// Pack calculates the diff of a directory from the recorded values, makes a new layer from this diff
 // and updates the referenced image. The diff is calculated based on the file headers and hashes stored
-// during an unpack. Attempting a Repack on a directory without running Unpack on it first will fail.
-func (r *Registry) Repack(ctx context.Context, ref image.Reference, dir string, opts ...BuildOpt) error {
+// during an unpack. Attempting a Repack on a directory without running unpack first will add the directory
+// to the image as a new layer.
+func (r *Registry) Pack(ctx context.Context, ref image.Reference, dir string, opts ...BuildOpt) error {
 	ctx = ensureNamespace(ctx)
 
 	srcs, err := r.diff(dir, ref)
-	if err != nil {
+	if err != nil && err.Error() != errNotUnpacked.Error() {
 		return err
 	}
 
-	if len(srcs) == 0 {
-		return nil
-	}
-
-	layerDesc, layerBytes, layerDiffID, err := r.builder.newLayer(true, srcs...)
-	if err != nil {
-		return fmt.Errorf("could not create new layer for repack: %v", err)
-	}
-
-	if err := content.WriteBlob(ctx, r.Content(), ref.String(), bytes.NewBuffer(layerBytes), *layerDesc); err != nil {
-		return fmt.Errorf("error writing blob: %v", err)
-	}
-
-	opts = append(opts, addLayer(layerDesc, layerDiffID))
-	buildConfig := DefaultBuildConfig()
-	for _, opt := range opts {
-		opt(buildConfig)
-	}
-
-	indexImg, err := r.Images().Get(ctx, ref.String())
-	if err != nil {
-		return fmt.Errorf("error fetching image %s: %v", ref, err)
-	}
-
-	indexDesc, err := r.builder.updateManifests(ctx, r.Content(), indexImg.Target, indexImg.Target, ref, r.platform, func(manifest *ocispec.Manifest) error {
-		return r.builder.updateImageConfig(ctx, r.Content(), ref, manifest, *buildConfig)
-	})
-	if err != nil {
-		return fmt.Errorf("error updating manifests: %v", err)
-	}
-
-	newImg := images.Image{
-		Name:   indexImg.Name,
-		Target: *indexDesc,
-	}
-
-	if _, err = r.Images().Create(ctx, newImg); err != nil {
-		if errdefs.IsAlreadyExists(err) {
-			_, err = r.Images().Update(ctx, newImg)
+	if len(srcs) > 0 {
+		layerDesc, layerBytes, layerDiffID, err := r.builder.NewLayer(true, srcs)
+		if err != nil {
+			return fmt.Errorf("could not create new layer for repack: %v", err)
 		}
+
+		if err := content.WriteBlob(ctx, r.Content(), ref.String(), bytes.NewBuffer(layerBytes), *layerDesc); err != nil {
+			return fmt.Errorf("error writing blob: %v", err)
+		}
+
+		opts = append(opts, addLayer(layerDesc, layerDiffID))
 	}
-	if err != nil {
-		return fmt.Errorf("error updating image for %s: %v", ref, err)
-	}
-	return nil
+
+	return r.NewImage(ctx, ref, opts...)
 }
 
 // cache file hashes and stat after unpack for comparison when repacking the image
@@ -127,11 +96,12 @@ func (r *Registry) init(root string, ref image.Reference) {
 }
 
 // compare a directory with the file header and hash information recorded during unpack
-func (r *Registry) diff(dir string, ref image.Reference) ([]string, error) {
-	srcs := make([]string, 0)
+func (r *Registry) diff(dir string, ref image.Reference) (map[string]string, error) {
+	srcs := make(map[string]string)
 	cmpRoot, isUnpacked := r.builder.buildRoot[ref]
 	if !isUnpacked {
-		return srcs, fmt.Errorf("repack on a non-unpacked directory")
+		srcs[dir] = dir
+		return srcs, errNotUnpacked
 	}
 	found := make(map[string]bool)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -139,7 +109,7 @@ func (r *Registry) diff(dir string, ref image.Reference) ([]string, error) {
 		f, ok := cmpRoot[path]
 		if !ok {
 			// new
-			srcs = append(srcs, path)
+			srcs[path] = path
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -147,7 +117,7 @@ func (r *Registry) diff(dir string, ref image.Reference) ([]string, error) {
 		}
 		if !os.SameFile(info, f.info) {
 			// modified
-			srcs = append(srcs, path)
+			srcs[path] = path
 			return nil
 		}
 		if !info.Mode().IsRegular() {
@@ -164,8 +134,9 @@ func (r *Registry) diff(dir string, ref image.Reference) ([]string, error) {
 			return err
 		}
 
+		// different content
 		if fmt.Sprintf("%x", h.Sum(nil)) != f.hash {
-			srcs = append(srcs, path)
+			srcs[path] = path
 		}
 		h.Reset()
 		return nil
@@ -175,14 +146,16 @@ func (r *Registry) diff(dir string, ref image.Reference) ([]string, error) {
 		if !found[p] {
 			dir, f := filepath.Split(filepath.Clean(p))
 			if len(f) == 0 || f == "." {
-				srcs = append(srcs, filepath.Join(dir, whOpaque))
+				whFile := filepath.Join(dir, whOpaque)
+				srcs[whFile] = whFile
 				continue
 			}
 			f = fmt.Sprintf("%s%s", whPrefix, f)
 			if f == whOpaque {
 				return srcs, fmt.Errorf("cannot add whiteout for file %s: resulting opaque whiteout %s will delete directory contents", p, filepath.Join(dir, f))
 			}
-			srcs = append(srcs, filepath.Join(dir, f))
+			whFile := filepath.Join(dir, f)
+			srcs[whFile] = whFile
 		}
 	}
 	return srcs, err
