@@ -115,7 +115,7 @@ func (b *builder) squashLayers(ctx context.Context, cs content.Store, layers []o
 	for _, tb := range tarList {
 		name := filepath.Clean(tb.hdr.Name)
 		if strings.HasPrefix(filepath.Base(name), whPrefix) {
-			// This should never happen since we do not addd whiteouts to the final file set
+			// This should never happen since we do not add whiteouts to the final file set
 			return nil, nil, diffID, fmt.Errorf("error adding %s to merged layer: disallowed whiteout prefix %s", name, whPrefix)
 		}
 		hdr := tb.hdr

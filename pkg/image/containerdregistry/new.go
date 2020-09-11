@@ -32,7 +32,8 @@ const (
 	whOpaque         = ".wh..wh..opq"
 )
 
-// NewImage creates a new image from the provided base image and the given tag.
+// NewImage creates a new image from the given tag and build options.
+// If the image already exists, NewImage applies the build opts to the image config
 func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts ...BuildOpt) error {
 	ctx = ensureNamespace(ctx)
 
@@ -44,26 +45,10 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 		opt(buildConfig)
 	}
 
-	var indexDesc *ocispecv1.Descriptor
+	var indexDesc, baseDesc *ocispecv1.Descriptor
 	var err error
-	if len(buildConfig.BaseImage.String()) == 0 || buildConfig.BaseImage.String() == emptyBaseImage {
-		indexImg, err := r.Images().Get(ctx, imageTag.String())
-		if err != nil {
-			// if not found, then that means the image doesn't exist yet. create the image
-			indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, nil, *buildConfig)
-			if err != nil {
-				return fmt.Errorf("error creating empty image: %v", err)
-			}
-			//			return fmt.Errorf("error fetching image %s: %v", imageTag, err)
-		} else {
-			indexDesc, err = r.builder.updateManifests(ctx, r.Content(), indexImg.Target, indexImg.Target, imageTag, r.platform, func(manifest *ocispecv1.Manifest) error {
-				return r.builder.updateImageConfig(ctx, r.Content(), imageTag, manifest, *buildConfig)
-			})
-			if err != nil {
-				return fmt.Errorf("error updating manifests: %v", err)
-			}
-		}
-	} else {
+	if len(buildConfig.BaseImage.String()) != 0 && buildConfig.BaseImage.String() != emptyBaseImage {
+		// pull the base image
 		if err := r.Pull(ctx, buildConfig.BaseImage); err != nil {
 			return fmt.Errorf("failed to pull base image %s: %v", buildConfig.BaseImage.String(), err)
 		}
@@ -72,16 +57,35 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 		if err != nil {
 			return fmt.Errorf("unable to find pulled base image %s: %v", buildConfig.BaseImage.String(), err)
 		}
-		indexDesc := &img.Target
+		baseDesc = &img.Target
+		// nil manifest is not accepted by dockerhub, so create an empty one if it doesn't exist
 		_, err = r.getManifest(ctx, buildConfig.BaseImage)
-		if err != nil {
-			// manifest is missing, create an empty one and update the index with it
-			indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, indexDesc, *buildConfig)
+	} else {
+		var img images.Image
+		// if the image
+		img, err = r.Images().Get(ctx, imageTag.String())
+		if err == nil {
+			baseDesc = &img.Target
+			_, err = r.getManifest(ctx, imageTag)
 		}
 	}
 
-	if err != nil {
+	if err != nil && !errdefs.IsNotFound(err) {
 		return err
+	}
+
+	if err == nil {
+		// update manifests and config with any options provided
+		if indexDesc, err = r.builder.updateManifests(ctx, r.Content(), *baseDesc, *baseDesc, imageTag, r.platform, func(manifest *ocispecv1.Manifest) error {
+			return r.builder.updateImageConfig(ctx, r.Content(), imageTag, manifest, *buildConfig)
+		}); err != nil {
+			return err
+		}
+	} else {
+		// manifest is missing, create an empty one and update the index with it.
+		if indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, baseDesc, *buildConfig); err != nil {
+			return err
+		}
 	}
 
 	newImg := images.Image{
@@ -104,7 +108,7 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 // newImage creates a copy of the image. If the image does not have a manifest or config associated with it, it initializes them
 func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image.Reference, indexDesc *ocispecv1.Descriptor, buildConfig BuildConfig) (*ocispecv1.Descriptor, error) {
 	ctx = ensureNamespace(ctx)
-	configDesc, configBytes, err := b.newConfig(buildConfig)
+	configDesc, configBytes, err := b.NewConfig(buildConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config: %v", err)
 	}
@@ -112,7 +116,7 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 		return nil, fmt.Errorf("failed to write config: %v", err)
 	}
 
-	manifestDesc, manifestBytes, err := b.newManifest(imageTag, configDesc, buildConfig.Platform)
+	manifestDesc, manifestBytes, err := b.NewManifest(imageTag, configDesc, buildConfig.Platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manifest: %v", err)
 	}
@@ -136,7 +140,7 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 		indexDesc, indexBytes, err = b.getDescriptorAndJSONBytes(idx, indexDesc.Annotations, nil)
 
 	} else {
-		indexDesc, indexBytes, err = b.newIndex([]ocispecv1.Descriptor{*manifestDesc})
+		indexDesc, indexBytes, err = b.NewIndex([]ocispecv1.Descriptor{*manifestDesc})
 	}
 
 	if err != nil {
@@ -148,8 +152,8 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 	return indexDesc, nil
 }
 
-// historyEntry creates a new entry for the image history
-func historyEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispecv1.History {
+// HistoryEntry creates a new entry for the image history
+func HistoryEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispecv1.History {
 	historyEntry := ocispecv1.History{
 		EmptyLayer: emptyLayer,
 	}
@@ -172,9 +176,9 @@ func historyEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispe
 	return historyEntry
 }
 
-// newConfig initializes a new empty config
-func (b *builder) newConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, error) {
-	historyEntry := historyEntry(true, "", co)
+// NewConfig initializes a new empty config
+func (b *builder) NewConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, error) {
+	historyEntry := HistoryEntry(true, "", co)
 	config := ocispecv1.Image{
 		Created:      historyEntry.Created,
 		OS:           runtime.GOOS,
@@ -196,8 +200,8 @@ func (b *builder) newConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, erro
 	return b.getDescriptorAndJSONBytes(config, map[string]string{}, nil)
 }
 
-// newManifest initializes a new manifest with the provided config
-func (b *builder) newManifest(tag image.Reference, config *ocispecv1.Descriptor, platform *ocispecv1.Platform) (*ocispecv1.Descriptor, []byte, error) {
+// NewManifest initializes a new manifest with the provided config
+func (b *builder) NewManifest(tag image.Reference, config *ocispecv1.Descriptor, platform *ocispecv1.Platform) (*ocispecv1.Descriptor, []byte, error) {
 	manifest := ocispecv1.Manifest{
 		Versioned: ocispec.Versioned{
 			SchemaVersion: ociSchemaVersion,
@@ -214,8 +218,8 @@ func (b *builder) newManifest(tag image.Reference, config *ocispecv1.Descriptor,
 	return b.getDescriptorAndJSONBytes(manifest, descAnnotations, platform)
 }
 
-// newIndex initializes an index with the provided manifests
-func (b *builder) newIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descriptor, []byte, error) {
+// NewIndex initializes an index with the provided manifests
+func (b *builder) NewIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descriptor, []byte, error) {
 	index := ocispecv1.Index{
 		Versioned: ocispec.Versioned{
 			SchemaVersion: ociSchemaVersion,
@@ -394,7 +398,6 @@ func (b *builder) getDescriptorAndJSONBytes(data interface{}, annotations map[st
 }
 
 // walk through the image and update all manifests for the platform matcher
-// TODO(ankitathomas): updateManifests should respect MergeLayers option, squashing all the previous layers if provided.
 func (b *builder) updateManifests(ctx context.Context, cs content.Store, root, desc ocispecv1.Descriptor, ref image.Reference, platform platforms.MatchComparer, updatefunc func(*ocispecv1.Manifest) error) (*ocispecv1.Descriptor, error) {
 	var data interface{}
 	p, err := content.ReadBlob(ctx, cs, desc)
@@ -493,7 +496,7 @@ func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref i
 		return fmt.Errorf("error unmarshaling config blob: %v", err)
 	}
 
-	historyEntry := historyEntry(len(options.Layers) == 0, "", options)
+	historyEntry := HistoryEntry(len(options.Layers) == 0, "", options)
 	config.History = append(config.History, historyEntry)
 
 	if options.User != nil {

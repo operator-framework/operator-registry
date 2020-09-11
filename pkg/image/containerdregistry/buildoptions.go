@@ -49,8 +49,9 @@ type BuildOpt func(config *BuildConfig)
 
 // DefaultBuildConfig provides an empty BuildConfig
 func DefaultBuildConfig() *BuildConfig {
+	ref := image.SimpleReference(emptyBaseImage)
 	return &BuildConfig{
-		BaseImage: image.SimpleReference(emptyBaseImage),
+		BaseImage: ref,
 	}
 }
 

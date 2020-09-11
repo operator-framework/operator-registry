@@ -107,12 +107,12 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, err error) {
 			OS:           "linux",
 			Architecture: "amd64",
 		}),
-		builder: newBuilder(config.Digester),
+		builder: NewBuilder(config.Digester),
 	}
 	return
 }
 
-func newBuilder(algorithm digest.Algorithm) builder {
+func NewBuilder(algorithm digest.Algorithm) builder {
 	b := builder{
 		buildRoot: make(map[image.Reference]fileTree),
 		digester:  digest.SHA256.Digester(),

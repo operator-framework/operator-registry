@@ -18,15 +18,21 @@ type Reference interface {
 }
 
 // SimpleReference is a reference backed by a string with no additional validation.
-type SimpleReference string
+type simpleReference string
 
-func (s SimpleReference) String() string {
-	ref := string(s)
+func (s *simpleReference) String() string {
+	ref := string(*s)
 	return ref
 }
 
+// SimpleReference creates a new reference backed by a string.
+func SimpleReference(rawRef string) *simpleReference {
+	ref := simpleReference(rawRef)
+	return &ref
+}
+
 // Tag returns the tag portion of the reference
-func (s SimpleReference) Tag() string {
+func (s *simpleReference) Tag() string {
 	ref := s.String()
 	if idx := strings.LastIndex(ref, "@"); idx != -1 {
 		ref = ref[:idx]
@@ -38,7 +44,7 @@ func (s SimpleReference) Tag() string {
 }
 
 // Digest returns the digest portion of the reference
-func (s SimpleReference) Digest() digest.Digest {
+func (s *simpleReference) Digest() digest.Digest {
 	ref := s.String()
 	if idx := strings.LastIndex(ref, "@"); idx != -1 {
 		dgst, _ := digest.Parse(ref[idx+1:])
@@ -48,7 +54,7 @@ func (s SimpleReference) Digest() digest.Digest {
 }
 
 // WithTag replaces the tag for the reference with the provided one
-func (s SimpleReference) WithTag(tag string) error {
+func (s *simpleReference) WithTag(tag string) error {
 	ref := s.String()
 	if len(tag) > 0 {
 		if !isTag(tag) {
@@ -64,12 +70,12 @@ func (s SimpleReference) WithTag(tag string) error {
 	if idx := strings.LastIndex(ref, ":"); idx != -1 && isTag(ref[idx+1:]) {
 		ref = ref[:idx]
 	}
-	s = SimpleReference(ref + tag)
+	*s = *SimpleReference(ref + tag)
 	return nil
 }
 
 // WithDigest replaces the digest for the reference with the provided one
-func (s SimpleReference) WithDigest(dgst digest.Digest) error {
+func (s *simpleReference) WithDigest(dgst digest.Digest) error {
 	ref := s.String()
 	if idx := strings.LastIndex(ref, "@"); idx != -1 {
 		ref = ref[:idx]
@@ -78,7 +84,7 @@ func (s SimpleReference) WithDigest(dgst digest.Digest) error {
 	if len(dgstStr) > 0 {
 		dgstStr = "@" + dgstStr
 	}
-	s = SimpleReference(ref + dgstStr)
+	*s = *SimpleReference(ref + dgstStr)
 	return nil
 }
 
@@ -90,7 +96,7 @@ type TaggedReference struct {
 }
 
 // String provides a string corresponding to the ref.
-func (r TaggedReference) String() string {
+func (r *TaggedReference) String() string {
 	ref := r.ref
 	if len(r.tag) != 0 {
 		ref += ":" + r.tag
@@ -102,7 +108,7 @@ func (r TaggedReference) String() string {
 }
 
 // Tag returns the tag portion of the reference
-func (r TaggedReference) Tag() string {
+func (r *TaggedReference) Tag() string {
 	return r.tag
 }
 
@@ -112,7 +118,7 @@ func (r TaggedReference) Digest() digest.Digest {
 }
 
 // WithTag replaces the tag for the reference with the provided one
-func (r TaggedReference) WithTag(tag string) error {
+func (r *TaggedReference) WithTag(tag string) error {
 	if len(tag) > 0 && !isTag(tag) {
 		return fmt.Errorf("Invalid tag: %s", tag)
 	}
@@ -121,7 +127,7 @@ func (r TaggedReference) WithTag(tag string) error {
 }
 
 // WithDigest replaces the digest for the reference with the provided one
-func (r TaggedReference) WithDigest(dgst digest.Digest) error {
+func (r *TaggedReference) WithDigest(dgst digest.Digest) error {
 	r.digest = dgst
 	return nil
 }
@@ -129,12 +135,12 @@ func (r TaggedReference) WithDigest(dgst digest.Digest) error {
 var isTag = regexp.MustCompile(`^[A-Za-z0-9_][-.A-Za-z0-9_]{0,127}$`).MatchString
 
 // ParseReference converts a string into a TaggedReference
-func ParseReference(ref string) (TaggedReference, error) {
+func ParseReference(ref string) (*TaggedReference, error) {
 	tagref := TaggedReference{}
 	if digestIndex := strings.LastIndex(ref, "@"); digestIndex != -1 {
 		dgst, err := digest.Parse(ref[digestIndex+1:])
 		if err != nil {
-			return tagref, err
+			return nil, err
 		}
 		tagref.digest = dgst
 		ref = ref[:digestIndex]
@@ -147,5 +153,5 @@ func ParseReference(ref string) (TaggedReference, error) {
 	}
 	// TODO: Validate domain name and path
 	tagref.ref = ref
-	return tagref, nil
+	return &tagref, nil
 }
