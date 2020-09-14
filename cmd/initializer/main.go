@@ -29,6 +29,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
+	rootCmd.Flags().Bool("warn", false, "enable warnings only logging")
 	rootCmd.Flags().StringP("manifests", "m", "manifests", "relative path to directory of manifests")
 	rootCmd.Flags().StringP("output", "o", "bundles.db", "relative path to a sqlite file to create or overwrite")
 	rootCmd.Flags().Bool("permissive", false, "allow registry load errors")
