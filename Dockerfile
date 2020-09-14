@@ -1,4 +1,4 @@
-FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-openshift-4.6-clang as builder
+FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-openshift-4.6 as builder
 
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
