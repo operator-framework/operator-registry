@@ -9,7 +9,7 @@ COPY vendor vendor
 COPY cmd cmd
 COPY pkg pkg
 COPY Makefile go.mod go.sum ./
-RUN make build cross
+RUN make build
 
 # copy and build vendored grpc_health_probe
 RUN CGO_ENABLED=0 go build -mod=vendor -tags netgo -ldflags "-w" ./vendor/github.com/grpc-ecosystem/grpc-health-probe/...
