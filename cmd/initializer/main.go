@@ -18,7 +18,9 @@ var rootCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if debug, _ := cmd.Flags().GetBool("debug"); debug {
 			logrus.SetLevel(logrus.DebugLevel)
-		}
+		} else if warn, _ := cmd.Flags().GetBool("warn"); warn {
+                        logrus.SetLevel(logrus.WarnLevel)
+                }
 		return nil
 	},
 
