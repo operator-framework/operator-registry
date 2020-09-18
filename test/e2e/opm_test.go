@@ -137,13 +137,30 @@ func pushWith(containerTool, image string) error {
 	return dockerpush.Run()
 }
 
-func exportWith(containerTool string) error {
-	logger := logrus.WithFields(logrus.Fields{"package": packageName})
+func exportPackageWith(containerTool string) error {
+	packages := []string{packageName}
+	logger := logrus.WithFields(logrus.Fields{"package": packages})
 	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.ExportFromIndexRequest{
 		Index:         indexImage2,
-		Package:       packageName,
+		Packages:      packages,
+		DownloadPath:  "downloaded",
+		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+	}
+
+	return indexExporter.ExportFromIndex(request)
+}
+
+
+func exportIndexImageWith(containerTool string) error {
+
+	logger := logrus.NewEntry(logrus.New())
+	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+
+	request := indexer.ExportFromIndexRequest{
+		Index:         indexImage2,
+		Packages:      []string{},
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
 	}
@@ -272,8 +289,8 @@ var _ = Describe("opm", func() {
 			err = pushWith(containerTool, indexImage3)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("exporting an index to disk")
-			err = exportWith(containerTool)
+			By("exporting a package from an index to disk")
+			err = exportPackageWith(containerTool)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a directory")
@@ -284,13 +301,26 @@ var _ = Describe("opm", func() {
 			err = os.RemoveAll("downloaded")
 			Expect(err).NotTo(HaveOccurred())
 
-			By("exporting an index to disk with containerd")
-			err = exportWith(containertools.NoneTool.String())
+			By("exporting a package from an index to disk with containerd")
+			err = exportPackageWith(containertools.NoneTool.String())
 			Expect(err).NotTo(HaveOccurred())
 
 			By("loading manifests from a containerd-extracted directory")
 			err = initialize()
 			Expect(err).NotTo(HaveOccurred())
+
+			// clean containerd-extracted directory
+			err = os.RemoveAll("downloaded")
+			Expect(err).NotTo(HaveOccurred())
+
+			By("exporting an entire index to disk")
+			err = exportIndexImageWith(containerTool)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("loading manifests from a directory")
+			err = initialize()
+			Expect(err).NotTo(HaveOccurred())
+
 		})
 
 		It("build bundles and index via inference", func() {

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -26,12 +29,13 @@ import (
 )
 
 const (
-	defaultDockerfileName = "index.Dockerfile"
-	defaultImageTag       = "operator-registry-index:latest"
-	defaultDatabaseFolder = "database"
-	defaultDatabaseFile   = "index.db"
-	tmpDirPrefix          = "index_tmp_"
-	tmpBuildDirPrefix     = "index_build_tmp"
+	defaultDockerfileName     = "index.Dockerfile"
+	defaultImageTag           = "operator-registry-index:latest"
+	defaultDatabaseFolder     = "database"
+	defaultDatabaseFile       = "index.db"
+	tmpDirPrefix              = "index_tmp_"
+	tmpBuildDirPrefix         = "index_build_tmp"
+	concurrencyLimitForExport = 10
 )
 
 // ImageIndexer is a struct implementation of the Indexer interface
@@ -467,7 +471,7 @@ func write(dockerfileText, outDockerfile string, logger *logrus.Entry) error {
 // ExportFromIndexRequest defines the parameters to send to the ExportFromIndex API
 type ExportFromIndexRequest struct {
 	Index         string
-	Package       string
+	Packages      []string
 	DownloadPath  string
 	ContainerTool containertools.ContainerTool
 	CaFile        string
@@ -497,14 +501,20 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer db.Close()
 
 	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
+
+	// fetch all packages from the index image if packages is empty
+	if len(request.Packages) == 0 {
+		request.Packages, err = dbQuerier.ListPackages(context.TODO())
+		if err != nil {
+			return err
+		}
+	}
+
+	bundles, err := getBundlesToExport(dbQuerier, request.Packages)
 	if err != nil {
 		return err
 	}
 
-	bundles, err := getBundlesToExport(dbQuerier, request.Package)
-	if err != nil {
-		return err
-	}
 	i.Logger.Infof("Preparing to pull bundles %+q", bundles)
 
 	// Creating downloadPath dir
@@ -513,40 +523,68 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	}
 
 	var errs []error
-	for _, bundleImage := range bundles {
-		// try to name the folder
-		folderName, err := dbQuerier.GetBundleVersion(context.TODO(), bundleImage)
-		if err != nil {
-			return err
-		}
-		if folderName == "" {
-			// operator-registry does not care about the folder name
-			folderName = bundleImage
-		}
-		exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, folderName), request.ContainerTool)
-		if err := exporter.Export(); err != nil {
-			err = fmt.Errorf("error exporting bundle from image: %s", err)
-			errs = append(errs, err)
-		}
+	var wg sync.WaitGroup
+	wg.Add(len(bundles))
+	var mu = &sync.Mutex{}
+
+	sem := make(chan struct{}, concurrencyLimitForExport)
+
+	for bundleImage, bundleDir := range bundles {
+		go func(bundleImage string, bundleDir bundleDirPrefix) {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() {
+				<-sem
+			}()
+
+			// generate a random folder name if bundle version is empty
+			if bundleDir.bundleVersion == "" {
+				bundleDir.bundleVersion = strconv.Itoa(rand.Intn(10000))
+			}
+			exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, bundleDir.pkgName, bundleDir.bundleVersion), request.ContainerTool)
+			if err := exporter.Export(); err != nil {
+				err = fmt.Errorf("exporting bundle image:%s failed with %s", bundleImage, err)
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(bundleImage, bundleDir)
 	}
-	if err != nil {
-		errs = append(errs, err)
+	// Wait for all the go routines to finish export
+	wg.Wait()
+
+	if errs != nil {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	err = generatePackageYaml(dbQuerier, request.Package, request.DownloadPath)
-	if err != nil {
-		errs = append(errs, err)
+	for _, packageName := range request.Packages {
+		err := generatePackageYaml(dbQuerier, packageName, filepath.Join(request.DownloadPath, packageName))
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return utilerrors.NewAggregate(errs)
 }
 
-func getBundlesToExport(dbQuerier pregistry.Query, packageName string) ([]string, error) {
-	bundles, err := dbQuerier.GetBundlePathsForPackage(context.TODO(), packageName)
-	if err != nil {
-		return nil, err
+type bundleDirPrefix struct {
+	pkgName, bundleVersion string
+}
+
+func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[string]bundleDirPrefix, error) {
+	bundleMap := make(map[string]bundleDirPrefix)
+
+	for _, packageName := range packages {
+		bundlesForPackage, err := dbQuerier.GetBundlesForPackage(context.TODO(), packageName)
+		if err != nil {
+			return nil, err
+		}
+		for k, _ := range bundlesForPackage {
+			bundleMap[k.BundlePath] = bundleDirPrefix{pkgName: packageName, bundleVersion: k.Version}
+		}
 	}
-	return bundles, nil
+
+	return bundleMap, nil
 }
 
 func generatePackageYaml(dbQuerier pregistry.Query, packageName, downloadPath string) error {
