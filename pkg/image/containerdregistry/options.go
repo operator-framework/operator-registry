@@ -107,20 +107,30 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, err error) {
 			OS:           "linux",
 			Architecture: "amd64",
 		}),
-		builder: NewBuilder(config.Digester),
+		builders: make(map[image.Reference]*builder),
 	}
 	return
 }
 
-func NewBuilder(algorithm digest.Algorithm) builder {
-	b := builder{
-		buildRoot: make(map[image.Reference]fileTree),
+func (r *Registry) close(ref image.Reference) {
+	delete(r.builders, ref)
+}
+
+func (r *Registry) builder(ref image.Reference) *builder {
+	if _, ok := r.builders[ref]; !ok {
+		r.builders[ref] = NewBuilder(digest.SHA256)
+	}
+	return r.builders[ref]
+}
+
+func NewBuilder(algorithm digest.Algorithm) *builder {
+	b := &builder{
+		buildRoot: make(map[string]fileTree),
 		digester:  digest.SHA256.Digester(),
 	}
 	if len(algorithm) != 0 {
 		b.digester = algorithm.Digester()
 	}
-	digest.SHA256.Digester()
 	return b
 }
 

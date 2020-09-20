@@ -38,6 +38,11 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 	return r.cmd.Pull(ref.String())
 }
 
+// Push uploads an image by reference.
+func (r *Registry) Push(ctx context.Context, ref image.Reference) error {
+	return r.cmd.Push(ref.String())
+}
+
 // Unpack writes the unpackaged content of an image to a directory.
 // If the referenced image does not exist in the registry, an error is returned.
 func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) error {

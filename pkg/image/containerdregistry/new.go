@@ -28,8 +28,10 @@ const (
 	emptyBaseImage   = "scratch"
 	rootFSTypeLayers = "layers"
 	ociSchemaVersion = 2
-	whPrefix         = ".wh."
-	whOpaque         = ".wh..wh..opq"
+	// WhPrefix is the reserved prefix for whiteout files
+	WhPrefix = ".wh."
+	// WhOpaque is the reserved name for an opaque whiteout.
+	WhOpaque = ".wh..wh..opq"
 )
 
 // NewImage creates a new image from the given tag and build options.
@@ -44,8 +46,7 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 	for _, opt := range opts {
 		opt(buildConfig)
 	}
-
-	var indexDesc, baseDesc *ocispecv1.Descriptor
+	var baseDesc *ocispecv1.Descriptor
 	var err error
 	if len(buildConfig.BaseImage.String()) != 0 && buildConfig.BaseImage.String() != emptyBaseImage {
 		// pull the base image
@@ -74,20 +75,29 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 		return err
 	}
 
+	var indexDesc *ocispecv1.Descriptor
 	if err == nil {
 		// update manifests and config with any options provided
-		if indexDesc, err = r.builder.updateManifests(ctx, r.Content(), *baseDesc, *baseDesc, imageTag, r.platform, func(manifest *ocispecv1.Manifest) error {
-			return r.builder.updateImageConfig(ctx, r.Content(), imageTag, manifest, *buildConfig)
-		}); err != nil {
+		indexDesc, err = r.builder(imageTag).updateManifests(ctx, r.Content(), *baseDesc, *baseDesc, imageTag, r.platform, func(manifest *ocispecv1.Manifest) error {
+			return r.builder(imageTag).updateImageConfig(ctx, r.Content(), imageTag, manifest, *buildConfig)
+		})
+		if err != nil {
 			return err
+		}
+		if indexDesc == nil {
+			indexDesc = baseDesc
 		}
 	} else {
 		// manifest is missing, create an empty one and update the index with it.
-		if indexDesc, err = r.builder.newImage(ctx, r.Content(), imageTag, baseDesc, *buildConfig); err != nil {
+		indexDesc, err = r.builder(imageTag).addNewManifest(ctx, r.Content(), imageTag, baseDesc, *buildConfig)
+		if err != nil {
 			return err
 		}
 	}
 
+	if indexDesc == nil {
+		return fmt.Errorf("could not generate index descriptor")
+	}
 	newImg := images.Image{
 		Name:   imageTag.String(),
 		Target: *indexDesc,
@@ -105,10 +115,10 @@ func (r *Registry) NewImage(ctx context.Context, imageTag image.Reference, opts 
 
 }
 
-// newImage creates a copy of the image. If the image does not have a manifest or config associated with it, it initializes them
-func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image.Reference, indexDesc *ocispecv1.Descriptor, buildConfig BuildConfig) (*ocispecv1.Descriptor, error) {
+// addNewManifest creates a new manifest and adds it to the index. If no index descriptor is given, a new index will be created
+func (b *builder) addNewManifest(ctx context.Context, cs content.Store, imageTag image.Reference, indexDesc *ocispecv1.Descriptor, buildConfig BuildConfig) (*ocispecv1.Descriptor, error) {
 	ctx = ensureNamespace(ctx)
-	configDesc, configBytes, err := b.NewConfig(buildConfig)
+	configDesc, configBytes, err := b.newConfig(buildConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config: %v", err)
 	}
@@ -116,7 +126,7 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 		return nil, fmt.Errorf("failed to write config: %v", err)
 	}
 
-	manifestDesc, manifestBytes, err := b.NewManifest(imageTag, configDesc, buildConfig.Platform)
+	manifestDesc, manifestBytes, err := b.newManifest(imageTag, configDesc, buildConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manifest: %v", err)
 	}
@@ -138,9 +148,8 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 		idx.Manifests = append(idx.Manifests, *manifestDesc)
 
 		indexDesc, indexBytes, err = b.getDescriptorAndJSONBytes(idx, indexDesc.Annotations, nil)
-
 	} else {
-		indexDesc, indexBytes, err = b.NewIndex([]ocispecv1.Descriptor{*manifestDesc})
+		indexDesc, indexBytes, err = b.newIndex([]ocispecv1.Descriptor{*manifestDesc})
 	}
 
 	if err != nil {
@@ -153,9 +162,10 @@ func (b *builder) newImage(ctx context.Context, cs content.Store, imageTag image
 }
 
 // HistoryEntry creates a new entry for the image history
-func HistoryEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispecv1.History {
+func historyEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispecv1.History {
 	historyEntry := ocispecv1.History{
 		EmptyLayer: emptyLayer,
+		CreatedBy:  "operator-registry",
 	}
 
 	if b.Author != nil {
@@ -166,26 +176,33 @@ func HistoryEntry(emptyLayer bool, creationCommand string, b BuildConfig) ocispe
 		historyEntry.Comment = *b.Comment
 	}
 
+	var created time.Time
 	if !b.OmitTimestamp {
-		created := time.Now()
+		created = time.Now()
 		if b.CreationTimestamp != nil {
 			created = *b.CreationTimestamp
 		}
-		historyEntry.Created = &created
 	}
+	historyEntry.Created = &created
 	return historyEntry
 }
 
 // NewConfig initializes a new empty config
-func (b *builder) NewConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, error) {
-	historyEntry := HistoryEntry(true, "", co)
+func (b *builder) newConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, error) {
+	historyEntry := historyEntry(true, "", co)
+	diffIDs := []digest.Digest{}
+	if len(co.Layers) > 0 {
+		for _, l := range co.Layers {
+			diffIDs = append(diffIDs, l.diffID)
+		}
+	}
 	config := ocispecv1.Image{
 		Created:      historyEntry.Created,
 		OS:           runtime.GOOS,
 		Architecture: runtime.GOARCH,
 		RootFS: ocispecv1.RootFS{
 			Type:    rootFSTypeLayers,
-			DiffIDs: []digest.Digest{},
+			DiffIDs: diffIDs,
 		},
 		History: []ocispecv1.History{historyEntry},
 	}
@@ -201,13 +218,19 @@ func (b *builder) NewConfig(co BuildConfig) (*ocispecv1.Descriptor, []byte, erro
 }
 
 // NewManifest initializes a new manifest with the provided config
-func (b *builder) NewManifest(tag image.Reference, config *ocispecv1.Descriptor, platform *ocispecv1.Platform) (*ocispecv1.Descriptor, []byte, error) {
+func (b *builder) newManifest(tag image.Reference, config *ocispecv1.Descriptor, co BuildConfig) (*ocispecv1.Descriptor, []byte, error) {
+	layers := []ocispecv1.Descriptor{}
+	if len(co.Layers) > 0 {
+		for _, l := range co.Layers {
+			layers = append(layers, *l.descriptor)
+		}
+	}
 	manifest := ocispecv1.Manifest{
 		Versioned: ocispec.Versioned{
 			SchemaVersion: ociSchemaVersion,
 		},
 		Config:      *config,
-		Layers:      []ocispecv1.Descriptor{},
+		Layers:      layers,
 		Annotations: map[string]string{},
 	}
 
@@ -215,11 +238,11 @@ func (b *builder) NewManifest(tag image.Reference, config *ocispecv1.Descriptor,
 	if len(tag.String()) != 0 {
 		descAnnotations[ocispecv1.AnnotationRefName] = tag.String()
 	}
-	return b.getDescriptorAndJSONBytes(manifest, descAnnotations, platform)
+	return b.getDescriptorAndJSONBytes(manifest, descAnnotations, co.Platform)
 }
 
 // NewIndex initializes an index with the provided manifests
-func (b *builder) NewIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descriptor, []byte, error) {
+func (b *builder) newIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descriptor, []byte, error) {
 	index := ocispecv1.Index{
 		Versioned: ocispec.Versioned{
 			SchemaVersion: ociSchemaVersion,
@@ -231,8 +254,8 @@ func (b *builder) NewIndex(manifests []ocispecv1.Descriptor) (*ocispecv1.Descrip
 	return b.getDescriptorAndJSONBytes(index, map[string]string{}, nil)
 }
 
-// NewLayer creates a new layer from the given src-dst mapping
-func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
+// newLayer creates a new layer from the given src-dst mapping
+func (b *builder) newLayer(allowWhiteouts bool, srcs map[string]string) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
 	var diffID digest.Digest
 	var buf bytes.Buffer
 
@@ -241,23 +264,28 @@ func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispe
 	tarWriter := tar.NewWriter(io.MultiWriter(gzipWriter, b.digester.Hash()))
 
 	for src, dst := range srcs {
-		if _, name := filepath.Split(dst); !allowWhiteouts || !strings.HasPrefix(name, whPrefix) {
+		src = strings.TrimRight(filepath.Clean(src), "/")
+		dst = strings.Trim(filepath.Clean(dst), "/")
+		if name := filepath.Base(dst); !allowWhiteouts || !strings.HasPrefix(name, WhPrefix) {
 			if _, err := os.Stat(src); err != nil {
 				return nil, nil, diffID, err
 			}
 		}
 
-		filepath.Walk(filepath.Clean(src), func(name string, info os.FileInfo, err error) error {
-			if filepath.Clean(src) != filepath.Clean(dst) {
+		filepath.Walk(src, func(name string, info os.FileInfo, err error) error {
+			// TODO(ankitathomas): This can be abused if dst is outside of the tar root. ensure that name
+			// is always a subdirectory of the tar root
+			name = strings.TrimRight(name, "/")
+			if src != dst {
 				relPath, err := filepath.Rel(src, name)
 				if err != nil {
 					return err
 				}
 				name = filepath.Join(dst, relPath)
 			}
-			if strings.HasPrefix(filepath.Base(name), whPrefix) {
+			if strings.HasPrefix(filepath.Base(name), WhPrefix) {
 				if !allowWhiteouts {
-					return fmt.Errorf("error adding file %s to layer: file has disallowed whiteout prefix %s", name, whPrefix)
+					return fmt.Errorf("error adding file %s to layer: file has disallowed whiteout prefix %s", name, WhPrefix)
 				}
 				hdr := &tar.Header{
 					Name: name,
@@ -266,17 +294,18 @@ func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispe
 				if err := tarWriter.WriteHeader(hdr); err != nil {
 					return fmt.Errorf("error writing whiteout header for %s to archive: %v", name, err)
 				}
+				return nil
 			}
 
 			linkname := info.Name()
-			if filepath.Clean(name) == filepath.Clean(src) && filepath.Clean(src) != filepath.Clean(dst) {
-				if linkname == filepath.Base(filepath.Clean(src)) {
-					linkname = filepath.Base(filepath.Clean(dst))
-				}
-			}
 			if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-				if linkname, err = os.Readlink(name); err != nil {
+				linkname, err = os.Readlink(name)
+				if err != nil {
 					return fmt.Errorf("error following symlink %s: %v", name, err)
+				}
+				relPath, err := filepath.Rel(src, linkname)
+				if err == nil {
+					linkname = filepath.Join(dst, relPath)
 				}
 			}
 
@@ -287,10 +316,6 @@ func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispe
 			hdr.Uname = ""
 			hdr.Gname = ""
 
-			name = strings.TrimPrefix(name, "/")
-			if info.IsDir() {
-				name += "/"
-			}
 			hdr.Name = name
 
 			if err := tarWriter.WriteHeader(hdr); err != nil {
@@ -302,13 +327,12 @@ func (b *builder) NewLayer(allowWhiteouts bool, srcs map[string]string) (*ocispe
 				if err != nil {
 					return fmt.Errorf("error opening file %s: %v", name, err)
 				}
+				defer fh.Close()
 
 				n, err := io.Copy(tarWriter, fh)
 				if err != nil || n != hdr.Size {
 					return fmt.Errorf("error copying %s to archive (%d/%d bytes written): %v", name, n, hdr.Size, err)
 				}
-
-				defer fh.Close()
 			}
 
 			return nil
@@ -487,17 +511,14 @@ func (b *builder) updateManifests(ctx context.Context, cs content.Store, root, d
 // make changes to the image config in a manifest according to options. Also update the manifest if layers are added.
 // This should be used as an argument to updateManifests, or the manifest will not have the updated config or layer information.
 func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref image.Reference, manifest *ocispecv1.Manifest, options BuildConfig) error {
-	p, err := content.ReadBlob(ctx, cs, manifest.Config)
+	configBytes, err := content.ReadBlob(ctx, cs, manifest.Config)
 	if err != nil {
 		return fmt.Errorf("error reading config blob %+v: %v", manifest.Config, err)
 	}
 	var config ocispecv1.Image
-	if err := json.Unmarshal(p, &config); err != nil {
+	if err := json.Unmarshal(configBytes, &config); err != nil {
 		return fmt.Errorf("error unmarshaling config blob: %v", err)
 	}
-
-	historyEntry := HistoryEntry(len(options.Layers) == 0, "", options)
-	config.History = append(config.History, historyEntry)
 
 	if options.User != nil {
 		config.Config.User = *options.User
@@ -571,7 +592,14 @@ func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref i
 			for _, l := range options.Layers {
 				layers = append(layers, *l.descriptor)
 			}
-			layerDesc, layerBytes, diffID, err := b.squashLayers(ctx, cs, layers)
+			var modTime time.Time
+			if !options.OmitTimestamp {
+				modTime = time.Now()
+				if options.CreationTimestamp != nil {
+					modTime = *options.CreationTimestamp
+				}
+			}
+			layerDesc, layerBytes, diffID, err := b.squashLayers(ctx, cs, layers, modTime)
 			if err != nil {
 				return fmt.Errorf("error squashing layers: %v", err)
 			}
@@ -590,6 +618,14 @@ func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref i
 		}
 	}
 
+	historyEntry := historyEntry(len(options.Layers) == 0, "", options)
+	newConfigBytes, _ := json.Marshal(&config)
+	historyEntryBytes, _ := json.Marshal(&historyEntry)
+	lastHistoryEntryBytes, _ := json.Marshal(config.History[len(config.History)-1])
+	if len(config.History) == 0 || string(lastHistoryEntryBytes) != string(historyEntryBytes) || string(configBytes) != string(newConfigBytes) {
+		config.History = append(config.History, historyEntry)
+	}
+
 	configDesc, configBytes, err := b.getDescriptorAndJSONBytes(config, manifest.Config.Annotations, nil)
 	if err != nil {
 		return fmt.Errorf("error updating config descriptor: %v", err)
@@ -597,5 +633,6 @@ func (b *builder) updateImageConfig(ctx context.Context, cs content.Store, ref i
 	if err := content.WriteBlob(ctx, cs, ref.String(), bytes.NewBuffer(configBytes), *configDesc); err != nil {
 		return fmt.Errorf("error writing updated config blob: %v", err)
 	}
+	manifest.Config = *configDesc
 	return nil
 }

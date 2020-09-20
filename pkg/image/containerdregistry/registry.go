@@ -36,11 +36,11 @@ type Registry struct {
 	resolver remotes.Resolver
 	platform platforms.MatchComparer
 	tracker  docker.StatusTracker
-	builder  builder
+	builders map[image.Reference]*builder
 }
 
 type builder struct {
-	buildRoot map[image.Reference]fileTree
+	buildRoot map[string]fileTree
 	digester  digest.Digester
 }
 
@@ -86,12 +86,12 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 	return err
 }
 
-// Push pushes a local image reference to a remote registry
-func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef image.Reference) error {
+// Push pushes an image reference to a remote registry
+func (r *Registry) Push(ctx context.Context, ref image.Reference) error {
 	// Set the default namespace if unset
 	ctx = ensureNamespace(ctx)
 
-	img, err := r.Images().Get(ctx, localRef.String())
+	img, err := r.Images().Get(ctx, ref.String())
 	if err != nil {
 		return errors.Wrap(err, "unable to resolve image to manifest")
 	}
@@ -103,7 +103,7 @@ func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef
 	eg.Go(func() error {
 		defer close(doneCh)
 
-		log.G(ctx).WithField("image", remoteRef.String()).WithField("digest", desc.Digest).Debug("pushing")
+		log.G(ctx).WithField("image", ref.String()).WithField("digest", desc.Digest).Debug("pushing")
 
 		visitor := images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 			r.log.WithField("digest", desc.Digest).Info("push")
@@ -111,10 +111,10 @@ func (r *Registry) Push(ctx context.Context, localRef image.Reference, remoteRef
 			return nil, nil
 		})
 
-		remoteRef.WithDigest(desc.Digest)
-		ensureTag(remoteRef)
+		ref.WithDigest(desc.Digest)
+		ensureTag(ref)
 
-		pusher, err := r.resolver.Pusher(ctx, remoteRef.String())
+		pusher, err := r.resolver.Pusher(ctx, ref.String())
 		if err != nil {
 			return err
 		}

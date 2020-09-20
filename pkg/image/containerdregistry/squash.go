@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/containerd/containerd/archive/compression"
 	"github.com/containerd/containerd/content"
@@ -19,122 +20,121 @@ import (
 )
 
 type tarBuf struct {
-	children *[]*tarBuf
+	children []string
 	hdr      *tar.Header
 	data     []byte
 }
 
-func deleteWhiteouts(tarTree map[string]tarBuf, whFiles ...*tarBuf) {
-	for _, whf := range whFiles {
-		name := filepath.Clean(whf.hdr.Name)
-		if f, ok := tarTree[name]; ok {
-			if f.hdr.Typeflag == tar.TypeDir && len(*f.children) > 0 {
-				deleteWhiteouts(tarTree, *f.children...)
-			}
-			delete(tarTree, name)
-		}
+type tarTree struct {
+	entries map[string]*tarBuf
+}
+
+func newTarTree() *tarTree {
+	return &tarTree{
+		entries: make(map[string]*tarBuf),
 	}
 }
 
-func addToParent(tarTree map[string]tarBuf, name string, f *tarBuf) error {
-	dir, _ := filepath.Split(filepath.Clean(name))
-	if len(dir) == 0 || dir[len(dir)-1] != '/' {
-		dir += "/"
+func (t *tarTree) add(tb *tarBuf, modTime time.Time) error {
+	if tb == nil {
+		return nil
 	}
-	if _, ok := tarTree[dir]; !ok {
-		if dir == "./" || dir == "/" {
-			return fmt.Errorf("missing root directory entry in tar archive")
-		}
-		// A nil child indicates a directory which will inherit
-		// its header from its closest ancestor
-		addToParent(tarTree, dir, nil)
-	}
-	switch tarTree[dir].hdr.Typeflag {
-	case tar.TypeDir:
-	case tar.TypeSymlink:
-		// TODO(ankitathomas): follow symlink to the end and ensure the parent
-		// is a directory. Currently, we optimistically assume this.
-		// we may have a symlinkA -> symlinkB -> dir, with symlinkB not created yet
-		// Adding symlinkB temporarily as a dir would drop all its children once
-		// the actual symlinkB header was processed.
-	default:
-		return fmt.Errorf("unexpected parent type in tar archive")
-	}
-	if f == nil {
-		hdr, err := tar.FileInfoHeader(tarTree[dir].hdr.FileInfo(), "")
-		if err != nil {
-			return fmt.Errorf("error creating tar header: %v", err)
-		}
-		if len(name) == 0 || name[len(name)-1] != '/' {
-			name += "/"
-		}
-		hdr.Name = name
-		if hdr.Typeflag != tar.TypeDir {
-			hdr.Linkname = ""
-			hdr.Typeflag = tar.TypeDir
-			hdr.Mode = int64(hdr.FileInfo().Mode() &^ 07777)
-		}
-		children := make([]*tarBuf, 0)
-		f = &tarBuf{
-			hdr:      hdr,
-			children: &children,
+	name := filepath.Clean(tb.hdr.Name)
+	if old := t.get(name); old != nil && len(old.children) > 0 {
+		// preserve children only when old and new entries are both directories
+		if old.hdr.Typeflag == tar.TypeDir && tb.hdr.Typeflag == tar.TypeDir {
+			tb.children = append(tb.children, old.children...)
+		} else {
+			t.delete(old.children...)
 		}
 	}
+	t.entries[name] = tb
 
-	if tarTree[dir].children == nil {
-		children := make([]*tarBuf, 0)
-		*tarTree[dir].children = children
+	dir := filepath.Clean(filepath.Dir(name))
+	for len(dir) > 0 && dir != "/" && dir != "." {
+		if dirEntry := t.get(dir); dirEntry != nil {
+			if dirEntry.hdr.Typeflag != tar.TypeDir {
+				return fmt.Errorf("unexpected parent type in tar archive")
+			}
+			if dirEntry.children == nil {
+				dirEntry.children = make([]string, 0)
+			}
+			dirEntry.children = append(dirEntry.children, name)
+			return nil
+		}
+		t.entries[dir] = &tarBuf{
+			hdr: &tar.Header{
+				Typeflag: tar.TypeDir,
+				Name:     dir,
+				Mode:     0755,
+				Uid:      tb.hdr.Uid,
+				Gid:      tb.hdr.Gid,
+				ModTime:  modTime,
+			},
+			children: []string{name},
+		}
+		name = dir
+		dir = filepath.Dir(name)
 	}
-	*tarTree[dir].children = append(*tarTree[dir].children, f)
 	return nil
 }
 
-func (b *builder) squashLayers(ctx context.Context, cs content.Store, layers []ocispecv1.Descriptor) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
-	tarTree := make(map[string]tarBuf)
+func (t *tarTree) delete(files ...string) {
+	count := len(files)
+	for i := 0; i < count; i++ {
+		name := filepath.Clean(files[i])
+		if f := t.get(name); f != nil {
+			delete(t.entries, name)
+			if f.hdr.Typeflag == tar.TypeDir && len(f.children) > 0 {
+				files = append(files, f.children...)
+				count = len(files)
+			}
+		}
+	}
+}
+
+func (t *tarTree) get(name string) *tarBuf {
+	return t.entries[name]
+}
+
+func (b *builder) squashLayers(ctx context.Context, cs content.Store, layers []ocispecv1.Descriptor, modTime time.Time) (*ocispecv1.Descriptor, []byte, digest.Digest, error) {
+	tree := newTarTree()
 	var diffID digest.Digest
 	var buf bytes.Buffer
 	for _, l := range layers {
-		err := applyLayerInMemory(ctx, tarTree, cs, l)
+		err := applyLayerInMemory(ctx, tree, cs, l, modTime)
 		if err != nil {
 			return nil, nil, diffID, err
 		}
 	}
-	tarList := make([]tarBuf, 0)
-	for _, tb := range tarTree {
+	tarList := make([]*tarBuf, 0)
+	for _, tb := range tree.entries {
 		tarList = append(tarList, tb)
 	}
 	sort.SliceStable(tarList, func(i, j int) bool {
 		return tarList[i].hdr.Name < tarList[j].hdr.Name
 	})
-	// convert the file into descriptor + diffID
 
+	// convert the file into descriptor + diffID
 	gzipWriter := gzip.NewWriter(&buf)
 
 	tarWriter := tar.NewWriter(io.MultiWriter(gzipWriter, b.digester.Hash()))
-
 	for _, tb := range tarList {
-		name := filepath.Clean(tb.hdr.Name)
-		if strings.HasPrefix(filepath.Base(name), whPrefix) {
+		if strings.HasPrefix(filepath.Base(filepath.Clean(tb.hdr.Name)), WhPrefix) {
 			// This should never happen since we do not add whiteouts to the final file set
-			return nil, nil, diffID, fmt.Errorf("error adding %s to merged layer: disallowed whiteout prefix %s", name, whPrefix)
+			return nil, nil, diffID, fmt.Errorf("error adding %s to merged layer: disallowed whiteout prefix %s", tb.hdr.Name, WhPrefix)
 		}
 		hdr := tb.hdr
 		hdr.Uname = ""
 		hdr.Gname = ""
-		name = strings.TrimPrefix(name, "/")
-		if hdr.Typeflag == tar.TypeDir {
-			name += "/"
-		}
-		hdr.Name = name
-
 		if err := tarWriter.WriteHeader(hdr); err != nil {
-			return nil, nil, diffID, fmt.Errorf("error writing file header for %s to archive: %v", name, err)
+			return nil, nil, diffID, fmt.Errorf("error writing file header for %s to archive: %v", tb.hdr.Name, err)
 		}
 
 		if hdr.Typeflag == tar.TypeReg {
 			n, err := tarWriter.Write(tb.data)
 			if err != nil || int64(n) != hdr.Size {
-				return nil, nil, diffID, fmt.Errorf("error copying %s to archive (%d/%d bytes written): %v", name, n, hdr.Size, err)
+				return nil, nil, diffID, fmt.Errorf("error copying %s to archive (%d/%d bytes written): %v", tb.hdr.Name, n, hdr.Size, err)
 			}
 		}
 	}
@@ -173,28 +173,28 @@ func (b *builder) squashLayers(ctx context.Context, cs content.Store, layers []o
 	}, layerBytes, diffID, nil
 }
 
-func applyLayerInMemory(ctx context.Context, tarTree map[string]tarBuf, cs content.Store, layer ocispecv1.Descriptor) error {
+func applyLayerInMemory(ctx context.Context, tree *tarTree, cs content.Store, layer ocispecv1.Descriptor, modTime time.Time) error {
 	ra, err := cs.ReaderAt(ctx, layer)
 	if err != nil {
-		return err
+		return fmt.Errorf("reader error: %v", err)
 	}
 	defer ra.Close()
 
 	// TODO(njhale): Chunk layer reading
 	decompressed, err := compression.DecompressStream(io.NewSectionReader(ra, 0, ra.Size()))
 	if err != nil {
-		return err
+		return fmt.Errorf(": %v", err)
 	}
 
 	tr := tar.NewReader(decompressed)
 
-	newFiles := make([]tarBuf, 0)
+	newFiles := make([]*tarBuf, 0)
 	var size int64
 	// Read all the headers
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context error: %v", ctx.Err())
 		default:
 		}
 
@@ -204,32 +204,26 @@ func applyLayerInMemory(ctx context.Context, tarTree map[string]tarBuf, cs conte
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("error reading archive: %v", err)
 		}
 
 		size += hdr.Size
 		dir, base := filepath.Split(filepath.Clean(hdr.Name))
-		if len(dir) == 0 || dir[len(dir)-1] != '/' {
-			dir += "/" // trailing slashes for compatibility with older tar formats
-		}
-
-		if base == whOpaque {
-			if whDir, ok := tarTree[dir]; ok && whDir.hdr.Typeflag == tar.TypeDir && len(*whDir.children) > 0 {
-				deleteWhiteouts(tarTree, *whDir.children...)
+		if base == WhOpaque {
+			if whDir := tree.get(filepath.Clean(dir)); whDir != nil && whDir.hdr.Typeflag == tar.TypeDir && len(whDir.children) > 0 {
+				tree.delete(whDir.children...)
+				whDir.children = []string{}
 			}
 			continue
 		}
-		if strings.HasPrefix(base, whPrefix) {
-			if whFile, ok := tarTree[filepath.Clean(hdr.Name)]; ok {
-				deleteWhiteouts(tarTree, &whFile)
-			}
+		if strings.HasPrefix(base, WhPrefix) {
+			tree.delete(filepath.Join(dir, strings.TrimPrefix(base, WhPrefix)))
 			continue
 		}
 
-		children := make([]*tarBuf, 0)
 		tbuf := &tarBuf{
 			hdr:      hdr,
-			children: &children,
+			children: make([]string, 0),
 		}
 
 		if hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA {
@@ -240,9 +234,8 @@ func applyLayerInMemory(ctx context.Context, tarTree map[string]tarBuf, cs conte
 			}
 			tbuf.data = buf.Bytes()
 		}
-		newFiles = append(newFiles, *tbuf)
+		newFiles = append(newFiles, tbuf)
 	}
-
 	hdrOrder := map[byte]int{
 		// create directories first to ensure parents
 		tar.TypeDir: -2,
@@ -254,30 +247,17 @@ func applyLayerInMemory(ctx context.Context, tarTree map[string]tarBuf, cs conte
 		if hdrOrder[newFiles[i].hdr.Typeflag] != hdrOrder[newFiles[j].hdr.Typeflag] {
 			return hdrOrder[newFiles[i].hdr.Typeflag] < hdrOrder[newFiles[j].hdr.Typeflag]
 		}
-		namei := filepath.Clean(newFiles[i].hdr.Name)
-		namej := filepath.Clean(newFiles[j].hdr.Name)
-		pathi := strings.Split(namei, "/")
-		pathj := strings.Split(namej, "/")
+		pathi := strings.Split(newFiles[i].hdr.Name, "/")
+		pathj := strings.Split(newFiles[j].hdr.Name, "/")
 		if len(pathi) != len(pathj) {
 			// order based on directory depth
 			return len(pathi) < len(pathj)
 		}
-		return namei < namej
+		return newFiles[i].hdr.Name < newFiles[j].hdr.Name
 	})
 	// done processing whiteouts, now we can apply the new files
 	for _, newFile := range newFiles {
-		name := filepath.Clean(newFile.hdr.Name)
-		if oldFile, ok := tarTree[name]; ok {
-			// the new entry overwrites an entry from one of the lower layers
-			if oldFile.hdr.Typeflag != newFile.hdr.Typeflag || newFile.hdr.Typeflag != tar.TypeDir {
-				// preserve children only when old and new entries are both directories
-				if len(*oldFile.children) > 0 {
-					deleteWhiteouts(tarTree, *oldFile.children...)
-				}
-			}
-			tarTree[name] = newFile
-			addToParent(tarTree, name, &newFile)
-		}
+		tree.add(newFile, modTime)
 	}
 	return nil
 }

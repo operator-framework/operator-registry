@@ -12,7 +12,7 @@ type Registry interface {
 
 	// Push uploads an image to the remote registry of its reference.
 	// If the referenced image does not exist in the registry, an error is returned.
-	// Push(ctx context.Context, ref string) error
+	Push(ctx context.Context, ref Reference) error
 
 	// Unpack writes the unpackaged content of an image to a directory.
 	// If the referenced image does not exist in the registry, an error is returned.
@@ -29,4 +29,3 @@ type Registry interface {
 	// If it exists, it's used as the base image.
 	// Pack(ctx context.Context, ref Reference, from io.Reader) (next string, err error)
 }
-

@@ -30,3 +30,11 @@ func (s *store) Content() content.Store {
 func (s *store) Images() images.Store {
 	return s.is
 }
+
+// NewStore creates a store using the given content and image stores
+func NewStore(cs content.Store, is images.Store) *store {
+	return &store{
+		cs: cs,
+		is: is,
+	}
+}

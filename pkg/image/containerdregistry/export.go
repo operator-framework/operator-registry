@@ -15,8 +15,8 @@ import (
 
 // Export exports the given image ref into an oci bundle
 // Export does not unpack the root filesystem of the bundle
-func (r *Registry) Export(ctx context.Context, ref, out image.Reference) error {
-	err := os.MkdirAll(out.String(), 0700)
+func (r *Registry) Export(ctx context.Context, ref image.Reference, out string) error {
+	err := os.MkdirAll(out, 0700)
 	if err != nil {
 		return fmt.Errorf("error creating parent directory %s: %v", out, err)
 	}
@@ -46,7 +46,7 @@ func (r *Registry) Export(ctx context.Context, ref, out image.Reference) error {
 		if err != nil {
 			return fmt.Errorf("Invalid entry in image %s: %v", ref, err)
 		}
-		dstPath := filepath.Join(out.String(), filepath.Clean(hdr.Name))
+		dstPath := filepath.Join(out, filepath.Clean(hdr.Name))
 
 		switch hdr.Typeflag {
 		case tar.TypeReg, tar.TypeRegA:

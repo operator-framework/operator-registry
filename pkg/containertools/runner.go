@@ -13,6 +13,7 @@ import (
 type CommandRunner interface {
 	GetToolName() string
 	Pull(image string) error
+	Push(image string) error
 	Build(dockerfile, tag string) error
 	Inspect(image string) ([]byte, error)
 }
@@ -91,6 +92,24 @@ func (r *ContainerCommandRunner) Pull(image string) error {
 	if err != nil {
 		r.logger.Errorf(string(out))
 		return fmt.Errorf("error pulling image: %s. %v", string(out), err)
+	}
+
+	return nil
+}
+
+// Push takes a container image tag in the local environment and runs the
+// push command to upload it onto the remote registry
+func (r *ContainerCommandRunner) Push(image string) error {
+	args := r.argsForCmd("push", image)
+
+	command := exec.Command(r.containerTool.String(), args...)
+
+	r.logger.Infof("running %s", command.String())
+
+	out, err := command.CombinedOutput()
+	if err != nil {
+		r.logger.Errorf(string(out))
+		return fmt.Errorf("error pushing image: %s. %v", string(out), err)
 	}
 
 	return nil

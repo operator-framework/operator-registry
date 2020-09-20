@@ -196,7 +196,7 @@ func WithPlatform(p ocispecv1.Platform) BuildOpt {
 	}
 }
 
-// MergeLayers creates a single layer image from the current image root
+// SquashLayers creates a single layer image from the current image root
 func SquashLayers() BuildOpt {
 	return func(config *BuildConfig) {
 		config.SquashLayers = true

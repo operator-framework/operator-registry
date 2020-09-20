@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/containerd/containerd/content"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -35,24 +36,36 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) 
 			return err
 		}
 	}
-	r.init(dir, ref)
-	return nil
+	err = r.init(dir, ref)
+	return err
 }
 
 // Pack calculates the diff of a directory from the recorded values, makes a new layer from this diff
 // and updates the referenced image. The diff is calculated based on the file headers and hashes stored
 // during an unpack. Attempting a Repack on a directory without running unpack first will add the directory
-// to the image as a new layer.
+// to the image as a new layer. If Pack was previously run on the directory, only the diff will be added as
+// as a layer.
+//
+// for instance, r.Pack(ctx, ref, "foo") will create the following addition if 'foo' is not an unpacked directory:
+// └── rootfs
+//     └── foo
+//         └── bar
+//
+// if 'foo' was already unpacked, then only the contents of the diff would be added
+// └── rootfs
+//     :
+//     ├── bar
+//     :
 func (r *Registry) Pack(ctx context.Context, ref image.Reference, dir string, opts ...BuildOpt) error {
 	ctx = ensureNamespace(ctx)
 
-	srcs, err := r.diff(dir, ref)
+	srcs, err := r.diff(dir, "", ref)
 	if err != nil && err.Error() != errNotUnpacked.Error() {
 		return err
 	}
 
 	if len(srcs) > 0 {
-		layerDesc, layerBytes, layerDiffID, err := r.builder.NewLayer(true, srcs)
+		layerDesc, layerBytes, layerDiffID, err := r.builder(ref).newLayer(true, srcs)
 		if err != nil {
 			return fmt.Errorf("could not create new layer for repack: %v", err)
 		}
@@ -68,9 +81,15 @@ func (r *Registry) Pack(ctx context.Context, ref image.Reference, dir string, op
 }
 
 // cache file hashes and stat after unpack for comparison when repacking the image
-func (r *Registry) init(root string, ref image.Reference) {
+func (r *Registry) init(root string, ref image.Reference) error {
 	paths := make(map[string]*fileInfo)
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if path == root {
+			return nil
+		}
+		if strings.HasPrefix(info.Name(), WhPrefix) {
+			return fmt.Errorf("Illegal whiteout prefix for file: %v", path)
+		}
 		paths[path] = &fileInfo{
 			info: info,
 		}
@@ -83,7 +102,7 @@ func (r *Registry) init(root string, ref image.Reference) {
 		}
 		defer f.Close()
 
-		h := r.builder.digester.Hash()
+		h := r.builder(ref).digester.Hash()
 		if _, err := io.Copy(h, f); err != nil {
 			return err
 		}
@@ -92,24 +111,39 @@ func (r *Registry) init(root string, ref image.Reference) {
 		h.Reset()
 		return nil
 	})
-	r.builder.buildRoot[ref] = paths
+	r.builder(ref).buildRoot[root] = paths
+	return err
 }
 
-// compare a directory with the file header and hash information recorded during unpack
-func (r *Registry) diff(dir string, ref image.Reference) (map[string]string, error) {
+// compare a directory with the file header and hash information recorded during unpack.
+// dstRoot is the target directory to which the root will be copied, in case of a non-unpacked
+// root. An empty dstRoot will always pack the directory onto the root of the image.
+func (r *Registry) diff(root, dstRoot string, ref image.Reference) (map[string]string, error) {
 	srcs := make(map[string]string)
-	cmpRoot, isUnpacked := r.builder.buildRoot[ref]
+	cmpRoot, isUnpacked := r.builder(ref).buildRoot[root]
 	if !isUnpacked {
-		srcs[dir] = dir
+		dst := root
+		if root != dstRoot {
+			base := filepath.Base(filepath.Clean(root))
+			dst = filepath.Join(dstRoot, base)
+		}
+		srcs[root] = dst
 		return srcs, errNotUnpacked
 	}
 	found := make(map[string]bool)
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if path == root {
+			return nil
+		}
+		dst, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
 		found[path] = true
 		f, ok := cmpRoot[path]
 		if !ok {
 			// new
-			srcs[path] = path
+			srcs[path] = dst
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -117,7 +151,7 @@ func (r *Registry) diff(dir string, ref image.Reference) (map[string]string, err
 		}
 		if !os.SameFile(info, f.info) {
 			// modified
-			srcs[path] = path
+			srcs[path] = dst
 			return nil
 		}
 		if !info.Mode().IsRegular() {
@@ -129,14 +163,14 @@ func (r *Registry) diff(dir string, ref image.Reference) (map[string]string, err
 			return err
 		}
 		defer f2.Close()
-		h := r.builder.digester.Hash()
+		h := r.builder(ref).digester.Hash()
 		if _, err := io.Copy(h, f2); err != nil {
 			return err
 		}
 
 		// different content
 		if fmt.Sprintf("%x", h.Sum(nil)) != f.hash {
-			srcs[path] = path
+			srcs[path] = dst
 		}
 		h.Reset()
 		return nil
@@ -144,17 +178,21 @@ func (r *Registry) diff(dir string, ref image.Reference) (map[string]string, err
 	// add whiteouts:
 	for p := range cmpRoot {
 		if !found[p] {
-			dir, f := filepath.Split(filepath.Clean(p))
+			dir, f := filepath.Split(strings.TrimRight(filepath.Clean(p), "/"))
 			if len(f) == 0 || f == "." {
-				whFile := filepath.Join(dir, whOpaque)
+				whFile := filepath.Join(dir, WhOpaque)
 				srcs[whFile] = whFile
 				continue
 			}
-			f = fmt.Sprintf("%s%s", whPrefix, f)
-			if f == whOpaque {
+			f = fmt.Sprintf("%s%s", WhPrefix, f)
+			if f == WhOpaque {
 				return srcs, fmt.Errorf("cannot add whiteout for file %s: resulting opaque whiteout %s will delete directory contents", p, filepath.Join(dir, f))
 			}
-			whFile := filepath.Join(dir, f)
+			dstDir, err := filepath.Rel(root, dir)
+			if err != nil {
+				return srcs, err
+			}
+			whFile := filepath.Join(dstDir, f)
 			srcs[whFile] = whFile
 		}
 	}
