@@ -49,6 +49,7 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().Bool("generate", false, "if enabled, just creates the dockerfile and saves it to local disk")
 	indexCmd.Flags().StringP("out-dockerfile", "d", "", "if generating the dockerfile, this flag is used to (optionally) specify a dockerfile name")
 	indexCmd.Flags().StringP("from-index", "f", "", "previous index to add to")
+	// adding empty list of strings is a valid value.
 	indexCmd.Flags().StringSliceP("bundles", "b", nil, "comma separated list of bundles to add")
 	if err := indexCmd.MarkFlagRequired("bundles"); err != nil {
 		logrus.Panic("Failed to set required `bundles` flag for `index add`")

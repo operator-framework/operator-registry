@@ -362,6 +362,19 @@ var _ = Describe("opm", func() {
 			err = os.Remove(workingDir + "/" + bundle.DockerFile)
 			Expect(err).NotTo(HaveOccurred())
 		})
+		It("build index without bundles", func() {
+
+			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
+
+			By("building an index")
+			err := buildIndexWith(containerTool, indexImage, "", []string{})
+			Expect(err).NotTo(HaveOccurred())
+
+			workingDir, err := os.Getwd()
+			Expect(err).NotTo(HaveOccurred())
+			err = os.Remove(workingDir + "/" + bundle.DockerFile)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	}
 
 	Context("using docker", func() {
