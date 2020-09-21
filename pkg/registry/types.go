@@ -39,6 +39,15 @@ func (e PackageVersionAlreadyAddedErr) Error() string {
 	return e.ErrorString
 }
 
+// EmptyDefaultChannel is an error that describes that changing the default channel to an empty channel is not allowed.
+type EmptyDefaultChannel struct {
+	ErrorString string
+}
+
+func (e EmptyDefaultChannel) Error() string {
+	return e.ErrorString
+}
+
 const (
 	GVKType        = "olm.gvk"
 	PackageType    = "olm.package"

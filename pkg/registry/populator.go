@@ -83,6 +83,7 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 				continue
 			}
 		}
+		containsDefault := false
 		for _, channel := range image.bundle.Channels {
 			bundle, err := i.querier.GetBundle(context.TODO(), image.bundle.Package, channel, image.bundle.csv.GetName())
 			if err != nil {
@@ -93,6 +94,15 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 				// raise error that this package + channel + csv combo is already in the db
 				errs = append(errs, PackageVersionAlreadyAddedErr{ErrorString: "Bundle already added that provides package and csv"})
 				break
+			}
+			if channel == image.annotationsFile.GetDefaultChannelName() {
+				containsDefault = true
+			}
+		}
+		if !containsDefault {
+			_, err := i.querier.GetBundleForChannel(context.TODO(), image.bundle.Package, image.annotationsFile.GetDefaultChannelName())
+			if err != nil {
+				errs = append(errs, EmptyDefaultChannel{ErrorString: "Cannot set an empty default channel"})
 			}
 		}
 	}
