@@ -73,7 +73,6 @@ func NewBundleFromStrings(name, pkgName string, channels []string, objs []string
 func (b *Bundle) Size() int {
 	return len(b.Objects)
 }
-
 func (b *Bundle) Add(obj *unstructured.Unstructured) {
 	b.Objects = append(b.Objects, obj)
 	b.cacheStale = true

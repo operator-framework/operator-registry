@@ -73,6 +73,7 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		Bundles:       bundleImages,
 		Mode:          modeEnum,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		Overwrite:     false,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})

@@ -16,9 +16,9 @@ type ImageInput struct {
 	metadataDir      string
 	to               image.Reference
 	from             string
-	annotationsFile  *AnnotationsFile
+	AnnotationsFile  *AnnotationsFile
 	dependenciesFile *DependenciesFile
-	bundle           *Bundle
+	Bundle           *Bundle
 }
 
 func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
@@ -72,7 +72,7 @@ func NewImageInput(to image.Reference, from string) (*ImageInput, error) {
 		metadataDir:      metadata,
 		to:               to,
 		from:             from,
-		annotationsFile:  annotationsFile,
+		AnnotationsFile:  annotationsFile,
 		dependenciesFile: dependenciesFile,
 	}
 
@@ -115,14 +115,14 @@ func (i *ImageInput) getBundleFromManifests() error {
 	bundle.Dependencies = i.dependenciesFile.GetDependencies()
 
 	bundle.Name = csvName
-	bundle.Package = i.annotationsFile.Annotations.PackageName
-	bundle.Channels = strings.Split(i.annotationsFile.Annotations.Channels, ",")
+	bundle.Package = i.AnnotationsFile.Annotations.PackageName
+	bundle.Channels = strings.Split(i.AnnotationsFile.Annotations.Channels, ",")
 
 	if err := bundle.AllProvidedAPIsInBundle(); err != nil {
 		return fmt.Errorf("error checking provided apis in bundle %s: %s", bundle.Name, err)
 	}
 
-	i.bundle = bundle
+	i.Bundle = bundle
 
 	return nil
 }

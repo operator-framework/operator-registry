@@ -104,6 +104,10 @@ func (EmptyQuery) GetDependenciesForBundle(ctx context.Context, name, version, p
 	return nil, errors.New("empty querier: cannot get dependencies for bundle")
 }
 
+func (EmptyQuery) GetBundlePathIfExists(ctx context.Context, csvName string) (bundlePath string, err error) {
+	return "", errors.New("empty querier: cannot get bundle path for bundle")
+}
+
 var _ Query = &EmptyQuery{}
 
 func NewEmptyQuerier() *EmptyQuery {
