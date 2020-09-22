@@ -70,7 +70,7 @@ func TestSquashLayers(t *testing.T) {
 	srcTree := newTarTree()
 	err = applyLayerInMemory(context.TODO(), srcTree, cs, *layerDesc, time.Time{})
 	require.NoError(t, err, "failed to apply layer")
-	assert.True(t, reflect.DeepEqual(srcTree, tgtTree))
+	assert.True(t, reflect.DeepEqual(srcTree, tgtTree), fmt.Sprintf("Unexpected file tree, expected: %+v; actual: %+v", tgtTree, srcTree))
 }
 
 func TestApplyLayerInMemory(t *testing.T) {
@@ -166,9 +166,8 @@ func TestApplyLayerInMemory(t *testing.T) {
 
 	err = applyLayerInMemory(context.TODO(), &srcTree, cs, *layerDesc, time.Time{})
 	require.NoError(t, err, "failed to apply layer")
-	assert.True(t, reflect.DeepEqual(srcTree, tgtTree))
+	assert.True(t, reflect.DeepEqual(srcTree, tgtTree), fmt.Sprintf("Unexpected file tree, expected: %+v; actual: %+v", tgtTree, srcTree))
 }
-
 func TestTreeAdd(t *testing.T) {
 	tests := []struct {
 		base     *tarTree

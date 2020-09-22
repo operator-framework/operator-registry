@@ -1,0 +1,1 @@
+{"schemaVersion":2,"manifests":[{"mediaType":"application/vnd.docker.distribution.manifest.v2+json","digest":"sha256:7e288134d6dd7168e637b735af47b394661f6027f3e85e55308947a76e86276d","size":422,"annotations":{"io.containerd.image.name":"quay.io/ankitathomas/containerbuild:buildah","org.opencontainers.image.ref.name":"buildah"}}]}

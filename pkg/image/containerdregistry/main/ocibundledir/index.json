@@ -1,0 +1,1 @@
+{"schemaVersion":2,"manifests":[{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:47e539e51bf0bef18a039e4710e0fd15d9c8c776569e2cec0b1fc7051f215711","size":349,"annotations":{"io.containerd.image.name":"quay.io/ankitathomas/containerbuild:buildah","org.opencontainers.image.ref.name":"buildah"}}]}
