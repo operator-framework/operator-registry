@@ -45,7 +45,7 @@ We use the following labels to annotate the operator bundle image.
     * The value `metadata.v1` implies that this bundle has operator metadata.
 * The label `operators.operatorframework.io.bundle.package.v1` reflects the package name of the bundle.
 * The label `operators.operatorframework.io.bundle.channels.v1` reflects the list of channels the bundle is subscribing to when added into an operator registry
-* The label `operators.operatorframework.io.bundle.channel.default.v1` reflects the default channel an operator should be subscribed to when installed from a registry
+* The label `operators.operatorframework.io.bundle.channel.default.v1` reflects the default channel an operator should be subscribed to when installed from a registry. This label is optional if the default channel has been set by previous bundles and the default channel is unchanged for this bundle.
 
 The labels will also be put inside a YAML file, as shown below.
 
@@ -240,7 +240,7 @@ $ ./opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-op
 --image-builder podman --package test-operator --channels stable,beta --default stable
 ```
 
-The `--package` or `-p` is the name of package for the operator such as `etcd` which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
+The `--package` or `-p` is the name of package for the operator such as `etcd` which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag.
 
 *Notes:*
 * If there is `Dockerfile` existing in the directory, it will be overwritten.

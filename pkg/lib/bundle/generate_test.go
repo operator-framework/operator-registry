@@ -170,7 +170,6 @@ func TestGenerateDockerfileFunc(t *testing.T) {
 		"LABEL operators.operatorframework.io.bundle.metadata.v1=%s\n"+
 		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
 		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
-		"LABEL operators.operatorframework.io.bundle.channel.default.v1=\n\n"+
 		"COPY test2 /manifests/\n"+
 		"COPY metadata /metadata/\n", MetadataDir)
 
@@ -255,7 +254,7 @@ func TestGenerateFunc(t *testing.T) {
 	os.Remove(filepath.Join("./", DockerFile))
 
 	output := fmt.Sprintf("annotations:\n" +
-		"  operators.operatorframework.io.bundle.channel.default.v1: \"\"\n" +
+		"  operators.operatorframework.io.bundle.channel.default.v1: alpha\n" +
 		"  operators.operatorframework.io.bundle.channels.v1: beta\n" +
 		"  operators.operatorframework.io.bundle.manifests.v1: manifests/\n" +
 		"  operators.operatorframework.io.bundle.mediatype.v1: registry+v1\n" +
