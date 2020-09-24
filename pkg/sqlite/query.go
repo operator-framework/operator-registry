@@ -1139,3 +1139,31 @@ func (s *SQLQuerier) GetPropertiesForBundle(ctx context.Context, name, version, 
 
 	return
 }
+
+func (s *SQLQuerier) GetBundlePathIfExists(ctx context.Context, bundleName string) (bundlePath string, err error) {
+	getBundlePathQuery := `
+	  SELECT bundlepath
+	  FROM operatorbundle
+	  WHERE operatorbundle.name=? LIMIT 1`
+
+	rows, err := s.db.QueryContext(ctx, getBundlePathQuery, bundleName)
+	if err != nil {
+		return
+	}
+	if !rows.Next() {
+		// no bundlepath set
+		err = registry.ErrBundleImageNotInDatabase
+		return
+	}
+
+	var bundlePathSQL sql.NullString
+	if err = rows.Scan(&bundlePathSQL); err != nil {
+		return
+	}
+
+	if bundlePathSQL.Valid {
+		bundlePath = bundlePathSQL.String
+	}
+
+	return
+}

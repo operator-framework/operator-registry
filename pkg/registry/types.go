@@ -39,6 +39,15 @@ func (e PackageVersionAlreadyAddedErr) Error() string {
 	return e.ErrorString
 }
 
+// OverwritesErr is an error that describes that an error with the add request with --force enabled.
+type OverwriteErr struct {
+	ErrorString string
+}
+
+func (e OverwriteErr) Error() string {
+	return e.ErrorString
+}
+
 const (
 	GVKType        = "olm.gvk"
 	PackageType    = "olm.package"

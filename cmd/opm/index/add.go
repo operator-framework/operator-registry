@@ -62,6 +62,10 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	indexCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
+	indexCmd.Flags().Bool("overwrite-latest", false, "overwrite the latest bundles (channel heads) with those of the same csv name given by --bundles")
+	if err := indexCmd.Flags().MarkHidden("overwrite-latest"); err != nil {
+		logrus.Panic(err.Error())
+	}
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -118,6 +122,11 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	overwrite, err := cmd.Flags().GetBool("overwrite-latest")
+	if err != nil {
+		return err
+	}
+
 	modeEnum, err := registry.GetModeFromString(mode)
 	if err != nil {
 		return err
@@ -147,6 +156,7 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		Permissive:        permissive,
 		Mode:              modeEnum,
 		SkipTLS:           skipTLS,
+		Overwrite:         overwrite,
 	}
 
 	err = indexAdder.AddToIndex(request)

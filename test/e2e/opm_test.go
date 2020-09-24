@@ -21,6 +21,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
@@ -45,6 +46,21 @@ var (
 	indexImage2 = "quay.io/olmtest/e2e-index:" + indexTag2
 	indexImage3 = "quay.io/olmtest/e2e-index:" + indexTag3
 )
+
+type bundleLocation struct {
+	image, path string
+}
+
+type bundleLocations []bundleLocation
+
+func (bl bundleLocations) images() []string {
+	images := make([]string, len(bl))
+	for i, b := range bl {
+		images[i] = b.image
+	}
+
+	return images
+}
 
 func inTemporaryBuildContext(f func() error) (rerr error) {
 	td, err := ioutil.TempDir(".", "opm-")
@@ -72,23 +88,20 @@ func inTemporaryBuildContext(f func() error) (rerr error) {
 	return f()
 }
 
-func buildIndexWith(containerTool, indexImage, bundleImage string, bundleTags []string) error {
-	bundles := make([]string, 0)
-	for _, tag := range bundleTags {
-		bundles = append(bundles, bundleImage+":"+tag)
-	}
-
-	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
+func buildIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleImages []string, mode registry.Mode, overwriteLatest bool) error {
+	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
 	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.AddToIndexRequest{
 		Generate:          false,
-		FromIndex:         "",
+		FromIndex:         fromIndexImage,
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage,
-		Bundles:           bundles,
+		Tag:               toIndexImage,
+		Mode:              mode,
+		Bundles:           bundleImages,
 		Permissive:        false,
+		Overwrite:         overwriteLatest,
 	}
 
 	return indexAdder.AddToIndex(request)
@@ -151,7 +164,6 @@ func exportPackageWith(containerTool string) error {
 
 	return indexExporter.ExportFromIndex(request)
 }
-
 
 func exportIndexImageWith(containerTool string) error {
 
@@ -246,27 +258,26 @@ var _ = Describe("opm", func() {
 
 		It("builds and manipulates bundle and index images", func() {
 			By("building bundles")
-			tagPaths := map[string]string{
-				bundleTag1: bundlePath1,
-				bundleTag2: bundlePath2,
-				bundleTag3: bundlePath3,
+			bundles := bundleLocations{
+				{bundleTag1, bundlePath1},
+				{bundleTag2, bundlePath2},
+				{bundleTag3, bundlePath3},
 			}
 			var err error
-			for tag, path := range tagPaths {
+			for _, b := range bundles {
 				err = inTemporaryBuildContext(func() error {
-					return bundle.BuildFunc(path, "", bundleImage+":"+tag, containerTool, packageName, channels, defaultChannel, false)
+					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false)
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			By("pushing bundles")
-			for tag, _ := range tagPaths {
-				err = pushWith(containerTool, bundleImage+":"+tag)
-				Expect(err).NotTo(HaveOccurred())
+			for _, b := range bundles {
+				Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
 			}
 
 			By("building an index")
-			err = buildIndexWith(containerTool, indexImage1, bundleImage, []string{bundleTag1, bundleTag2})
+			err = buildIndexWith(containerTool, "", indexImage1, bundles[:2].images(), registry.ReplacesMode, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -325,36 +336,31 @@ var _ = Describe("opm", func() {
 
 		It("build bundles and index via inference", func() {
 
-			bundlePaths := []string{"./testdata/aqua/0.0.1", "./testdata/aqua/0.0.2", "./testdata/aqua/1.0.0",
-				"./testdata/aqua/1.0.1"}
-
-			bundleTags := func() (tags []string) {
-				for range bundlePaths {
-					tags = append(tags, rand.String(6))
-				}
-				return
-			}()
-
-			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
+			bundles := bundleLocations{
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.1"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.2"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.0"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.1"},
+			}
 
 			By("building bundles")
-			for i := range bundlePaths {
+			for _, b := range bundles {
 				td, err := ioutil.TempDir(".", "opm-")
 				Expect(err).NotTo(HaveOccurred())
 				defer os.RemoveAll(td)
 
-				err = bundle.BuildFunc(bundlePaths[i], td, bundleImage+":"+bundleTags[i], containerTool, "", "", "", true)
+				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			By("pushing bundles")
-			for _, tag := range bundleTags {
-				err := pushWith(containerTool, bundleImage+":"+tag)
-				Expect(err).NotTo(HaveOccurred())
+			for _, b := range bundles {
+				Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
 			}
 
 			By("building an index")
-			err := buildIndexWith(containerTool, indexImage, bundleImage, bundleTags)
+			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
+			err := buildIndexWith(containerTool, "", indexImage, bundles.images(), registry.ReplacesMode, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			workingDir, err := os.Getwd()
@@ -367,12 +373,56 @@ var _ = Describe("opm", func() {
 			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
 
 			By("building an index")
-			err := buildIndexWith(containerTool, indexImage, "", []string{})
+			err := buildIndexWith(containerTool, indexImage, "", []string{}, registry.ReplacesMode, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			workingDir, err := os.Getwd()
 			Expect(err).NotTo(HaveOccurred())
 			err = os.Remove(workingDir + "/" + bundle.DockerFile)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can overwrite existing bundles in an index", func() {
+
+			bundles := bundleLocations{
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.1"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.2"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.0"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.1"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.1-overwrite"},
+			}
+
+			for _, b := range bundles {
+				td, err := ioutil.TempDir(".", "opm-")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(td)
+
+				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("pushing bundles")
+			for _, b := range bundles {
+				Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
+			}
+
+			indexImage := "quay.io/olmtest/e2e-index:" + rand.String(6)
+			By("adding net-new bundles to an index")
+			err := buildIndexWith(containerTool, "", indexImage, bundles[:4].images(), registry.ReplacesMode, true) // 0.0.1, 0.0.2, 1.0.0, 1.0.1
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pushWith(containerTool, indexImage)).NotTo(HaveOccurred())
+
+			By("failing to overwrite a non-latest bundle")
+			nextIndex := indexImage + "-next"
+			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[1:2].images(), registry.ReplacesMode, true) // 0.0.2
+			Expect(err).To(HaveOccurred())
+
+			By("failing to overwrite in a non-replace mode")
+			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.SemVerMode, true) // 1.0.1-overwrite
+			Expect(err).To(HaveOccurred())
+
+			By("overwriting the latest bundle in an index")
+			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.ReplacesMode, true) // 1.0.1-overwrite
 			Expect(err).NotTo(HaveOccurred())
 		})
 	}
