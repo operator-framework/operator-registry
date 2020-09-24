@@ -15,6 +15,8 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
 
 FROM alpine:3
 
+RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
+
 COPY --from=builder [ \
     "/bin/grpc_health_probe", \
     "/build/bin/opm", \
