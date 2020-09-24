@@ -8,13 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/otiai10/copy"
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/rand"
-
+	command "github.com/operator-framework/operator-registry/cmd/opm/registry"
+	"github.com/operator-framework/operator-registry/pkg/client"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
@@ -23,6 +25,9 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
+	"github.com/otiai10/copy"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -424,6 +429,107 @@ var _ = Describe("opm", func() {
 			By("overwriting the latest bundle in an index")
 			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.ReplacesMode, true) // 1.0.1-overwrite
 			Expect(err).NotTo(HaveOccurred())
+		})
+	}
+
+	Context("using docker", func() {
+		IncludeSharedSpecs("docker")
+	})
+
+	Context("using podman", func() {
+		IncludeSharedSpecs("podman")
+	})
+})
+
+var _ = Describe("can integrate the latest registry image", func() {
+	IncludeSharedSpecs := func(containerTool string) {
+		BeforeEach(func() {
+			if redhatRegistryUsername == "" || redhatRegistryPassword == "" {
+				Skip("redhat registry credentials are not available")
+			}
+
+			login := exec.Command(containerTool, "login", "-u", redhatRegistryUsername, "-p", redhatRegistryPassword, "registry.redhat.io")
+			err := login.Run()
+			if err != nil && strings.Contains(err.Error(), "executable file not found in $PATH") {
+				Skip("containertool not found: " + containerTool)
+			}
+			Expect(err).NotTo(HaveOccurred(), "Error logging into registry.redhat.io")
+		})
+
+		It("can integrate with the existing production index image", func() {
+			// This test ensures that opm is compatible with the given production index image
+			// copy the version of opm and serve the prod index contents with it -- check that the index image starts
+			// Ensures that no changes are introduced into operator-registry that cause a problem for indexes
+			By("copying the prod index db out of the index image")
+
+			const (
+				prodIndexName = "registry.redhat.io/redhat/redhat-operator-index:v4.6"
+			)
+
+			dbDirectory, err := ioutil.TempDir("./", "db_temp_")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(dbDirectory)
+
+			// extract db file from index to the dbDirectory
+			db, err := indexer.ExtractDatabase(prodIndexName, dbDirectory, "", containerTool, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			GinkgoT().Logf("database file %s", db)
+
+			By("using opm registry serve to serve the latest index content")
+			opmRegistryCmd := command.NewOpmRegistryCmd()
+
+			// find registry serve command
+			var serveCmd cobra.Command
+			for _, c := range opmRegistryCmd.Commands() {
+				if c.Use == "serve" {
+					serveCmd = *c
+				}
+			}
+			Expect(serveCmd).ToNot(BeNil())
+
+			// remove default ginkgo args (--test.timeout)
+			serveCmd.SetArgs([]string{})
+			err = serveCmd.Flags().Set("database", db)
+			Expect(err).ToNot(HaveOccurred())
+
+			// setup registy client
+			const addr = "127.0.0.1:50051"
+			client, err := client.NewClient(addr)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(client).ToNot(BeNil())
+			defer client.Close()
+
+			errChan := make(chan error, 1)
+			go func() {
+				err := serveCmd.RunE(&serveCmd, []string{})
+				if err != nil {
+					errChan <- err
+				}
+			}()
+
+			time.Sleep(1*time.Second)
+			select {
+			case err := <- errChan:
+				Expect(err).ToNot(HaveOccurred(), "error running opm registry serve")
+			default:
+			}
+
+			// eventually registry is up and running
+			Eventually(func() bool{
+				healthy, err := client.HealthCheck(context.TODO(), 1*time.Minute)
+				if err != nil {
+					return false
+				}
+				return healthy
+			}).Should(BeTrue(), "registry failed healthcheck")
+
+			// query certain default endpoints: list bundles
+			Eventually(func() error {
+				bundles, err := client.ListBundles(context.TODO())
+				Expect(bundles).ToNot(BeNil())
+				return err
+			}).Should(Succeed(), "registry list bundles endpoint returned non-nil error")
 		})
 	}
 

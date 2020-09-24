@@ -12,6 +12,8 @@ import (
 var (
 	dockerUsername = os.Getenv("DOCKER_USERNAME")
 	dockerPassword = os.Getenv("DOCKER_PASSWORD")
+	redhatRegistryUsername = os.Getenv("REDHAT_REGISTRY_USERNAME")
+	redhatRegistryPassword = os.Getenv("REDHAT_REGISTRY_PASSWORD")
 )
 
 func TestE2E(t *testing.T) {

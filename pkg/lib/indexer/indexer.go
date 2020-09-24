@@ -696,3 +696,20 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 
 	return nil
 }
+
+// ExtractDatabase is a wrapper around i.extractDatabase that extracts the db to <directory>/database.db
+// TODO add an indexer command to expose this functionality to opm users?
+func ExtractDatabase(index, directory, cert, containerTool string, skipTLS bool) (string, error) {
+	t := containertools.NewCommandContainerTool(containerTool)
+	i := ImageIndexer{
+		Logger:   logrus.WithFields(logrus.Fields{"database": index}),
+		PullTool: t,
+	}
+
+	dbPath, err := i.extractDatabase(directory, index, cert, skipTLS)
+	if err != nil {
+		return "", fmt.Errorf("extracting db from index: %w", err)
+	}
+
+	return dbPath, nil
+}
