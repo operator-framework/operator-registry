@@ -205,7 +205,7 @@ type PackageDependency struct {
 }
 
 type LabelDependency struct {
-	// The version range of dependency in semver range format
+	// The Label name of dependency
 	Label string `json:"label" yaml:"label"`
 }
 
@@ -233,7 +233,7 @@ type DeprecatedProperty struct {
 }
 
 type LabelProperty struct {
-	// The version range of dependency in semver range format
+	// The name of Label
 	Label string `json:"label" yaml:"label"`
 }
 
@@ -252,7 +252,7 @@ func (gd *GVKDependency) Validate() []error {
 	return errs
 }
 
-// Validate will validate GVK dependency type and return error(s)
+// Validate will validate Label dependency type and return error(s)
 func (ld *LabelDependency) Validate() []error {
 	errs := []error{}
 	if *ld == (LabelDependency{}) {
