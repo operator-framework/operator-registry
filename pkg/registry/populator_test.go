@@ -686,6 +686,39 @@ func CheckBundlesHaveContentsIfNoPath(t *testing.T, db *sql.DB) {
 	}
 }
 
+func TestDirectoryPopulator(t *testing.T) {
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+
+	loader, err := sqlite.NewSQLLiteLoader(db)
+	require.NoError(t, err)
+	require.NoError(t, loader.Migrate(context.TODO()))
+
+	graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+	require.NoError(t, err)
+
+	query := sqlite.NewSQLLiteQuerierFromDb(db)
+
+	populate := func(bundles map[image.Reference]string) error {
+		return registry.NewDirectoryPopulator(
+			loader,
+			graphLoader,
+			query,
+			bundles,
+			make(map[string]map[image.Reference]string),
+			false).Populate(registry.ReplacesMode)
+	}
+	add := map[image.Reference]string{
+		image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
+		image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
+	}
+	expectedErr := errors.NewAggregate([]error{
+		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
+		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
+	})
+	require.ElementsMatch(t, expectedErr, populate(add))
+}
+
 func TestDeprecateBundle(t *testing.T) {
 	type args struct {
 		bundles []string
@@ -898,6 +931,34 @@ func TestOverwrite(t *testing.T) {
 		args        args
 		expected    expected
 	}{
+		{
+			description: "OverwriteBundle/DefaultBehavior",
+			args: args{
+				firstAdd: getBundleRefs([]string{"prometheus.0.14.0"}),
+				secondAdd: map[image.Reference]string{
+					image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
+					image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
+				},
+				overwrites: nil,
+			},
+			expected: expected{
+				err: errors.NewAggregate([]error{
+					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
+					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
+				}),
+				remainingBundles: []string{
+					"quay.io/test/prometheus.0.14.0/preview",
+				},
+				remainingPkgChannels: pkgChannel{
+					"prometheus": []string{
+						"preview",
+					},
+				},
+				remainingDefaultChannels: map[string]string{
+					"prometheus": "preview",
+				},
+			},
+		},
 		{
 			description: "OverwriteBundle/SimpleCsvChange",
 			args: args{
