@@ -21,5 +21,10 @@ func (r *ReplacesGraphLoader) CanAdd(bundle *Bundle, graph *Package) (bool, erro
 	}
 
 	// check that the bundle can be added
-	return graph.HasCsv(replaces), nil
+	if !graph.HasCsv(replaces) {
+		return false, fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", bundle.Name, replaces)
+	}
+
+	return true, nil
+
 }

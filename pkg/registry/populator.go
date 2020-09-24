@@ -302,15 +302,11 @@ func (i *DirectoryPopulator) getNextReplacesImagesToAdd(imagesToAdd []*ImageInpu
 		// no new images can be added, the current iteration aggregates all the
 		// errors that describe invalid bundles
 		if pkgFoundImages == 0 && pkgRemainingImages > 0 {
-			errs = append(errs, utilerrors.NewAggregate(pkgErrs))
+			errs = append(errs, pkgErrs...)
 		}
 	}
 
-	if len(errs) > 0 {
-		return nil, nil, utilerrors.NewAggregate(errs)
-	}
-
-	return foundImages, remainingImages, nil
+	return foundImages, remainingImages, utilerrors.NewAggregate(errs)
 }
 
 func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, annotations *AnnotationsFile, skippatch bool) error {
