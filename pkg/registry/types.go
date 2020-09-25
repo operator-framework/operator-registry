@@ -342,12 +342,5 @@ func (a *AnnotationsFile) GetChannels() []string {
 
 // GetDefaultChannelName returns the name of the default channel
 func (a *AnnotationsFile) GetDefaultChannelName() string {
-	if a.Annotations.DefaultChannelName != "" {
-		return a.Annotations.DefaultChannelName
-	}
-	channels := a.GetChannels()
-	if len(channels) == 1 {
-		return channels[0]
-	}
-	return ""
+	return a.Annotations.DefaultChannelName
 }

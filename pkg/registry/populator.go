@@ -223,22 +223,12 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 }
 
 func (i *DirectoryPopulator) loadManifestsReplaces(bundle *Bundle, annotationsFile *AnnotationsFile) error {
-	channels, err := i.querier.ListChannels(context.TODO(), annotationsFile.GetName())
-	existingPackageChannels := map[string]string{}
-	for _, c := range channels {
-		current, err := i.querier.GetCurrentCSVNameForChannel(context.TODO(), annotationsFile.GetName(), c)
-		if err != nil {
-			return err
-		}
-		existingPackageChannels[c] = current
-	}
-
 	bcsv, err := bundle.ClusterServiceVersion()
 	if err != nil {
 		return fmt.Errorf("error getting csv from bundle %s: %s", bundle.Name, err)
 	}
 
-	packageManifest, err := translateAnnotationsIntoPackage(annotationsFile, bcsv, existingPackageChannels)
+	packageManifest, err := i.translateAnnotationsIntoPackage(annotationsFile, bcsv)
 	if err != nil {
 		return fmt.Errorf("Could not translate annotations file into packageManifest %s", err)
 	}
@@ -430,15 +420,23 @@ func (i *DirectoryPopulator) loadOperatorBundle(manifest PackageManifest, bundle
 }
 
 // translateAnnotationsIntoPackage attempts to translate the channels.yaml file at the given path into a package.yaml
-func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterServiceVersion, existingPackageChannels map[string]string) (PackageManifest, error) {
+func (i *DirectoryPopulator) translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterServiceVersion) (PackageManifest, error) {
 	manifest := PackageManifest{}
+	existingChannels := map[string]string{}
+
+	pkgm, err := i.querier.GetPackage(context.TODO(), annotations.GetName())
+	if err == nil {
+		for _, c := range pkgm.Channels {
+			existingChannels[c.Name] = c.CurrentCSVName
+		}
+	}
 
 	for _, ch := range annotations.GetChannels() {
-		existingPackageChannels[ch] = csv.GetName()
+		existingChannels[ch] = csv.GetName()
 	}
 
 	channels := []PackageChannel{}
-	for c, current := range existingPackageChannels {
+	for c, current := range existingChannels {
 		channels = append(channels,
 			PackageChannel{
 				Name:           c,
@@ -447,9 +445,29 @@ func translateAnnotationsIntoPackage(annotations *AnnotationsFile, csv *ClusterS
 	}
 
 	manifest = PackageManifest{
-		PackageName:        annotations.GetName(),
-		DefaultChannelName: annotations.GetDefaultChannelName(),
-		Channels:           channels,
+		PackageName: annotations.GetName(),
+		Channels:    channels,
+	}
+
+	defaultChan := annotations.GetDefaultChannelName()
+	if defaultChan != "" {
+		if _, found := existingChannels[defaultChan]; found {
+			manifest.DefaultChannelName = annotations.GetDefaultChannelName()
+		} else {
+			return manifest, fmt.Errorf("Channel %s is set as default in annotations but not found in existing package channels", defaultChan)
+		}
+	} else {
+		// No default channel is provided in annotations. Attempt to infer from package manifest
+		if pkgm != nil {
+			manifest.DefaultChannelName = pkgm.GetDefaultChannel()
+		} else {
+			// Infer default channel if only one channel is provided
+			if len(annotations.GetChannels()) == 1 {
+				manifest.DefaultChannelName = annotations.GetChannels()[0]
+			} else {
+				return manifest, fmt.Errorf("Default channel is missing and can't be inferred")
+			}
+		}
 	}
 
 	return manifest, nil

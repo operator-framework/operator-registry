@@ -180,7 +180,7 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 
 	for label, item := range annotations {
 		val, ok := fileAnnotations.Annotations[label]
-		if !ok {
+		if !ok && label != ChannelDefaultLabel {
 			aErr := fmt.Errorf("Missing annotation %q", label)
 			validationErrors = append(validationErrors, aErr)
 		}
@@ -205,11 +205,12 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 			if val == "" {
 				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
 				validationErrors = append(validationErrors, aErr)
-			} else {
-				annotations[label] = val
 			}
 		case ChannelDefaultLabel:
-			annotations[label] = val
+			if val == "" {
+				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
+				validationErrors = append(validationErrors, aErr)
+			}
 		}
 	}
 
