@@ -207,7 +207,7 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 				validationErrors = append(validationErrors, aErr)
 			}
 		case ChannelDefaultLabel:
-			if val == "" {
+			if ok && val == "" {
 				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
 				validationErrors = append(validationErrors, aErr)
 			}
