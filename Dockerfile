@@ -14,15 +14,13 @@ RUN make build cross
 # copy and build vendored grpc_health_probe
 RUN CGO_ENABLED=0 go build -mod=vendor -tags netgo -ldflags "-w" ./vendor/github.com/grpc-ecosystem/grpc-health-probe/...
 
-FROM registry.svc.ci.openshift.org/ocp/4.6:base
+FROM registry.svc.ci.openshift.org/ocp/ubi-minimal:8
 
-COPY --from=builder /src/bin/* /tmp/bin/
+COPY --from=builder /src/bin/opm /src/bin/registry-server /src/bin/appregistry-server /src/bin/configmap-server /src/bin/initializer /bin/
 COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
 
-RUN cp -avr /tmp/bin/. /bin/
-
-RUN mkdir /registry
-RUN chgrp -R 0 /registry && \
+RUN mkdir /registry && \
+    chgrp -R 0 /registry && \
     chmod -R g+rwx /registry
 WORKDIR /registry
 
