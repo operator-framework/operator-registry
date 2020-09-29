@@ -19,7 +19,7 @@ FROM registry.svc.ci.openshift.org/ocp/4.6:base
 COPY --from=builder /src/bin/* /tmp/bin/
 COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
 
-RUN cp -avr /tmp/bin/. /bin/
+RUN cp -avr /tmp/bin/. /bin/ && rm -rf /tmp/bin
 
 RUN mkdir /registry
 RUN chgrp -R 0 /registry && \
