@@ -15,6 +15,9 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
 
 FROM alpine:3
 
+RUN chgrp -R 0 /tmp && \
+    chmod -R g+rwx /tmp
+
 COPY --from=builder [ \
     "/bin/grpc_health_probe", \
     "/build/bin/opm", \
