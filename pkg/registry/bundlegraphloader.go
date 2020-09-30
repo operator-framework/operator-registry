@@ -13,7 +13,7 @@ type BundleGraphLoader struct {
 
 // AddBundleToGraph takes a bundle and an existing graph and updates the graph to insert the new bundle
 // into each channel it is included in
-func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, newDefaultChannel string, skippatch bool) (*Package, error) {
+func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, annotations *AnnotationsFile, skippatch bool) (*Package, error) {
 	bundleVersion, err := bundle.Version()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to extract bundle version from bundle %s, can't insert in semver mode", bundle.BundleImage)
@@ -34,8 +34,19 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, new
 	if graph.Name == "" {
 		graph.Name = bundle.Package
 	}
+
+	newDefaultChannel := annotations.Annotations.DefaultChannelName
 	if newDefaultChannel != "" {
 		graph.DefaultChannel = newDefaultChannel
+	}
+
+	if graph.DefaultChannel == "" {
+		// Infer default channel from channel list
+		if annotations.SelectDefaultChannel() != "" {
+			graph.DefaultChannel = annotations.SelectDefaultChannel()
+		} else {
+			return nil, fmt.Errorf("Default channel is missing and can't be inferred")
+		}
 	}
 
 	// generate the DAG for each channel the new bundle is being insert into

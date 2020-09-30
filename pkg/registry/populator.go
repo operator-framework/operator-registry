@@ -307,7 +307,7 @@ func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, annotations *An
 
 	// add to the graph
 	bundleLoader := BundleGraphLoader{}
-	updatedGraph, err := bundleLoader.AddBundleToGraph(bundle, graph, annotations.Annotations.DefaultChannelName, skippatch)
+	updatedGraph, err := bundleLoader.AddBundleToGraph(bundle, graph, annotations, skippatch)
 	if err != nil {
 		return err
 	}
@@ -461,9 +461,9 @@ func (i *DirectoryPopulator) translateAnnotationsIntoPackage(annotations *Annota
 		if pkgm != nil {
 			manifest.DefaultChannelName = pkgm.GetDefaultChannel()
 		} else {
-			// Infer default channel if only one channel is provided
-			if len(annotations.GetChannels()) == 1 {
-				manifest.DefaultChannelName = annotations.GetChannels()[0]
+			// Infer default channel from channel list
+			if annotations.SelectDefaultChannel() != "" {
+				manifest.DefaultChannelName = annotations.SelectDefaultChannel()
 			} else {
 				return manifest, fmt.Errorf("Default channel is missing and can't be inferred")
 			}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/blang/semver"
@@ -343,4 +344,16 @@ func (a *AnnotationsFile) GetChannels() []string {
 // GetDefaultChannelName returns the name of the default channel
 func (a *AnnotationsFile) GetDefaultChannelName() string {
 	return a.Annotations.DefaultChannelName
+}
+
+// SelectDefaultChannel returns the first item in channel list that is sorted
+// in lexicographic order.
+func (a *AnnotationsFile) SelectDefaultChannel() string {
+	if a.Annotations.Channels != "" {
+		channels := strings.Split(a.Annotations.Channels, ",")
+		sort.Strings(channels)
+		return channels[0]
+	}
+
+	return ""
 }
