@@ -9,14 +9,18 @@ import (
 )
 
 func TestBundleGraphLoader(t *testing.T) {
+	empty := &AnnotationsFile{}
+	alpha := &AnnotationsFile{}
+	alpha.Annotations.DefaultChannelName = "alpha"
+
 	tests := []struct {
-		name              string
-		fail              bool
-		graph             Package
-		bundle            Bundle
-		newDefaultChannel string
-		expectedGraph     *Package
-		skipPatch         bool
+		name          string
+		fail          bool
+		graph         Package
+		bundle        Bundle
+		annotations   *AnnotationsFile
+		expectedGraph *Package
+		skipPatch     bool
 	}{
 		{
 			name: "Add bundle to head of channels",
@@ -88,7 +92,7 @@ func TestBundleGraphLoader(t *testing.T) {
 						}},
 				},
 			},
-			newDefaultChannel: "",
+			annotations: empty,
 		},
 		{
 			name: "Add a bundle already in the graph, expect an error",
@@ -108,13 +112,13 @@ func TestBundleGraphLoader(t *testing.T) {
 				Package: "etcd",
 				csv: &ClusterServiceVersion{
 					Spec: json.RawMessage(`
-						{ 
+						{
 						"version": "0.6.1"
 						}`),
 				},
 				Channels: []string{"beta"},
 			},
-			newDefaultChannel: "",
+			annotations: empty,
 		},
 		{
 			name: "Add a bundle behind the head of a channel",
@@ -134,7 +138,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Package: "etcd",
 				csv: &ClusterServiceVersion{
 					Spec: json.RawMessage(`
-						{ 
+						{
 						"version": "0.6.1"
 						}`),
 				},
@@ -151,7 +155,7 @@ func TestBundleGraphLoader(t *testing.T) {
 						}},
 				},
 			},
-			newDefaultChannel: "",
+			annotations: empty,
 		},
 		{
 			name: "Add a bundle to a new channel",
@@ -171,7 +175,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Package: "etcd",
 				csv: &ClusterServiceVersion{
 					Spec: json.RawMessage(`
-						{ 
+						{
 						"version": "0.9.3"
 						}`),
 				},
@@ -191,7 +195,7 @@ func TestBundleGraphLoader(t *testing.T) {
 						}},
 				},
 			},
-			newDefaultChannel: "alpha",
+			annotations: alpha,
 		},
 		{
 			name:  "Add a bundle to an empty graph",
@@ -202,7 +206,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Package: "etcd",
 				csv: &ClusterServiceVersion{
 					Spec: json.RawMessage(`
-						{ 
+						{
 						"version": "0.9.3"
 						}`),
 				},
@@ -218,7 +222,7 @@ func TestBundleGraphLoader(t *testing.T) {
 						}},
 				},
 			},
-			newDefaultChannel: "alpha",
+			annotations: alpha,
 		},
 		{
 			name: "Add a bundle in skippatch mode",
@@ -289,7 +293,7 @@ func TestBundleGraphLoader(t *testing.T) {
 						}},
 				},
 			},
-			newDefaultChannel: "",
+			annotations: empty,
 		},
 	}
 
@@ -297,7 +301,7 @@ func TestBundleGraphLoader(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			graphLoader := BundleGraphLoader{}
 
-			newGraph, err := graphLoader.AddBundleToGraph(&tt.bundle, &tt.graph, tt.newDefaultChannel, tt.skipPatch)
+			newGraph, err := graphLoader.AddBundleToGraph(&tt.bundle, &tt.graph, tt.annotations, tt.skipPatch)
 			if tt.fail {
 				assert.Error(t, err)
 				return
