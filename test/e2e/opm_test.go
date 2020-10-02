@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/otiai10/copy"
+	"github.com/rogpeppe/go-internal/dirhash"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -30,13 +31,19 @@ var (
 	channels       = "preview"
 	defaultChannel = "preview"
 
+	packageName2    = "etcd"
+	channels2       = "alpha"
+	defaultChannel2 = "alpha"
+
 	bundlePath1 = "manifests/prometheus/0.14.0"
 	bundlePath2 = "manifests/prometheus/0.15.0"
 	bundlePath3 = "manifests/prometheus/0.22.2"
+	bundlePath4 = "manifests/etcd/0.6.1"
 
 	bundleTag1 = rand.String(6)
 	bundleTag2 = rand.String(6)
 	bundleTag3 = rand.String(6)
+	bundleTag4 = rand.String(6)
 	indexTag1  = rand.String(6)
 	indexTag2  = rand.String(6)
 	indexTag3  = rand.String(6)
@@ -52,6 +59,13 @@ type bundleLocation struct {
 }
 
 type bundleLocations []bundleLocation
+
+type bundleBuildInfo struct {
+	packageName    string
+	channels       string
+	defaultChannel string
+	paths          bundleLocations
+}
 
 func (bl bundleLocations) images() []string {
 	images := make([]string, len(bl))
@@ -110,6 +124,7 @@ func buildIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleIm
 func buildFromIndexWith(containerTool string) error {
 	bundles := []string{
 		bundleImage + ":" + bundleTag3,
+		bundleImage + ":" + bundleTag4,
 	}
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 	indexAdder := indexer.NewIndexAdder(containertools.NewContainerTool(containerTool, containertools.NoneTool), containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
@@ -258,26 +273,46 @@ var _ = Describe("opm", func() {
 
 		It("builds and manipulates bundle and index images", func() {
 			By("building bundles")
-			bundles := bundleLocations{
-				{bundleTag1, bundlePath1},
-				{bundleTag2, bundlePath2},
-				{bundleTag3, bundlePath3},
+			bundles := []bundleBuildInfo{
+				{
+					packageName:    packageName,
+					channels:       channels,
+					defaultChannel: defaultChannel,
+					paths: []bundleLocation{
+						{bundleImage + ":" + bundleTag1, bundlePath1},
+						{bundleImage + ":" + bundleTag2, bundlePath2},
+						{bundleImage + ":" + bundleTag3, bundlePath3},
+					},
+				},
+				{
+					packageName:    packageName2,
+					channels:       channels2,
+					defaultChannel: defaultChannel2,
+					paths: []bundleLocation{
+						{bundleImage + ":" + bundleTag4, bundlePath4},
+					},
+				},
 			}
+
 			var err error
-			for _, b := range bundles {
-				err = inTemporaryBuildContext(func() error {
-					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false)
-				})
-				Expect(err).NotTo(HaveOccurred())
+			for _, bndl := range bundles {
+				for _, b := range bndl.paths {
+					err = inTemporaryBuildContext(func() error {
+						return bundle.BuildFunc(b.path, "", b.image, containerTool, bndl.packageName, bndl.channels, bndl.defaultChannel, false)
+					})
+					Expect(err).NotTo(HaveOccurred())
+				}
 			}
 
 			By("pushing bundles")
-			for _, b := range bundles {
-				Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
+			for _, bndl := range bundles {
+				for _, b := range bndl.paths {
+					Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
+				}
 			}
 
 			By("building an index")
-			err = buildIndexWith(containerTool, "", indexImage1, bundles[:2].images(), registry.ReplacesMode, false)
+			err = buildIndexWith(containerTool, "", indexImage1, bundles[0].paths[:2].images(), registry.ReplacesMode, false)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing an index")
@@ -315,6 +350,15 @@ var _ = Describe("opm", func() {
 			By("exporting a package from an index to disk with containerd")
 			err = exportPackageWith(containertools.NoneTool.String())
 			Expect(err).NotTo(HaveOccurred())
+
+			By("comparing with expected export directory")
+			expectedSum, err := dirhash.HashDir("testdata/export", "", dirhash.DefaultHash)
+			Expect(err).NotTo(HaveOccurred())
+
+			actualSum, err := dirhash.HashDir("downloaded", "", dirhash.DefaultHash)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(actualSum).To(Equal(expectedSum))
 
 			By("loading manifests from a containerd-extracted directory")
 			err = initialize()

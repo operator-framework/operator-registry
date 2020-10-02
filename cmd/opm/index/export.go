@@ -39,6 +39,7 @@ func newIndexExportCmd() *cobra.Command {
 	if err := indexCmd.MarkFlagRequired("index"); err != nil {
 		logrus.Panic("Failed to set required `index` flag for `index export`")
 	}
+	indexCmd.Flags().StringP("", "o", "", "the package to export. Deprecated, please use --package flag")
 	indexCmd.Flags().StringSliceP("package", "p", nil, "comma separated list of packages to export")
 	indexCmd.Flags().StringP("download-folder", "f", "downloaded", "directory where downloaded operator bundle(s) will be stored")
 	indexCmd.Flags().StringP("container-tool", "c", "none", "tool to interact with container images (save, build, etc.). One of: [none, docker, podman]")
@@ -59,6 +60,10 @@ func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
 	packages, err := cmd.Flags().GetStringSlice("package")
 	if err != nil {
 		return err
+	}
+
+	if p, err := cmd.Flags().GetString(""); err == nil && len(p) > 0 {
+		packages = append(packages, p)
 	}
 
 	downloadPath, err := cmd.Flags().GetString("download-folder")
