@@ -14,7 +14,6 @@ var exportLong = templates.LongDesc(`
 
 	This command will take an index image (specified by the --index option), parse it for the given operator(s) (set by 
 	the --package option) and export the operator metadata into an appregistry compliant format (a package.yaml file). 
-	This command requires access to docker or podman to complete successfully.
 
 	Note: the appregistry format is being deprecated in favor of the new index image and image bundle format. 
 	`)
