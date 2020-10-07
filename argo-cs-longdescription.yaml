@@ -1,0 +1,22 @@
+
+
+apiVersion: operators.coreos.com/v1alpha1
+
+kind: CatalogSource
+
+metadata:
+
+  name: argo-longdescription-xiaocwan
+
+  namespace: openshift-marketplace
+
+spec:
+
+  sourceType: grpc
+
+  image: quay.io/xiaocwan/argo-longdescription:0.0.12
+
+  displayName: argo-longdescription test
+
+  publisher: xiaocwan
+

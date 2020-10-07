@@ -1,0 +1,19 @@
+apiVersion: operators.coreos.com/v1alpha1
+
+kind: CatalogSource
+
+metadata:
+
+  name: jaeger-operator-xiaocwan
+
+  namespace: openshift-marketplace
+
+spec:
+
+  sourceType: grpc
+
+#  image: quay.io/xiaocwan/jaeger-operator-neg.v1.18.1 
+  image: quay.io/xiaocwan/jaeger-operator-normal.v1.18.1:latest
+  displayName: jaeger operator should not display
+
+  publisher: xiaocwan

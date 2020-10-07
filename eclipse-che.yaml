@@ -1,0 +1,18 @@
+apiVersion: operators.coreos.com/v1alpha1
+
+kind: CatalogSource
+
+metadata:
+
+  name: eclipse-operator-xiaocwan
+
+  namespace: placeholder
+
+spec:
+
+  sourceType: grpc
+  image: quay.io/xiaocwan/eclipse-che:bug1856948
+
+  displayName: eclipse operator
+
+  publisher: xiaocwan

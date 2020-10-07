@@ -1,0 +1,5 @@
+channels:
+  - currentCSV: teiid.v0.3.0
+    name: beta
+defaultChannel: beta
+packageName: teiid
