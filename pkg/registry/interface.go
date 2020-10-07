@@ -12,6 +12,8 @@ type Load interface {
 	AddPackageChannels(manifest PackageManifest) error
 	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
+	RemoveStrandedBundles() ([]string, error)
+	DeprecateBundle(path string) error
 	ClearNonHeadBundles() error
 }
 
@@ -55,6 +57,8 @@ type Query interface {
 	ListBundles(ctx context.Context) (bundles []*api.Bundle, err error)
 	// Get the list of dependencies for a bundle
 	GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error)
+	// Get the bundle path if it exists
+	GetBundlePathIfExists(ctx context.Context, csvName string) (string, error)
 }
 
 // GraphLoader generates a graph

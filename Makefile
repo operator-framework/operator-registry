@@ -28,6 +28,14 @@ $(OPM):
 .PHONY: build
 build: clean $(CMDS) $(OPM)
 
+.PHONY: cross
+cross: opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
+cross:
+ifeq ($(shell go env GOARCH),amd64)
+	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) $(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang" ./cmd/opm
+	GOOS=windows CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) $(TAGS)  -o "bin/windows-amd64-opm" --ldflags "-extld=x86_64-w64-mingw32-gcc" ./cmd/opm
+endif
+
 .PHONY: static
 static: extra_flags=-ldflags '-w -extldflags "-static"' -tags "json1"
 static: build
@@ -35,6 +43,18 @@ static: build
 .PHONY: unit
 unit:
 	$(GO) test $(SPECIFIC_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 -v ./pkg/...
+
+.PHONY: sanity-check
+sanity-check:
+	# Build a container with the most recent binaries for this project.
+	# Does not include the database, which needs to be added separately.
+	docker build -f upstream-builder.Dockerfile -t sanity-container .
+
+	# TODO: add more invocations of the opm binary here
+
+	# serve the container for a second, using the bundles.db in testdata
+	docker run --rm -it -v "$(shell pwd)"/pkg/lib/indexer/testdata/:/database sanity-container \
+		./bin/opm registry serve --database /database/bundles.db --timeout-seconds 1
 
 .PHONY: image
 image:

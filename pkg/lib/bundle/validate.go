@@ -180,7 +180,7 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 
 	for label, item := range annotations {
 		val, ok := fileAnnotations.Annotations[label]
-		if !ok {
+		if !ok && label != ChannelDefaultLabel {
 			aErr := fmt.Errorf("Missing annotation %q", label)
 			validationErrors = append(validationErrors, aErr)
 		}
@@ -201,20 +201,19 @@ func validateAnnotations(mediaType string, fileAnnotations *AnnotationMetadata) 
 				aErr := fmt.Errorf("Expecting annotation %q to have value %q instead of %q", label, MetadataDir, val)
 				validationErrors = append(validationErrors, aErr)
 			}
-		case ChannelsLabel, ChannelDefaultLabel:
+		case ChannelsLabel:
 			if val == "" {
 				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
 				validationErrors = append(validationErrors, aErr)
-			} else {
-				annotations[label] = val
+			}
+		case ChannelDefaultLabel:
+			if ok && val == "" {
+				aErr := fmt.Errorf("Expecting annotation %q to have non-empty value", label)
+				validationErrors = append(validationErrors, aErr)
 			}
 		}
 	}
 
-	_, err := ValidateChannelDefault(annotations[ChannelsLabel], annotations[ChannelDefaultLabel])
-	if err != nil {
-		validationErrors = append(validationErrors, err)
-	}
 	return validationErrors
 }
 
@@ -231,6 +230,8 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 			case registry.GVKDependency:
 				errs = dp.Validate()
 			case registry.PackageDependency:
+				errs = dp.Validate()
+			case registry.LabelDependency:
 				errs = dp.Validate()
 			default:
 				errs = append(errs, fmt.Errorf("unsupported dependency type %s", d.GetType()))

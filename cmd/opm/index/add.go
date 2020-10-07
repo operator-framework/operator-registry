@@ -49,11 +49,11 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().Bool("generate", false, "if enabled, just creates the dockerfile and saves it to local disk")
 	indexCmd.Flags().StringP("out-dockerfile", "d", "", "if generating the dockerfile, this flag is used to (optionally) specify a dockerfile name")
 	indexCmd.Flags().StringP("from-index", "f", "", "previous index to add to")
+	// adding empty list of strings is a valid value.
 	indexCmd.Flags().StringSliceP("bundles", "b", nil, "comma separated list of bundles to add")
 	if err := indexCmd.MarkFlagRequired("bundles"); err != nil {
 		logrus.Panic("Failed to set required `bundles` flag for `index add`")
 	}
-	indexCmd.Flags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles")
 	indexCmd.Flags().StringP("binary-image", "i", "", "container image for on-image `opm` command")
 	indexCmd.Flags().StringP("container-tool", "c", "", "tool to interact with container images (save, build, etc.). One of: [docker, podman]")
 	indexCmd.Flags().StringP("build-tool", "u", "", "tool to build container images. One of: [docker, podman]. Defaults to podman. Overrides part of container-tool.")
@@ -62,6 +62,10 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
 	indexCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
+	indexCmd.Flags().Bool("overwrite-latest", false, "overwrite the latest bundles (channel heads) with those of the same csv name given by --bundles")
+	if err := indexCmd.Flags().MarkHidden("overwrite-latest"); err != nil {
+		logrus.Panic(err.Error())
+	}
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
@@ -118,6 +122,11 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	overwrite, err := cmd.Flags().GetBool("overwrite-latest")
+	if err != nil {
+		return err
+	}
+
 	modeEnum, err := registry.GetModeFromString(mode)
 	if err != nil {
 		return err
@@ -147,6 +156,7 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		Permissive:        permissive,
 		Mode:              modeEnum,
 		SkipTLS:           skipTLS,
+		Overwrite:         overwrite,
 	}
 
 	err = indexAdder.AddToIndex(request)

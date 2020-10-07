@@ -112,9 +112,6 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 
 		if channelDefault == "" {
 			channelDefault = i.GetDefaultChannel()
-			if !containsString(strings.Split(channels, ","), channelDefault) {
-				channelDefault = ""
-			}
 			log.Infof("Inferred default channel: %s", channelDefault)
 		}
 	}
@@ -293,53 +290,24 @@ func ValidateAnnotations(existing, expected []byte) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-// ValidateChannelDefault validates provided default channel to ensure it exists in
-// provided channel list.
-func ValidateChannelDefault(channels, channelDefault string) (string, error) {
-	var chanDefault string
-	var chanErr error
-	channelList := strings.Split(channels, ",")
-
-	if containsString(channelList, "") {
-		return chanDefault, fmt.Errorf("invalid channels are provided: %s", channels)
-	}
-
-	if channelDefault != "" {
-		for _, channel := range channelList {
-			if channel == channelDefault {
-				chanDefault = channelDefault
-				break
-			}
-		}
-		if chanDefault == "" {
-			chanDefault = channelList[0]
-			chanErr = fmt.Errorf(`The channel list "%s" doesn't contain channelDefault "%s"`, channels, channelDefault)
-		}
-	}
-	return chanDefault, chanErr
-}
-
 // GenerateAnnotations builds annotations.yaml with mediatype, manifests &
 // metadata directories in bundle image, package name, channels and default
 // channels information.
 func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, channelDefault string) ([]byte, error) {
 	annotations := &AnnotationMetadata{
 		Annotations: map[string]string{
-			MediatypeLabel:      mediaType,
-			ManifestsLabel:      manifests,
-			MetadataLabel:       metadata,
-			PackageLabel:        packageName,
-			ChannelsLabel:       channels,
-			ChannelDefaultLabel: channelDefault,
+			MediatypeLabel: mediaType,
+			ManifestsLabel: manifests,
+			MetadataLabel:  metadata,
+			PackageLabel:   packageName,
+			ChannelsLabel:  channels,
 		},
 	}
 
-	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
-	if err != nil {
-		return nil, err
+	// Only add defaultChannel annotation if present
+	if channelDefault != "" {
+		annotations.Annotations[ChannelDefaultLabel] = channelDefault
 	}
-
-	annotations.Annotations[ChannelDefaultLabel] = chanDefault
 
 	afile, err := yaml.Marshal(annotations)
 	if err != nil {
@@ -354,11 +322,6 @@ func GenerateAnnotations(mediaType, manifests, metadata, packageName, channels, 
 // channels information in LABEL section.
 func GenerateDockerfile(mediaType, manifests, metadata, copyManifestDir, copyMetadataDir, workingDir, packageName, channels, channelDefault string) ([]byte, error) {
 	var fileContent string
-
-	chanDefault, err := ValidateChannelDefault(channels, channelDefault)
-	if err != nil {
-		return nil, err
-	}
 
 	relativeManifestDirectory, err := filepath.Rel(workingDir, copyManifestDir)
 	if err != nil {
@@ -379,7 +342,11 @@ func GenerateDockerfile(mediaType, manifests, metadata, copyManifestDir, copyMet
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", MetadataLabel, metadata)
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", PackageLabel, packageName)
 	fileContent += fmt.Sprintf("LABEL %s=%s\n", ChannelsLabel, channels)
-	fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, chanDefault)
+
+	// Only add defaultChannel annotation if present
+	if channelDefault != "" {
+		fileContent += fmt.Sprintf("LABEL %s=%s\n\n", ChannelDefaultLabel, channelDefault)
+	}
 
 	// CONTENT
 	fileContent += fmt.Sprintf("COPY %s %s\n", relativeManifestDirectory, "/manifests/")
@@ -388,7 +355,7 @@ func GenerateDockerfile(mediaType, manifests, metadata, copyManifestDir, copyMet
 	return []byte(fileContent), nil
 }
 
-// Write `fileName` file with `content` into a `directory`
+// WriteFile writes `fileName` file with `content` into a `directory`
 // Note: Will overwrite the existing `fileName` file if it exists
 func WriteFile(fileName, directory string, content []byte) error {
 	if _, err := os.Stat(directory); os.IsNotExist(err) {

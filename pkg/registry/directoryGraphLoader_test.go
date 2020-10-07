@@ -63,6 +63,26 @@ func TestPackageGraphLoader(t *testing.T) {
 			dir:  "testdata/invalidPackges/3scale-community-operator",
 			fail: true,
 		},
+		{
+			dir:            "./testdata/validPackages/aqua/",
+			fail:           false,
+			packageName:    "aqua",
+			defaultChannel: "stable",
+			channel: map[string]Channel{
+				"stable": {Head: BundleKey{CsvName: "aqua-operator.v1.0.0"},
+					Nodes: map[BundleKey]map[BundleKey]struct{}{
+						BundleKey{CsvName: "aqua-operator.v1.0.0"}: {},
+					}},
+				"alpha": {Head: BundleKey{CsvName: "aqua-operator.v1.0.0"},
+					Nodes: map[BundleKey]map[BundleKey]struct{}{
+						BundleKey{CsvName: "aqua-operator.v1.0.0"}: {},
+					}},
+				"beta": {Head: BundleKey{CsvName: "aqua-operator.v0.0.1"},
+					Nodes: map[BundleKey]map[BundleKey]struct{}{
+						BundleKey{CsvName: "aqua-operator.v0.0.1"}: {},
+					}},
+			},
+		},
 	}
 
 	for _, tt := range tests {

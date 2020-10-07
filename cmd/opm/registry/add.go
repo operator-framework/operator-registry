@@ -73,9 +73,14 @@ func addFunc(cmd *cobra.Command, args []string) error {
 		Bundles:       bundleImages,
 		Mode:          modeEnum,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		Overwrite:     false,
 	}
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
+
+	if skipTLS {
+		logger.Warn("--skip-tls flag is set: this mode is insecure and meant for development purposes only.")
+	}
 
 	logger.Info("adding to the registry")
 

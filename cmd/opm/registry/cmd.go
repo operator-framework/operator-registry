@@ -24,6 +24,7 @@ func NewOpmRegistryCmd() *cobra.Command {
 	rootCmd.AddCommand(newRegistryAddCmd())
 	rootCmd.AddCommand(newRegistryRmCmd())
 	rootCmd.AddCommand(newRegistryPruneCmd())
+	rootCmd.AddCommand(newRegistryPruneStrandedCmd())
 
 	return rootCmd
 }
