@@ -14,6 +14,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
     chmod +x /bin/grpc_health_probe
 
 FROM scratch
+COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY --from=builder /build/bin/registry-server /registry-server
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
 EXPOSE 50051

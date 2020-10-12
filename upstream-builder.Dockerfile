@@ -15,6 +15,8 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
 
 FROM alpine:3
 
+COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
+
 RUN chgrp -R 0 /etc && \
     chmod -R g+rwx /etc
 

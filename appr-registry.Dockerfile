@@ -22,6 +22,7 @@ COPY --from=builder /go/src/github.com/operator-framework/operator-registry/vend
 RUN CGO_ENABLED=0 go install -a -tags netgo -ldflags "-w"
 
 FROM scratch
+COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY --from=builder /go/src/github.com/operator-framework/operator-registry/bin/appregistry-server /bin/appregistry-server
 COPY --from=probe-builder /go/bin/grpc-health-probe /bin/grpc_health_probe
 EXPOSE 50051
