@@ -15,5 +15,6 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
 
 FROM alpine
 RUN apk update && apk add ca-certificates
+COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY --from=builder /build/bin/opm /bin/opm
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
