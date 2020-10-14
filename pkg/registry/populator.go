@@ -165,33 +165,42 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 		// Additionally, it would be preferrable if there was a single database transaction
 		// that took the updated graph as a whole as input, rather than inserting bundles of the
 		// same package linearly.
-		var err error
-		var validImagesToAdd []*ImageInput
-
 		for pkg := range i.overwriteDirMap {
 			// TODO: If this succeeds but the add fails there will be a disconnect between
 			// the registry and the index. Loading the bundles in a single transactions as
 			// described above would allow us to do the removable in that same transaction
 			// and ensure that rollback is possible.
-			err := i.loader.RemovePackage(pkg)
-			if err != nil {
+			if err := i.loader.RemovePackage(pkg); err != nil {
 				return err
 			}
 		}
 
-		imagesToAdd = append(imagesToAdd, imagesToReAdd...)
+		var errs []error
+		stream, err := NewReplacesInputStream(i.graphLoader, append(imagesToAdd, imagesToReAdd...))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Input error: %s", err))
+			// Don't return yet since stream may be partially initialized and still useful
+		}
+		if stream == nil {
+			return utilerrors.NewAggregate(errs)
+		}
 
-		for len(imagesToAdd) > 0 {
-			validImagesToAdd, imagesToAdd, err = i.getNextReplacesImagesToAdd(imagesToAdd)
+		for !stream.Empty() {
+			next, err := stream.Next()
 			if err != nil {
-				return err
+				errs = append(errs, err)
+				break
 			}
-			for _, image := range validImagesToAdd {
-				err := i.loadManifestsReplaces(image.Bundle, image.AnnotationsFile)
-				if err != nil {
-					return err
-				}
+
+			if err = i.loadManifestsReplaces(next.Bundle, next.AnnotationsFile); err != nil {
+				errs = append(errs, err)
+				break
 			}
+
+		}
+
+		if len(errs) > 0 {
+			return utilerrors.NewAggregate(errs)
 		}
 	case SemVerMode:
 		for _, image := range imagesToAdd {
@@ -238,65 +247,6 @@ func (i *DirectoryPopulator) loadManifestsReplaces(bundle *Bundle, annotationsFi
 	}
 
 	return nil
-}
-
-func (i *DirectoryPopulator) getNextReplacesImagesToAdd(imagesToAdd []*ImageInput) ([]*ImageInput, []*ImageInput, error) {
-	remainingImages := make([]*ImageInput, 0)
-	foundImages := make([]*ImageInput, 0)
-
-	var errs []error
-
-	// Separate these image sets per package, since multiple different packages have
-	// separate graph
-	imagesPerPackage := make(map[string][]*ImageInput, 0)
-	for _, image := range imagesToAdd {
-		pkg := image.Bundle.Package
-		if _, ok := imagesPerPackage[pkg]; !ok {
-			newPkgImages := make([]*ImageInput, 0)
-			newPkgImages = append(newPkgImages, image)
-			imagesPerPackage[pkg] = newPkgImages
-		} else {
-			imagesPerPackage[pkg] = append(imagesPerPackage[pkg], image)
-		}
-	}
-
-	for pkg, pkgImages := range imagesPerPackage {
-		// keep a tally of valid and invalid images to ensure at least one
-		// image per package is valid. If not, throw an error
-		pkgRemainingImages := 0
-		pkgFoundImages := 0
-
-		// first, try to pull the existing package graph from the database if it exists
-		graph, err := i.graphLoader.Generate(pkg)
-		if err != nil && !errors.Is(err, ErrPackageNotInDatabase) {
-			return nil, nil, err
-		}
-
-		var pkgErrs []error
-		// then check each image to see if it can be a replacement
-		replacesLoader := ReplacesGraphLoader{}
-		for _, pkgImage := range pkgImages {
-			canAdd, err := replacesLoader.CanAdd(pkgImage.Bundle, graph)
-			if err != nil {
-				pkgErrs = append(pkgErrs, err)
-			}
-			if canAdd {
-				pkgFoundImages++
-				foundImages = append(foundImages, pkgImage)
-			} else {
-				pkgRemainingImages++
-				remainingImages = append(remainingImages, pkgImage)
-			}
-		}
-
-		// no new images can be added, the current iteration aggregates all the
-		// errors that describe invalid bundles
-		if pkgFoundImages == 0 && pkgRemainingImages > 0 {
-			errs = append(errs, pkgErrs...)
-		}
-	}
-
-	return foundImages, remainingImages, utilerrors.NewAggregate(errs)
 }
 
 func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, annotations *AnnotationsFile, skippatch bool) error {
