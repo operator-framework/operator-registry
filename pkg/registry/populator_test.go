@@ -8,21 +8,19 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
-
-	"k8s.io/apimachinery/pkg/util/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 func init() {
@@ -328,7 +326,7 @@ func TestImageLoading(t *testing.T) {
 			wantPackages: []*registry.Package{
 				{
 					Name:           "prometheus",
-					DefaultChannel: "beta",
+					DefaultChannel: "preview",
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -343,11 +341,11 @@ func TestImageLoading(t *testing.T) {
 						"beta": {
 							Head: registry.BundleKey{
 								BundlePath: "quay.io/prometheus/operator:0.14.0-beta",
-								Version:    "0.14.0",
+								Version:    "0.14.0-beta",
 								CsvName:    "prometheusoperator.0.14.0-beta",
 							},
 							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-								{BundlePath: "quay.io/prometheus/operator:0.14.0-beta", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0-beta"}: {},
+								{BundlePath: "quay.io/prometheus/operator:0.14.0-beta", Version: "0.14.0-beta", CsvName: "prometheusoperator.0.14.0-beta"}: {},
 							},
 						},
 					},
@@ -713,11 +711,11 @@ func TestDirectoryPopulator(t *testing.T) {
 		image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
 		image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
 	}
-	expectedErr := errors.NewAggregate([]error{
-		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
-		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
-	})
-	require.ElementsMatch(t, expectedErr, populate(add))
+
+	err = populate(add)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"))
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"))
 }
 
 func TestDeprecateBundle(t *testing.T) {
@@ -857,6 +855,7 @@ func TestDeprecateBundle(t *testing.T) {
 
 			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
 			err = deprecator.Deprecate()
+			fmt.Printf("error: %s\n", err)
 			require.Equal(t, tt.expected.err, err)
 
 			// Ensure remaining bundlePaths in db match
@@ -914,7 +913,7 @@ func TestOverwrite(t *testing.T) {
 	}
 	type pkgChannel map[string][]string
 	type expected struct {
-		err                      error
+		errs                     []error
 		remainingBundles         []string
 		remainingPkgChannels     pkgChannel
 		remainingDefaultChannels map[string]string
@@ -943,10 +942,10 @@ func TestOverwrite(t *testing.T) {
 				overwrites: nil,
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{
-					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
-					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
-				}),
+				errs: []error{
+					fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
+					fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
+				},
 				remainingBundles: []string{
 					"quay.io/test/prometheus.0.14.0/preview",
 				},
@@ -971,7 +970,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"etcd": {}},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/new-etcd.0.9.0/alpha",
 					"quay.io/test/new-etcd.0.9.0/beta",
@@ -1010,7 +1009,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"etcd": getBundleRefs([]string{"etcd.0.9.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1051,7 +1050,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0", "prometheus.0.15.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1096,7 +1095,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1137,7 +1136,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{registry.OverwriteErr{ErrorString: "Cannot overwrite a bundle that is not at the head of a channel using --overwrite-latest"}}),
+				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite a bundle that is not at the head of a channel using --overwrite-latest"}},
 				remainingBundles: []string{
 					"quay.io/test/prometheus.0.14.0/preview",
 					"quay.io/test/prometheus.0.14.0/stable",
@@ -1170,7 +1169,7 @@ func TestOverwrite(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1215,7 +1214,7 @@ func TestOverwrite(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{registry.OverwriteErr{ErrorString: "Cannot overwrite more than one bundle at a time for a given package using --overwrite-latest"}}),
+				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite more than one bundle at a time for a given package using --overwrite-latest"}},
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1272,19 +1271,14 @@ func TestOverwrite(t *testing.T) {
 					true).Populate(registry.ReplacesMode)
 			}
 			require.NoError(t, populate(tt.args.firstAdd, nil))
-			popErr := populate(tt.args.secondAdd, tt.args.overwrites)
-			if agg, ok := popErr.(utilerrors.Aggregate); ok {
-				// The order of the errors that
-				// comprise an aggregate error isn't
-				// important to the tested behaviors,
-				// so sort them:
-				errs := agg.Errors()
-				sort.Slice(errs, func(i, j int) bool {
-					return errs[i].Error() < errs[j].Error()
-				})
-				popErr = utilerrors.NewAggregate(errs)
+
+			err = populate(tt.args.secondAdd, tt.args.overwrites)
+			if len(tt.expected.errs) < 1 {
+				require.NoError(t, err)
 			}
-			require.Equal(t, tt.expected.err, popErr)
+			for _, e := range tt.expected.errs {
+				require.Contains(t, err.Error(), e.Error())
+			}
 
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
@@ -1316,6 +1310,194 @@ func TestOverwrite(t *testing.T) {
 				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
 				require.Equal(t, tt.expected.remainingDefaultChannels[pkg], defaultChannel)
 			}
+		})
+	}
+}
+
+func TestSemverPackageManifest(t *testing.T) {
+	bundle := func(name, version, pkg, defaultChannel, channels string) *registry.Bundle {
+		b, err := registry.NewBundleFromStrings(name, version, pkg, defaultChannel, channels, "")
+		require.NoError(t, err)
+		return b
+	}
+	type args struct {
+		bundles []*registry.Bundle
+	}
+	type expect struct {
+		packageManifest *registry.PackageManifest
+		hasError        bool
+	}
+	for _, tt := range []struct {
+		description string
+		args        args
+		expect      expect
+	}{
+		{
+			description: "OneUnversioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator", "", "package", "stable", "stable"), // version "" is interpreted as 0.0.0-z
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "TwoUnversioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "", "package", "stable", "stable"),
+					bundle("operator-2", "", "package", "stable", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "UnversionedAndVersioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "", "package", "", "stable"),
+					bundle("operator-2", "", "package", "", "stable"),
+					bundle("operator-3", "0.0.1", "package", "", "stable"), // As long as there is one version, we should be good
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "MaxVersionsAreChannelHeads",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.1.0", "package", "stable", "slow,stable"),
+					bundle("operator-3", "2.1.0", "package", "stable", "edge"),
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "slow",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "edge",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "DuplicateVersionsNotTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "slow,stable"),
+					bundle("operator-3", "2.1.0", "package", "stable", "edge"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "DuplicateVersionsInSeparateChannelsAreTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "stable"),
+					bundle("operator-3", "2.1.0", "package", "edge", "edge"), // Should only be tolerated if we have a global max
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "edge",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "slow",
+							CurrentCSVName: "operator-1",
+						},
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "edge",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "DuplicateMaxVersionsAreNotTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "UnknownDefaultChannel",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "stable", "stable"),
+					bundle("operator-2", "2.0.0", "package", "edge", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+	} {
+		t.Run(tt.description, func(t *testing.T) {
+			packageManifest, err := registry.SemverPackageManifest(tt.args.bundles)
+			if tt.expect.hasError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, packageManifest)
+
+			expected := tt.expect.packageManifest
+			require.Equal(t, expected.PackageName, packageManifest.PackageName)
+			require.Equal(t, expected.DefaultChannelName, packageManifest.DefaultChannelName)
+			require.ElementsMatch(t, expected.Channels, packageManifest.Channels)
 		})
 	}
 }
