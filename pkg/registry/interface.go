@@ -61,6 +61,8 @@ type Query interface {
 	GetBundlePathIfExists(ctx context.Context, csvName string) (string, error)
 }
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . GraphLoader
+
 // GraphLoader generates a graph
 // GraphLoader supports multiple different loading schemes
 // GraphLoader from SQL, GraphLoader from old format (filesystem), GraphLoader from SQL + input bundles

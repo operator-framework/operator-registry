@@ -45,8 +45,8 @@ const (
 	// The yaml attribute that specifies the related images of the ClusterServiceVersion
 	relatedImages = "relatedImages"
 
-	// The yaml attribute that specifies the skipRange of the ClusterServiceVersion
-	skipRangeAnnotationKey = "olm.skipRange"
+	// SkipRangeAnnotationKey is the yaml attribute that specifies the skipRange of the ClusterServiceVersion
+	SkipRangeAnnotationKey = "olm.skipRange"
 )
 
 // ClusterServiceVersion is a structured representation of cluster service
@@ -166,7 +166,7 @@ func (csv *ClusterServiceVersion) GetVersion() (string, error) {
 //
 // If not defined, the function returns an empty string.
 func (csv *ClusterServiceVersion) GetSkipRange() string {
-	skipRange, ok := csv.Annotations[skipRangeAnnotationKey]
+	skipRange, ok := csv.Annotations[SkipRangeAnnotationKey]
 	if !ok {
 		return ""
 	}

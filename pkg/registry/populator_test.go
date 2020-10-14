@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -713,11 +712,11 @@ func TestDirectoryPopulator(t *testing.T) {
 		image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
 		image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
 	}
-	expectedErr := errors.NewAggregate([]error{
-		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
-		fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
-	})
-	require.ElementsMatch(t, expectedErr, populate(add))
+
+	err = populate(add)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"))
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"))
 }
 
 func TestDeprecateBundle(t *testing.T) {
@@ -914,7 +913,7 @@ func TestOverwrite(t *testing.T) {
 	}
 	type pkgChannel map[string][]string
 	type expected struct {
-		err                      error
+		errs                     []error
 		remainingBundles         []string
 		remainingPkgChannels     pkgChannel
 		remainingDefaultChannels map[string]string
@@ -943,10 +942,10 @@ func TestOverwrite(t *testing.T) {
 				overwrites: nil,
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{
+				errs: []error{
 					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
 					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
-				}),
+				},
 				remainingBundles: []string{
 					"quay.io/test/prometheus.0.14.0/preview",
 				},
@@ -971,7 +970,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"etcd": {}},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/new-etcd.0.9.0/alpha",
 					"quay.io/test/new-etcd.0.9.0/beta",
@@ -1010,7 +1009,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"etcd": getBundleRefs([]string{"etcd.0.9.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1051,7 +1050,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0", "prometheus.0.15.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1096,7 +1095,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1137,7 +1136,7 @@ func TestOverwrite(t *testing.T) {
 				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{registry.OverwriteErr{ErrorString: "Cannot overwrite a bundle that is not at the head of a channel using --overwrite-latest"}}),
+				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite a bundle that is not at the head of a channel using --overwrite-latest"}},
 				remainingBundles: []string{
 					"quay.io/test/prometheus.0.14.0/preview",
 					"quay.io/test/prometheus.0.14.0/stable",
@@ -1170,7 +1169,7 @@ func TestOverwrite(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: nil,
+				errs: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1215,7 +1214,7 @@ func TestOverwrite(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{registry.OverwriteErr{ErrorString: "Cannot overwrite more than one bundle at a time for a given package using --overwrite-latest"}}),
+				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite more than one bundle at a time for a given package using --overwrite-latest"}},
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -1272,19 +1271,14 @@ func TestOverwrite(t *testing.T) {
 					true).Populate(registry.ReplacesMode)
 			}
 			require.NoError(t, populate(tt.args.firstAdd, nil))
-			popErr := populate(tt.args.secondAdd, tt.args.overwrites)
-			if agg, ok := popErr.(utilerrors.Aggregate); ok {
-				// The order of the errors that
-				// comprise an aggregate error isn't
-				// important to the tested behaviors,
-				// so sort them:
-				errs := agg.Errors()
-				sort.Slice(errs, func(i, j int) bool {
-					return errs[i].Error() < errs[j].Error()
-				})
-				popErr = utilerrors.NewAggregate(errs)
+
+			err = populate(tt.args.secondAdd, tt.args.overwrites)
+			if len(tt.expected.errs) < 1 {
+				require.NoError(t, err)
 			}
-			require.Equal(t, tt.expected.err, popErr)
+			for _, e := range tt.expected.errs {
+				require.Contains(t, err.Error(), e.Error())
+			}
 
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
