@@ -163,19 +163,21 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 	}
 }
 
-func TestGenerateDockerfileFunc(t *testing.T) {
-	output := fmt.Sprintf("FROM scratch\n\n"+
-		"LABEL operators.operatorframework.io.bundle.mediatype.v1=test1\n"+
-		"LABEL operators.operatorframework.io.bundle.manifests.v1=test2\n"+
-		"LABEL operators.operatorframework.io.bundle.metadata.v1=%s\n"+
-		"LABEL operators.operatorframework.io.bundle.package.v1=test4\n"+
-		"LABEL operators.operatorframework.io.bundle.channels.v1=test5\n"+
-		"COPY test2 /manifests/\n"+
-		"COPY metadata /metadata/\n", MetadataDir)
+func TestGenerateDockerfile(t *testing.T) {
+	expected := `FROM scratch
 
-	content, err := GenerateDockerfile("test1", "test2", MetadataDir, "test2/", "metadata/", "./", "test4", "test5", "")
+LABEL operators.operatorframework.io.bundle.mediatype.v1=test1
+LABEL operators.operatorframework.io.bundle.manifests.v1=test2
+LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
+LABEL operators.operatorframework.io.bundle.package.v1=test4
+LABEL operators.operatorframework.io.bundle.channels.v1=test5
+COPY a/b/c /manifests/
+COPY x/y/z /metadata/
+`
+
+	actual, err := GenerateDockerfile("test1", "test2", "metadata/", filepath.Join("a", "b", "c"), filepath.Join("x", "y", "z"), "./", "test4", "test5", "")
 	require.NoError(t, err)
-	require.Equal(t, output, string(content))
+	require.Equal(t, expected, string(actual))
 }
 
 func TestCopyYamlOutput(t *testing.T) {
