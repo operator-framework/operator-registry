@@ -924,19 +924,20 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 	return "", nil
 }
 
-func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
-	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
-	channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, operatorbundle.replaces, operatorbundle.skips,
-	operatorbundle.version, operatorbundle.skiprange,
-	dependencies.type, dependencies.value,
-	properties.type, properties.value
-	FROM channel_entry
-	INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
-	LEFT OUTER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
-	LEFT OUTER JOIN properties ON properties.operatorbundle_name = channel_entry.operatorbundle_name
-	INNER JOIN package ON package.name = channel_entry.package_name`
+const listBundlesQuery = `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
+channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, replaced_entry.operatorbundle_name, operatorbundle.skips,
+operatorbundle.version, operatorbundle.skiprange,
+dependencies.type, dependencies.value,
+properties.type, properties.value
+FROM channel_entry
+LEFT OUTER JOIN channel_entry AS replaced_entry ON channel_entry.replaces = replaced_entry.entry_id
+INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
+LEFT OUTER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
+LEFT OUTER JOIN properties ON properties.operatorbundle_name = channel_entry.operatorbundle_name
+INNER JOIN package ON package.name = channel_entry.package_name`
 
-	rows, err := s.db.QueryContext(ctx, query)
+func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	rows, err := s.db.QueryContext(ctx, listBundlesQuery)
 	if err != nil {
 		return nil, err
 	}
