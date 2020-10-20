@@ -153,6 +153,9 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 	return graph, nil
 }
 
+// isSkipPatchCandidate returns true if version is equal to toCompare
+// in major and minor positions and strictly greater in all others,
+// indicating that toCompare can be skipped over to version.
 func isSkipPatchCandidate(version, toCompare semver.Version) bool {
-	return (version.Major == toCompare.Major) && (version.Minor == toCompare.Minor) && (version.Patch > toCompare.Patch)
+	return (version.Major == toCompare.Major) && (version.Minor == toCompare.Minor) && version.GT(toCompare)
 }
