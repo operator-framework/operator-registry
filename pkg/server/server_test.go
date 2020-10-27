@@ -26,12 +26,8 @@ const (
 	dbName  = "test.db"
 )
 
-func server() {
+func server(lis net.Listener) {
 	_ = os.Remove(dbName)
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		logrus.Fatalf("failed to listen: %v", err)
-	}
 	s := grpc.NewServer()
 
 	db, err := sql.Open("sqlite3", dbName)
@@ -66,7 +62,11 @@ func server() {
 }
 
 func TestMain(m *testing.M) {
-	go server()
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		logrus.Fatalf("failed to listen: %v", err)
+	}
+	go server(lis)
 	exit := m.Run()
 	if err := os.Remove(dbName); err != nil {
 		logrus.Fatalf("couldn't remove db")
@@ -841,7 +841,6 @@ func TestListBundles(t *testing.T) {
 		"strimzi-cluster-operator.v0.11.1",
 		"etcdoperator.v0.9.0",
 	}
-
 
 	var names []string
 	var gotBundles = make([]*api.Bundle, 0)
