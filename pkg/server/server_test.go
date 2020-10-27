@@ -24,7 +24,7 @@ const (
 	dbName  = "test.db"
 )
 
-func server(lis net.Listener) {
+func server() *grpc.Server {
 	_ = os.Remove(dbName)
 	s := grpc.NewServer()
 
@@ -54,9 +54,7 @@ func server(lis net.Listener) {
 	}
 
 	api.RegisterRegistryServer(s, NewRegistryServer(store))
-	if err := s.Serve(lis); err != nil {
-		logrus.Fatalf("failed to serve: %v", err)
-	}
+	return s
 }
 
 func TestMain(m *testing.M) {
@@ -64,7 +62,12 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logrus.Fatalf("failed to listen: %v", err)
 	}
-	go server(lis)
+	s := server()
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			logrus.Fatalf("failed to serve: %v", err)
+		}
+	}()
 	exit := m.Run()
 	if err := os.Remove(dbName); err != nil {
 		logrus.Fatalf("couldn't remove db")
