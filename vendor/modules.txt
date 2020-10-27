@@ -334,7 +334,7 @@ github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runc v0.1.1
 github.com/opencontainers/runc/libcontainer/system
-# github.com/operator-framework/api v0.3.7-0.20200602203552-431198de9fc2
+# github.com/operator-framework/api v0.3.22
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/manifests
 github.com/operator-framework/api/pkg/operators
