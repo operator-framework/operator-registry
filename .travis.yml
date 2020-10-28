@@ -55,16 +55,3 @@ script: |
   fi
 notifications:
   email: false
-before_deploy:
-- ls bin | xargs -n1 -I{} mv bin/{} "bin/$(go env GOOS)-$(go env GOARCH)-{}"
-deploy:
-  provider: releases
-  edge: true
-  token:
-    secure: 1mcUdIu9BBQloKWHEXIum9XFunDVDtWvbL5HuebsSJOlePTRnccBnhwwyxytkxO8bkWlB7RXRwa2JRKAOtrB2sgyvG4zthQeiyuq3qNRuZPyl/KxcHT5swYhwXaFy2kSmsG3WJy6Yx+Rw82yDelnyUkv2XcJODcU3Sf0CZIaYmCHmT9dFJ97yGd5x/Xbw+ApBIjRYQgL/NCXcvR/7ftIMUGcYc6zSMG9U6eWCvY28gZGhElvywbm51UuwOzK37jNKrp9xe4c+Fbp+7EqEUY4ooxCxX82PmJRDEcdjY0NLdafmPN40TA6oDB1873OEIWCa7+Lfn5k+X+JTcV/rPOfOIRB0vS04m5HWJONu4gNHB5lYl3DRHonbhF4X/hzkujlFGkWB/3XDwSj9X88McL0P7mwZsXV5KsiH7kqH3FTzlH2Fm3OTHhBOEJ1s+OEcwRlBRahh8LfzD6Da7BNncSWi2zdc7erD5WVmeiJngZXzGquo3Ly3GWB9Pfkd0rriclHC0CmIj5EeD7NBnrCu18dwdlKRR5L18dUmoLV1I/IUh0BIn0i7CNt3iw15LVX4Lk6wz2JzEfytGQ3GzfIf4cPjmGqIYwlOUuyiht7AyEUg3QIBiqTbU/PL+krvFhAtf3RkD7/5+NZF6VF4p4hYXJN0sGq3XOsN7Ol1nVvc6RpAlk=
-  file_glob: true
-  file: bin/**/*-opm
-  cleanup: false
-  on:
-    repo: operator-framework/operator-registry
-    tags: true
