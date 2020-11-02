@@ -1,0 +1,17 @@
+codecov:
+  require_ci_to_pass: no
+  notify:
+    wait_for_ci: no
+coverage:
+  status:
+    patch:
+      default:
+        target: 70%
+        threshold: 0%
+        base: auto
+        branches:
+        - master
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: success
+        only_pulls: true
