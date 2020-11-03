@@ -112,6 +112,10 @@ func (EmptyQuery) ListRegistryBundles(ctx context.Context) ([]*Bundle, error) {
 	return nil, errors.New("empty querier: cannot list registry bundles")
 }
 
+func (EmptyQuery) GetBundleReplacesDepth(ctx context.Context, packageName, bundleName string) (replaceChain map[string]int64, err error) {
+	return nil, errors.New("empty querier: cannot get replaces depth for bundle")
+}
+
 var _ Query = &EmptyQuery{}
 
 func NewEmptyQuerier() *EmptyQuery {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
 
@@ -273,6 +274,77 @@ func TestListBundles(t *testing.T) {
 			} else {
 				assert.EqualError(err, tc.ErrorMessage)
 			}
+		})
+	}
+}
+
+func TestGetBundleReplacesDepth(t *testing.T) {
+	for _, tt := range []struct {
+		Name  string
+		Setup func(t *testing.T, db *sql.DB)
+		Want  map[string]int64
+	}{
+		{
+			Name: "list depth for real replaces entries from channel_entry",
+			Setup: func(t *testing.T, db *sql.DB) {
+				for _, stmt := range []string{
+					`insert into operatorbundle (name) values ("0.0.1"), ("0.2.0"), ("1.0.1-rc2"), ("1.1.1"), ("1.2.0")`,
+					`insert into channel_entry (package_name, channel_name, operatorbundle_name, entry_id, depth) values 
+							("pkg", "stable", "0.0.0", 1, 0),
+							("pkg", "fast", "0.0.0", 2, 0),
+							("pkg", "stable", "0.0.1", 3, 0),
+							("pkg", "stable", "0.1.0", 4, 0),
+							("pkg", "stable", "0.2.0", 5, 0),
+							("pkg", "fast", "0.2.0", 6, 0),
+							("pkg", "fast", "1.0.1-rc1", 7, 0),
+							("pkg", "fast", "1.0.1-rc2", 8, 0),
+							("pkg", "stable", "1.2.0", 9, 0),
+							("pkg", "fast", "1.2.0", 10, 0)`,
+					`insert into channel_entry (package_name, channel_name, operatorbundle_name, entry_id, replaces, depth) values 
+							("pkg", "stable", "1.2.0", 11, 1, 4),
+							("pkg", "stable", "1.2.0", 12, 3, 3),
+							("pkg", "stable", "1.2.0", 13, 4, 2),
+							("pkg", "stable", "1.2.0", 14, 5, 1),
+							("pkg", "fast", "1.2.0", 15, 2, 4),
+							("pkg", "fast", "1.2.0", 16, 6, 3),
+							("pkg", "fast", "1.2.0", 17, 7, 2),
+							("pkg", "fast", "1.2.0", 18, 8, 1)`,
+				} {
+					if _, err := db.Exec(stmt); err != nil {
+						t.Fatalf("unexpected error executing setup statements: %v", err)
+					}
+				}
+			},
+			Want: map[string]int64{
+				"0.0.1":     3,
+				"0.2.0":     1,
+				"1.0.1-rc2": 1,
+			},
+		},
+	} {
+		t.Run(tt.Name, func(t *testing.T) {
+			ctx := context.Background()
+
+			db, err := sql.Open("sqlite3", ":memory:")
+			if err != nil {
+				t.Fatalf("unable to open in-memory sqlite database: %v", err)
+			}
+
+			m, err := sqlite.NewSQLLiteMigrator(db)
+			if err != nil {
+				t.Fatalf("unable to create database migrator: %v", err)
+			}
+
+			if err := m.Migrate(ctx); err != nil {
+				t.Fatalf("failed to perform initial schema migration: %v", err)
+			}
+
+			tt.Setup(t, db)
+
+			q := sqlite.NewSQLLiteQuerierFromDb(db)
+			replaces, err := q.GetBundleReplacesDepth(ctx, "pkg", "1.2.0")
+			require.NoError(t, err)
+			require.EqualValues(t, tt.Want, replaces)
 		})
 	}
 }

@@ -340,3 +340,50 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 
 	return images, nil
 }
+
+// setCSVField sets a top level field on the CSV spec
+func (csv *ClusterServiceVersion) setCSVSpecField(key string, newValue interface{}) (err error) {
+	var objmap map[string]*json.RawMessage
+	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
+		return err
+	}
+
+	if newValue == nil {
+		delete(objmap, key)
+	} else {
+		var newRawValue json.RawMessage
+		newRawValue, err = json.Marshal(newValue)
+		if err != nil {
+			return err
+		}
+		objmap[key] = &newRawValue
+	}
+
+	updatedSpec, err := json.Marshal(objmap)
+	if err != nil {
+		return err
+	}
+	csv.Spec = updatedSpec
+
+	return nil
+}
+
+// GetSkips returns the name of the older ClusterServiceVersion objects that
+// are skipped by this ClusterServiceVersion object.
+//
+// If not defined, the function returns an empty string.
+func (csv *ClusterServiceVersion) SetSkips(newSkips []string) (err error) {
+	if len(newSkips) == 0 {
+		return csv.setCSVSpecField(skips, nil)
+	}
+	return csv.setCSVSpecField(skips, newSkips)
+}
+
+// SetReplaces sets the replaces field on the ClusterServiceVersion.
+// If the new replaces value is empty, it deletes the field.
+func (csv *ClusterServiceVersion) SetReplaces(newReplaces string) (err error) {
+	if len(newReplaces) == 0 {
+		return csv.setCSVSpecField(replaces, nil)
+	}
+	return csv.setCSVSpecField(replaces, newReplaces)
+}

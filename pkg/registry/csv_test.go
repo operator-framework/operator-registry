@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -832,6 +833,145 @@ func TestLoadingCsvFromBundleDirectory(t *testing.T) {
 			csvSkips, err := csv.GetSkips()
 			assert.NoError(t, err)
 			assert.EqualValues(t, tt.skips, csvSkips)
+		})
+	}
+}
+
+func TestSetCSVSpecField(t *testing.T) {
+	tests := []struct {
+		name  string
+		spec  json.RawMessage
+		key   string
+		value interface{}
+		want  json.RawMessage
+	}{
+		{
+			name:  "overwrite value",
+			spec:  json.RawMessage(`{"a":"b","z":0}`),
+			key:   "a",
+			value: "z",
+			want:  json.RawMessage(`{"a":"z","z":0}`),
+		},
+		{
+			name:  "new value",
+			spec:  json.RawMessage(`{"a":"b","z":0}`),
+			key:   "x",
+			value: "x",
+			want:  json.RawMessage(`{"a":"b","x":"x","z":0}`),
+		},
+		{
+			name:  "delete key",
+			spec:  json.RawMessage(`{"a":"b","z":0}`),
+			key:   "a",
+			value: nil,
+			want:  json.RawMessage(`{"z":0}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       tt.spec,
+			}
+			err := csv.setCSVSpecField(tt.key, tt.value)
+			if err != nil {
+				t.Errorf("setCSVSpecField() error = %v", err)
+				return
+			}
+			if bytes.Compare(csv.Spec, tt.want) != 0 {
+				t.Errorf("setCSVSpecField() got = %v, want %v", csv.Spec, string(tt.want))
+			}
+		})
+	}
+}
+
+func TestClusterServiceVersion_SetReplaces(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     json.RawMessage
+		replaces string
+		want     json.RawMessage
+	}{
+		{
+			name:     "overwrite replaces",
+			spec:     json.RawMessage(`{"a":"b","replaces":"v0.9.2","z":0}`),
+			replaces: "v0.9.4",
+			want:     json.RawMessage(`{"a":"b","replaces":"v0.9.4","z":0}`),
+		},
+		{
+			name:     "new replaces",
+			spec:     json.RawMessage(`{"a":"b","z":0}`),
+			replaces: "v0.9.4",
+			want:     json.RawMessage(`{"a":"b","replaces":"v0.9.4","z":0}`),
+		},
+		{
+			name:     "delete replaces",
+			spec:     json.RawMessage(`{"a":"b","replaces":"v0.9.2","z":0}`),
+			replaces: "",
+			want:     json.RawMessage(`{"a":"b","z":0}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       tt.spec,
+			}
+			err := csv.SetReplaces(tt.replaces)
+			if err != nil {
+				t.Errorf("SetReplaces() error = %v", err)
+				return
+			}
+			if bytes.Compare(csv.Spec, tt.want) != 0 {
+				t.Errorf("SetReplaces() got = %v, want %v", csv.Spec, string(tt.want))
+			}
+		})
+	}
+}
+
+func TestClusterServiceVersion_SetSkips(t *testing.T) {
+	tests := []struct {
+		name  string
+		spec  json.RawMessage
+		skips []string
+		want  json.RawMessage
+	}{
+		{
+			name:  "overwrite skips",
+			spec:  json.RawMessage(`{"a":"b","skips":["1.0.1","1.0.2"],"z":0}`),
+			skips: []string{"1.0.5", "1.0.4"},
+			want:  json.RawMessage(`{"a":"b","skips":["1.0.5","1.0.4"],"z":0}`),
+		},
+		{
+			name:  "new skips",
+			spec:  json.RawMessage(`{"a":"b","z":0}`),
+			skips: []string{"1.0.5", "1.0.4"},
+			want:  json.RawMessage(`{"a":"b","skips":["1.0.5","1.0.4"],"z":0}`),
+		},
+		{
+			name:  "v1alpha1 delete skips",
+			spec:  json.RawMessage(`{"a":"b","skips":["1.0.1","1.0.2"],"z":0}`),
+			skips: nil,
+			want:  json.RawMessage(`{"a":"b","z":0}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{},
+				Spec:       tt.spec,
+			}
+			err := csv.SetSkips(tt.skips)
+			if err != nil {
+				t.Errorf("SetSkips() error = %v", err)
+				return
+			}
+			if bytes.Compare(csv.Spec, tt.want) != 0 {
+				t.Errorf("SetSkips() got = %v, want %v", string(csv.Spec), string(tt.want))
+			}
 		})
 	}
 }

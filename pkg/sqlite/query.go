@@ -1335,3 +1335,25 @@ func (s *SQLQuerier) listBundleChannels(ctx context.Context, bundleName string) 
 
 	return channels, nil
 }
+
+func (s *SQLQuerier) GetBundleReplacesDepth(ctx context.Context, packageName, bundleName string) (replaceChain map[string]int64, err error) {
+	query := `SELECT replaces.operatorbundle_name, min(channel_entry.depth)
+			FROM channel_entry
+			inner JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
+			inner JOIN operatorbundle replacesbundle ON replaces.operatorbundle_name = replacesbundle.name
+			WHERE channel_entry.package_name = ? AND channel_entry.operatorbundle_name = ?
+			GROUP BY replaces.operatorbundle_name;`
+	replaceChain = make(map[string]int64)
+	rows, err := s.db.QueryContext(ctx, query, packageName, bundleName)
+	for rows.Next() {
+		var replaces sql.NullString
+		var depth sql.NullInt64
+		if err = rows.Scan(&replaces, &depth); err != nil {
+			return nil, err
+		}
+		if replaces.Valid && depth.Valid {
+			replaceChain[replaces.String] = depth.Int64
+		}
+	}
+	return replaceChain, nil
+}

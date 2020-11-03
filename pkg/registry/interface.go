@@ -61,6 +61,8 @@ type Query interface {
 	GetBundlePathIfExists(ctx context.Context, csvName string) (string, error)
 	// ListRegistryBundles returns a set of registry bundles.
 	ListRegistryBundles(ctx context.Context) ([]*Bundle, error)
+	// Get valid replaces entries and their depth in the replaces chain
+	GetBundleReplacesDepth(ctx context.Context, packageName, bundleName string) (replaceChain map[string]int64, err error)
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . GraphLoader
