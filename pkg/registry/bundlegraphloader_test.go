@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"github.com/blang/semver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -309,6 +310,76 @@ func TestBundleGraphLoader(t *testing.T) {
 			require.NoError(t, err)
 			assert.EqualValues(t, tt.expectedGraph.Name, newGraph.Name)
 			assert.EqualValues(t, tt.expectedGraph, newGraph)
+		})
+	}
+}
+
+func TestIsSkipPatchCandidate(t *testing.T) {
+	tests := []struct{
+		name     string
+		added     string
+		compare  string
+		expected bool
+		commutative bool
+	}{
+		{
+			name: "equal versions",
+			added: "0.0.0",
+			compare: "0.0.0",
+			expected: false,
+			commutative: true,
+		},
+		{
+			name: "do not accept different major/minor version",
+			added: "0.1.0",
+			compare: "0.2.0",
+			expected: false,
+			commutative: true,
+		},
+		{
+			name: "accept larger patch version",
+			added: "0.0.1",
+			compare: "0.0.0",
+			expected: true,
+		},
+		{
+			name: "accept patch version without pre-release",
+			added: "0.0.0",
+			compare: "0.0.0-1",
+			expected: true,
+		},
+		{
+			name: "accept longer pre-release with same prefix",
+			added: "0.0.1-1.2",
+			compare: "0.0.1-1",
+			expected: true,
+		},
+		{
+			name: "accept numerically larger pre-release",
+			added: "0.0.1-11",
+			compare: "0.0.1-2",
+			expected: true,
+		},
+		{
+			name: "accept lexicographically larger pre-release",
+			added: "0.0.1-beta.1",
+			compare: "0.0.1-alpha.1",
+			expected: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			added, err := semver.Make(tt.added)
+			require.NoError(t, err)
+			compare, err := semver.Make(tt.compare)
+			require.NoError(t, err)
+			actual := isSkipPatchCandidate(added, compare)
+			assert.Equal(t, tt.expected, actual)
+
+			if !tt.commutative {
+				reverse := isSkipPatchCandidate(compare, added)
+				assert.Equal(t, !tt.expected, reverse)
+			}
 		})
 	}
 }
