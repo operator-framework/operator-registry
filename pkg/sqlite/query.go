@@ -1151,6 +1151,8 @@ func (s *SQLQuerier) GetBundlePathIfExists(ctx context.Context, bundleName strin
 	if err != nil {
 		return
 	}
+	defer rows.Close()
+
 	if !rows.Next() {
 		// no bundlepath set
 		err = registry.ErrBundleImageNotInDatabase
