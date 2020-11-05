@@ -924,17 +924,80 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 	return "", nil
 }
 
-const listBundlesQuery = `SELECT DISTINCT channel_entry.entry_id, operatorbundle.bundle, operatorbundle.bundlepath,
-channel_entry.operatorbundle_name, channel_entry.package_name, channel_entry.channel_name, replaced_entry.operatorbundle_name, operatorbundle.skips,
-operatorbundle.version, operatorbundle.skiprange,
-dependencies.type, dependencies.value,
-properties.type, properties.value
-FROM channel_entry
-LEFT OUTER JOIN channel_entry AS replaced_entry ON channel_entry.replaces = replaced_entry.entry_id
-INNER JOIN operatorbundle ON operatorbundle.name = channel_entry.operatorbundle_name
-LEFT OUTER JOIN dependencies ON dependencies.operatorbundle_name = channel_entry.operatorbundle_name
-LEFT OUTER JOIN properties ON properties.operatorbundle_name = channel_entry.operatorbundle_name
-INNER JOIN package ON package.name = channel_entry.package_name`
+// Rows in the channel_entry table essentially represent inbound
+// upgrade edges to a bundle. There may be no linear "replaces" chain
+// (for example, when an index is populated using semver-skippatch
+// mode), and there may be multiple inbound "skips" to a single
+// bundle. The ListBundles query determines a single "replaces" value
+// per bundle per channel by recursively following "replaces"
+// references beginning from the entries with minimal depth, which
+// represent channel heads. All other edges are merged into an
+// aggregate "skips" column. The result contains one row per bundle
+// for each channel in which the bundle appears.
+const listBundlesQuery = `
+WITH RECURSIVE
+tip (depth) AS (
+  SELECT min(depth)
+  FROM channel_entry
+), replaces_entry (entry_id, replaces) AS (
+  SELECT entry_id, replaces
+    FROM channel_entry
+      INNER JOIN tip ON channel_entry.depth = tip.depth
+  UNION
+  SELECT channel_entry.entry_id, channel_entry.replaces
+    FROM channel_entry
+      INNER JOIN replaces_entry
+        ON channel_entry.entry_id = replaces_entry.replaces
+), replaces_bundle (entry_id, operatorbundle_name, package_name, channel_name, replaces) AS (
+  SELECT min(all_entry.entry_id), all_entry.operatorbundle_name, all_entry.package_name, all_entry.channel_name, max(replaced_entry.operatorbundle_name)
+    FROM channel_entry AS all_entry
+      LEFT OUTER JOIN replaces_entry
+        ON all_entry.entry_id = replaces_entry.entry_id
+      LEFT OUTER JOIN channel_entry AS replaced_entry
+        ON replaces_entry.replaces = replaced_entry.entry_id
+    GROUP BY all_entry.operatorbundle_name, all_entry.package_name, all_entry.channel_name
+), skips_entry (entry_id, skips) AS (
+  SELECT entry_id, replaces
+    FROM channel_entry
+    WHERE replaces IS NOT NULL
+  EXCEPT
+  SELECT entry_id, replaces
+    FROM replaces_entry
+), skips_bundle (operatorbundle_name, package_name, channel_name, skips) AS (
+  SELECT all_entry.operatorbundle_name, all_entry.package_name, all_entry.channel_name, group_concat(skipped_entry.operatorbundle_name, ",")
+    FROM skips_entry
+      INNER JOIN channel_entry AS all_entry
+        ON skips_entry.entry_id = all_entry.entry_id
+      INNER JOIN channel_entry AS skipped_entry
+        ON skips_entry.skips = skipped_entry.entry_id
+    GROUP BY all_entry.operatorbundle_name, all_entry.package_name, all_entry.channel_name
+)
+SELECT
+    replaces_bundle.entry_id,
+    operatorbundle.bundle,
+    operatorbundle.bundlepath,
+    operatorbundle.name,
+    replaces_bundle.package_name,
+    replaces_bundle.channel_name,
+    replaces_bundle.replaces,
+    skips_bundle.skips,
+    operatorbundle.version,
+    operatorbundle.skiprange,
+    dependencies.type,
+    dependencies.value,
+    properties.type,
+    properties.value
+  FROM replaces_bundle
+    INNER JOIN operatorbundle
+      ON replaces_bundle.operatorbundle_name = operatorbundle.name
+    LEFT OUTER JOIN skips_bundle
+      ON replaces_bundle.operatorbundle_name = skips_bundle.operatorbundle_name
+        AND replaces_bundle.package_name = skips_bundle.package_name
+        AND replaces_bundle.channel_name = skips_bundle.channel_name
+    LEFT OUTER JOIN dependencies
+      ON operatorbundle.name = dependencies.operatorbundle_name
+    LEFT OUTER JOIN properties
+      ON operatorbundle.name = properties.operatorbundle_name`
 
 func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 	rows, err := s.db.QueryContext(ctx, listBundlesQuery)
