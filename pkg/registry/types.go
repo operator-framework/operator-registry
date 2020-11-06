@@ -133,8 +133,12 @@ type ChannelEntryAnnotated struct {
 	PackageName        string
 	ChannelName        string
 	BundleName         string
+	Depth              int64
 	BundlePath         string
 	Version            string
+	BundleReplaces     string
+	Skips              string
+	SkipRange          string
 	Replaces           string
 	ReplacesVersion    string
 	ReplacesBundlePath string
