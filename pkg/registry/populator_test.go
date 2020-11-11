@@ -14,14 +14,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
-
-	"k8s.io/apimachinery/pkg/util/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 func init() {
@@ -327,7 +326,7 @@ func TestImageLoading(t *testing.T) {
 			wantPackages: []*registry.Package{
 				{
 					Name:           "prometheus",
-					DefaultChannel: "beta",
+					DefaultChannel: "preview",
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -342,11 +341,11 @@ func TestImageLoading(t *testing.T) {
 						"beta": {
 							Head: registry.BundleKey{
 								BundlePath: "quay.io/prometheus/operator:0.14.0-beta",
-								Version:    "0.14.0",
+								Version:    "0.14.0-beta",
 								CsvName:    "prometheusoperator.0.14.0-beta",
 							},
 							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-								{BundlePath: "quay.io/prometheus/operator:0.14.0-beta", Version: "0.14.0", CsvName: "prometheusoperator.0.14.0-beta"}: {},
+								{BundlePath: "quay.io/prometheus/operator:0.14.0-beta", Version: "0.14.0-beta", CsvName: "prometheusoperator.0.14.0-beta"}: {},
 							},
 						},
 					},
@@ -856,6 +855,7 @@ func TestDeprecateBundle(t *testing.T) {
 
 			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
 			err = deprecator.Deprecate()
+			fmt.Printf("error: %s\n", err)
 			require.Equal(t, tt.expected.err, err)
 
 			// Ensure remaining bundlePaths in db match
@@ -1310,6 +1310,194 @@ func TestOverwrite(t *testing.T) {
 				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
 				require.Equal(t, tt.expected.remainingDefaultChannels[pkg], defaultChannel)
 			}
+		})
+	}
+}
+
+func TestSemverPackageManifest(t *testing.T) {
+	bundle := func(name, version, pkg, defaultChannel, channels string) *registry.Bundle {
+		b, err := registry.NewBundleFromStrings(name, version, pkg, defaultChannel, channels, "")
+		require.NoError(t, err)
+		return b
+	}
+	type args struct {
+		bundles []*registry.Bundle
+	}
+	type expect struct {
+		packageManifest *registry.PackageManifest
+		hasError        bool
+	}
+	for _, tt := range []struct {
+		description string
+		args        args
+		expect      expect
+	}{
+		{
+			description: "OneUnversioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator", "", "package", "stable", "stable"), // version "" is interpreted as 0.0.0-z
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "TwoUnversioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "", "package", "stable", "stable"),
+					bundle("operator-2", "", "package", "stable", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "UnversionedAndVersioned",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "", "package", "", "stable"),
+					bundle("operator-2", "", "package", "", "stable"),
+					bundle("operator-3", "0.0.1", "package", "", "stable"), // As long as there is one version, we should be good
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "MaxVersionsAreChannelHeads",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.1.0", "package", "stable", "slow,stable"),
+					bundle("operator-3", "2.1.0", "package", "stable", "edge"),
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "slow",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "edge",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "DuplicateVersionsNotTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "slow,stable"),
+					bundle("operator-3", "2.1.0", "package", "stable", "edge"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "DuplicateVersionsInSeparateChannelsAreTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "stable"),
+					bundle("operator-3", "2.1.0", "package", "edge", "edge"), // Should only be tolerated if we have a global max
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "edge",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "slow",
+							CurrentCSVName: "operator-1",
+						},
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-2",
+						},
+						{
+							Name:           "edge",
+							CurrentCSVName: "operator-3",
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "DuplicateMaxVersionsAreNotTolerated",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "slow", "slow"),
+					bundle("operator-2", "1.0.0", "package", "stable", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+		{
+			description: "UnknownDefaultChannel",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "stable", "stable"),
+					bundle("operator-2", "2.0.0", "package", "edge", "stable"),
+				},
+			},
+			expect: expect{
+				hasError: true,
+			},
+		},
+	} {
+		t.Run(tt.description, func(t *testing.T) {
+			packageManifest, err := registry.SemverPackageManifest(tt.args.bundles)
+			if tt.expect.hasError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, packageManifest)
+
+			expected := tt.expect.packageManifest
+			require.Equal(t, expected.PackageName, packageManifest.PackageName)
+			require.Equal(t, expected.DefaultChannelName, packageManifest.DefaultChannelName)
+			require.ElementsMatch(t, expected.Channels, packageManifest.Channels)
 		})
 	}
 }
