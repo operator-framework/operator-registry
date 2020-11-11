@@ -154,7 +154,7 @@ spec:
                     cpu: 100m
                     memory: 50Mi
   maturity: alpha
-  version: 0.14.0
+  version: 0.14.0-beta
   customresourcedefinitions:
     owned:
     - name: prometheuses.monitoring.coreos.com

@@ -60,7 +60,7 @@ func TestValidateBundle(t *testing.T) {
 		}
 
 		// Validate the bundle object
-		bundle := registry.NewBundle("test", "", nil, unstObjs...)
+		bundle := registry.NewBundle("test", &registry.Annotations{}, unstObjs...)
 		results := BundleValidator.Validate(bundle)
 
 		if len(results) > 0 {
