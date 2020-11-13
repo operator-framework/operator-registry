@@ -73,7 +73,7 @@ func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
 			graphLoader,
 			query,
 			refMap,
-			make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+			make(map[string]map[image.Reference]string, 0), false, false).Populate(registry.ReplacesMode)
 	}
 	names := []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.22.2", "prometheus.0.14.0", "prometheus.0.15.0"}
 	if err := populate(names); err != nil {
@@ -489,7 +489,7 @@ func TestImageLoading(t *testing.T) {
 					graphLoader,
 					query,
 					map[image.Reference]string{i.ref: i.dir},
-					make(map[string]map[image.Reference]string, 0), false)
+					make(map[string]map[image.Reference]string, 0), false, false)
 				require.NoError(t, p.Populate(registry.ReplacesMode))
 			}
 			add := registry.NewDirectoryPopulator(
@@ -497,7 +497,7 @@ func TestImageLoading(t *testing.T) {
 				graphLoader,
 				query,
 				map[image.Reference]string{tt.addImage.ref: tt.addImage.dir},
-				make(map[string]map[image.Reference]string, 0), false)
+				make(map[string]map[image.Reference]string, 0), false, false)
 			err = add.Populate(registry.ReplacesMode)
 			if tt.wantErr {
 				require.True(t, checkAggErr(err, tt.err))
@@ -707,7 +707,7 @@ func TestDirectoryPopulator(t *testing.T) {
 			query,
 			bundles,
 			make(map[string]map[image.Reference]string),
-			false).Populate(registry.ReplacesMode)
+			false, false).Populate(registry.ReplacesMode)
 	}
 	add := map[image.Reference]string{
 		image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
@@ -1269,7 +1269,7 @@ func TestOverwrite(t *testing.T) {
 					query,
 					bundles,
 					overwrites,
-					true).Populate(registry.ReplacesMode)
+					true, false).Populate(registry.ReplacesMode)
 			}
 			require.NoError(t, populate(tt.args.firstAdd, nil))
 			popErr := populate(tt.args.secondAdd, tt.args.overwrites)

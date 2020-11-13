@@ -29,9 +29,10 @@ type DirectoryPopulator struct {
 	imageDirMap     map[image.Reference]string
 	overwriteDirMap map[string]map[image.Reference]string
 	overwrite       bool
+	permissive      bool
 }
 
-func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwriteDirMap map[string]map[image.Reference]string, overwrite bool) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwriteDirMap map[string]map[image.Reference]string, overwrite, permissive bool) *DirectoryPopulator {
 	return &DirectoryPopulator{
 		loader:          loader,
 		graphLoader:     graphLoader,
@@ -39,6 +40,7 @@ func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, 
 		imageDirMap:     imageDirMap,
 		overwriteDirMap: overwriteDirMap,
 		overwrite:       overwrite,
+		permissive:      permissive,
 	}
 }
 
@@ -154,7 +156,7 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 	if err != nil {
 		return err
 	}
-
+	var errs []error
 	switch mode {
 	case ReplacesMode:
 		// TODO: This is relatively inefficient. Ideally, we should be able to use a replaces
@@ -165,7 +167,6 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 		// Additionally, it would be preferrable if there was a single database transaction
 		// that took the updated graph as a whole as input, rather than inserting bundles of the
 		// same package linearly.
-		var err error
 		var validImagesToAdd []*ImageInput
 
 		for pkg := range i.overwriteDirMap {
@@ -183,9 +184,10 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 
 		for len(imagesToAdd) > 0 {
 			validImagesToAdd, imagesToAdd, err = i.getNextReplacesImagesToAdd(imagesToAdd)
-			if err != nil {
+			if err != nil && !i.permissive {
 				return err
 			}
+			errs = append(errs, err)
 			for _, image := range validImagesToAdd {
 				err := i.loadManifestsReplaces(image.Bundle, image.AnnotationsFile)
 				if err != nil {
@@ -219,7 +221,7 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 		return fmt.Errorf("Error deleting previous bundles: %s", err)
 	}
 
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
 
 func (i *DirectoryPopulator) loadManifestsReplaces(bundle *Bundle, annotationsFile *AnnotationsFile) error {
@@ -284,14 +286,17 @@ func (i *DirectoryPopulator) getNextReplacesImagesToAdd(imagesToAdd []*ImageInpu
 				pkgFoundImages++
 				foundImages = append(foundImages, pkgImage)
 			} else {
-				pkgRemainingImages++
-				remainingImages = append(remainingImages, pkgImage)
+				if !i.permissive {
+					pkgRemainingImages++
+					remainingImages = append(remainingImages, pkgImage)
+				}
+
 			}
 		}
 
 		// no new images can be added, the current iteration aggregates all the
 		// errors that describe invalid bundles
-		if pkgFoundImages == 0 && pkgRemainingImages > 0 {
+		if pkgFoundImages == 0 && pkgRemainingImages > 0 || i.permissive {
 			errs = append(errs, pkgErrs...)
 		}
 	}
