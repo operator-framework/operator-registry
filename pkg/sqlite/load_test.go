@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -239,7 +240,10 @@ func newUnstructuredCSVwithSkips(t *testing.T, name, replaces string, skips ...s
 }
 
 func newBundle(t *testing.T, name, pkgName string, channels []string, objs ...*unstructured.Unstructured) *registry.Bundle {
-	bundle := registry.NewBundle(name, pkgName, channels, objs...)
+	bundle := registry.NewBundle(name, &registry.Annotations{
+		PackageName: pkgName,
+		Channels:    strings.Join(channels, ","),
+	}, objs...)
 
 	// Bust the bundle cache to set the CSV and CRDs
 	_, err := bundle.ClusterServiceVersion()
