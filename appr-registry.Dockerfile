@@ -3,11 +3,7 @@ FROM golang:1.13-alpine as builder
 RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /go/src/github.com/operator-framework/operator-registry
 
-COPY vendor vendor
-COPY cmd cmd
-COPY pkg pkg
-COPY Makefile Makefile
-COPY go.mod go.mod
+COPY . .
 RUN make static
 
 FROM golang:1.13-alpine as probe-builder

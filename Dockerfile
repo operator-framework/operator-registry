@@ -5,10 +5,7 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
 WORKDIR /src
 
-COPY vendor vendor
-COPY cmd cmd
-COPY pkg pkg
-COPY Makefile go.mod go.sum ./
+COPY . .
 RUN make build cross
 
 # copy and build vendored grpc_health_probe
