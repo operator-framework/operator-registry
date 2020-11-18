@@ -142,7 +142,7 @@ func (r *ReplacesInputStream) Next() (*ImageInput, error) {
 				delete(r.packages, pkg)
 			}
 
-			return image, nil
+			return image, utilerrors.NewAggregate(errs)
 		}
 
 		// No viable bundle found in the package, can't parse it any further
