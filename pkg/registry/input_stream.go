@@ -90,7 +90,7 @@ func (r *ReplacesInputStream) canAdd(bundle *Bundle, packageGraph *Package) erro
 
 	if replaces != "" && !packageGraph.HasCsv(replaces) {
 		// We can't add this until a replacement exists
-		return fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", bundle.Name, replaces)
+		return fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", bundle.Name, replaces)
 	}
 
 	images, ok := r.packages[packageGraph.Name]
@@ -145,11 +145,8 @@ func (r *ReplacesInputStream) Next() (*ImageInput, error) {
 			return image, nil
 		}
 
-		// No viable bundle found in the package, can't parse it any further
-		if len(packageErrs) > 0 {
-			delete(r.packages, pkg)
-			errs = append(errs, packageErrs...)
-		}
+		// No viable bundle found in the package, can't parse it any further, so return any errors
+		errs = append(errs, packageErrs...)
 	}
 
 	// We've exhausted all valid input bundles, any errors here indicate invalid input of some kind
