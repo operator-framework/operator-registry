@@ -671,6 +671,7 @@ k8s.io/apiserver/pkg/apis/apiserver/v1alpha1
 k8s.io/apiserver/pkg/apis/apiserver/v1beta1
 k8s.io/apiserver/pkg/server/egressselector
 k8s.io/apiserver/pkg/server/egressselector/metrics
+k8s.io/apiserver/pkg/storage/names
 k8s.io/apiserver/pkg/util/webhook
 # k8s.io/client-go v0.18.2
 k8s.io/client-go/discovery
