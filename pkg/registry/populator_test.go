@@ -714,8 +714,8 @@ func TestDirectoryPopulator(t *testing.T) {
 
 	err = populate(add)
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"))
-	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"))
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"))
+	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"))
 }
 
 func TestDeprecateBundle(t *testing.T) {
@@ -943,8 +943,8 @@ func TestOverwrite(t *testing.T) {
 			},
 			expected: expected{
 				errs: []error{
-					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
-					fmt.Errorf("Invalid bundle %s, bundle specifies a non-existent replacement %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
+					fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"),
+					fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"),
 				},
 				remainingBundles: []string{
 					"quay.io/test/prometheus.0.14.0/preview",

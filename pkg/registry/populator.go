@@ -196,7 +196,6 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 				errs = append(errs, err)
 				break
 			}
-
 		}
 
 		if len(errs) > 0 {

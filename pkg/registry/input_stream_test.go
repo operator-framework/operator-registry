@@ -280,35 +280,102 @@ func TestReplacesTakesPrecedence(t *testing.T) {
 	}
 }
 
+type missingReplaces struct {
+	input []*registry.ImageInput
+	valid int
+}
+
+func (missingReplaces) Generate(r *rand.Rand, max int) reflect.Value {
+	if max < 1 {
+		max++
+	}
+	size := r.Intn(max + 1) // [1, max] inputs total
+	if size < 1 {
+		size++
+	}
+	valid := r.Intn(size)       // [0, size) valid inputs (at least one invalid)
+	pkgSize := r.Intn(size + 1) // Each distinct package contains [1, size] inputs
+	if pkgSize == 0 {
+		pkgSize++
+	}
+	var pkg string
+
+	input := make([]*registry.ImageInput, size)
+	var version semver.Version
+	for i := 0; i < size; i++ {
+		if size%pkgSize == 0 {
+			pkg = genName("")
+		}
+
+		version = bumpVersion(r, version)
+		config := inputConfig{
+			pkg:     pkg,
+			name:    genName(""),
+			version: version.String(), // Be sure each bundle has a valid sort order via semver for tests using this generator
+		}
+
+		if i >= valid {
+			config.replaces = genName("missing-")
+		}
+
+		input[i] = newImageInput(&config)
+	}
+
+	// Ensure we're not depending on any ordering
+	r.Shuffle(len(input), func(i, j int) { input[i], input[j] = input[j], input[i] })
+
+	return reflect.ValueOf(missingReplaces{
+		input: input,
+		valid: valid,
+	})
+}
+
 func TestMissingReplacesReturnsError(t *testing.T) {
-	input := []*registry.ImageInput{
-		newImageInput(&inputConfig{
-			name:     genName(""),
-			replaces: genName(""), // This won't exist and should cause a failure
-		}),
-	}
+	f := func(missing missingReplaces) bool {
+		if len(missing.input) < 1 {
+			return true
+		}
 
-	loader := &registryfakes.FakeGraphLoader{
-		GenerateStub: func(pkg string) (*registry.Package, error) {
-			return &registry.Package{
-				Name: pkg,
-			}, nil
-		},
-	}
+		loader := &registryfakes.FakeGraphLoader{
+			GenerateStub: func(pkg string) (*registry.Package, error) {
+				return &registry.Package{
+					Name: pkg,
+				}, nil
+			},
+		}
 
-	stream, err := registry.NewReplacesInputStream(loader, input)
-	if err != nil {
+		stream, err := registry.NewReplacesInputStream(loader, missing.input)
+		if err != nil {
+			t.Error(err)
+			return false
+		}
+
+		for i := 0; i < missing.valid; i++ {
+			next, err := stream.Next()
+			if err != nil {
+				t.Errorf("next returned unexpected error: %s", err)
+				return false
+			}
+			if next == nil {
+				t.Errorf("next returned unexpected nil")
+				return false
+			}
+		}
+
+		// The next call should result in an error
+		next, err := stream.Next()
+		if err == nil {
+			t.Errorf("expected next to return an error")
+			return false
+		}
+		if next != nil {
+			t.Errorf("expected next to return nil on error, got %v instead", next)
+			return false
+		}
+
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
-		return
-	}
-
-	next, err := stream.Next()
-	if err == nil {
-		t.Errorf("expected next to return an error")
-		return
-	}
-	if next != nil {
-		t.Errorf("expected next to return nil on error, got %v instead", next)
-		return
 	}
 }
