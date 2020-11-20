@@ -5,23 +5,24 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/blang/semver"
-	yaml3 "github.com/ghodss/yaml"
-	"github.com/operator-framework/api/pkg/operators"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/blang/semver"
+	yaml3 "github.com/ghodss/yaml"
+	"github.com/operator-framework/api/pkg/operators"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -539,8 +540,8 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 
 	sem := make(chan struct{}, concurrencyLimitForExport)
 
-	for bundleImage, bundleDir := range bundles {
-		go func(bundleImage string, bundleDir bundleDirPrefix) {
+	for bundleDir, bundleInfo := range bundles {
+		go func(bundleDir bundleDirPrefix, bundleInfo bundleExportInfo) {
 			defer wg.Done()
 
 			sem <- struct{}{}
@@ -553,21 +554,21 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 				bundleDir.bundleVersion = strconv.Itoa(rand.Intn(10000))
 			}
 			downloadPath := filepath.Join(request.DownloadPath, bundleDir.pkgName, bundleDir.bundleVersion)
-			exporter := bundle.NewExporterForBundle(bundleImage, downloadPath, request.ContainerTool)
+			exporter := bundle.NewExporterForBundle(bundleInfo.bundlePath, downloadPath, request.ContainerTool)
 			if err := exporter.Export(); err != nil {
-				err = fmt.Errorf("exporting bundle image:%s failed with %s", bundleImage, err)
+				err = fmt.Errorf("exporting bundle image:%s failed with %s", bundleInfo.bundlePath, err)
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()
 				return
 			}
-			if err := ensureCSVFields(downloadPath, bundleDir); err != nil {
-				err = fmt.Errorf("exporting bundle image:%s : cannot ensure required fields on csv: %v", bundleImage, err)
+			if err := ensureCSVFields(downloadPath, bundleInfo); err != nil {
+				err = fmt.Errorf("exporting bundle image:%s : cannot ensure required fields on csv: %v", bundleInfo.bundlePath, err)
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()
 			}
-		}(bundleImage, bundleDir)
+		}(bundleDir, bundleInfo)
 	}
 	// Wait for all the go routines to finish export
 	wg.Wait()
@@ -586,12 +587,18 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 }
 
 type bundleDirPrefix struct {
-	pkgName, name, bundleVersion, replaces string
-	skips                                  map[string]struct{}
+	pkgName, bundleVersion string
 }
 
-func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[string]bundleDirPrefix, error) {
-	bundleMap := make(map[string]bundleDirPrefix)
+type bundleExportInfo struct {
+	name       string
+	bundlePath string
+	replaces   string
+	skips      map[string]struct{}
+}
+
+func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[bundleDirPrefix]bundleExportInfo, error) {
+	bundleMap := make(map[bundleDirPrefix]bundleExportInfo)
 	graphLoader := &sqlite.SQLGraphLoader{
 		Querier: dbQuerier,
 	}
@@ -604,23 +611,34 @@ func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[strin
 		for _, channel := range bundleGraph.Channels {
 			var replaceDepth map[string]int64
 			for node, replaceNodes := range channel.Nodes {
+				bundleKey := bundleDirPrefix{
+					pkgName:       packageName,
+					bundleVersion: node.Version,
+				}
 				var replaces string
 				var skips map[string]struct{}
-				if bundleInfo, ok := bundleMap[node.BundlePath]; ok {
+				if bundleInfo, ok := bundleMap[bundleKey]; ok {
+					if bundleInfo.name != node.CsvName || bundleInfo.bundlePath != node.BundlePath {
+						return nil, fmt.Errorf("cannot export bundle version %s for package %s: multiple CSVs found", node.Version, packageName)
+					}
 					replaces = bundleInfo.replaces
 					skips = bundleInfo.skips
 				}
 				if skips == nil {
 					skips = map[string]struct{}{}
 				}
-				skips[replaces] = struct{}{}
+				if len(replaces) > 0 {
+					skips[replaces] = struct{}{}
+				}
 				for replace := range replaceNodes {
 					if replace.CsvName == replaces {
 						continue
 					}
+
+					skips[replace.CsvName] = struct{}{}
+
 					if _, ok := channel.Nodes[replace]; !ok {
 						//synthetic entry
-						skips[replace.CsvName] = struct{}{}
 						continue
 					}
 					if len(replaces) == 0 {
@@ -629,38 +647,44 @@ func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[strin
 						continue
 					}
 
+					var err error
 					if replaceDepth == nil {
 						replaceDepth, err = dbQuerier.GetBundleReplacesDepth(context.TODO(), packageName, node.CsvName)
 					}
 					if err == nil && replaceDepth[replaces] != replaceDepth[replace.CsvName] {
-						if replaceDepth[replaces] < replaceDepth[replace.CsvName] {
+						if replaceDepth[replaces] > replaceDepth[replace.CsvName] {
 							replaces = replace.CsvName
 							versionMap[replaces] = replace.Version
-						} else {
-							skips[replace.CsvName] = struct{}{}
 						}
 						continue
 					}
 
-					replacesSemver, replacesErr := semver.Make(versionMap[replaces])
-					newSemver, newErr := semver.Make(replace.Version)
-					if replacesErr == nil && newErr == nil && !replacesSemver.EQ(newSemver) {
-						if replacesSemver.LT(newSemver) {
-							replaces = replace.CsvName
-							versionMap[replaces] = replace.Version
-						} else {
-							skips[replace.CsvName] = struct{}{}
-						}
-						continue
+					// 2 replaces versions at the same depth on replaces chains of different channels
+					// Choose the newer semver as the replaces
+					replacesSemver, err := semver.Make(versionMap[replaces])
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse replaces version %s for %s: %v", versionMap[replaces], node.CsvName, err)
 					}
-					return nil, fmt.Errorf("multiple replaces on package %s, bundle version %s: %s and %s", packageName, node.CsvName, replaces, replace.CsvName)
+					newSemver, err := semver.Make(replace.Version)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse replaces version %s for %s: %v", replace.Version, node.CsvName, err)
+					}
+
+					if replacesSemver.EQ(newSemver) {
+						return nil, fmt.Errorf("multiple replaces on package %s, bundle version %s", packageName, node.CsvName)
+					}
+
+					if replacesSemver.LT(newSemver) {
+						replaces = replace.CsvName
+						versionMap[replaces] = replace.Version
+					}
 				}
-				bundleMap[node.BundlePath] = bundleDirPrefix{
-					name:          node.CsvName,
-					pkgName:       packageName,
-					bundleVersion: node.Version,
-					skips:         skips,
-					replaces:      replaces,
+				delete(skips, replaces)
+				bundleMap[bundleKey] = bundleExportInfo{
+					name:       node.CsvName,
+					skips:      skips,
+					replaces:   replaces,
+					bundlePath: node.BundlePath,
 				}
 			}
 		}
@@ -777,26 +801,25 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 	return nil
 }
 
-func ensureCSVFields(bundleDir string, bundleInfo bundleDirPrefix) error {
+func ensureCSVFields(bundleDir string, bundleInfo bundleExportInfo) error {
 	dirContent, err := ioutil.ReadDir(bundleDir)
 	if err != nil {
 		return fmt.Errorf("error reading bundle directory %s, %v", bundleDir, err)
 	}
 
-	var foundCSV bool
 	for _, f := range dirContent {
 		if f.IsDir() {
 			continue
 		}
-		csvFile, err := os.OpenFile(path.Join(bundleDir, f.Name()), os.O_RDWR, 0)
+		unstructuredCSV := unstructured.Unstructured{}
+
+		csvFile, err := os.OpenFile(path.Join(bundleDir, f.Name()), os.O_RDONLY, 0)
 		if err != nil {
 			continue
 		}
-		defer csvFile.Close()
-		unstructuredCSV := unstructured.Unstructured{}
-
-		decoder := k8syaml.NewYAMLOrJSONDecoder(csvFile, 30)
-		if err = decoder.Decode(&unstructuredCSV); err != nil {
+		err = k8syaml.NewYAMLOrJSONDecoder(csvFile, 30).Decode(&unstructuredCSV)
+		csvFile.Close()
+		if err != nil {
 			continue
 		}
 
@@ -804,17 +827,11 @@ func ensureCSVFields(bundleDir string, bundleInfo bundleDirPrefix) error {
 			continue
 		}
 
-		if foundCSV {
-			return fmt.Errorf("more than one ClusterServiceVersion is found in bundle")
-		}
-
 		csv := pregistry.ClusterServiceVersion{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredCSV.UnstructuredContent(),
 			&csv); err != nil {
 			return err
 		}
-		foundCSV = true
-		var modified bool
 		csvReplaces, err := csv.GetReplaces()
 		if err != nil {
 			return err
@@ -823,43 +840,25 @@ func ensureCSVFields(bundleDir string, bundleInfo bundleDirPrefix) error {
 		if err != nil {
 			return err
 		}
+		sort.Strings(csvSkips)
 		skipMap := make(map[string]struct{})
-		for _, s := range csvSkips {
-			skipMap[s] = struct{}{}
-			if s == bundleInfo.replaces {
-				bundleInfo.replaces = ""
-			}
+		for _, skip := range csvSkips {
+			skipMap[skip] = struct{}{}
 		}
-		var updatedSkips bool
-		for s := range bundleInfo.skips {
-			if _, ok := skipMap[s]; !ok {
-				if s == bundleInfo.replaces || s == csvReplaces {
-					// don't add a skips entry already in replaces
-					continue
-				}
-				csvSkips = append(csvSkips, s)
-				skipMap[s] = struct{}{}
-				updatedSkips = true
-			}
-		}
-		if len(bundleInfo.replaces) > 0 && csvReplaces != bundleInfo.replaces {
+		skips, replaces := getSkipsReplaces(bundleExportInfo{skips: skipMap, replaces: csvReplaces}, bundleInfo)
+		var modified bool
+		if replaces != csvReplaces {
 			if err := csv.SetReplaces(bundleInfo.replaces); err != nil {
 				return err
 			}
-			if _, ok := skipMap[csvReplaces]; !ok && len(csvReplaces) > 0 {
-				csvSkips = append(csvSkips, csvReplaces)
-				updatedSkips = true
-			}
 			modified = true
 		}
-		if updatedSkips {
-			sort.Strings(csvSkips)
-			if err := csv.SetSkips(csvSkips); err != nil {
+		if strings.Join(csvSkips, ",") != strings.Join(skips, ",") {
+			if err := csv.SetSkips(skips); err != nil {
 				return err
 			}
 			modified = true
 		}
-
 		if modified {
 			unstructuredCSV, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&csv)
 			if err != nil {
@@ -868,32 +867,85 @@ func ensureCSVFields(bundleDir string, bundleInfo bundleDirPrefix) error {
 
 			// remove creationTimestamp: null
 			unstructured.RemoveNestedField(unstructuredCSV, "metadata", "creationTimestamp")
-			rawOutput, err := json.Marshal(unstructuredCSV)
-			if err != nil {
-				return fmt.Errorf("unable to marshal modified csv: %v", err)
-			}
 
-			csvFile.Seek(0, 0)
-			_, _, isJSON := k8syaml.GuessJSONStream(csvFile, 30)
+			if err := updateJSONOrYAMLFile(path.Join(bundleDir, f.Name()), unstructuredCSV); err != nil {
+				return err
+			}
+		}
 
-			// attempt to preserve original format
-			if !isJSON {
-				if rawYAML, err := yaml3.JSONToYAML(rawOutput); err == nil {
-					rawOutput = rawYAML
-				}
-			}
+		return nil
+	}
+	return fmt.Errorf("no ClusterServiceVersion object found in %s", bundleDir)
+}
 
-			if err := csvFile.Truncate(0); err != nil {
-				return fmt.Errorf("error clearing old csv file")
-			}
-			if _, err := csvFile.Seek(0, 0); err != nil {
-				return fmt.Errorf("error writing to modified csv")
-			}
-			csvFile.Write(rawOutput)
+// getSkipsReplaces produces a merged skips/replaces for a bundle, using contents of its csv
+// and the upgrade graph in the index.
+func getSkipsReplaces(csvInfo, indexInfo bundleExportInfo) ([]string, string) {
+	// merge skips lists
+	for skip := range indexInfo.skips {
+		if skip != indexInfo.replaces {
+			csvInfo.skips[skip] = struct{}{}
 		}
 	}
-	if !foundCSV {
-		return fmt.Errorf("no ClusterServiceVersion object found in %s", bundleDir)
+
+	if _, ok := csvInfo.skips[csvInfo.replaces]; ok {
+		delete(csvInfo.skips, csvInfo.replaces)
+	}
+
+	// if new replaces is pre sent on skip list defined in csv, ignore
+	if _, ok := csvInfo.skips[indexInfo.replaces]; ok {
+		indexInfo.replaces = ""
+	}
+
+	// Prefer the replaces on the index
+	if len(indexInfo.replaces) > 0 && csvInfo.replaces != indexInfo.replaces {
+		if len(csvInfo.replaces) > 0 {
+			csvInfo.skips[csvInfo.replaces] = struct{}{}
+		}
+		csvInfo.replaces = indexInfo.replaces
+	}
+
+	skips := make([]string, 0)
+	for s := range csvInfo.skips {
+		skips = append(skips, s)
+	}
+	sort.Strings(skips)
+	return skips, csvInfo.replaces
+}
+
+// Update a JSON or YAML file. The data is first converted to JSON.
+// It is only converted to yaml if the original file was not in JSON format.
+// Only the JSON tags on the data are used in marshalling the data
+func updateJSONOrYAMLFile(file string, data interface{}) error {
+	f, err := os.OpenFile(file, os.O_RDWR, 0)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	_, _, isJSON := k8syaml.GuessJSONStream(f, 30)
+
+	rawOutput, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("unable to marshal contents for %s to JSON: %v", file, err)
+	}
+	if !isJSON {
+		// best attempt a converting to yaml
+		if rawYAML, err := yaml3.JSONToYAML(rawOutput); err == nil {
+			rawOutput = rawYAML
+		}
+	}
+	if err := f.Truncate(0); err != nil {
+		return fmt.Errorf("error truncating %s", file)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("error writing to modified csv")
+	}
+	n, err := f.Write(rawOutput)
+	if err != nil {
+		return fmt.Errorf("failed to write to %s: %v", file, err)
+	}
+	if n < len(rawOutput) {
+		return fmt.Errorf("incomplete write to %s: %d/%d bytes written", file, n, len(rawOutput))
 	}
 	return nil
 }

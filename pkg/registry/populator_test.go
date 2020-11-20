@@ -855,7 +855,6 @@ func TestDeprecateBundle(t *testing.T) {
 
 			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
 			err = deprecator.Deprecate()
-			fmt.Printf("error: %s\n", err)
 			require.Equal(t, tt.expected.err, err)
 
 			// Ensure remaining bundlePaths in db match
@@ -865,7 +864,6 @@ func TestDeprecateBundle(t *testing.T) {
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
-			fmt.Println("remaining", bundlePaths)
 			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
 
 			// Ensure deprecated bundles match

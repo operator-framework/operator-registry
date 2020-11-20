@@ -342,7 +342,7 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 }
 
 // setCSVField sets a top level field on the CSV spec
-func (csv *ClusterServiceVersion) setCSVSpecField(key string, newValue interface{}) (err error) {
+func (csv *ClusterServiceVersion) setCSVSpecField(key string, newValue interface{}) error {
 	var objmap map[string]*json.RawMessage
 	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
 		return err
@@ -352,7 +352,7 @@ func (csv *ClusterServiceVersion) setCSVSpecField(key string, newValue interface
 		delete(objmap, key)
 	} else {
 		var newRawValue json.RawMessage
-		newRawValue, err = json.Marshal(newValue)
+		newRawValue, err := json.Marshal(newValue)
 		if err != nil {
 			return err
 		}
@@ -372,7 +372,7 @@ func (csv *ClusterServiceVersion) setCSVSpecField(key string, newValue interface
 // are skipped by this ClusterServiceVersion object.
 //
 // If not defined, the function returns an empty string.
-func (csv *ClusterServiceVersion) SetSkips(newSkips []string) (err error) {
+func (csv *ClusterServiceVersion) SetSkips(newSkips []string) error {
 	if len(newSkips) == 0 {
 		return csv.setCSVSpecField(skips, nil)
 	}
@@ -381,7 +381,7 @@ func (csv *ClusterServiceVersion) SetSkips(newSkips []string) (err error) {
 
 // SetReplaces sets the replaces field on the ClusterServiceVersion.
 // If the new replaces value is empty, it deletes the field.
-func (csv *ClusterServiceVersion) SetReplaces(newReplaces string) (err error) {
+func (csv *ClusterServiceVersion) SetReplaces(newReplaces string) error {
 	if len(newReplaces) == 0 {
 		return csv.setCSVSpecField(replaces, nil)
 	}
