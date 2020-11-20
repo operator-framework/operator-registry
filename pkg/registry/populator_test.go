@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -1271,7 +1272,19 @@ func TestOverwrite(t *testing.T) {
 					true).Populate(registry.ReplacesMode)
 			}
 			require.NoError(t, populate(tt.args.firstAdd, nil))
-			require.Equal(t, tt.expected.err, populate(tt.args.secondAdd, tt.args.overwrites))
+			popErr := populate(tt.args.secondAdd, tt.args.overwrites)
+			if agg, ok := popErr.(utilerrors.Aggregate); ok {
+				// The order of the errors that
+				// comprise an aggregate error isn't
+				// important to the tested behaviors,
+				// so sort them:
+				errs := agg.Errors()
+				sort.Slice(errs, func(i, j int) bool {
+					return errs[i].Error() < errs[j].Error()
+				})
+				popErr = utilerrors.NewAggregate(errs)
+			}
+			require.Equal(t, tt.expected.err, popErr)
 
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
