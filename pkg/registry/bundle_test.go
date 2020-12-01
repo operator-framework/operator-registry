@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
@@ -108,5 +110,49 @@ func TestV1CRDsInBundle(t *testing.T) {
 				t.Fatalf("v1beta1 crd not equal: expected %#v got %#v", crds[1], c)
 			}
 		}
+	}
+}
+
+func TestBundleImages(t *testing.T) {
+	for _, tc := range []struct {
+		Name     string
+		Bundle   Bundle
+		Includes []string
+	}{
+		{
+			Name: "includes bundle image",
+			Bundle: Bundle{
+				BundleImage: "bundle-image",
+			},
+			Includes: []string{"bundle-image"},
+		},
+		{
+			Name: "includes related images",
+			Bundle: Bundle{
+				csv: &ClusterServiceVersion{
+					Spec: json.RawMessage(`{"relatedImages":[{"name":"one","image":"one-image"},{"name":"two","image":"two-image"}]}`),
+				},
+			},
+			Includes: []string{"one-image", "two-image"},
+		},
+		{
+			Name: "includes bundle image and related images",
+			Bundle: Bundle{
+				BundleImage: "bundle-image",
+				csv: &ClusterServiceVersion{
+					Spec: json.RawMessage(`{"relatedImages":[{"name":"one","image":"one-image"},{"name":"two","image":"two-image"}]}`),
+				},
+			},
+			Includes: []string{"bundle-image", "one-image", "two-image"},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			require := require.New(t)
+			actual, err := tc.Bundle.Images()
+			require.NoError(err)
+			for _, each := range tc.Includes {
+				require.Contains(actual, each)
+			}
+		})
 	}
 }
