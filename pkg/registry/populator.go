@@ -487,7 +487,7 @@ func SemverPackageManifest(bundles []*Bundle) (*PackageManifest, error) {
 	}
 
 	if !defaultFound {
-		return nil, fmt.Errorf("unable to determine default channel")
+		return nil, fmt.Errorf("unable to determine default channel among channel heads: %+v", heads)
 	}
 
 	return pkg, nil
