@@ -293,14 +293,27 @@ func (b *Bundle) Serialize() (csvName, bundleImage string, csvBytes []byte, bund
 }
 
 func (b *Bundle) Images() (map[string]struct{}, error) {
+	result := make(map[string]struct{})
+
+	if b.BundleImage != "" {
+		result[b.BundleImage] = struct{}{}
+	}
+
 	csv, err := b.ClusterServiceVersion()
 	if err != nil {
 		return nil, err
 	}
 
+	if csv == nil {
+		return result, nil
+	}
+
 	images, err := csv.GetOperatorImages()
 	if err != nil {
 		return nil, err
+	}
+	for img := range images {
+		result[img] = struct{}{}
 	}
 
 	relatedImages, err := csv.GetRelatedImages()
@@ -308,10 +321,10 @@ func (b *Bundle) Images() (map[string]struct{}, error) {
 		return nil, err
 	}
 	for img := range relatedImages {
-		images[img] = struct{}{}
+		result[img] = struct{}{}
 	}
 
-	return images, nil
+	return result, nil
 }
 
 func (b *Bundle) cache() error {
