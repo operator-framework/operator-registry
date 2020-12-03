@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -31,17 +32,25 @@ func unstructuredCSV() *unstructured.Unstructured {
 }
 
 type inputConfig struct {
-	pkg      string
-	name     string
-	version  string
-	replaces string
+	pkg            string
+	name           string
+	version        string
+	replaces       string
+	defaultChannel string
+	channels       []string
 }
 
 func newImageInput(config *inputConfig) *registry.ImageInput {
 	image := &registry.ImageInput{
 		Bundle: &registry.Bundle{
-			Package: config.pkg,
-			Name:    config.name,
+			Package:  config.pkg,
+			Name:     config.name,
+			Channels: config.channels,
+			Annotations: &registry.Annotations{
+				PackageName:        config.pkg,
+				Channels:           strings.Join(config.channels, ","),
+				DefaultChannelName: config.defaultChannel,
+			},
 		},
 	}
 
@@ -277,6 +286,125 @@ func TestReplacesTakesPrecedence(t *testing.T) {
 
 	if !stream.Empty() {
 		t.Errorf("stream still contains content, expected end of content")
+	}
+}
+
+func TestDefaultChannelAffectsOrder(t *testing.T) {
+	type args struct {
+		input []*registry.ImageInput
+	}
+	type expect struct {
+		err     bool
+		ordered []string
+	}
+	for _, tt := range []struct {
+		description string
+		args        args
+		expect      expect
+	}{
+		{
+			description: "BundleDefiningDefaultChannelIsFirst",
+			args: args{
+				input: []*registry.ImageInput{
+					newImageInput(&inputConfig{
+						name:           "a",
+						version:        "1.0.0",
+						channels:       []string{"stable"},
+						defaultChannel: "alpha",
+					}),
+					newImageInput(&inputConfig{
+						name:           "b",
+						version:        "1.1.0",
+						channels:       []string{"alpha", "stable"},
+						defaultChannel: "alpha",
+					}),
+				},
+			},
+			expect: expect{
+				ordered: []string{"b", "a"},
+			},
+		},
+		{
+			description: "ConflictingReplacesAndDefaultChannelReturnsError",
+			args: args{
+				input: []*registry.ImageInput{
+					newImageInput(&inputConfig{
+						name:           "a",
+						version:        "1.0.0",
+						channels:       []string{"stable"},
+						defaultChannel: "alpha",
+					}),
+					newImageInput(&inputConfig{
+						name:           "b",
+						version:        "1.1.0",
+						replaces:       "a",
+						channels:       []string{"alpha", "stable"},
+						defaultChannel: "alpha",
+					}),
+				},
+			},
+			expect: expect{
+				err: true,
+			},
+		},
+	} {
+		t.Run(tt.description, func(t *testing.T) {
+			addedChannels := map[string]registry.Channel{}
+			loader := &registryfakes.FakeGraphLoader{
+				GenerateStub: func(pkg string) (*registry.Package, error) {
+					return &registry.Package{
+						Name:     pkg,
+						Channels: addedChannels,
+					}, nil
+				},
+			}
+
+			stream, err := registry.NewReplacesInputStream(loader, tt.args.input)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if tt.expect.err {
+				_, err := stream.Next()
+				if err == nil {
+					t.Error("expected next to return error, returned nil instead")
+				}
+				return
+			}
+
+			for _, expected := range tt.expect.ordered {
+				next, err := stream.Next()
+				if err != nil {
+					t.Errorf("next returned unexpected error %s", err)
+					return
+				}
+				if next == nil {
+					t.Errorf("next returned unexpected nil, expecting %s", expected)
+					return
+				}
+
+				name := next.Bundle.Name
+				if name != expected {
+					t.Errorf("next returned unexpected bundle %s, expecting %s", name, expected)
+					return
+				}
+
+				// Simulate an add
+				for _, channel := range next.Bundle.Channels {
+					added := addedChannels[channel]
+					if added.Nodes == nil {
+						added.Nodes = map[registry.BundleKey]map[registry.BundleKey]struct{}{}
+					}
+					added.Nodes[registry.BundleKey{CsvName: name}] = nil
+					addedChannels[channel] = added
+				}
+			}
+
+			if !stream.Empty() {
+				t.Errorf("stream still contains content, expected end of content")
+			}
+		})
 	}
 }
 

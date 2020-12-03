@@ -93,6 +93,23 @@ func (r *ReplacesInputStream) canAdd(bundle *Bundle, packageGraph *Package) erro
 		return fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", bundle.Name, replaces)
 	}
 
+	defaultChannel := bundle.Annotations.DefaultChannelName
+	if defaultChannel != "" && !packageGraph.HasChannel(defaultChannel) {
+		// We also can't add if the bundle isn't in the default channel it specifies or it doesn't already exist in the package
+		var defaultFound bool
+		for _, channel := range bundle.Channels {
+			if channel != defaultChannel {
+				continue
+			}
+			defaultFound = true
+			break
+		}
+
+		if !defaultFound {
+			return fmt.Errorf("Invalid bundle %s, references nonexistent default channel %s", bundle.Name, defaultChannel)
+		}
+	}
+
 	images, ok := r.packages[packageGraph.Name]
 	if !ok || images == nil {
 		// This shouldn't happen unless canAdd is being called without the correct setup
