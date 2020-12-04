@@ -24,12 +24,8 @@ const (
 	dbName  = "test.db"
 )
 
-func server() {
+func server() *grpc.Server {
 	_ = os.Remove(dbName)
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		logrus.Fatalf("failed to listen: %v", err)
-	}
 	s := grpc.NewServer()
 
 	db, err := sql.Open("sqlite3", dbName)
@@ -58,13 +54,20 @@ func server() {
 	}
 
 	api.RegisterRegistryServer(s, NewRegistryServer(store))
-	if err := s.Serve(lis); err != nil {
-		logrus.Fatalf("failed to serve: %v", err)
-	}
+	return s
 }
 
 func TestMain(m *testing.M) {
-	go server()
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		logrus.Fatalf("failed to listen: %v", err)
+	}
+	s := server()
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			logrus.Fatalf("failed to serve: %v", err)
+		}
+	}()
 	exit := m.Run()
 	if err := os.Remove(dbName); err != nil {
 		logrus.Fatalf("couldn't remove db")
