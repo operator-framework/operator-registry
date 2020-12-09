@@ -1,0 +1,56 @@
+name: test
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    paths:
+      - '**'
+      - '!doc/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make build
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make unit
+      - run: sed -i'' "s:^github.com/$GITHUB_REPOSITORY/::" coverage.out
+      - uses: codecov/codecov-action@v1
+        with:
+          file: coverage.out
+          fail_ci_if_error: false
+  e2e-minikube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          sudo apt-get -y install conntrack
+          curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
+          chmod +x minikube
+          sudo mv minikube /bin/
+          minikube config set vm-driver none
+          sudo minikube start # needs root for none driver
+          sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
+          sudo usermod -aG docker "$USER"
+          eval $(minikube docker-env)
+      - run: |
+          KUBECONFIG="$HOME/.kube/config" make build e2e
+  e2e-kind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          curl -sLo kind "$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r '[.assets[] | select(.name == "kind-linux-amd64")] | first | .browser_download_url')"
+          chmod +x kind
+          sudo mv kind /bin/
+      - run: |
+          kind create cluster
+          kind export kubeconfig
+          sudo chown -R "$USER" "$HOME/.kube"
+          sudo usermod -aG docker "$USER"
+      - run: |
+          KUBECONFIG="$HOME/.kube/config" make build e2e
