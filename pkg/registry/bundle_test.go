@@ -2,13 +2,14 @@ package registry
 
 import (
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -22,7 +23,10 @@ const (
 // The provided APIs and CRD objects in the created bundle are compared to those in a test manifest directory.
 func TestV1CRDsInBundle(t *testing.T) {
 	// create bundle from manifests that include a v1 CRD
-	bundle := NewBundle("test", "lib-bucket-provisioner", []string{"alpha"})
+	bundle := NewBundle("test", &Annotations{
+		PackageName: "lib-bucket-provisioner",
+		Channels:    "alpha",
+	})
 
 	// Read all files in manifests directory
 	items, err := ioutil.ReadDir(manifestDir)

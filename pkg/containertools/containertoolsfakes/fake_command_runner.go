@@ -54,18 +54,6 @@ type FakeCommandRunner struct {
 	pullReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SaveStub        func(string, string) error
-	saveMutex       sync.RWMutex
-	saveArgsForCall []struct {
-		arg1 string
-		arg2 string
-	}
-	saveReturns struct {
-		result1 error
-	}
-	saveReturnsOnCall map[int]struct {
-		result1 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -306,67 +294,6 @@ func (fake *FakeCommandRunner) PullReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeCommandRunner) Save(arg1 string, arg2 string) error {
-	fake.saveMutex.Lock()
-	ret, specificReturn := fake.saveReturnsOnCall[len(fake.saveArgsForCall)]
-	fake.saveArgsForCall = append(fake.saveArgsForCall, struct {
-		arg1 string
-		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("Save", []interface{}{arg1, arg2})
-	fake.saveMutex.Unlock()
-	if fake.SaveStub != nil {
-		return fake.SaveStub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.saveReturns
-	return fakeReturns.result1
-}
-
-func (fake *FakeCommandRunner) SaveCallCount() int {
-	fake.saveMutex.RLock()
-	defer fake.saveMutex.RUnlock()
-	return len(fake.saveArgsForCall)
-}
-
-func (fake *FakeCommandRunner) SaveCalls(stub func(string, string) error) {
-	fake.saveMutex.Lock()
-	defer fake.saveMutex.Unlock()
-	fake.SaveStub = stub
-}
-
-func (fake *FakeCommandRunner) SaveArgsForCall(i int) (string, string) {
-	fake.saveMutex.RLock()
-	defer fake.saveMutex.RUnlock()
-	argsForCall := fake.saveArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeCommandRunner) SaveReturns(result1 error) {
-	fake.saveMutex.Lock()
-	defer fake.saveMutex.Unlock()
-	fake.SaveStub = nil
-	fake.saveReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeCommandRunner) SaveReturnsOnCall(i int, result1 error) {
-	fake.saveMutex.Lock()
-	defer fake.saveMutex.Unlock()
-	fake.SaveStub = nil
-	if fake.saveReturnsOnCall == nil {
-		fake.saveReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.saveReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *FakeCommandRunner) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -378,8 +305,6 @@ func (fake *FakeCommandRunner) Invocations() map[string][][]interface{} {
 	defer fake.inspectMutex.RUnlock()
 	fake.pullMutex.RLock()
 	defer fake.pullMutex.RUnlock()
-	fake.saveMutex.RLock()
-	defer fake.saveMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

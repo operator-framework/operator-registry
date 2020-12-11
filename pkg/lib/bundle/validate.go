@@ -365,7 +365,7 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 
 	// Validate the bundle object
 	if len(unstObjs) > 0 {
-		bundle := registry.NewBundle(csvName, "", nil, unstObjs...)
+		bundle := registry.NewBundle(csvName, &registry.Annotations{}, unstObjs...)
 		bundleValidator := validation.BundleValidator
 		results := bundleValidator.Validate(bundle)
 		if len(results) > 0 {
