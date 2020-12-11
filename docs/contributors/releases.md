@@ -2,7 +2,8 @@
 
 ## opm
 
-Releases of opm are built by travis, see the [travis.yml](../../.travis.yml) for details.
+Releases of opm are built by Github Actions, see the [release.yml](../../.github/workflows/release.yml) for details.
+amd64 builds are produced for linux, macos, and windows. 
 
 opm follows semantic versioning, with the latest version derived from the newest semver tag.
 
@@ -12,7 +13,7 @@ Releases are triggered via tags. Make a new release by tagging a commit with an 
 
 ## Checking the build
 
-Builds for a release can be found [on travis](https://travis-ci.com/operator-framework/operator-registry). After triggering a build, watch for logs. If the build is successful, a new [release](https://github.com/operator-framework/operator-registry) should appear in GitHub.
+Builds for a release can be found [on GitHub Actions](https://github.com/operator-framework/operator-registry/actions). After triggering a build, watch for logs. If the build is successful, a new [release](https://github.com/operator-framework/operator-registry/releases) should appear in GitHub.
 
 ## Docker images
 
@@ -24,19 +25,3 @@ Builds are also triggered for the following docker images. The tags in Quay.io w
  
  Images are also built to track master with `latest` tags. It is recommended that you always pull by digest, and only use images that are tagged with a version.
  
- 
-## Generating Travis API keys
-
-This requires the travis CLI tool to be installed.
-
-First, backup the existing deploy config in `.travis.yml` - the prompts will overwrite some of the config, and 
-we only need the generated api token. This can be done by renaming the `deploy` yaml key to something else.
-
-```sh
-$ travis setup releases -r operator-framework/operator-registry --force --pro
-```
-
-When prompted, enter credentials for the of-deploy-robot account. Copy the api key from the newly generated `deploy` section in .travis.yml, place
-it in the right place in the actual deploy config, and delete the generated deploy section.
-
-You mean need to `travis login --pro` first.

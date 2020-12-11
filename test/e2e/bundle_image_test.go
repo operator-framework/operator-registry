@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -677,8 +678,10 @@ spec:
 	}
 }
 
-func buildContainer(tag, dockerfilePath, dockerContext string) {
+func buildContainer(tag, dockerfilePath, dockerContext string, w io.Writer) {
 	cmd := exec.Command(builderCmd, "build", "-t", tag, "-f", dockerfilePath, dockerContext)
+	cmd.Stderr = w
+	cmd.Stdout = w
 	err := cmd.Run()
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -748,8 +751,8 @@ var _ = Describe("Launch bundle", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building required images")
-			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin")
-			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", imageDirectory)
+			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin", GinkgoWriter)
+			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", imageDirectory, GinkgoWriter)
 
 			By("creating a batch job")
 			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, bundleImage, initImage, namespace)
