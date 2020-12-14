@@ -10,9 +10,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 
+	"github.com/goccy/go-graphviz"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -694,5 +696,94 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 		return err
 	}
 
+	return nil
+}
+
+// GraphFromIndexRequest defines the parameters to send to the ExportFromIndex API
+type GraphFromIndexRequest struct {
+	Index         string
+	Packages      []string
+	OutputFile    string
+	ContainerTool containertools.ContainerTool
+	CaFile        string
+	SkipTLS       bool
+}
+
+// GraphFromIndex takes a GraphFromIndexRequest and writes a graphviz DOT file.
+func (i ImageIndexer) GraphFromIndex(request GraphFromIndexRequest) error {
+	databaseFile := request.Index
+	if _, err := os.Stat(request.Index); err != nil {
+		// set a temp directory
+		workingDir, err := ioutil.TempDir("./", tmpDirPrefix)
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(workingDir)
+
+		// extract the index database to the file
+		databaseFile, err = i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLS)
+		if err != nil {
+			return err
+		}
+	}
+
+	db, err := sql.Open("sqlite3", databaseFile)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
+
+	// fetch all packages from the index image if packages is empty
+	if len(request.Packages) == 0 {
+		request.Packages, err = dbQuerier.ListPackages(context.TODO())
+		if err != nil {
+			return err
+		}
+	}
+
+	pkgs := make([]pregistry.GraphPackage, len(request.Packages))
+	for i, p := range request.Packages {
+		entries, err := dbQuerier.GetChannelEntriesFromPackage(context.TODO(), p)
+		if err != nil {
+			return err
+		}
+		pkg, err := pregistry.NewGraphPackageFromEntries(p, entries)
+		if err != nil {
+			return err
+		}
+		pkgs[i] = *pkg
+	}
+
+	g := graphviz.New()
+	defer g.Close()
+
+	graph, err := g.Graph()
+	if err != nil {
+		return err
+	}
+	defer graph.Close()
+
+	sort.Slice(pkgs, func(i, j int) bool {
+		return pkgs[i].PackageName > pkgs[j].PackageName
+	})
+	for _, p := range pkgs {
+		i.Logger.WithField("package", p.PackageName).Info("adding package to graph")
+		if err := p.AddToGraph(graph); err != nil {
+			return err
+		}
+	}
+
+	outputWriter, err := os.Create(request.OutputFile)
+	if err != nil {
+		return err
+	}
+	defer outputWriter.Close()
+
+	i.Logger.WithField("file", request.OutputFile).Info("rendering graph")
+	if err := g.Render(graph, graphviz.XDOT, outputWriter); err != nil {
+		return err
+	}
 	return nil
 }

@@ -164,7 +164,7 @@ func (s *SQLQuerier) GetDefaultPackage(ctx context.Context, name string) (string
 }
 
 func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageName string) ([]registry.ChannelEntryAnnotated, error) {
-	query := `SELECT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, op_bundle.version, op_bundle.bundlepath, replaces.operatorbundle_name, replacesbundle.version, replacesbundle.bundlepath
+	query := `SELECT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, channel_entry.depth, op_bundle.version, op_bundle.replaces, op_bundle.skips, op_bundle.skipRange, op_bundle.bundlepath, replaces.operatorbundle_name, replacesbundle.version, replacesbundle.bundlepath
 			  FROM channel_entry
 			  LEFT JOIN channel_entry replaces ON channel_entry.replaces = replaces.entry_id
 			  LEFT JOIN operatorbundle op_bundle ON channel_entry.operatorbundle_name = op_bundle.name
@@ -181,14 +181,18 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 	var pkgName sql.NullString
 	var channelName sql.NullString
 	var bundleName sql.NullString
+	var depth sql.NullInt64
 	var replaces sql.NullString
 	var version sql.NullString
+	var bundleReplaces sql.NullString
+	var skips sql.NullString
+	var skipRange sql.NullString
 	var bundlePath sql.NullString
 	var replacesVersion sql.NullString
 	var replacesBundlePath sql.NullString
 
 	for rows.Next() {
-		if err := rows.Scan(&pkgName, &channelName, &bundleName, &version, &bundlePath, &replaces, &replacesVersion, &replacesBundlePath); err != nil {
+		if err := rows.Scan(&pkgName, &channelName, &bundleName, &depth, &version, &bundleReplaces, &skips, &skipRange, &bundlePath, &replaces, &replacesVersion, &replacesBundlePath); err != nil {
 			return nil, err
 		}
 
@@ -196,7 +200,11 @@ func (s *SQLQuerier) GetChannelEntriesFromPackage(ctx context.Context, packageNa
 			PackageName:        pkgName.String,
 			ChannelName:        channelName.String,
 			BundleName:         bundleName.String,
+			Depth:              depth.Int64,
 			Version:            version.String,
+			BundleReplaces:     bundleReplaces.String,
+			Skips:              skips.String,
+			SkipRange:          skipRange.String,
 			BundlePath:         bundlePath.String,
 			Replaces:           replaces.String,
 			ReplacesVersion:    replacesVersion.String,

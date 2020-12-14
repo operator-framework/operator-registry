@@ -114,3 +114,16 @@ func NewIndexDeprecator(buildTool, pullTool containertools.ContainerTool, logger
 		Logger:              logger,
 	}
 }
+
+type IndexGrapher interface {
+	GraphFromIndex(GraphFromIndexRequest) error
+}
+
+// NewIndexGrapher is a constructor that returns an IndexGrapher
+func NewIndexGrapher(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexGrapher {
+	return ImageIndexer{
+		LabelReader: containertools.NewLabelReader(containerTool, logger),
+		PullTool:    containerTool,
+		Logger:      logger,
+	}
+}
