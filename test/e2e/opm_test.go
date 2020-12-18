@@ -2,11 +2,13 @@ package e2e_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,6 +24,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
+
+	lregistry "github.com/operator-framework/operator-registry/pkg/lib/registry"
 )
 
 var (
@@ -45,6 +49,9 @@ var (
 	indexImage1 = dockerHost + "/olmtest/e2e-index:" + indexTag1
 	indexImage2 = dockerHost + "/olmtest/e2e-index:" + indexTag2
 	indexImage3 = dockerHost + "/olmtest/e2e-index:" + indexTag3
+
+	ocpVersion      = "v4.6"
+	redhatOperators = "registry.redhat.io/redhat/redhat-operator-index:" + ocpVersion
 )
 
 type bundleLocation struct {
@@ -209,6 +216,16 @@ func initialize() error {
 
 var _ = Describe("opm", func() {
 	IncludeSharedSpecs := func(containerTool string) {
+		// BeforeEach(func() {
+		// 	if dockerUsername == "" || dockerPassword == "" {
+		// 		Skip("registry credentials are not available")
+		// 	}
+
+		// 	dockerlogin := exec.Command(containerTool, "login", "-u", dockerUsername, "-p", dockerPassword, "quay.io")
+		// 	err := dockerlogin.Run()
+		// 	Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
+		// })
+
 		It("builds and validates a bundle image", func() {
 			By("building bundle")
 			img := bundleImage + ":" + bundleTag3
@@ -405,15 +422,112 @@ var _ = Describe("opm", func() {
 			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.ReplacesMode, true) // 1.0.1-overwrite
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		FIt("is consistent with existing update graphs", func() {
+			// extract the db from image
+			extractDB := exec.Command("oc", "image", "extract", redhatOperators, "--file", "/database/index.db")
+			err := extractDB.Run()
+			Expect(err).NotTo(HaveOccurred(), "Error extracting db from image")
+
+			// get original graph
+			db, err := sql.Open("sqlite3", "file:index.db")
+			querier := sqlite.NewSQLLiteQuerierFromDb(db)
+			// loader, err := sqlite.NewSQLLiteLoader(db)
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+
+			// get bundles for each package
+			packages, err := querier.ListPackages(context.TODO())
+			Expect(err).NotTo(HaveOccurred(), "Error listing packages")
+
+			var errs []error
+
+			// for _, pkg := range packages {
+			// 	graph, err := graphLoader.Generate(pkg)
+			// 	Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+			// 	bundlePaths, err := querier.GetBundlePathsForPackage(context.TODO(), pkg)
+			// 	Expect(err).NotTo(HaveOccurred(), "Error getting bundles for package %s", pkg)
+
+			// 	// remove package from db
+			// 	err = loader.RemovePackage(pkg)
+			// 	Expect(err).NotTo(HaveOccurred(), "Error removing package %s", pkg)
+
+			// 	// re-add all the bundles
+			// 	request := lregistry.AddToRegistryRequest{
+			// 		Permissive:    false,
+			// 		SkipTLS:       false,
+			// 		InputDatabase: "index.db",
+			// 		Bundles:       bundlePaths,
+			// 		Mode:          registry.ReplacesMode,
+			// 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+			// 		Overwrite:     false,
+			// 	}
+
+			// 	logger := logrus.WithFields(logrus.Fields{"bundles": bundlePaths})
+			// 	registryAdder := lregistry.NewRegistryAdder(logger)
+			// 	err = registryAdder.AddToRegistry(request)
+			// 	if err != nil {
+			// 		errs = append(errs, fmt.Errorf("Error adding bundles for package %s: %s", pkg, err))
+			// 		continue
+			// 	}
+
+			// 	// check graph has not changed
+			// 	newGraph, err := graphLoader.Generate(pkg)
+			// 	Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+			// 	if !reflect.DeepEqual(graph, newGraph) {
+			// 		errs = append(errs, fmt.Errorf("the update graph has changed during batch re-add for package: %s \n Was %v \n Is now %v", pkg, graph, newGraph))
+			// 	}
+			// }
+
+			// check overwrite-latest
+			for _, pkg := range packages {
+				graph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				for _, ch := range graph.Channels {
+					// overwrite the latest with itself
+					request := lregistry.AddToRegistryRequest{
+						Permissive:    false,
+						SkipTLS:       false,
+						InputDatabase: "index.db",
+						Bundles:       []string{ch.Head.BundlePath},
+						Mode:          registry.ReplacesMode,
+						ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+						Overwrite:     true,
+					}
+
+					logger := logrus.WithFields(logrus.Fields{"bundles": []string{ch.Head.BundlePath}})
+					registryAdder := lregistry.NewRegistryAdder(logger)
+					err = registryAdder.AddToRegistry(request)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("Error overwriting bundles for package %s: %s", pkg, err))
+						continue
+					}
+				}
+
+				// check graph has not changed
+				newGraph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				if !reflect.DeepEqual(graph, newGraph) {
+					errs = append(errs, fmt.Errorf("the update graph has changed during overwrite-latest for package: %s \n Was %v \n Is now %v", pkg, graph, newGraph))
+				}
+			}
+
+			Expect(errs).To(BeEmpty(), fmt.Sprintf("%s", errs))
+		})
 	}
 
-	Context("using docker", func() {
-		if err := exec.Command("docker").Run(); err != nil {
-			GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %s", err)
-			return
-		}
-		IncludeSharedSpecs("docker")
-	})
+	// Context("using docker", func() {
+	// 	if err := exec.Command("docker").Run(); err != nil {
+	// 		GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %s", err)
+	// 		return
+	// 	}
+	// 	IncludeSharedSpecs("docker")
+	// })
 
 	Context("using podman", func() {
 		if err := exec.Command("podman", "info").Run(); err != nil {
