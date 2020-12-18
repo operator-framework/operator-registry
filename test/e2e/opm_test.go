@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
+
+	lregistry "github.com/operator-framework/operator-registry/pkg/lib/registry"
 )
 
 var (
@@ -45,6 +48,9 @@ var (
 	indexImage1 = "quay.io/olmtest/e2e-index:" + indexTag1
 	indexImage2 = "quay.io/olmtest/e2e-index:" + indexTag2
 	indexImage3 = "quay.io/olmtest/e2e-index:" + indexTag3
+
+	ocpVersion      = "v4.6"
+	redhatOperators = "registry.redhat.io/redhat/redhat-operator-index:" + ocpVersion
 )
 
 type bundleLocation struct {
@@ -424,6 +430,91 @@ var _ = Describe("opm", func() {
 			By("overwriting the latest bundle in an index")
 			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.ReplacesMode, true) // 1.0.1-overwrite
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("is consistent with existing update graphs", func() {
+			// extract the db from image
+			extractDB := exec.Command("oc", "image", "extract", redhatOperators, "--file", "/database/index.db")
+			err := extractDB.Run()
+			Expect(err).NotTo(HaveOccurred(), "Error extracting db from image")
+
+			// get original graph
+			db, err := sql.Open("sqlite3", "file:index.db")
+			querier := sqlite.NewSQLLiteQuerierFromDb(db)
+			loader, err := sqlite.NewSQLLiteLoader(db)
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+
+			// get bundles for each package
+			packages, err := querier.ListPackages(context.TODO())
+			Expect(err).NotTo(HaveOccurred(), "Error listing packages")
+
+			for _, pkg := range packages {
+				graph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				bundlePaths, err := querier.GetBundlePathsForPackage(context.TODO(), pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error getting bundles for package %s", pkg)
+
+				// remove package from db
+				err = loader.RemovePackage(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error removing package %s", pkg)
+
+				// re-add all the bundles
+				request := lregistry.AddToRegistryRequest{
+					Permissive:    false,
+					SkipTLS:       false,
+					InputDatabase: "index.db",
+					Bundles:       bundlePaths,
+					Mode:          registry.ReplacesMode,
+					ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+					Overwrite:     false,
+				}
+
+				logger := logrus.WithFields(logrus.Fields{"bundles": bundlePaths})
+				registryAdder := lregistry.NewRegistryAdder(logger)
+				err = registryAdder.AddToRegistry(request)
+				Expect(err).NotTo(HaveOccurred(), "Error adding bundles for package %s", pkg)
+
+				// check graph has not changed
+				newGraph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				Expect(reflect.DeepEqual(graph, newGraph)).To(BeTrue())
+			}
+
+			// check overwrite-latest
+			for _, pkg := range packages {
+				graph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				for _, ch := range graph.Channels {
+					// overwrite the latest with itself
+					request := lregistry.AddToRegistryRequest{
+						Permissive:    false,
+						SkipTLS:       false,
+						InputDatabase: "index.db",
+						Bundles:       []string{ch.Head.BundlePath},
+						Mode:          registry.ReplacesMode,
+						ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+						Overwrite:     true,
+					}
+
+					logger := logrus.WithFields(logrus.Fields{"bundles": []string{ch.Head.BundlePath}})
+					registryAdder := lregistry.NewRegistryAdder(logger)
+					err = registryAdder.AddToRegistry(request)
+					Expect(err).NotTo(HaveOccurred(), "Error overwriting bundles for package %s", pkg)
+				}
+
+				// check graph has not changed
+				newGraph, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				Expect(reflect.DeepEqual(graph, newGraph)).To(BeTrue())
+
+			}
+
 		})
 	}
 
