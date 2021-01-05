@@ -140,6 +140,9 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		if skippatch {
 			// Remove the nodes that are now being skipped by a new patch version update
 			for _, candidate := range skipPatchCandidates {
+				for replaced, val := range channelGraph.Nodes[candidate] {
+					replaces[replaced] = val
+				}
 				delete(channelGraph.Nodes, candidate)
 			}
 		}
