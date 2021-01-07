@@ -1,25 +1,27 @@
 # Operator Bundle
 
-An `Operator Bundle` is a container image that stores Kubernetes manifests and metadata associated with an operator. A bundle is meant to present a *specific* version of an operator.
+An `Operator Bundle` is a container image that stores the Kubernetes manifests and metadata associated with an operator. A bundle is meant to represent a *specific* version of an operator.
 
 ## Operator Bundle Overview
 
-The operator manifests refers to a set of Kubernetes manifest(s) the defines the deployment and RBAC model of the operator. The operator metadata on the other hand are, but not limited to:
+The operator manifests refer to a set of Kubernetes manifest(s) that defines the deployment and RBAC model of the operator. The operator metadata on the other hand are, but not limited to the following properties:
+
 * Information that identifies the operator, its name, version etc.
 * Additional information that drives the UI:
-    * Icon
-    * Example CR(s)
+  * Icon
+  * Example CR(s)
 * Channel(s)
 * API(s) provided and required.
 * Related images.
 
-An `Operator Bundle` is built as a scratch (non-runnable) container image that contains operator manifests and specific metadata in designated directories inside the image. Then, it can be pushed and pulled from an OCI-compliant container registry. Ultimately, an operator bundle will be used by [Operator Registry](https://github.com/operator-framework/operator-registry) and [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) to install an operator in OLM-enabled clusters.
+An `Operator Bundle` is built as a scratch (i.e. non-runnable) container image that contains operator manifests and specific metadata in designated directories inside the image. Then, it can be pushed and pulled from an OCI-compliant container registry. Ultimately, an operator bundle will be used by [Operator Registry](https://github.com/operator-framework/operator-registry) and [Operator-Lifecycle-Manager (OLM)](https://github.com/operator-framework/operator-lifecycle-manager) to install an operator in OLM-enabled clusters.
 
 ### Bundle Manifest Format
 
-The standard bundle format requires two directories named `manifests` and `metadata`. The `manifests` directory is where all operator manifests are resided including ClusterServiceVersion (CSV), CustomResourceDefinition (CRD) and other supported Kubernetes types. The `metadata` directory is where operator metadata is located including `annotations.yaml` which contains additional information such as package name, channels and media type. Also, `dependencies.yaml` which contains the operator dependency information can be included in `metadata` directory.
+The standard bundle format requires two directories named `manifests` and `metadata`. The `manifests` directory is where all operator manifests are resided including the `ClusterServiceVersion` (CSV), `CustomResourceDefinition` (CRD) and other supported Kubernetes types. The `metadata` directory is where operator metadata is located including `annotations.yaml` which contains additional information such as the package name, channels and media type. Also, `dependencies.yaml`, which contains the operator dependency information can be included in `metadata` directory.
 
-Below is the directory layout of an operator bundle inside a bundle image:
+Below is the directory layout of an example operator bundle inside a bundle image:
+
 ```bash
 $ tree
 /
@@ -32,24 +34,25 @@ $ tree
 ```
 
 *Notes:*
-* The names of manifests and metadata directories must match the bundle annotations that are provided in `annotations.yaml` file. Currently, those names are set to `manifests` and `metadata`.
+
+* The names of manifests and metadata directories must match the bundle annotations that are specified in `annotations.yaml` file. Currently, those names are set to `manifests` and `metadata`.
 
 ### Bundle Annotations
 
-We use the following labels to annotate the operator bundle image.
-* The label `operators.operatorframework.io.bundle.mediatype.v1` reflects the media type or format of the operator bundle. It could be helm charts, plain Kubernetes manifests etc.
-* The label `operators.operatorframework.io.bundle.manifests.v1 `reflects the path in the image to the directory that contains the operator manifests. This label is reserved for the future use and is set to `manifests/` for the time being.
+We use the following labels to annotate the operator bundle image:
+
+* The label `operators.operatorframework.io.bundle.mediatype.v1` reflects the media type or format of the operator bundle. It could be helm charts, plain Kubernetes manifests, etc.
+* The label `operators.operatorframework.io.bundle.manifests.v1` reflects the path in the image to the directory that contains the operator manifests. This label is reserved for the future use and is set to `manifests/` for the time being.
 * The label `operators.operatorframework.io.bundle.metadata.v1` reflects the path in the image to the directory that contains metadata files about the bundle. This label is reserved for the future use and is set to `metadata/` for the time being.
 * The `manifests.v1` and `metadata.v1` labels imply the bundle type:
-    * The value `manifests.v1` implies that this bundle contains operator manifests.
-    * The value `metadata.v1` implies that this bundle has operator metadata.
+  * The value `manifests.v1` implies that this bundle contains operator manifests.
+  * The value `metadata.v1` implies that this bundle has operator metadata.
 * The label `operators.operatorframework.io.bundle.package.v1` reflects the package name of the bundle.
-* The label `operators.operatorframework.io.bundle.channels.v1` reflects the list of channels the bundle is subscribing to when added into an operator registry
+* The label `operators.operatorframework.io.bundle.channels.v1` reflects the list of channels the bundle is subscribing to when added into an operator registry.
 * The label `operators.operatorframework.io.bundle.channel.default.v1` reflects the default channel an operator should be subscribed to when installed from a registry. This label is optional if the default channel has been set by previous bundles and the default channel is unchanged for this bundle.
 
-The labels will also be put inside a YAML file, as shown below.
+The labels will also be put inside a YAML file, `annotations.yaml`, as shown below:
 
-*annotations.yaml*
 ```yaml
 annotations:
   operators.operatorframework.io.bundle.mediatype.v1: "registry+v1"
@@ -61,6 +64,7 @@ annotations:
 ```
 
 *Notes:*
+
 * In case of a mismatch, the `annotations.yaml` file is authoritative because the on-cluster operator-registry that relies on these annotations has access to the yaml file only.
 * The potential use case for the `LABELS` is - an external off-cluster tool can inspect the image to check the type of a given bundle image without downloading the content.
 * The annotations for bundle manifests and metadata are reserved for future use. They are set to be `manifests/` and `metadata/` for the time being.
@@ -73,7 +77,7 @@ The dependency list will contain a `type` field for each item to specify what ki
 
 An example of a `dependencies.yaml` that specifies Prometheus operator and etcd CRD dependencies:
 
-```
+```yaml
 dependencies:
   - type: olm.package
     value:
@@ -89,7 +93,8 @@ dependencies:
 ### Bundle Dockerfile
 
 This is an example of a `Dockerfile` for operator bundle:
-```
+
+```dockerfile
 FROM scratch
 
 # We are pushing an operator-registry bundle
@@ -116,22 +121,25 @@ In order to use `opm` CLI, follow the `opm` build instruction:
 1. Clone the operator registry repository:
 
 ```bash
-$ git clone https://github.com/operator-framework/operator-registry
+git clone https://github.com/operator-framework/operator-registry
 ```
 
 2. Build `opm` binary using this command:
 
 ```bash
-$ make build
+make build
 ```
 
 Now, a binary named `opm` is now built in current directory and ready to be used.
 
-### Generate Bundle Annotations and DockerFile
+### Generating Bundle Annotations and DockerFile
+
 *Notes:*
+
 * If there are `annotations.yaml` and `Dockerfile` existing in the directory, they will be overwritten.
 
 Using `opm` CLI, bundle annotations can be generated from provided operator manifests. The overall `bundle generate` command usage is:
+
 ```bash
 Usage:
   opm alpha bundle generate [flags]
@@ -151,12 +159,14 @@ Flags:
 The `--directory/-d`, `--channels/-c`, `--package/-p` are required flags while `--default/-e` and `--output-dir/-u` are optional.
 
 The command for `generate` task is:
+
 ```bash
 $ ./opm alpha bundle generate --directory /test --package test-operator \
 --channels stable,beta --default stable
 ```
 
 The `--directory` or `-d` specifies the directory where the operator manifests, including CSVs and CRDs, are located. For example:
+
 ```bash
 $ tree test
 test
@@ -164,11 +174,14 @@ test
 └── etcdoperator.clusterserviceversion.yaml
 ```
 
-The `--package` or `-p` is the name of package fo the operator such as `etcd` which which map `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in channel list is selected as default.
+The `--package` or `-p` is the name of package of the operator such as `etcd`, which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via the `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag. If the default channel is not provided, the first channel in the list of channels is selected as the default.
 
-All information in `annotations.yaml` is also existed in `LABEL` section of `Dockerfile`.
+**Note**: All information specified in `annotations.yaml` must also exist in the `LABEL` section of a `Dockerfile`.
 
-After the generate command is executed, the `Dockerfile` is generated in the directory where command is run. By default, the `annotations.yaml` file is located in a folder named `metadata` in the same root directory as the input directory containing manifests. For example:
+After the generate command is executed, the `Dockerfile` is generated in the same directory where the command was run. By default, the `annotations.yaml` file is located in a folder named `metadata` in the same root directory as the input directory containing manifests.
+
+For example:
+
 ```bash
 $ tree test
 test
@@ -180,7 +193,7 @@ test
 └── Dockerfile
 ```
 
-If the `--output-dir` parameter is specified, that directory becomes the parent for a new pair of folders `manifests/` and `metadata/`, where `manifests/` is a copy of the passed in directory of manifests and `metadata/` is the folder containing annotations.yaml:
+If the `--output-dir` parameter is specified, that directory becomes the parent for a new pair of folders `manifests/` and `metadata/`, where `manifests/` is a copy of the passed in directory of manifests and `metadata/` is the folder containing the `annotations.yaml` file:
 
 ```bash
 $ tree test
@@ -197,15 +210,20 @@ test
 └── Dockerfile
 ```
 
-The `Dockerfile` can be used manually to build the bundle image using container image tools such as Docker, Podman or Buildah. For example, the Docker build command would be:
+The `Dockerfile` can be used manually to build the bundle image using various container image tooling such as Docker, Podman or Buildah.
+
+The following example uses `docker` to build the bundle image:
 
 ```bash
-$ docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path/to/manifests/
+docker build -f /path/to/Dockerfile -t quay.io/test/test-operator:latest /path/to/manifests/
 ```
 
 ### Build Bundle Image
 
-Operator bundle image can be built from provided operator manifests using `build` command (see *Notes* below). The overall `bundle build` command usage is:
+An operator bundle image can be built from the provided operator manifests using the `build` command (see *Notes* below).
+
+The overall `bundle build` command usage is:
+
 ```bash
 Usage:
   opm alpha bundle build [flags]
@@ -226,29 +244,35 @@ Flags:
   * All manifests yaml must be in the same directory.
 ```
 
-The command for `build` task is:
+The command for the `build` task is:
+
 ```bash
 $ ./opm alpha bundle build --directory /test --tag quay.io/coreos/test-operator.v0.1.0:latest \
 --package test-operator --channels stable,beta --default stable
 ```
 
-The `--directory` or `-d` specifies the directory where the operator manifests for a specific version are located. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
+The `--directory` or `-d` specifies the directory location that contains the manifests for a specific version of an operator. The `--tag` or `-t` specifies the image tag that you want the operator bundle image to have. By using `build` command, the `annotations.yaml` and `Dockerfile` are automatically generated in the background.
 
-The default image builder is `Docker`. However, ` Buildah` and `Podman` are also supported. An image builder can be specified via `--image-builder` or `-b` optional tag in `build` command. For example:
+The default image builder is `Docker`. However, `Buildah` and `Podman` are also supported. An image builder can be specified via `--image-builder` or the optional `-b` tag in the `build` command. For example:
+
 ```bash
-$ ./opm alpha bundle build --directory /test/0.1.0/ --tag quay.io/coreos/test-operator.v0.1.0:latest \
---image-builder podman --package test-operator --channels stable,beta --default stable
+$ ./opm alpha bundle build --directory /test/0.1.0/ \
+  --tag quay.io/coreos/test-operator.v0.1.0:latest \
+  --image-builder podman --package test-operator \
+  --channels stable,beta --default stable
 ```
 
-The `--package` or `-p` is the name of package for the operator such as `etcd` which maps `channels` to a particular application definition. `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag.
+The `--package` or `-p` is the name of the package for the operator such as `etcd`, which maps `channels` to a particular application definition. Here, `channels` allow package authors to write different upgrade paths for different users (e.g. `beta` vs. `stable`). The `channels` list is provided via `--channels` or `-c` flag. Multiple `channels` are separated by a comma (`,`). The default channel is provided optionally via `--default` or `-e` flag.
 
 *Notes:*
+
 * If there is `Dockerfile` existing in the directory, it will be overwritten.
 * If there is an existing `annotations.yaml` in `/metadata` directory, the cli will attempt to validate it and returns any found errors. If the ``annotations.yaml`` is valid, it will be used as a part of build process. The optional boolean `--overwrite/-o` flag can be enabled (false by default) to allow cli to overwrite the `annotations.yaml` if existed.
 
 ### Validate Bundle Image
 
 Operator bundle image can validate bundle image that is publicly available in an image registry using `validate` command (see *Notes* below). The overall `bundle validate` command usage is:
+
 ```bash
 Usage:
   opm alpha bundle validate [flags]
@@ -260,8 +284,9 @@ Flags:
 ```
 
 The command for `validate` task is:
+
 ```bash
-$ ./opm alpha bundle validate --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
+./opm alpha bundle validate --tag quay.io/coreos/test-operator.v0.1.0:latest --image-builder docker
 ```
 
 The `validate` command will first extract the content of the bundle image into a temporary directory after it pulls the image from its image registry. Then, it will validate the format of bundle image to ensure manifests and metadata are located in their appropriate directories (`/manifests/` for bundle manifests files such as CSV and `/metadata/` for metadata files such as `annotations.yaml`). Also, it will validate the information in `annotations.yaml` to confirm that metadata is matching the provided data. For example, the provided media type in annotations.yaml just matches the actual media type is provided in the bundle image.
@@ -269,4 +294,5 @@ The `validate` command will first extract the content of the bundle image into a
 After the bundle image format is confirmed, the command will validate the bundle contents such as manifests and metadata files if the bundle format is `RegistryV1` or "Plain" type. "RegistryV1" format means it contains `ClusterServiceVersion` and its associated Kubernetes objects while `PlainType` means it contains all Kubernetes objects. The content validation process will ensure the individual file in the bundle image is valid and can be applied to an OLM-enabled cluster provided all necessary permissions and configurations are met.
 
 *Notes:*
+
 * The bundle content validation is best effort which means it will not guarantee 100% accuracy due to nature of Kubernetes objects may need certain permissions and configurations, which users may not have, in order to be applied successfully in a cluster.
