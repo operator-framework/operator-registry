@@ -2,8 +2,9 @@ package sqlite
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -62,6 +63,10 @@ func TestRemover(t *testing.T) {
 
 	_, err = query.GetPackage(context.TODO(), "etcd")
 	require.EqualError(t, err, "package etcd not found")
+
+	require.EqualError(t, store.RemovePackage("missing-package"), "package does not exist")
+	_, err = query.GetPackage(context.TODO(), "missing-package")
+	require.Error(t, err, "querying for a non-existent package should produce an error")
 
 	// prometheus apis still around
 	rows, err := db.QueryContext(context.TODO(), "select * from api")

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -612,12 +613,47 @@ func (s *sqlLoader) addAPIs(tx *sql.Tx, bundle *registry.Bundle) error {
 	return nil
 }
 
+// checkIfPackageExists is a method responsible for determing
+// whether the @packageName package exists in the package
+// table and returns an error if that package is non-existent.
+func (s *sqlLoader) checkIfPackageExists(tx *sql.Tx, packageName string) error {
+	id, err := tx.Prepare(`
+	SELECT DISTINCT name
+	FROM package
+	WHERE name=?
+	`)
+	if err != nil {
+		return err
+	}
+	defer id.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	r, err := id.QueryContext(ctx, packageName)
+	if err != nil {
+		return err
+	}
+	if !r.Next() {
+		return fmt.Errorf("package does not exist")
+	}
+	err = r.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getCSVNames is a method responsible for querying the
+// channel_entry table and returning any distinct CSV
+// names that are associated with the @packageName package.
 func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error) {
 	getID, err := tx.Prepare(`
 	  SELECT DISTINCT channel_entry.operatorbundle_name
 	  FROM channel_entry
-	  WHERE channel_entry.package_name=?`)
-
+	  WHERE channel_entry.package_name=?
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -645,6 +681,9 @@ func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
+// RemovePackage is a method responsible for removing a
+// single package and it's associated CSVs, channels, etc.
+// from the registry database.
 func (s *sqlLoader) RemovePackage(packageName string) error {
 	if err := func() error {
 		tx, err := s.db.Begin()
@@ -655,36 +694,47 @@ func (s *sqlLoader) RemovePackage(packageName string) error {
 			tx.Rollback()
 		}()
 
+		var errors []error
+		err = s.checkIfPackageExists(tx, packageName)
+		if err != nil {
+			errors = append(errors, err)
+		}
+
 		csvNames, err := s.getCSVNames(tx, packageName)
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
 		for _, csvName := range csvNames {
 			if err := s.rmBundle(tx, csvName); err != nil {
-				return err
+				errors = append(errors, err)
 			}
 		}
 
 		deletePackage, err := tx.Prepare("DELETE FROM package WHERE package.name=?")
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
 		defer deletePackage.Close()
 
 		if _, err := deletePackage.Exec(packageName); err != nil {
-			return err
+			errors = append(errors, err)
 		}
 
 		deleteChannel, err := tx.Prepare("DELETE FROM channel WHERE package_name = ?")
 		if err != nil {
-			return err
+			errors = append(errors, err)
 		}
 		defer deleteChannel.Close()
 
 		if _, err := deleteChannel.Exec(packageName); err != nil {
-			return err
+			errors = append(errors, err)
 		}
-		return tx.Commit()
+
+		if err = tx.Commit(); err != nil {
+			errors = append(errors, err)
+		}
+
+		return utilerrors.NewAggregate(errors)
 	}(); err != nil {
 		return err
 	}
@@ -987,8 +1037,8 @@ func (s *sqlLoader) rmChannelEntry(tx *sql.Tx, csvName string) error {
 
 func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 	getReplacesSkips := `SELECT replaces, skips FROM operatorbundle WHERE name=?`
-	isDefaultChannelHead := `SELECT head_operatorbundle_name FROM channel 
-							INNER JOIN package ON channel.name = package.default_channel 
+	isDefaultChannelHead := `SELECT head_operatorbundle_name FROM channel
+							INNER JOIN package ON channel.name = package.default_channel
 							WHERE channel.head_operatorbundle_name = ?`
 
 	tail := make(map[string]struct{})
