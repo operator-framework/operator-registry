@@ -15,8 +15,10 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/operator-framework/operator-registry/pkg/client"
 	"github.com/operator-framework/operator-registry/pkg/configmap"
@@ -754,6 +756,9 @@ var _ = Describe("Launch bundle", func() {
 			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin", GinkgoWriter)
 			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", imageDirectory, GinkgoWriter)
 
+			err = maybeLoadKind(kubeclient, GinkgoWriter, initImage, bundleImage)
+			Expect(err).ToNot(HaveOccurred(), "error loading required images into cluster")
+
 			By("creating a batch job")
 			bundleDataConfigMap, job, err := configmap.LaunchBundleImage(kubeclient, bundleImage, initImage, namespace)
 			Expect(err).NotTo(HaveOccurred())
@@ -816,3 +821,44 @@ var _ = Describe("Launch bundle", func() {
 		})
 	})
 })
+
+const kindControlPlaneNodeName = "kind-control-plane"
+
+func isKindCluster(client *kubernetes.Clientset) (bool, error) {
+	kindNode, err := client.CoreV1().Nodes().Get(context.TODO(), kindControlPlaneNodeName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// not a kind cluster
+			return false, nil
+		}
+		// transient error accessing nodes in cluster
+		// return an error, failing the test
+		return false, fmt.Errorf("accessing nodes in cluster")
+	}
+	if kindNode == nil {
+		return true, fmt.Errorf("finding kind node %s in cluster", kindControlPlaneNodeName)
+	}
+	return true, nil
+}
+
+// maybeLoadKind loads the built images via kind load docker-image if the test is running in a kind cluster
+func maybeLoadKind(client *kubernetes.Clientset, w io.Writer, images ...string) error {
+	kind, err := isKindCluster(client)
+	if err != nil {
+		return err
+	}
+	if !kind {
+		return nil
+	}
+
+	for _, image := range images {
+		cmd := exec.Command("kind", "load", "docker-image", image)
+		cmd.Stderr = w
+		cmd.Stdout = w
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
