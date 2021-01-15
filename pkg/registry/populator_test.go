@@ -206,6 +206,7 @@ func TestQuerierForImage(t *testing.T) {
 	EqualBundles(t, *expectedBundle, *etcdBundleByProvides)
 
 	expectedEtcdImages := []string{
+		"quay.io/test/etcd.0.9.2",
 		"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
 	}
 	etcdImages, err := store.GetImagesForBundle(context.TODO(), "etcdoperator.v0.9.2")
@@ -213,10 +214,15 @@ func TestQuerierForImage(t *testing.T) {
 	require.ElementsMatch(t, expectedEtcdImages, etcdImages)
 
 	expectedDatabaseImages := []string{
+		"quay.io/test/etcd.0.9.0",
 		"quay.io/coreos/etcd-operator@sha256:db563baa8194fcfe39d1df744ed70024b0f1f9e9b55b5923c2f3a413c44dc6b8",
+		"quay.io/test/etcd.0.9.2",
 		"quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2",
+		"quay.io/test/prometheus.0.14.0",
 		"quay.io/coreos/prometheus-operator@sha256:5037b4e90dbb03ebdefaa547ddf6a1f748c8eeebeedf6b9d9f0913ad662b5731",
+		"quay.io/test/prometheus.0.15.0",
 		"quay.io/coreos/prometheus-operator@sha256:0e92dd9b5789c4b13d53e1319d0a6375bcca4caaf0d698af61198061222a576d",
+		"quay.io/test/prometheus.0.22.2",
 		"quay.io/coreos/prometheus-operator@sha256:3daa69a8c6c2f1d35dcf1fe48a7cd8b230e55f5229a1ded438f687debade5bcf",
 	}
 	dbImages, err := store.ListImages(context.TODO())
