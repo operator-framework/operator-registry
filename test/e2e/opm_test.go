@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -187,7 +186,7 @@ func initialize() error {
 	}
 	defer os.Remove(tmpDB.Name())
 
-	db, err := sql.Open("sqlite3", tmpDB.Name())
+	db, err := sqlite.Open(tmpDB.Name())
 	if err != nil {
 		return err
 	}
