@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestListBundlesQuery(t *testing.T) {
@@ -128,21 +130,18 @@ func TestListBundlesQuery(t *testing.T) {
 		t.Run(tt.Name, func(t *testing.T) {
 			ctx := context.Background()
 
-			db, err := sql.Open("sqlite3", ":memory:")
-			if err != nil {
-				t.Fatalf("unable to open in-memory sqlite database: %v", err)
-			}
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			require.NoError(t, store.Migrate(context.TODO()))
 
-			m, err := NewSQLLiteMigrator(db)
-			if err != nil {
-				t.Fatalf("unable to create database migrator: %v", err)
-			}
-
-			if err := m.Migrate(ctx); err != nil {
-				t.Fatalf("failed to perform initial schema migration: %v", err)
-			}
-
+			// TODO: this test should be rewritten to work with the foreign key constraints
+			_, err = db.Exec("PRAGMA foreign_keys = OFF")
+			require.NoError(t, err)
 			tt.Setup(t, db)
+			_, err = db.Exec("PRAGMA foreign_keys = ON")
+			require.NoError(t, err)
 
 			rows, err := db.QueryContext(ctx, listBundlesQuery)
 			if err != nil {

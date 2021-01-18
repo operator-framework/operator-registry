@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"database/sql"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -9,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 
 	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func TestGetBundlesToExport(t *testing.T) {
@@ -19,7 +18,7 @@ func TestGetBundlesToExport(t *testing.T) {
 		"quay.io/olmtest/example-bundle:etcdoperator.v0.6.1"}
 	sort.Strings(expected)
 
-	db, err := sql.Open("sqlite3", "./testdata/bundles.db")
+	db, err := sqlite.Open("./testdata/bundles.db")
 	if err != nil {
 		t.Fatalf("opening db: %s", err)
 	}
@@ -48,7 +47,7 @@ func TestGetBundlesToExport(t *testing.T) {
 }
 
 func TestGeneratePackageYaml(t *testing.T) {
-	db, err := sql.Open("sqlite3", "./testdata/bundles.db")
+	db, err := sqlite.Open("./testdata/bundles.db")
 	if err != nil {
 		t.Fatalf("opening db: %s", err)
 	}

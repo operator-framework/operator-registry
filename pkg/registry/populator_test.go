@@ -30,7 +30,7 @@ func init() {
 func CreateTestDb(t *testing.T) (*sql.DB, func()) {
 	dbName := fmt.Sprintf("test-%d.db", rand.Int())
 
-	db, err := sql.Open("sqlite3", "file:"+dbName+"?_foreign_keys=on")
+	db, err := sqlite.Open(dbName)
 	require.NoError(t, err)
 
 	return db, func() {
