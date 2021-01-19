@@ -144,7 +144,13 @@ spec:
 
 # Using the catalog locally
 
-[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the example catalog server.
+After starting a catalog locally:
+
+```sh
+$ docker run --rm -p 50051:50051 <index image>
+```
+
+[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the api:
 
 ```sh
 $ grpcurl -plaintext  localhost:50051 list api.Registry
