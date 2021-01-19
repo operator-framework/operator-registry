@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -55,7 +54,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	db, err := sql.Open("sqlite3", outFilename)
+	db, err := sqlite.Open(outFilename)
 	if err != nil {
 		return err
 	}

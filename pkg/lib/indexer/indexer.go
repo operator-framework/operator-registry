@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -496,7 +495,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 		return err
 	}
 
-	db, err := sql.Open("sqlite3", databaseFile)
+	db, err := sqlite.Open(databaseFile)
 	if err != nil {
 		return err
 	}
