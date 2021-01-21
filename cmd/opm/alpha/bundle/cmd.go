@@ -11,9 +11,6 @@ func NewCmd() *cobra.Command {
 		Long:  `Generate operator bundle metadata and build bundle image.`,
 	}
 
-	runCmd.AddCommand(newBundleGenerateCmd())
-	runCmd.AddCommand(newBundleBuildCmd())
-	runCmd.AddCommand(newBundleValidateCmd())
 	runCmd.AddCommand(extractCmd)
 	return runCmd
 }
