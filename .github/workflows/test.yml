@@ -28,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          sudo apt-get -y install conntrack
+          sudo apt-get -y update
+          sudo apt-get -y install conntrack podman
           curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
           chmod +x minikube
           sudo mv minikube /bin/
@@ -38,12 +39,27 @@ jobs:
           sudo usermod -aG docker "$USER"
           eval $(minikube docker-env)
       - run: |
-          KUBECONFIG="$HOME/.kube/config" make build e2e
+          mkdir -p certs
+          openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -subj '/CN=localhost' -nodes -addext 'subjectAltName = DNS:localhost'
+          docker run -d --restart=always --name registry -v "$(pwd)"/certs:/certs -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem \
+                      -e REGISTRY_HTTP_TLS_KEY=/certs/key.pem \
+                      -p 443:443 \
+                      registry:2
+          sudo mkdir /etc/docker/certs.d
+          sudo mkdir /etc/docker/certs.d/localhost:443
+          sudo cp certs/cert.pem /etc/docker/certs.d/localhost:443/ca.crt
+          sudo cp certs/cert.pem /usr/local/share/ca-certificates/ca.crt
+          sudo update-ca-certificates
+          export DOCKER_REGISTRY_HOST=localhost:443
+      - run: |
+          KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:443 make build e2e
   e2e-kind:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: |
+          sudo apt-get -y update
+          sudo apt-get -y install podman
           curl -sLo kind "$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r '[.assets[] | select(.name == "kind-linux-amd64")] | first | .browser_download_url')"
           chmod +x kind
           sudo mv kind /bin/
@@ -53,4 +69,17 @@ jobs:
           sudo chown -R "$USER" "$HOME/.kube"
           sudo usermod -aG docker "$USER"
       - run: |
-          KUBECONFIG="$HOME/.kube/config" make build e2e
+          mkdir -p certs
+          openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -subj '/CN=localhost' -nodes -addext 'subjectAltName = DNS:localhost'
+          docker run -d --restart=always --name registry -v "$(pwd)"/certs:/certs -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem \
+                      -e REGISTRY_HTTP_TLS_KEY=/certs/key.pem \
+                      -p 443:443 \
+                      registry:2
+          sudo mkdir /etc/docker/certs.d
+          sudo mkdir /etc/docker/certs.d/localhost:443
+          sudo cp certs/cert.pem /etc/docker/certs.d/localhost:443/ca.crt
+          sudo cp certs/cert.pem /usr/local/share/ca-certificates/ca.crt
+          sudo update-ca-certificates
+          export DOCKER_REGISTRY_HOST=localhost:443
+      - run: |
+          KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:443 make build e2e
