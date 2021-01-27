@@ -495,6 +495,7 @@ func (s *sqlLoader) getBundleSkipsReplacesVersion(tx *sql.Tx, bundleName string)
 		err = rerr
 		return
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		err = fmt.Errorf("no bundle found for bundlename %s", bundleName)
 		return
@@ -535,6 +536,7 @@ func (s *sqlLoader) getBundlePathIfExists(tx *sql.Tx, bundleName string) (bundle
 		err = rerr
 		return
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		// no bundlepath set
 		return
@@ -633,6 +635,9 @@ func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	for rows.Next() {
 		err := rows.Scan(&csvName)
 		if err != nil {
+			if nerr := rows.Close(); nerr != nil {
+				return nil, nerr
+			}
 			return nil, err
 		}
 		csvNames = append(csvNames, csvName)
@@ -964,6 +969,7 @@ func (s *sqlLoader) rmChannelEntry(tx *sql.Tx, csvName string) error {
 	}
 	for _, id := range entryIDs {
 		if _, err := updateChannelEntry.Exec(id); err != nil {
+			updateChannelEntry.Close()
 			return err
 		}
 	}
@@ -1003,10 +1009,15 @@ func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 		var skips sql.NullString
 		if rows.Next() {
 			if err := rows.Scan(&replaces, &skips); err != nil {
+				if nerr := rows.Close(); nerr != nil {
+					return nil, nerr
+				}
 				return nil, err
 			}
 		}
-		rows.Close()
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
 		if skips.Valid && skips.String != "" {
 			for _, skip := range strings.Split(skips.String, ",") {
 				tail[skip] = struct{}{}
@@ -1024,11 +1035,20 @@ func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 				var defaultChannelHead sql.NullString
 				err := rows.Scan(&defaultChannelHead)
 				if err != nil {
+					if nerr := rows.Close(); nerr != nil {
+						return nil, nerr
+					}
 					return nil, err
 				}
 				if defaultChannelHead.Valid {
+					if nerr := rows.Close(); nerr != nil {
+						return nil, nerr
+					}
 					return nil, registry.ErrRemovingDefaultChannelDuringDeprecation
 				}
+			}
+			if err := rows.Close(); err != nil {
+				return nil, err
 			}
 			next = replaces.String
 			tail[replaces.String] = struct{}{}

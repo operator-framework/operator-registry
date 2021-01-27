@@ -87,6 +87,7 @@ func ReadCSVFromBundleDirectory(bundleDir string) (*ClusterServiceVersion, error
 		if err != nil {
 			continue
 		}
+		defer yamlReader.Close()
 
 		unstructuredCSV := unstructured.Unstructured{}
 
