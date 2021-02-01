@@ -33,8 +33,7 @@ jobs:
           curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
           chmod +x minikube
           sudo mv minikube /bin/
-          minikube config set vm-driver none
-          sudo minikube start # needs root for none driver
+          minikube start --driver=none
           sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
           sudo usermod -aG docker "$USER"
           eval $(minikube docker-env)
