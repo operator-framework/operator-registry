@@ -22,10 +22,9 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	lregistry "github.com/operator-framework/operator-registry/pkg/lib/registry"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
-
-	lregistry "github.com/operator-framework/operator-registry/pkg/lib/registry"
 )
 
 var (
@@ -50,8 +49,8 @@ var (
 	indexImage2 = dockerHost + "/olmtest/e2e-index:" + indexTag2
 	indexImage3 = dockerHost + "/olmtest/e2e-index:" + indexTag3
 
-	ocpVersion      = "v4.6"
-	redhatOperators = "registry.redhat.io/redhat/redhat-operator-index:" + ocpVersion
+	// publishedIndex is an index used to check for regressions in opm's behavior.
+	publishedIndex = os.Getenv("PUBLISHED_INDEX")
 )
 
 type bundleLocation struct {
@@ -216,16 +215,6 @@ func initialize() error {
 
 var _ = Describe("opm", func() {
 	IncludeSharedSpecs := func(containerTool string) {
-		// BeforeEach(func() {
-		// 	if dockerUsername == "" || dockerPassword == "" {
-		// 		Skip("registry credentials are not available")
-		// 	}
-
-		// 	dockerlogin := exec.Command(containerTool, "login", "-u", dockerUsername, "-p", dockerPassword, "quay.io")
-		// 	err := dockerlogin.Run()
-		// 	Expect(err).NotTo(HaveOccurred(), "Error logging into quay.io")
-		// })
-
 		It("builds and validates a bundle image", func() {
 			By("building bundle")
 			img := bundleImage + ":" + bundleTag3
@@ -423,97 +412,71 @@ var _ = Describe("opm", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		FIt("is consistent with existing update graphs", func() {
-			// extract the db from image
-			extractDB := exec.Command("oc", "image", "extract", redhatOperators, "--file", "/database/index.db")
-			err := extractDB.Run()
-			Expect(err).NotTo(HaveOccurred(), "Error extracting db from image")
+		It("doesn't change published content on overwrite", func() {
+			if publishedIndex == "" {
+				Skip("Set the PUBLISHED_INDEX environment variable to enable this test")
+			}
 
-			// get original graph
-			db, err := sql.Open("sqlite3", "file:index.db")
-			querier := sqlite.NewSQLLiteQuerierFromDb(db)
-			// loader, err := sqlite.NewSQLLiteLoader(db)
+			logger := logrus.NewEntry(logrus.StandardLogger())
+			logger.Logger.SetLevel(logrus.WarnLevel)
+			tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
+			imageIndexer := indexer.ImageIndexer{
+				PullTool: tool,
+				Logger:   logger,
+			}
+			dbFile, err := imageIndexer.ExtractDatabase(".", publishedIndex, "", true)
+			Expect(err).NotTo(HaveOccurred(), "error extracting registry db")
+
+			db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", dbFile))
 			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+
+			querier := sqlite.NewSQLLiteQuerierFromDb(db)
+
 			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
 			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
 
-			// get bundles for each package
 			packages, err := querier.ListPackages(context.TODO())
 			Expect(err).NotTo(HaveOccurred(), "Error listing packages")
 
 			var errs []error
 
-			// for _, pkg := range packages {
-			// 	graph, err := graphLoader.Generate(pkg)
-			// 	Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
-
-			// 	bundlePaths, err := querier.GetBundlePathsForPackage(context.TODO(), pkg)
-			// 	Expect(err).NotTo(HaveOccurred(), "Error getting bundles for package %s", pkg)
-
-			// 	// remove package from db
-			// 	err = loader.RemovePackage(pkg)
-			// 	Expect(err).NotTo(HaveOccurred(), "Error removing package %s", pkg)
-
-			// 	// re-add all the bundles
-			// 	request := lregistry.AddToRegistryRequest{
-			// 		Permissive:    false,
-			// 		SkipTLS:       false,
-			// 		InputDatabase: "index.db",
-			// 		Bundles:       bundlePaths,
-			// 		Mode:          registry.ReplacesMode,
-			// 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
-			// 		Overwrite:     false,
-			// 	}
-
-			// 	logger := logrus.WithFields(logrus.Fields{"bundles": bundlePaths})
-			// 	registryAdder := lregistry.NewRegistryAdder(logger)
-			// 	err = registryAdder.AddToRegistry(request)
-			// 	if err != nil {
-			// 		errs = append(errs, fmt.Errorf("Error adding bundles for package %s: %s", pkg, err))
-			// 		continue
-			// 	}
-
-			// 	// check graph has not changed
-			// 	newGraph, err := graphLoader.Generate(pkg)
-			// 	Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
-
-			// 	if !reflect.DeepEqual(graph, newGraph) {
-			// 		errs = append(errs, fmt.Errorf("the update graph has changed during batch re-add for package: %s \n Was %v \n Is now %v", pkg, graph, newGraph))
-			// 	}
-			// }
-
-			// check overwrite-latest
+			adder := lregistry.NewRegistryAdder(logger)
 			for _, pkg := range packages {
-				graph, err := graphLoader.Generate(pkg)
-				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+				existing, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg, existing)
 
-				for _, ch := range graph.Channels {
-					// overwrite the latest with itself
+				for name, ch := range existing.Channels {
+					replacement, err := querier.GetBundleThatReplaces(context.TODO(), ch.Head.CsvName, pkg, name)
+					if err != nil && err.Error() != fmt.Errorf("no entry found for %s %s", pkg, name).Error() {
+						errs = append(errs, err)
+						continue
+					}
+
+					if replacement != nil {
+						continue
+					}
+
 					request := lregistry.AddToRegistryRequest{
 						Permissive:    false,
 						SkipTLS:       false,
-						InputDatabase: "index.db",
+						InputDatabase: dbFile,
 						Bundles:       []string{ch.Head.BundlePath},
 						Mode:          registry.ReplacesMode,
-						ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+						ContainerTool: tool,
 						Overwrite:     true,
 					}
 
-					logger := logrus.WithFields(logrus.Fields{"bundles": []string{ch.Head.BundlePath}})
-					registryAdder := lregistry.NewRegistryAdder(logger)
-					err = registryAdder.AddToRegistry(request)
+					err = adder.AddToRegistry(request)
 					if err != nil {
 						errs = append(errs, fmt.Errorf("Error overwriting bundles for package %s: %s", pkg, err))
-						continue
 					}
 				}
 
-				// check graph has not changed
-				newGraph, err := graphLoader.Generate(pkg)
+				overwritten, err := graphLoader.Generate(pkg)
 				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
 
-				if !reflect.DeepEqual(graph, newGraph) {
-					errs = append(errs, fmt.Errorf("the update graph has changed during overwrite-latest for package: %s \n Was %v \n Is now %v", pkg, graph, newGraph))
+				if !reflect.DeepEqual(existing, overwritten) {
+					errs = append(errs, fmt.Errorf("the update graph has changed during overwrite-latest for package: %s\nWas\n%s\nIs now\n%s", pkg, existing, overwritten))
 				}
 			}
 
@@ -521,13 +484,13 @@ var _ = Describe("opm", func() {
 		})
 	}
 
-	// Context("using docker", func() {
-	// 	if err := exec.Command("docker").Run(); err != nil {
-	// 		GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %s", err)
-	// 		return
-	// 	}
-	// 	IncludeSharedSpecs("docker")
-	// })
+	Context("using docker", func() {
+		if err := exec.Command("docker").Run(); err != nil {
+			GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %s", err)
+			return
+		}
+		IncludeSharedSpecs("docker")
+	})
 
 	Context("using podman", func() {
 		if err := exec.Command("podman", "info").Run(); err != nil {
