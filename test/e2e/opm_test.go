@@ -2,11 +2,13 @@ package e2e_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	lregistry "github.com/operator-framework/operator-registry/pkg/lib/registry"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -45,6 +48,9 @@ var (
 	indexImage1 = dockerHost + "/olmtest/e2e-index:" + indexTag1
 	indexImage2 = dockerHost + "/olmtest/e2e-index:" + indexTag2
 	indexImage3 = dockerHost + "/olmtest/e2e-index:" + indexTag3
+
+	// publishedIndex is an index used to check for regressions in opm's behavior.
+	publishedIndex = os.Getenv("PUBLISHED_INDEX")
 )
 
 type bundleLocation struct {
@@ -404,6 +410,77 @@ var _ = Describe("opm", func() {
 			By("overwriting the latest bundle in an index")
 			err = buildIndexWith(containerTool, indexImage, nextIndex, bundles[4:].images(), registry.ReplacesMode, true) // 1.0.1-overwrite
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("doesn't change published content on overwrite", func() {
+			if publishedIndex == "" {
+				Skip("Set the PUBLISHED_INDEX environment variable to enable this test")
+			}
+
+			logger := logrus.NewEntry(logrus.StandardLogger())
+			logger.Logger.SetLevel(logrus.WarnLevel)
+			tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
+			imageIndexer := indexer.ImageIndexer{
+				PullTool: tool,
+				Logger:   logger,
+			}
+			dbFile, err := imageIndexer.ExtractDatabase(".", publishedIndex, "", true)
+			Expect(err).NotTo(HaveOccurred(), "error extracting registry db")
+
+			db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", dbFile))
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+
+			querier := sqlite.NewSQLLiteQuerierFromDb(db)
+
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			Expect(err).NotTo(HaveOccurred(), "Error reading db file")
+
+			packages, err := querier.ListPackages(context.TODO())
+			Expect(err).NotTo(HaveOccurred(), "Error listing packages")
+
+			var errs []error
+
+			adder := lregistry.NewRegistryAdder(logger)
+			for _, pkg := range packages {
+				existing, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg, existing)
+
+				for name, ch := range existing.Channels {
+					replacement, err := querier.GetBundleThatReplaces(context.TODO(), ch.Head.CsvName, pkg, name)
+					if err != nil && err.Error() != fmt.Errorf("no entry found for %s %s", pkg, name).Error() {
+						errs = append(errs, err)
+						continue
+					}
+
+					if replacement != nil {
+						continue
+					}
+
+					request := lregistry.AddToRegistryRequest{
+						Permissive:    false,
+						SkipTLS:       false,
+						InputDatabase: dbFile,
+						Bundles:       []string{ch.Head.BundlePath},
+						Mode:          registry.ReplacesMode,
+						ContainerTool: tool,
+						Overwrite:     true,
+					}
+
+					err = adder.AddToRegistry(request)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("Error overwriting bundles for package %s: %s", pkg, err))
+					}
+				}
+
+				overwritten, err := graphLoader.Generate(pkg)
+				Expect(err).NotTo(HaveOccurred(), "Error generating graph for package %s", pkg)
+
+				if !reflect.DeepEqual(existing, overwritten) {
+					errs = append(errs, fmt.Errorf("the update graph has changed during overwrite-latest for package: %s\nWas\n%s\nIs now\n%s", pkg, existing, overwritten))
+				}
+			}
+
+			Expect(errs).To(BeEmpty(), fmt.Sprintf("%s", errs))
 		})
 	}
 

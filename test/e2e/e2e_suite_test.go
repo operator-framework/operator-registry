@@ -17,7 +17,7 @@ const defaultRegistry = "quay.io"
 var (
 	dockerUsername = os.Getenv("DOCKER_USERNAME")
 	dockerPassword = os.Getenv("DOCKER_PASSWORD")
-	dockerHost = os.Getenv("DOCKER_REGISTRY_HOST") // 'DOCKER_HOST' is reserved for the docker daemon
+	dockerHost     = os.Getenv("DOCKER_REGISTRY_HOST") // 'DOCKER_HOST' is reserved for the docker daemon
 )
 
 func TestE2E(t *testing.T) {
@@ -42,8 +42,8 @@ var _ = BeforeSuite(func() {
 
 	// FIXME: Since podman login doesn't work with daemonless image pulling, we need to login with docker first so podman tests don't fail.
 	dockerlogin := exec.Command("docker", "login", "-u", dockerUsername, "-p", dockerPassword, dockerHost)
-	Expect(dockerlogin.Run()).To(Succeed(), "Error logging into %s", dockerHost)
+	out, err := dockerlogin.CombinedOutput()
+	Expect(err).ToNot(HaveOccurred(), "Error logging into %s: %s", dockerHost, out)
 
 	By(fmt.Sprintf("Using container image registry %s", dockerHost))
 })
-
