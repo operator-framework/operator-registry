@@ -93,6 +93,40 @@ We are aware of the fact that, in many cases, users will want to make other chan
 
 Running this command will still generate the updated registry database, but it will store it locally and additionally write `my.Dockerfile` which can be modified as needed.
 
+
+#### Update Graph Generation
+
+In an effort to make channel head selection understandable and deterministic when bulk-adding bundles to an index using `--mode=replaces` (the default), the following heuristic has been adopted: the bundles with the highest version within a package are considered the heads of the channels they belong to.
+
+<ul>
+
+#### Under the Hood
+
+`opm` effectively decomposes bundle addition into three steps for each package:
+
+1. Add bundles to the underlying data store
+2. Choose the channel heads and default channel
+3. Rebuild the update graph starting at the new heads
+
+Channel head -- the "latest" operator in a channel -- selection is now informed by [semver](https://semver.org/). The heurstic is simple, the bundle with the highest version in each channel becomes the new head. The default channel is then taken from the maximum versioned bundle which defines a default channel.
+
+Starting from these heads, opm then rebuilds the entire update graph using the edges defined by the `replaces` and `skips` CSV fields.
+
+If a given CSV is missing a version field, all CSVs (sourced from the command's arguments) belonging package are elided from the input. Additionally, a non-zero exit code is returned from the command.
+CSVs without a version (and with duplicate versions) that are already part of the index are allowed so long as there is at least one CSV with a version field in the package that we can recognize as having the maximum version.
+When `--overwrite-latest` is set, all bundle in a package are deleted and passed in as "input", and thus are constrained by the rules set out in the first paragraph above; the exceptions set out in the second paragraph above do not apply, and violations cause the offending package to be excluded from the index.
+
+#### What does this mean for a package author?
+
+- the head of every channel will __always__ be the bundle in that channel with the highest version field defined
+- a version field __must__ be defined on a bundle expected to be channel head, unless it's the only bundle in the channel
+
+#### Common Pitfalls
+
+- [Pre-release](https://semver.org/#spec-item-9) versions __should not__ be used as patches to channel heads; e.g. 1.0.0-p replaces 1.0.0
+    - pre-release versions come _before_ their release version and consequently won't be chosen as the new channel head by opm (see https://semver.org/#spec-item-11 for more on ordering)
+</ul>
+
 #### rm
 
 Like `opm registry rm`, this command will remove all versions an entire operator package from the index and results in a container image that does not include that package. It supports virtually all of the same options and flags as `opm index add` with the exception of replacing `--bundles` with `--operators`. Ex:
