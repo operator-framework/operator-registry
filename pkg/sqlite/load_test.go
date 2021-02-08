@@ -81,7 +81,7 @@ func TestAddPackageChannels(t *testing.T) {
 			description: "MissingReplacesInPackage/AggregatesAndContinues",
 			fields: fields{
 				bundles: []*registry.Bundle{
-					newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", "non-existant")),
+					newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", "csv-d")),
 					newBundle(t, "csv-b", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-b", "")),
 					newBundle(t, "csv-c", "pkg-1", []string{"stable"}, newUnstructuredCSV(t, "csv-c", "")),
 				},
@@ -115,7 +115,7 @@ func TestAddPackageChannels(t *testing.T) {
 			},
 			expected: expected{
 				errs: []error{
-					utilerrors.NewAggregate([]error{fmt.Errorf("csv-a specifies replacement that couldn't be found")}),
+					utilerrors.NewAggregate([]error{fmt.Errorf("Invalid bundle csv-a, replaces nonexistent bundle csv-d")}),
 					nil,
 				},
 				pkgs: []string{

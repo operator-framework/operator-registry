@@ -938,7 +938,7 @@ func TestOverwrite(t *testing.T) {
 		expected    expected
 	}{
 		{
-			description: "OverwriteBundle/DefaultBehavior",
+			description: "DefaultBehavior",
 			args: args{
 				firstAdd: getBundleRefs([]string{"prometheus.0.14.0"}),
 				secondAdd: map[image.Reference]string{
@@ -966,7 +966,7 @@ func TestOverwrite(t *testing.T) {
 			},
 		},
 		{
-			description: "OverwriteBundle/SimpleCsvChange",
+			description: "SimpleCsvChange",
 			args: args{
 				firstAdd: getBundleRefs([]string{"etcd.0.9.0", "prometheus.0.14.0", "prometheus.0.15.0"}),
 				secondAdd: map[image.Reference]string{
@@ -1005,7 +1005,7 @@ func TestOverwrite(t *testing.T) {
 			},
 		},
 		{
-			description: "OverwriteBundle/ChannelRemove",
+			description: "ChannelRemove",
 			args: args{
 				firstAdd: getBundleRefs([]string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.14.0", "prometheus.0.15.0"}),
 				secondAdd: map[image.Reference]string{
@@ -1487,6 +1487,33 @@ func TestSemverPackageManifest(t *testing.T) {
 			},
 			expect: expect{
 				hasError: true,
+			},
+		},
+		{
+			description: "BuildIDAndPreReleaseHeads",
+			args: args{
+				bundles: []*registry.Bundle{
+					bundle("operator-1", "1.0.0", "package", "stable", "stable"),
+					bundle("operator-2", "1.0.0+1", "package", "stable", "stable"),
+					bundle("operator-3", "1.0.0+2", "package", "stable", "stable"),
+					bundle("operator-4", "2.0.0-pre", "package", "stable", "edge"),
+				},
+			},
+			expect: expect{
+				packageManifest: &registry.PackageManifest{
+					PackageName:        "package",
+					DefaultChannelName: "stable",
+					Channels: []registry.PackageChannel{
+						{
+							Name:           "stable",
+							CurrentCSVName: "operator-3",
+						},
+						{
+							Name:           "edge",
+							CurrentCSVName: "operator-4",
+						},
+					},
+				},
 			},
 		},
 	} {
