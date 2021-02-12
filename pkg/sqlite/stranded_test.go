@@ -57,10 +57,8 @@ func TestStrandedBundleRemover(t *testing.T) {
 	require.NoError(t, rows.Close())
 
 	// prune the orphaned bundle
-	removedBundles, err := store.RemoveStrandedBundles()
+	err = store.RemoveStrandedBundles()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(removedBundles))
-	require.EqualValues(t, []string{`"prometheusoperator.0.14.0"`, `"prometheusoperator.0.15.0"`}, removedBundles)
 
 	// other bundles in the package still exist, but the bundle is removed
 	packageBundles, err = querier.GetBundlesForPackage(context.TODO(), "prometheus")

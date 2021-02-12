@@ -1,7 +1,6 @@
 package server
 
 import (
-	"database/sql"
 	"io"
 	"net"
 	"os"
@@ -30,7 +29,7 @@ func server() *grpc.Server {
 	_ = os.Remove(dbName)
 	s := grpc.NewServer()
 
-	db, err := sql.Open("sqlite3", dbName)
+	db, err := sqlite.Open(dbName)
 	if err != nil {
 		logrus.Fatal(err)
 	}

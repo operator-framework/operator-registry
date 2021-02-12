@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,7 +34,7 @@ type AddToRegistryRequest struct {
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
-	db, err := sql.Open("sqlite3", "file:"+request.InputDatabase+"?_foreign_keys=on")
+	db, err := sqlite.Open(request.InputDatabase)
 	if err != nil {
 		return err
 	}
@@ -204,7 +203,7 @@ type DeleteFromRegistryRequest struct {
 }
 
 func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) error {
-	db, err := sql.Open("sqlite3", request.InputDatabase)
+	db, err := sqlite.Open(request.InputDatabase)
 	if err != nil {
 		return err
 	}
@@ -245,7 +244,7 @@ type PruneStrandedFromRegistryRequest struct {
 }
 
 func (r RegistryUpdater) PruneStrandedFromRegistry(request PruneStrandedFromRegistryRequest) error {
-	db, err := sql.Open("sqlite3", request.InputDatabase)
+	db, err := sqlite.Open(request.InputDatabase)
 	if err != nil {
 		return err
 	}
@@ -274,7 +273,7 @@ type PruneFromRegistryRequest struct {
 }
 
 func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) error {
-	db, err := sql.Open("sqlite3", request.InputDatabase)
+	db, err := sqlite.Open(request.InputDatabase)
 	if err != nil {
 		return err
 	}
@@ -326,7 +325,7 @@ type DeprecateFromRegistryRequest struct {
 }
 
 func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequest) error {
-	db, err := sql.Open("sqlite3", request.InputDatabase)
+	db, err := sqlite.Open(request.InputDatabase)
 	if err != nil {
 		return err
 	}

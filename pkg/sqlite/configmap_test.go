@@ -23,7 +23,7 @@ import (
 func CreateTestDb(t *testing.T) (*sql.DB, func()) {
 	dbName := fmt.Sprintf("test-%d.db", rand.Int())
 
-	db, err := sql.Open("sqlite3", dbName)
+	db, err := Open(dbName)
 	require.NoError(t, err)
 
 	return db, func() {

@@ -40,7 +40,7 @@ type SQLQuerier struct {
 var _ registry.Query = &SQLQuerier{}
 
 func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
-	db, err := sql.Open("sqlite3", "file:"+dbFilename+"?immutable=true")
+	db, err := OpenReadOnly(dbFilename)
 	if err != nil {
 		return nil, err
 	}
