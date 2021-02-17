@@ -1,6 +1,6 @@
 # Operator Registry Tooling
 
-When compiled, the `operator-registry` project results in a collection of tools that in aggregate define a way of packaging and delivering operator manifests to Kubernetes clusters. Historically, this is done with multiple tools. For example, you can use `initializer` to generate an immutable database and then use `registry-serve` to serve the database via an API. We have added the `opm` tool that aggregates these functions togeother and allows a user to interact with container images and tooling directly to generate and update registry databases in a mutable way.
+When compiled, the `operator-registry` project results in a collection of tools that in aggregate define a way of packaging and delivering operator manifests to Kubernetes clusters. Historically, this is done with multiple tools. For example, you can use `initializer` to generate an immutable database and then use `registry-serve` to serve the database via an API. We have added the `opm` tool that aggregates these functions together and allows a user to interact with container images and tooling directly to generate and update registry databases in a mutable way.
 
 The following document describes the tooling that `opm` provides along with descriptions of how to use them including each command's purpose, their inputs and outputs, and some examples.
 
@@ -14,7 +14,9 @@ The following document describes the tooling that `opm` provides along with desc
 
 #### add
 
-First, let's look at adding a version of an operator bundle to a registry database. For example:
+First, let's look at adding a version of an operator bundle to a registry database.
+
+For example:
 
 `opm registry add -b "quay.io/operator-framework/operator-bundle-prometheus:0.14.0" -d "test-registry.db"`
 
@@ -28,7 +30,9 @@ Great! The existing `test-registry.db` file is updated. Now we have a registry t
 
 #### rm
 
-`opm` also currently supports removing entire packages from a registry. For example:
+`opm` also currently supports removing entire packages from a registry.
+
+For example:
 
 `opm registry rm -o "prometheus" -d "test-registry.db"`
 
@@ -36,7 +40,9 @@ Calling this on our existing test registry removes all versions of the prometheu
 
 #### prune
 
-`opm` supports specifying which packages should be kept in an operator database. For example:
+`opm` supports specifying which packages should be kept in an operator database.
+
+For example:
 
 `opm registry prune -p "prometheus" -d "test-registry.db"`
 
@@ -58,7 +64,7 @@ Index add works much the same way as registry add. For example:
 
 `opm index add --bundles quay.io/operator-framework/operator-bundle-prometheus:0.14.0 --tag quay.io/operator-framework/monitoring-index:1.0.0`
 
-Just like `opm registry add`, this command pulls a given container bundle and attempts to put it into a registry. The real difference is that the result is more than just a database file. By default, this command actually builds a container image and, looking at the `--tag` flag, will tag the output image as `quay.io/operator-framework/monitoring-index:1.0.0`. The resulting image has the database and the opm binary in it and, when run, calls the `registry serve` command on the database that was generated.
+Similar to `opm registry add`, this command will pull the specified container bundle and insert it into a registry. The real difference is that the result is more than just a database file. By default, this command will also attempt to build a container image and depending on the value of the `--tag` flag, will tag the output image as `quay.io/operator-framework/monitoring-index:1.0.0`. The resulting image has the database and the opm binary in it and, when run, calls the `registry serve` command on the database that was generated.
 
 Just like registry add command, the updates are cumulative. In this case, rather than pointing at a database file, we can use the `--from-index` flag to specify a previous index to build off of a previous registry:
 
@@ -66,7 +72,9 @@ Just like registry add command, the updates are cumulative. In this case, rather
 
 This results in a fresh image that includes the updated prometheus operator in the prometheus package's update graph.
 
-At a high level, this command operates by wrapping `registry add` around some additional interaction with pulling and building container images. To that end, the last thing it does is actually shell out to a container CLI tool to build the resulting container (by default, `podman build`). It does this by generating a dockerfile and then passing that file to the shell command. For example:
+At a high level, this command operates by wrapping `registry add` around some additional interaction with pulling and building container images. To that end, the last thing it does is actually shell out to a container CLI tool to build the resulting container (by default, `podman build`). It does this by generating a dockerfile and then passing that file to the shell command.
+
+For example:
 
 ```dockerfile
 FROM quay.io/operator-framework/upstream-registry-builder AS builder
@@ -81,13 +89,15 @@ ENTRYPOINT ["/opm"]
 CMD ["registry", "serve", "--database", "index.db"]
 ```
 
-Of note here is that we use a builder image to get the latest upstream released version of opm in order to call `opm registry serve` to host the gRPC API. If a developer or CI system would prefer to point to a different version of `opm` to serve their operator (perhaps one in a private release or a fork) then they just need to deliver their own version in a container and then use the `--binary-image` command. ex:
+In the above example, it's important to note that we use a builder image to get the latest upstream released version of opm in order to call `opm registry serve` to host the gRPC API. If a developer or CI system would prefer to point to a different version of `opm` to serve their operator (perhaps one in a private release or a fork) then they just need to deliver their own version in a container and then use the `--binary-image` command.
+
+For example:
 
 `opm index add --bundles quay.io/operator-framework/operator-bundle-prometheus:0.14.0 --tag quay.io/operator-framework/monitoring-index:1.0.0 --binary-image quay.io/$user/my-opm-source`
 
 This will update the above dockerfile and replace the builder image with the image specified in the `--binary-image` flag.
 
-We are aware of the fact that, in many cases, users will want to make other changes to this dockerfile (adding additional labels, adding other binaries for metrics, using a different port, etc.). For these more complex use cases, we have added the `--generate` and `--out-dockerfile` flags. Adding `--generate` will skip the container build command entirely and instead write a Dockerfile to the local filesystem. By default this file is called `index.Dockerfile` and is put in the directory you run `opm` from. If you want to rename this generated dockerfile and write it somewhere else, just specify the `--out-dockerfile` flag:
+We are aware of the fact that, in many cases, users will want to make other changes to this dockerfile (adding additional labels, adding other binaries for metrics, using a different port, etc.). For these more complex use cases, we have added the `--generate` and `--out-dockerfile` flags. Adding `--generate` will skip the container build command entirely and instead write a Dockerfile to the local filesystem. By default, this file is called `index.Dockerfile` and is put in the directory you run `opm` from. If you want to rename this generated dockerfile and write it somewhere else, just specify the `--out-dockerfile` flag:
 
 `opm index add --bundles quay.io/operator-framework/operator-bundle-prometheus:0.14.0 --generate --out-dockerfile "my.Dockerfile"`
 
@@ -129,7 +139,9 @@ When `--overwrite-latest` is set, all bundle in a package are deleted and passed
 
 #### rm
 
-Like `opm registry rm`, this command will remove all versions an entire operator package from the index and results in a container image that does not include that package. It supports virtually all of the same options and flags as `opm index add` with the exception of replacing `--bundles` with `--operators`. Ex:
+Like `opm registry rm`, this command will remove all versions an entire operator package from the index and results in a container image that does not include that package. It supports virtually all of the same options and flags as `opm index add` with the exception of replacing `--bundles` with `--operators`.
+
+For example:
 
 `opm index rm --operators prometheus --tag quay.io/operator-framework/monitoring-index:1.0.2 --binary-image quay.io/$user/my-opm-source`
 
@@ -137,15 +149,19 @@ This will result in the tagged container image `quay.io/operator-framework/monit
 
 #### prune
 
-`opm index prune` allows the user to specify which operator packages should be maintained in an index. For example:
+`opm index prune` allows the user to specify which operator packages should be maintained in an index.
+
+For example:
 
 `opm index prune -p "prometheus" --from-index quay.io/operator-framework/example-index:1.0.0 --tag quay.io/operator-framework/example-index:1.0.1`
 
-Would remove all but the `prometheus` package from the index.
+This would remove all but the `prometheus` package from the index.
 
 #### export
 
-`opm index export` will export a package from an index image into a directory. The format of this directory will match the appregistry manifest format: containing all versions of the package in the index along with a `package.yaml` file. This command takes an `--index` flag that points to an index image, a `--package` flag that states a package name, an optional `--download-folder` as the export location (default is `./downloaded`), and just as the other index commands it takes a `--container-tool` flag. Ex:
+`opm index export` will export a package from an index image into a directory. The format of this directory will match the appregistry manifest format: containing all versions of the package in the index along with a `package.yaml` file. This command takes an `--index` flag that points to an index image, a `--package` flag that states a package name, an optional `--download-folder` as the export location (default is `./downloaded`), and just as the other index commands it takes a `--container-tool` flag.
+
+For example:
 
 `opm index export --index="quay.io/operator-framework/monitoring:1.0.0" --package="prometheus" -c="podman"`
 
@@ -182,7 +198,7 @@ which can be pushed to appregistry.
 
 Of note, many of these commands require some form of shelling to common container tooling. By default, the container tool that `opm` shells to is [podman](https://podman.io/). However, we also support overriding this via the `--container-tool`.
 
-_Ex._
+For example:
 
 `opm index add --bundles quay.io/operator-framework/operator-bundle-prometheus:0.14.0 --tag quay.io/operator-framework/monitoring-index:1.0.0 --container-tool docker`
 
