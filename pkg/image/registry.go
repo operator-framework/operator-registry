@@ -14,9 +14,9 @@ type Registry interface {
 	// If the referenced image does not exist in the registry, an error is returned.
 	// Push(ctx context.Context, ref string) error
 
-	// Unpack writes the unpackaged content of an image to a directory.
+	// Unpack recursively copies the filesystem contents of an image from the specified location to a local directory.
 	// If the referenced image does not exist in the registry, an error is returned.
-	Unpack(ctx context.Context, ref Reference, dir string) error
+	Unpack(ctx context.Context, ref Reference, from, to string) error
 
 	// Labels gets the labels for an image that is already stored.
 	Labels(ctx context.Context, ref Reference) (map[string]string, error)
@@ -29,3 +29,7 @@ type Registry interface {
 	// If it exists, it's used as the base image.
 	// Pack(ctx context.Context, ref Reference, from io.Reader) (next string, err error)
 }
+
+// Root represents the root of the filesystem.
+// Used as the source when copying the entire contents of a container filesystem.
+const Root string = "/."

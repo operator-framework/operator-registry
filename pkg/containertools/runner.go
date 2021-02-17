@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -121,7 +122,7 @@ func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 	return nil
 }
 
-// Unpack copies a directory from a local container image to a directory in the local filesystem.
+// Unpack copies a file or directory from a local container image to a directory on the local filesystem.
 func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 	args := r.argsForCmd("create", image, "")
 
@@ -137,17 +138,48 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 	}
 
 	id := strings.TrimSuffix(string(out), "\n")
-	args = r.argsForCmd("cp", id+":"+src, dst)
+
+	// Create a new exporter to copy and read output from stdout to a tar reader.
+	// This is done to rewrite file permissions on the fly to avoid permissions-related errors in standard docker cp.
+	exporter, err := NewExporter(dst, r.logger)
+	if err != nil {
+		return fmt.Errorf("setting unpacking destination: #%v", err)
+	}
+	// write files to stdout and then read tar stream
+	args = r.argsForCmd("cp", id+":"+src, "-")
 	command = exec.Command(r.containerTool.String(), args...)
+	command.Stdout = exporter.Writer()
 
 	r.logger.Infof("running %s cp", r.containerTool)
 	r.logger.Debugf("%s", command.Args)
 
-	out, err = command.CombinedOutput()
+	// setup exporter
+	var wg sync.WaitGroup
+	var expError error
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		err := exporter.Run()
+		if err != nil {
+			expError = fmt.Errorf("exporting container filesystem as a tar stream: %v", err)
+		}
+	}(&wg)
+
+	err = command.Run()
 	if err != nil {
-		r.logger.Errorf(string(out))
+		exporter.Close()
 		return fmt.Errorf("error copying container directory %s: %v", string(out), err)
 	}
+
+	if expError != nil {
+		exporter.Close()
+		return expError
+	}
+
+	if err := exporter.Close(); err != nil {
+		return fmt.Errorf("closing tar stream: %v", err)
+	}
+	wg.Wait()
 
 	args = r.argsForCmd("rm", id)
 	command = exec.Command(r.containerTool.String(), args...)

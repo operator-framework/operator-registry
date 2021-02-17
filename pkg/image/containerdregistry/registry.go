@@ -91,7 +91,7 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 
 // Unpack writes the unpackaged content of an image to a directory.
 // If the referenced image does not exist in the registry, an error is returned.
-func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) error {
+func (r *Registry) Unpack(ctx context.Context, ref image.Reference, from, to string) error {
 	// Set the default namespace if unset
 	ctx = ensureNamespace(ctx)
 
@@ -100,13 +100,13 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, dir string) 
 		return err
 	}
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(to, os.ModePerm); err != nil {
 		return err
 	}
 
 	for _, layer := range manifest.Layers {
 		r.log.Debugf("unpacking layer: %v", layer)
-		if err := r.unpackLayer(ctx, layer, dir); err != nil {
+		if err := r.unpackLayer(ctx, layer, to); err != nil {
 			return err
 		}
 	}
