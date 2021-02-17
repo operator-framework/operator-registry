@@ -146,7 +146,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		return nil, err
 	}
 	defer os.RemoveAll(tmpDir)
-	if err := r.Registry.Unpack(ctx, ref, tmpDir); err != nil {
+	if err := r.Registry.Unpack(ctx, ref, image.Root, tmpDir); err != nil {
 		return nil, err
 	}
 
