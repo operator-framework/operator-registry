@@ -15,7 +15,7 @@ func NewCmd() *cobra.Command {
 	runCmd.AddCommand(newBundleBuildCmd())
 	runCmd.AddCommand(newBundleValidateCmd())
 	runCmd.AddCommand(extractCmd)
-	runCmd.AddCommand(unpackCmd)
+	runCmd.AddCommand(newBundleUnpackCmd())
 
 	return runCmd
 }

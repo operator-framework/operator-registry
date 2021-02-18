@@ -2,12 +2,13 @@ package bundle
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/otiai10/copy"
+	dircopy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -16,21 +17,23 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
-var unpackCmd = &cobra.Command{
-	Use:   "unpack BUNDLE_NAME[:TAG|@DIGEST]",
-	Short: "Unpacks the content of an operator bundle",
-	Long:  "Unpacks the content of an operator bundle into a directory",
-	Args: func(cmd *cobra.Command, args []string) error {
-		return cobra.ExactArgs(1)(cmd, args)
-	},
-	RunE: unpackBundle,
-}
+func newBundleUnpackCmd() *cobra.Command {
+	unpack := &cobra.Command{
+		Use:   "unpack BUNDLE_NAME[:TAG|@DIGEST]",
+		Short: "Unpacks the content of an operator bundle",
+		Long:  "Unpacks the content of an operator bundle into a directory",
+		Args: func(cmd *cobra.Command, args []string) error {
+			return cobra.ExactArgs(1)(cmd, args)
+		},
+		RunE: unpackBundle,
+	}
+	unpack.Flags().BoolP("debug", "d", false, "enable debug log output")
+	unpack.Flags().BoolP("skip-tls", "s", false, "disable TLS verification")
+	unpack.Flags().BoolP("skip-validation", "v", false, "disable bundle validation")
+	unpack.Flags().StringP("root-ca", "c", "", "file path of a root CA to use when communicating with image registries")
+	unpack.Flags().StringP("out", "o", "./", "directory in which to unpack operator bundle content")
 
-func init() {
-	unpackCmd.Flags().BoolP("debug", "d", false, "enable debug log output")
-	unpackCmd.Flags().BoolP("skip-tls", "s", false, "disable TLS verification")
-	unpackCmd.Flags().BoolP("skip-validation", "v", false, "disable bundle validation")
-	unpackCmd.Flags().StringP("out", "o", "./", "directory in which to unpack operator bundle content")
+	return unpack
 }
 
 func unpackBundle(cmd *cobra.Command, args []string) error {
@@ -66,11 +69,15 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var skipTLS bool
+	var (
+		registryOpts []containerdregistry.RegistryOption
+		skipTLS      bool
+	)
 	skipTLS, err = cmd.Flags().GetBool("skip-tls")
 	if err != nil {
 		return err
 	}
+	registryOpts = append(registryOpts, containerdregistry.SkipTLS(skipTLS))
 
 	var skipValidation bool
 	skipValidation, err = cmd.Flags().GetBool("skip-validation")
@@ -78,9 +85,26 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	registry, err := containerdregistry.NewRegistry(
-		containerdregistry.SkipTLS(skipTLS),
-	)
+	var rootCA string
+	rootCA, err = cmd.Flags().GetString("root-ca")
+	if err != nil {
+		return err
+	}
+	if rootCA != "" {
+		rootCAs := x509.NewCertPool()
+		certs, err := ioutil.ReadFile(rootCA)
+		if err != nil {
+			return err
+		}
+
+		if !rootCAs.AppendCertsFromPEM(certs) {
+			return fmt.Errorf("failed to fetch root CA from %s", rootCA)
+		}
+
+		registryOpts = append(registryOpts, containerdregistry.WithRootCAs(rootCAs))
+	}
+
+	registry, err := containerdregistry.NewRegistry(registryOpts...)
 	if err != nil {
 		return err
 	}
@@ -129,7 +153,7 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := copy.Copy(dir, out); err != nil {
+	if err := dircopy.Copy(dir, out); err != nil {
 		return fmt.Errorf("failed to copy unpacked content to output directory: %s", err)
 	}
 
