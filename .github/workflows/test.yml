@@ -29,6 +29,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: |
           sudo apt-get -y update
+          sudo apt-get -y upgrade
           sudo apt-get -y install conntrack
           podman version
           curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
@@ -59,7 +60,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: |
           sudo apt-get -y update
-          sudo apt-get -y install
+          sudo apt-get -y upgrade
           podman version
           curl -sLo kind "$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r '[.assets[] | select(.name == "kind-linux-amd64")] | first | .browser_download_url')"
           chmod +x kind
