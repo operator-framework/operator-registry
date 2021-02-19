@@ -8,6 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
+
+	opmroot "github.com/operator-framework/operator-registry/cmd/opm/root"
 )
 
 // quay.io is the default registry used if no local registry endpoint is provided
@@ -18,6 +21,9 @@ var (
 	dockerUsername = os.Getenv("DOCKER_USERNAME")
 	dockerPassword = os.Getenv("DOCKER_PASSWORD")
 	dockerHost     = os.Getenv("DOCKER_REGISTRY_HOST") // 'DOCKER_HOST' is reserved for the docker daemon
+
+	// opm command under test.
+	opm *cobra.Command
 )
 
 func TestE2E(t *testing.T) {
@@ -26,6 +32,13 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	// Configure test registry (hostnames, credentials, etc.)
+	configureRegistry()
+
+	opm = opmroot.NewCmd() // Creating multiple instances would cause flag registration conflicts
+})
+
+func configureRegistry() {
 	switch {
 	case dockerUsername == "" && dockerPassword == "" && dockerHost == "":
 		// No registry credentials or local registry host provided
@@ -46,4 +59,4 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred(), "Error logging into %s: %s", dockerHost, out)
 
 	By(fmt.Sprintf("Using container image registry %s", dockerHost))
-})
+}

@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"math/big"
 	"net"
 	"net/http"
@@ -25,6 +24,7 @@ import (
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem" // Driver for persisting docker image data to the filesystem.
 	_ "github.com/docker/distribution/registry/storage/driver/inmemory"   // Driver for keeping docker image data in memory.
 	"github.com/phayes/freeport"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // RunDockerRegistry runs a docker registry on an available port and returns its host string if successful, otherwise it returns an error.
@@ -67,7 +67,7 @@ func RunDockerRegistry(ctx context.Context, rootDir string) (string, string, err
 	config.HTTP.Addr = host
 	config.HTTP.TLS.Certificate = certfile.Name()
 	config.HTTP.TLS.Key = keyfile.Name()
-	config.Log.Level = "debug"
+	config.Log.Level = "error"
 
 	if rootDir != "" {
 		config.Storage = map[string]configuration.Parameters{"filesystem": map[string]interface{}{
@@ -100,7 +100,7 @@ func RunDockerRegistry(ctx context.Context, rootDir string) (string, string, err
 			RootCAs:            certPool,
 		}}
 		client := &http.Client{Transport: tr}
-		r, err := client.Get("https://"+host+"/v2/")
+		r, err := client.Get("https://" + host + "/v2/")
 		if err != nil {
 			return false, nil
 		}
@@ -128,7 +128,7 @@ func certToPem(der []byte) ([]byte, error) {
 func keyToPem(key *ecdsa.PrivateKey) ([]byte, error) {
 	b, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		return nil, fmt.Errorf( "unable to marshal private key: %v", err)
+		return nil, fmt.Errorf("unable to marshal private key: %v", err)
 	}
 	out := &bytes.Buffer{}
 	if err := pem.Encode(out, &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}); err != nil {
@@ -137,7 +137,7 @@ func keyToPem(key *ecdsa.PrivateKey) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func GenerateCerts(caWriter, certWriter, keyWriter io.Writer, pool *x509.CertPool ) error {
+func GenerateCerts(caWriter, certWriter, keyWriter io.Writer, pool *x509.CertPool) error {
 	priv, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func GenerateCerts(caWriter, certWriter, keyWriter io.Writer, pool *x509.CertPoo
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 	cert := x509.Certificate{
 		SerialNumber: big.NewInt(2),
