@@ -1,6 +1,6 @@
 module github.com/operator-framework/operator-registry
 
-go 1.13
+go 1.15
 
 require (
 	github.com/Microsoft/hcsshim v0.8.9 // indirect
