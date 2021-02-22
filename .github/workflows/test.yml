@@ -8,6 +8,15 @@ on:
       - '**'
       - '!doc/**'
 jobs:
+  markdown-link-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'true'
+        config-file: 'mlc_config.json'
+
   build:
     runs-on: ubuntu-latest
     steps:
