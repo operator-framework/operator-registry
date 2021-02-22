@@ -66,7 +66,9 @@ image-upstream:
 
 .PHONY: vendor
 vendor:
+	$(GO) mod tidy
 	$(GO) mod vendor
+	$(GO) mod verify
 
 .PHONY: codegen
 codegen:
