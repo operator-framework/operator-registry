@@ -24,14 +24,17 @@ jobs:
           file: coverage.out
           fail_ci_if_error: false
   e2e-minikube:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - run: |
-          sudo apt-get -y update
-          sudo apt-get -y upgrade
-          sudo apt-get -y install conntrack
-          podman version
+          sudo apt-get update \
+            && sudo apt-get remove buildah podman -y \
+            && sudo apt-get autoremove -y \
+            && sudo apt-get upgrade \
+            && sudo apt-get install podman dbus-x11 conntrack -y \
+            && podman version
+      - run: |
           curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
           chmod +x minikube
           sudo mv minikube /bin/
@@ -54,14 +57,19 @@ jobs:
           export DOCKER_REGISTRY_HOST=localhost:443
       - run: |
           KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:443 make build e2e
+
   e2e-kind:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - run: |
-          sudo apt-get -y update
-          sudo apt-get -y upgrade
-          podman version
+          sudo apt-get update \
+            && sudo apt-get remove buildah podman -y \
+            && sudo apt-get autoremove -y \
+            && sudo apt-get upgrade \
+            && sudo apt-get -y install podman dbus-x11 \
+            && podman version
+      - run: |
           curl -sLo kind "$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r '[.assets[] | select(.name == "kind-linux-amd64")] | first | .browser_download_url')"
           chmod +x kind
           sudo mv kind /bin/
