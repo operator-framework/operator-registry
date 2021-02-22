@@ -195,9 +195,8 @@ func getContainerTools(cmd *cobra.Command) (string, string, error) {
 	if containerTool != "" {
 		if pullTool == "" && buildTool == "" {
 			return containerTool, containerTool, nil
-		} else {
-			return "", "", fmt.Errorf("container-tool cannot be set alongside pull-tool or build-tool")
 		}
+		return "", "", fmt.Errorf("container-tool cannot be set alongside pull-tool or build-tool")
 	}
 
 	// Check for defaults, then return
