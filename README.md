@@ -23,8 +23,9 @@ And libraries:
  * `pkg/lib` - providing external interfaces for interacting with this project as an api that defines a set of standards for operator bundles and indexes.
  * `pkg/containertools` - providing an interface to interact with and shell out to common container tooling binaries (if installed on the environment)
 
-# Manifest format
+**NOTE:** The purpose of `opm` tool is to help who needs to manage index catalogues for OLM instances. However, if you are looking for a tool to help you to integrate your operator project with OLM then you should use [Operator-SDK](https://github.com/operator-framework/operator-sdk).
 
+# Manifest format
 
 We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle typically includes a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV in its manifest directory, though additional objects may be included. It also includes an annotations file in its metadata folder which defines some higher level aggregate data that helps to describe the format and package information about how the bundle should be added into an index of bundles.
 
@@ -46,7 +47,7 @@ When loading manifests into the database, the following invariants are validated
 
 Bundle directories are identified solely by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
 
-Check out the [operator bundle design](docs/design/operator-bundle.md) for more detail on the bundle format.
+Check out the [operator bundle design](docs/design/operator-bundle.md) for more detail on the bundle format. 
 
 # Bundle images
 
@@ -64,6 +65,8 @@ podman push quay.io/my-container-registry-namespace/my-manifest-bundle:latest
 ```
 
 Of course, this build step can be done with any other OCI spec container tools like `docker`, `buildah`, `libpod`, etc.
+
+Note that you do not need to create your bundle manually. [Operator-SDK](https://github.com/operator-framework/operator-sdk) provide features and helpers to build, to update, to validate and to test bundles for projects which follows the SDK layout or not. For more information check its documentations over [Integration with OLM](https://sdk.operatorframework.io/docs/olm-integration)
 
 # Building an index of Operators using `opm`
 
@@ -146,7 +149,13 @@ spec:
 
 # Using the catalog locally
 
-[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the example catalog server.
+After starting a catalog locally:
+
+```sh
+$ docker run --rm -p 50051:50051 <index image>
+```
+
+[grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the api:
 
 ```sh
 $ grpcurl -plaintext  localhost:50051 list api.Registry
