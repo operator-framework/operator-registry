@@ -973,7 +973,7 @@ tip (depth) AS (
 )
 SELECT
     replaces_bundle.entry_id,
-    operatorbundle.bundle,
+    operatorbundle.csv,
     operatorbundle.bundlepath,
     operatorbundle.name,
     replaces_bundle.package_name,
