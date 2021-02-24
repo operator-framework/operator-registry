@@ -17,6 +17,12 @@ type Load interface {
 	ClearNonHeadBundles() error
 }
 
+type BundleCursor interface {
+	Next(context.Context) *api.Bundle
+	Close()
+	Err() error
+}
+
 type Query interface {
 	ListTables(ctx context.Context) ([]string, error)
 	ListPackages(ctx context.Context) ([]string, error)
@@ -55,6 +61,8 @@ type Query interface {
 	GetCurrentCSVNameForChannel(ctx context.Context, pkgName, channel string) (string, error)
 	// List all available bundles in the database
 	ListBundles(ctx context.Context) (bundles []*api.Bundle, err error)
+	// List all available bundles in the database, streaming version
+	ListBundlesAsStream(ctx context.Context) (BundleCursor, error)
 	// Get the list of dependencies for a bundle
 	GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error)
 	// Get the bundle path if it exists

@@ -4,7 +4,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 type RegistryServer struct {
@@ -15,7 +15,7 @@ type RegistryServer struct {
 var _ api.RegistryServer = &RegistryServer{}
 
 func NewRegistryServer(store registry.Query) *RegistryServer {
-	return &RegistryServer{UnimplementedRegistryServer: api.UnimplementedRegistryServer{},  store: store}
+	return &RegistryServer{UnimplementedRegistryServer: api.UnimplementedRegistryServer{}, store: store}
 }
 
 func (s *RegistryServer) ListPackages(req *api.ListPackageRequest, stream api.Registry_ListPackagesServer) error {
@@ -33,11 +33,13 @@ func (s *RegistryServer) ListPackages(req *api.ListPackageRequest, stream api.Re
 }
 
 func (s *RegistryServer) ListBundles(req *api.ListBundlesRequest, stream api.Registry_ListBundlesServer) error {
-	bundles, err := s.store.ListBundles(stream.Context())
+	cursor, err := s.store.ListBundlesAsStream(stream.Context())
 	if err != nil {
 		return err
 	}
-	for _, b := range bundles {
+	defer cursor.Close()
+
+	for b := cursor.Next(stream.Context()); b != nil; b = cursor.Next(stream.Context()) {
 		if err := stream.Send(b); err != nil {
 			return err
 		}

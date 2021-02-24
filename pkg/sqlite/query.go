@@ -923,6 +923,119 @@ func (s *SQLQuerier) GetCurrentCSVNameForChannel(ctx context.Context, pkgName, c
 	return "", nil
 }
 
+type BundleCursor struct {
+	querier *SQLQuerier
+	rows    RowScanner
+
+	err error
+	b   *api.Bundle
+	key string
+}
+
+func (cur *BundleCursor) Err() error {
+	return cur.err
+}
+
+func (cur *BundleCursor) Next(ctx context.Context) *api.Bundle {
+	var result *api.Bundle
+	for result == nil && cur.rows.Next() {
+		var (
+			entryID     sql.NullInt64
+			bundle      sql.NullString
+			bundlePath  sql.NullString
+			bundleName  sql.NullString
+			pkgName     sql.NullString
+			channelName sql.NullString
+			replaces    sql.NullString
+			skips       sql.NullString
+			version     sql.NullString
+			skipRange   sql.NullString
+			depType     sql.NullString
+			depValue    sql.NullString
+			propType    sql.NullString
+			propValue   sql.NullString
+		)
+		if err := cur.rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
+			cur.err = err
+			cur.rows.Close()
+			return nil
+		}
+
+		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
+			continue
+		}
+
+		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
+		if bundleKey != cur.key {
+			// Current bundle's done, but finish processing this row.
+			result = cur.b
+			cur.key = bundleKey
+
+			if bundle.Valid && bundle.String != "" {
+				var err error
+				cur.b, err = registry.BundleStringToAPIBundle(bundle.String)
+				if err != nil {
+					cur.err = err
+					cur.rows.Close()
+					return nil
+				}
+			} else {
+				cur.b = &api.Bundle{}
+			}
+
+			cur.b.CsvName = bundleName.String
+			cur.b.PackageName = pkgName.String
+			cur.b.ChannelName = channelName.String
+			cur.b.BundlePath = bundlePath.String
+			cur.b.Version = version.String
+			cur.b.SkipRange = skipRange.String
+			cur.b.Replaces = replaces.String
+			if skips.Valid {
+				cur.b.Skips = strings.Split(skips.String, ",")
+			}
+
+			provided, required, err := cur.querier.GetApisForEntry(ctx, entryID.Int64)
+			if err != nil {
+				cur.err = err
+				cur.rows.Close()
+				return nil
+			}
+			if len(provided) > 0 {
+				cur.b.ProvidedApis = provided
+			}
+			if len(required) > 0 {
+				cur.b.RequiredApis = required
+			}
+		}
+
+		if depType.Valid && depValue.Valid {
+			cur.b.Dependencies = unique(append(cur.b.Dependencies, &api.Dependency{
+				Type:  depType.String,
+				Value: depValue.String,
+			}))
+		}
+
+		if propType.Valid && propValue.Valid {
+			cur.b.Properties = uniqueProps(append(cur.b.Properties, &api.Property{
+				Type:  propType.String,
+				Value: propValue.String,
+			}))
+		}
+	}
+	if result == nil {
+		// All rows processed, must be done with current Bundle.
+		result = cur.b
+		cur.b = nil
+	}
+	return result
+}
+
+func (cur *BundleCursor) Close() {
+	if err := cur.rows.Close(); cur.err == nil {
+		cur.err = err
+	}
+}
+
 // Rows in the channel_entry table essentially represent inbound
 // upgrade edges to a bundle. There may be no linear "replaces" chain
 // (for example, when an index is populated using semver-skippatch
@@ -996,120 +1109,33 @@ SELECT
     LEFT OUTER JOIN dependencies
       ON operatorbundle.name = dependencies.operatorbundle_name
     LEFT OUTER JOIN properties
-      ON operatorbundle.name = properties.operatorbundle_name`
+      ON operatorbundle.name = properties.operatorbundle_name
+  ORDER BY
+    operatorbundle.name, operatorbundle.version, operatorbundle.bundlepath, replaces_bundle.channel_name`
 
-func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+func (s *SQLQuerier) ListBundlesAsStream(ctx context.Context) (registry.BundleCursor, error) {
 	rows, err := s.db.QueryContext(ctx, listBundlesQuery)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+
+	return &BundleCursor{querier: s, rows: rows}, nil
+}
+
+func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	c, err := s.ListBundlesAsStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
 
 	var bundles []*api.Bundle
-	bundlesMap := map[string]*api.Bundle{}
-	for rows.Next() {
-		var (
-			entryID     sql.NullInt64
-			bundle      sql.NullString
-			bundlePath  sql.NullString
-			bundleName  sql.NullString
-			pkgName     sql.NullString
-			channelName sql.NullString
-			replaces    sql.NullString
-			skips       sql.NullString
-			version     sql.NullString
-			skipRange   sql.NullString
-			depType     sql.NullString
-			depValue    sql.NullString
-			propType    sql.NullString
-			propValue   sql.NullString
-		)
-		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &depType, &depValue, &propType, &propValue); err != nil {
-			return nil, err
-		}
-
-		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
-			continue
-		}
-
-		bundleKey := fmt.Sprintf("%s/%s/%s/%s", bundleName.String, version.String, bundlePath.String, channelName.String)
-		bundleItem, ok := bundlesMap[bundleKey]
-		if ok {
-			if depType.Valid && depValue.Valid {
-				bundleItem.Dependencies = append(bundleItem.Dependencies, &api.Dependency{
-					Type:  depType.String,
-					Value: depValue.String,
-				})
-			}
-
-			if propType.Valid && propValue.Valid {
-				bundleItem.Properties = append(bundleItem.Properties, &api.Property{
-					Type:  propType.String,
-					Value: propValue.String,
-				})
-			}
-		} else {
-			// Create new bundle
-			out := &api.Bundle{}
-			if bundle.Valid && bundle.String != "" {
-				out, err = registry.BundleStringToAPIBundle(bundle.String)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			out.CsvName = bundleName.String
-			out.PackageName = pkgName.String
-			out.ChannelName = channelName.String
-			out.BundlePath = bundlePath.String
-			out.Version = version.String
-			out.SkipRange = skipRange.String
-			out.Replaces = replaces.String
-			if skips.Valid {
-				out.Skips = strings.Split(skips.String, ",")
-			}
-
-			provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
-			if err != nil {
-				return nil, err
-			}
-			if len(provided) > 0 {
-				out.ProvidedApis = provided
-			}
-			if len(required) > 0 {
-				out.RequiredApis = required
-			}
-
-			if depType.Valid && depValue.Valid {
-				out.Dependencies = []*api.Dependency{{
-					Type:  depType.String,
-					Value: depValue.String,
-				}}
-			}
-
-			if propType.Valid && propValue.Valid {
-				out.Properties = []*api.Property{{
-					Type:  propType.String,
-					Value: propValue.String,
-				}}
-			}
-
-			bundlesMap[bundleKey] = out
-		}
+	for b := c.Next(ctx); b != nil; b = c.Next(ctx) {
+		bundles = append(bundles, b)
 	}
-
-	for _, v := range bundlesMap {
-		if len(v.Dependencies) > 1 {
-			newDeps := unique(v.Dependencies)
-			v.Dependencies = newDeps
-		}
-		if len(v.Properties) > 1 {
-			newProps := uniqueProps(v.Properties)
-			v.Properties = newProps
-		}
-		bundles = append(bundles, v)
+	if err := c.Err(); err != nil {
+		return nil, err
 	}
-
 	return bundles, nil
 }
 

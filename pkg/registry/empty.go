@@ -100,6 +100,10 @@ func (EmptyQuery) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 	return nil, errors.New("empty querier: cannot list bundles")
 }
 
+func (EmptyQuery) ListBundlesAsStream(ctx context.Context) (BundleCursor, error) {
+	return nil, errors.New("empty querier: cannot list bundles")
+}
+
 func (EmptyQuery) GetDependenciesForBundle(ctx context.Context, name, version, path string) (dependencies []*api.Dependency, err error) {
 	return nil, errors.New("empty querier: cannot get dependencies for bundle")
 }
