@@ -70,8 +70,7 @@ func clearDir(dir string) {
 	for _, item := range items {
 		if item.IsDir() {
 			continue
-		} else {
-			os.Remove(filepath.Join(dir, item.Name()))
 		}
+		os.Remove(filepath.Join(dir, item.Name()))
 	}
 }

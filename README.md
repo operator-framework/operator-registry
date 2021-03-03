@@ -1,7 +1,8 @@
 [![Build Status](https://travis-ci.com/operator-framework/operator-registry.svg?branch=master)](https://travis-ci.com/operator-framework/operator-registry)
+
 # operator-registry
 
-Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator catalog data to [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager). 
+Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator catalog data to [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager).
 
 # Overview
 
@@ -13,15 +14,15 @@ This project provides the following binaries:
  * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it.
    * Deprecated - use `opm registry serve` instead 
  * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing it via the same interface as `registry-server`.
- 
+
 And libraries:
- 
- * `pkg/client` - providing a high-level client interface for the gRPC api.
- * `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`.
- * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles.
- * `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
- * `pkg/lib` - providing external interfaces for interacting with this project as an api that defines a set of standards for operator bundles and indexes.
- * `pkg/containertools` - providing an interface to interact with and shell out to common container tooling binaries (if installed on the environment)
+
+* `pkg/client` - providing a high-level client interface for the gRPC api.
+* `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`.
+* `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles.
+* `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
+* `pkg/lib` - providing external interfaces for interacting with this project as an api that defines a set of standards for operator bundles and indexes.
+* `pkg/containertools` - providing an interface to interact with and shell out to common container tooling binaries (if installed on the environment)
 
 **NOTE:** The purpose of `opm` tool is to help who needs to manage index catalogues for OLM instances. However, if you are looking for a tool to help you to integrate your operator project with OLM then you should use [Operator-SDK](https://github.com/operator-framework/operator-sdk).
 
@@ -29,7 +30,7 @@ And libraries:
 
 We refer to a directory of files with one ClusterServiceVersion as a "bundle". A bundle typically includes a ClusterServiceVersion and the CRDs that define the owned APIs of the CSV in its manifest directory, though additional objects may be included. It also includes an annotations file in its metadata folder which defines some higher level aggregate data that helps to describe the format and package information about how the bundle should be added into an index of bundles.
 
-```
+```bash
  # example bundle
  etcd
  ├── manifests
@@ -41,18 +42,17 @@ We refer to a directory of files with one ClusterServiceVersion as a "bundle". A
 
 When loading manifests into the database, the following invariants are validated:
 
- * The bundle must have at least one channel defined in the annotations.
- * Every bundle has exactly one ClusterServiceVersion.
- * If a ClusterServiceVersion `owns` a CRD, that CRD must exist in the bundle.
+* The bundle must have at least one channel defined in the annotations.
+* Every bundle has exactly one ClusterServiceVersion.
+* If a ClusterServiceVersion `owns` a CRD, that CRD must exist in the bundle.
 
 Bundle directories are identified solely by the fact that they contain a ClusterServiceVersion, which provides an amount of freedom for layout of manifests.
 
-Check out the [operator bundle design](docs/design/operator-bundle.md) for more detail on the bundle format. 
+Check out the [operator bundle design](docs/design/operator-bundle.md) for more detail on the bundle format.
 
 # Bundle images
 
 Using [OCI spec](https://github.com/opencontainers/image-spec/blob/master/spec.md) container images as a method of storing the manifest and metadata contents of individual bundles, `opm` interacts directly with these images to generate and incrementally update the database. Once you have your [manifests defined](https://operator-framework.github.io/olm-book/docs/packaging-an-operator.html#writing-your-operator-manifests) and have created a directory in the format defined above, building the image is as simple as defining a [Dockerfile](docs/design/operator-bundle.md#Bundle-Dockerfile) and building that image:
-
 
 ```sh
 podman build -t quay.io/my-container-registry-namespace/my-manifest-bundle:latest -f bundle.Dockerfile .
@@ -139,7 +139,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: etcd-subscription
-  namespace: default 
+  namespace: default
 spec:
   channel: alpha
   name: etcd
@@ -152,7 +152,7 @@ spec:
 After starting a catalog locally:
 
 ```sh
-$ docker run --rm -p 50051:50051 <index image>
+docker run --rm -p 50051:50051 <index image>
 ```
 
 [grpcurl](https://github.com/fullstorydev/grpcurl) is a useful tool for interacting with the api:
@@ -171,8 +171,9 @@ ListPackages
 ```
 
 ```sh
-$ grpcurl -plaintext  localhost:50051 api.Registry/ListPackages
+grpcurl -plaintext  localhost:50051 api.Registry/ListPackages
 ```
+
 ```json
 {
   "name": "etcd"
@@ -183,8 +184,9 @@ $ grpcurl -plaintext  localhost:50051 api.Registry/ListPackages
 ```
 
 ```sh
-$ grpcurl -plaintext -d '{"name":"etcd"}' localhost:50051 api.Registry/GetPackage
+grpcurl -plaintext -d '{"name":"etcd"}' localhost:50051 api.Registry/GetPackage
 ```
+
 ```json
 {
   "name": "etcd",
@@ -202,6 +204,7 @@ $ grpcurl -plaintext -d '{"name":"etcd"}' localhost:50051 api.Registry/GetPackag
 $ grpcurl localhost:50051 describe api.Registry.GetBundleForChannel
 api.Registry.GetBundleForChannel is a method:
 ```
+
 ```json
 {
   "name": "GetBundleForChannel",
@@ -216,6 +219,7 @@ api.Registry.GetBundleForChannel is a method:
 $ grpcurl localhost:50051 describe api.GetBundleInChannelRequest
 api.GetBundleInChannelRequest is a message:
 ```
+
 ```json
 {
   "name": "GetBundleInChannelRequest",
@@ -248,8 +252,9 @@ api.GetBundleInChannelRequest is a message:
 ```
 
 ```sh
-$ grpcurl -plaintext -d '{"pkgName":"etcd","channelName":"alpha"}' localhost:50051 api.Registry/GetBundleForChannel
+grpcurl -plaintext -d '{"pkgName":"etcd","channelName":"alpha"}' localhost:50051 api.Registry/GetBundleForChannel
 ```
+
 ```json
 {
   "csvName": "etcdoperator.v0.9.2",

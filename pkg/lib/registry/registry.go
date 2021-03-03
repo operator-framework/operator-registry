@@ -150,46 +150,45 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 				}
 				return err
 			}
-			if overwritten != "" {
-				// get all bundle paths for that package - we will re-add these to regenerate the graph
-				bundles, err := querier.GetBundlesForPackage(ctx, img.Bundle.Package)
-				if err != nil {
-					return err
-				}
-				type unpackedImage struct {
-					to      image.Reference
-					from    string
-					cleanup func()
-					err     error
-				}
-				unpacked := make(chan unpackedImage)
-				for bundle := range bundles {
-					// parallelize image pulls
-					go func(bundle registry.BundleKey, img *registry.ImageInput) {
-						if bundle.CsvName != img.Bundle.Name {
-							to, from, cleanup, err := unpackImage(ctx, reg, image.SimpleReference(bundle.BundlePath))
-							unpacked <- unpackedImage{to: to, from: from, cleanup: cleanup, err: err}
-						} else {
-							unpacked <- unpackedImage{to: to, from: from, cleanup: func() { return }, err: nil}
-						}
-					}(bundle, img)
-				}
-				if _, ok := overwriteImageMap[img.Bundle.Package]; !ok {
-					overwriteImageMap[img.Bundle.Package] = make(map[image.Reference]string, 0)
-				}
-				for i := 0; i < len(bundles); i++ {
-					unpack := <-unpacked
-					if unpack.err != nil {
-						return unpack.err
-					}
-					overwriteImageMap[img.Bundle.Package][unpack.to] = unpack.from
-					if _, ok := unpackedImageMap[unpack.to]; ok {
-						delete(unpackedImageMap, unpack.to)
-					}
-					defer unpack.cleanup()
-				}
-			} else {
+			if overwritten == "" {
 				return fmt.Errorf("index add --overwrite-latest is only supported when using bundle images")
+			}
+			// get all bundle paths for that package - we will re-add these to regenerate the graph
+			bundles, err := querier.GetBundlesForPackage(ctx, img.Bundle.Package)
+			if err != nil {
+				return err
+			}
+			type unpackedImage struct {
+				to      image.Reference
+				from    string
+				cleanup func()
+				err     error
+			}
+			unpacked := make(chan unpackedImage)
+			for bundle := range bundles {
+				// parallelize image pulls
+				go func(bundle registry.BundleKey, img *registry.ImageInput) {
+					if bundle.CsvName != img.Bundle.Name {
+						to, from, cleanup, err := unpackImage(ctx, reg, image.SimpleReference(bundle.BundlePath))
+						unpacked <- unpackedImage{to: to, from: from, cleanup: cleanup, err: err}
+					} else {
+						unpacked <- unpackedImage{to: to, from: from, cleanup: func() { return }, err: nil}
+					}
+				}(bundle, img)
+			}
+			if _, ok := overwriteImageMap[img.Bundle.Package]; !ok {
+				overwriteImageMap[img.Bundle.Package] = make(map[image.Reference]string, 0)
+			}
+			for i := 0; i < len(bundles); i++ {
+				unpack := <-unpacked
+				if unpack.err != nil {
+					return unpack.err
+				}
+				overwriteImageMap[img.Bundle.Package][unpack.to] = unpack.from
+				if _, ok := unpackedImageMap[unpack.to]; ok {
+					delete(unpackedImageMap, unpack.to)
+				}
+				defer unpack.cleanup()
 			}
 		}
 	}
