@@ -1,20 +1,20 @@
 package server
 
 import (
+	"golang.org/x/net/context"
+
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-
-	"golang.org/x/net/context"
 )
 
 type RegistryServer struct {
 	api.UnimplementedRegistryServer
-	store registry.Query
+	store registry.GRPCQuery
 }
 
 var _ api.RegistryServer = &RegistryServer{}
 
-func NewRegistryServer(store registry.Query) *RegistryServer {
+func NewRegistryServer(store registry.GRPCQuery) *RegistryServer {
 	return &RegistryServer{UnimplementedRegistryServer: api.UnimplementedRegistryServer{}, store: store}
 }
 
