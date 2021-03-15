@@ -2,8 +2,9 @@ package registry
 
 import (
 	"encoding/json"
-	"github.com/blang/semver"
 	"testing"
+
+	"github.com/blang/semver"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -315,55 +316,55 @@ func TestBundleGraphLoader(t *testing.T) {
 }
 
 func TestIsSkipPatchCandidate(t *testing.T) {
-	tests := []struct{
-		name     string
-		added     string
-		compare  string
-		expected bool
+	tests := []struct {
+		name        string
+		added       string
+		compare     string
+		expected    bool
 		commutative bool
 	}{
 		{
-			name: "equal versions",
-			added: "0.0.0",
-			compare: "0.0.0",
-			expected: false,
+			name:        "equal versions",
+			added:       "0.0.0",
+			compare:     "0.0.0",
+			expected:    false,
 			commutative: true,
 		},
 		{
-			name: "do not accept different major/minor version",
-			added: "0.1.0",
-			compare: "0.2.0",
-			expected: false,
+			name:        "do not accept different major/minor version",
+			added:       "0.1.0",
+			compare:     "0.2.0",
+			expected:    false,
 			commutative: true,
 		},
 		{
-			name: "accept larger patch version",
-			added: "0.0.1",
-			compare: "0.0.0",
+			name:     "accept larger patch version",
+			added:    "0.0.1",
+			compare:  "0.0.0",
 			expected: true,
 		},
 		{
-			name: "accept patch version without pre-release",
-			added: "0.0.0",
-			compare: "0.0.0-1",
+			name:     "accept patch version without pre-release",
+			added:    "0.0.0",
+			compare:  "0.0.0-1",
 			expected: true,
 		},
 		{
-			name: "accept longer pre-release with same prefix",
-			added: "0.0.1-1.2",
-			compare: "0.0.1-1",
+			name:     "accept longer pre-release with same prefix",
+			added:    "0.0.1-1.2",
+			compare:  "0.0.1-1",
 			expected: true,
 		},
 		{
-			name: "accept numerically larger pre-release",
-			added: "0.0.1-11",
-			compare: "0.0.1-2",
+			name:     "accept numerically larger pre-release",
+			added:    "0.0.1-11",
+			compare:  "0.0.1-2",
 			expected: true,
 		},
 		{
-			name: "accept lexicographically larger pre-release",
-			added: "0.0.1-beta.1",
-			compare: "0.0.1-alpha.1",
+			name:     "accept lexicographically larger pre-release",
+			added:    "0.0.1-beta.1",
+			compare:  "0.0.1-alpha.1",
 			expected: true,
 		},
 	}

@@ -15,7 +15,7 @@ type RegistryServer struct {
 var _ api.RegistryServer = &RegistryServer{}
 
 func NewRegistryServer(store registry.Query) *RegistryServer {
-	return &RegistryServer{UnimplementedRegistryServer: api.UnimplementedRegistryServer{},  store: store}
+	return &RegistryServer{UnimplementedRegistryServer: api.UnimplementedRegistryServer{}, store: store}
 }
 
 func (s *RegistryServer) ListPackages(req *api.ListPackageRequest, stream api.Registry_ListPackagesServer) error {

@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -19,11 +20,10 @@ func OpenReadOnly(fileName string) (*sql.DB, error) {
 // EnableForeignKeys appends the option to enable foreign keys on connections
 // note that without this option, PRAGMAs about foreign keys will lie.
 func EnableForeignKeys(fileName string) string {
-	return "file:"+fileName+"?_foreign_keys=on"
+	return "file:" + fileName + "?_foreign_keys=on"
 }
 
 // Immutable appends the option to mark the db immutable on connections
 func EnableImmutable(fileName string) string {
-	return "file:"+fileName+"?immutable=true"
+	return "file:" + fileName + "?immutable=true"
 }
-

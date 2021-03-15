@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"testing"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 
 	"github.com/stretchr/testify/require"
 
