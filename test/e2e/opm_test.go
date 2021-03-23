@@ -485,16 +485,20 @@ var _ = Describe("opm", func() {
 	}
 
 	Context("using docker", func() {
-		if err := exec.Command("docker").Run(); err != nil {
-			GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %s", err)
+		cmd := exec.Command("docker")
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %v", err)
 			return
 		}
 		IncludeSharedSpecs("docker")
 	})
 
 	Context("using podman", func() {
-		if err := exec.Command("podman", "info").Run(); err != nil {
-			GinkgoT().Log("container tool podman not found - skipping podman-based opm e2e tests: %s", err)
+		cmd := exec.Command("podman", "info")
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			GinkgoT().Logf("container tool podman not found - skipping podman-based opm e2e tests: %v", err)
 			return
 		}
 		IncludeSharedSpecs("podman")
