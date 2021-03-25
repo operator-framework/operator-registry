@@ -394,6 +394,9 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 }
 
 func buildContext(generate bool, requestedDockerfile string) (buildDir, outDockerfile string, cleanup func(), err error) {
+	// set cleanup to a no-op until explicitly set
+	cleanup = func() {}
+
 	if generate {
 		buildDir = "./"
 		if len(requestedDockerfile) == 0 {
