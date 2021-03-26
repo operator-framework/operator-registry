@@ -74,7 +74,8 @@ var _ = Describe("opm alpha bundle", func() {
 			Expect(os.RemoveAll(tmpDir)).To(Succeed())
 		})
 
-		It("fails to unpack", func() {
+		// Note(tflannag): See https://github.com/operator-framework/operator-registry/issues/609.
+		PIt("fails to unpack", func() {
 			unpackDir := filepath.Join(tmpDir, "unpacked")
 			opm.SetArgs([]string{
 				"alpha",
@@ -93,7 +94,7 @@ var _ = Describe("opm alpha bundle", func() {
 			Expect(string(result)).To(ContainSubstring("bundle content validation failed"))
 		})
 
-		It("unpacks successfully", func() {
+		PIt("unpacks successfully", func() {
 			By("setting --skip-validation")
 
 			unpackDir := filepath.Join(tmpDir, "unpacked")
