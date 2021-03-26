@@ -29,7 +29,7 @@ func TestGetBundlesToExport(t *testing.T) {
 		t.Fatalf("creating querier: %s", err)
 	}
 
-	bundleMap, err := getBundlesToExport(dbQuerier, []string {"etcd"})
+	bundleMap, err := getBundlesToExport(dbQuerier, []string{"etcd"})
 	if err != nil {
 		t.Fatalf("exporting bundles from db: %s", err)
 	}
@@ -82,4 +82,62 @@ func TestGeneratePackageYaml(t *testing.T) {
 	}
 
 	_ = os.RemoveAll("./package.yaml")
+}
+
+func TestBuildContext(t *testing.T) {
+	// TODO(): Test does not currently have a clean way
+	// of testing the generated returned values such as
+	// outDockerfile and buildDir.
+
+	defaultBuildDirOnGenerate := "./"
+	fooDockerfile := "foo.Dockerfile"
+	defaultDockerfile := defaultDockerfileName
+
+	cases := []struct {
+		generate              bool
+		requestedDockerfile   string
+		expectedBuildDir      *string // return values not checked if nil
+		expectedOutDockerfile *string // return values not checked if nil
+	}{
+		{
+			generate:              true,
+			requestedDockerfile:   "",
+			expectedOutDockerfile: &defaultDockerfile,
+			expectedBuildDir:      &defaultBuildDirOnGenerate,
+		},
+		{
+			generate:              false,
+			requestedDockerfile:   "foo.Dockerfile",
+			expectedOutDockerfile: &fooDockerfile,
+			expectedBuildDir:      nil,
+		},
+		{
+			generate:              false,
+			requestedDockerfile:   "",
+			expectedOutDockerfile: nil,
+			expectedBuildDir:      nil,
+		},
+	}
+
+	for _, testCase := range cases {
+		actualBuildDir, actualOutDockerfile, actualCleanup, _ := buildContext(
+			testCase.generate, testCase.requestedDockerfile)
+
+		if actualCleanup == nil {
+			// prevent regression - cleanup should never be nil
+			t.Fatal("buildContext returned nil cleanup function")
+		}
+
+		if testCase.expectedOutDockerfile != nil && actualOutDockerfile != *testCase.expectedOutDockerfile {
+			t.Fatalf("comparing outDockerfile: expected %v actual %v",
+				*testCase.expectedOutDockerfile,
+				actualOutDockerfile)
+		}
+
+		if testCase.expectedBuildDir != nil && actualBuildDir != *testCase.expectedBuildDir {
+			t.Fatalf("comparing buildDir: expected %v actual %v",
+				*testCase.expectedBuildDir,
+				actualBuildDir)
+		}
+	}
 }
