@@ -29,7 +29,7 @@ func TestGetBundlesToExport(t *testing.T) {
 		t.Fatalf("creating querier: %s", err)
 	}
 
-	bundleMap, err := getBundlesToExport(dbQuerier, []string {"etcd"})
+	bundleMap, err := getBundlesToExport(dbQuerier, []string{"etcd"})
 	if err != nil {
 		t.Fatalf("exporting bundles from db: %s", err)
 	}

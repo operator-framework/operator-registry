@@ -70,6 +70,10 @@ vendor:
 	$(GO) mod vendor
 	$(GO) mod verify
 
+.PHONY: lint
+lint:
+	find . -name '*.go' -not -path "./vendor/*" | xargs goimports -w
+
 .PHONY: codegen
 codegen:
 	protoc -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
