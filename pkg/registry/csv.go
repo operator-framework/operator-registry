@@ -58,6 +58,9 @@ const (
 
 	// The yaml attribute that specifies the skipRange of the ClusterServiceVersion
 	skipRangeAnnotationKey = "olm.skipRange"
+
+	// The yaml attribute that specifies the optional substitutesfor of the ClusterServiceVersion
+	substitutesForAnnotationKey = "olm.substitutesFor"
 )
 
 // ClusterServiceVersion is a structured representation of cluster service
@@ -396,4 +399,16 @@ func (csv *ClusterServiceVersion) GetDescription() (string, error) {
 	}
 
 	return desc, nil
+}
+
+// GetSubstitutesFor returns the name of the ClusterServiceVersion object that
+// is substituted by this ClusterServiceVersion object.
+//
+// If not defined, the function returns an empty string.
+func (csv *ClusterServiceVersion) GetSubstitutesFor() string {
+	substitutesFor, ok := csv.Annotations[substitutesForAnnotationKey]
+	if !ok {
+		return ""
+	}
+	return substitutesFor
 }

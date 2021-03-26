@@ -1534,3 +1534,626 @@ func TestSemverPackageManifest(t *testing.T) {
 		})
 	}
 }
+
+func TestSubstitutesFor(t *testing.T) {
+	type args struct {
+		bundles  []string
+		rebuilds []string
+	}
+	type replaces map[string]string
+	type expected struct {
+		bundles        []string
+		substitutions  map[string]string
+		whatReplaces   map[string]replaces
+		defaultChannel string
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "FirstSubstitutionReplaces",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{
+					"prometheus.0.15.0.substitutesfor",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                      "",
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "FirstSubstitutionReplacesNonHead",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{
+					"prometheus.0.14.0.substitutesfor",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                "",
+					"prometheusoperator.0.14.0":                "",
+					"prometheusoperator.0.15.0":                "",
+					"prometheusoperator.0.14.0+0.1234-rebuild": "prometheusoperator.0.14.0",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+0.1234-rebuild",
+						"stable":  "prometheusoperator.0.14.0+0.1234-rebuild",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.15.0",
+						"stable":  "prometheusoperator.0.15.0",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "SecondSubstitutionReplaces",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                      "",
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "SecondSubstitutionReplacesWithNonHead",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{
+					"prometheus.0.14.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                      "",
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.14.0+0.1234-rebuild":       "prometheusoperator.0.14.0",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+0.1234-rebuild",
+						"stable":  "prometheusoperator.0.14.0+0.1234-rebuild",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "CanBatchAddSubstitutesFor",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "CanBatchAddSubstitutesForWithNonHead",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.14.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+					"prometheus.0.15.0",
+				},
+				rebuilds: []string{},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.14.0+0.1234-rebuild":       "prometheusoperator.0.14.0",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+0.1234-rebuild",
+						"stable":  "prometheusoperator.0.14.0+0.1234-rebuild",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "CanAddABundleThatReplacesSubstitutedOne",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+				},
+				rebuilds: []string{
+					"prometheus.0.22.2",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                      "",
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "CanAddABundleThatReplacesSubstitutedOneWithNonHead",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+					"prometheus.0.15.0.substitutesfor",
+					"prometheus.0.15.0.substitutesfor2",
+					"prometheus.0.14.0.substitutesfor",
+				},
+				rebuilds: []string{
+					"prometheus.0.22.2",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.22.2",
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.15.0.substitutesfor2",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.22.2":                      "",
+					"prometheusoperator.0.14.0":                      "",
+					"prometheusoperator.0.15.0":                      "",
+					"prometheusoperator.0.14.0+0.1234-rebuild":       "prometheusoperator.0.14.0",
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": "prometheusoperator.0.15.0",
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": "prometheusoperator.0.15.0+1-freshmaker-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.22.2": {
+						"preview": "",
+					},
+					"prometheusoperator.0.15.0": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.15.0+2-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.22.2",
+						"stable":  "",
+					},
+					"prometheusoperator.0.15.0+1-freshmaker-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+0.1234-rebuild",
+						"stable":  "prometheusoperator.0.14.0+0.1234-rebuild",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+						"stable":  "prometheusoperator.0.15.0+2-freshmaker-rebuild",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "MultipleBundlesSubstitutingForTheSameBundleAddedInWrongOrder",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+				},
+				rebuilds: []string{
+					"prometheus.0.14.0.substitutesfor",
+					"prometheus.0.14.0.substitutesfor3",
+					"prometheus.0.14.0.substitutesfor2",
+				},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.14.0.substitutesfor2",
+					"quay.io/test/prometheus.0.14.0.substitutesfor3",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.14.0":                "",
+					"prometheusoperator.0.14.0+0.1234-rebuild": "prometheusoperator.0.14.0",
+					"prometheusoperator.0.14.0+2-rebuild":      "prometheusoperator.0.14.0+0.1234-rebuild",
+					"prometheusoperator.0.14.0+3-rebuild":      "prometheusoperator.0.14.0+2-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+2-rebuild": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+3-rebuild": {
+						"preview": "",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+		{
+			description: "BatchAddWithMultipleBundlesSubstitutingForTheSameBundle",
+			args: args{
+				bundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.14.0.substitutesfor",
+					"prometheus.0.14.0.substitutesfor3",
+					"prometheus.0.14.0.substitutesfor2",
+				},
+				rebuilds: []string{},
+			},
+			expected: expected{
+				bundles: []string{
+					"quay.io/test/prometheus.0.14.0",
+					"quay.io/test/prometheus.0.14.0.substitutesfor3",
+					"quay.io/test/prometheus.0.14.0.substitutesfor2",
+					"quay.io/test/prometheus.0.14.0.substitutesfor",
+				},
+				substitutions: map[string]string{
+					"prometheusoperator.0.14.0":                "",
+					"prometheusoperator.0.14.0+0.1234-rebuild": "prometheusoperator.0.14.0",
+					"prometheusoperator.0.14.0+2-rebuild":      "prometheusoperator.0.14.0+0.1234-rebuild",
+					"prometheusoperator.0.14.0+3-rebuild":      "prometheusoperator.0.14.0+2-rebuild",
+				},
+				whatReplaces: map[string]replaces{
+					"prometheusoperator.0.14.0": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+0.1234-rebuild": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+2-rebuild": {
+						"preview": "prometheusoperator.0.14.0+3-rebuild",
+					},
+					"prometheusoperator.0.14.0+3-rebuild": {
+						"preview": "",
+					},
+				},
+				defaultChannel: "preview",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			load, err := sqlite.NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			err = load.Migrate(context.TODO())
+			require.NoError(t, err)
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			populate := func(names []string) error {
+				refMap := make(map[image.Reference]string, 0)
+				for _, name := range names {
+					refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+				}
+				return registry.NewDirectoryPopulator(
+					load,
+					graphLoader,
+					query,
+					refMap,
+					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+			}
+			// Initialize index with some bundles
+			require.NoError(t, populate(tt.args.bundles))
+
+			// Add the rebuilds one at a time
+			for _, rb := range tt.args.rebuilds {
+				require.NoError(t, populate([]string{rb}))
+			}
+
+			// Check graph is unchanged but has new csv name + version
+			// Ensure bundlePaths in db match
+			bundles, err := query.ListBundles(context.Background())
+			require.NoError(t, err)
+			var bundlePaths []string
+			for _, bundle := range bundles {
+				bundlePaths = append(bundlePaths, bundle.BundlePath)
+				bundleThatReplaces, _ := query.GetBundleThatReplaces(context.Background(), bundle.CsvName, bundle.PackageName, bundle.ChannelName)
+				if bundleThatReplaces != nil {
+					require.Equal(t, tt.expected.whatReplaces[bundle.CsvName][bundle.ChannelName], bundleThatReplaces.CsvName)
+				} else {
+					require.Equal(t, tt.expected.whatReplaces[bundle.CsvName][bundle.ChannelName], "")
+				}
+				substitution, err := getBundleSubstitution(context.Background(), db, bundle.CsvName)
+				require.NoError(t, err)
+				require.Equal(t, tt.expected.substitutions[bundle.CsvName], substitution)
+			}
+			require.ElementsMatch(t, tt.expected.bundles, bundlePaths)
+
+			// check default channel
+			defaultChannel, err := query.GetDefaultChannelForPackage(context.Background(), "prometheus")
+			require.NoError(t, err)
+			require.Equal(t, tt.expected.defaultChannel, defaultChannel)
+		})
+	}
+}
+
+func getBundleSubstitution(ctx context.Context, db *sql.DB, name string) (string, error) {
+	query := `SELECT substitutesfor FROM operatorbundle WHERE name=?`
+	rows, err := db.QueryContext(ctx, query, name)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var substitutesFor sql.NullString
+	if rows.Next() {
+		if err := rows.Scan(&substitutesFor); err != nil {
+			return "", err
+		}
+	}
+	return substitutesFor.String, nil
+}

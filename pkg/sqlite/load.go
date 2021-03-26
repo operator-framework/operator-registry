@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver"
 	_ "github.com/mattn/go-sqlite3"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
+	libsemver "github.com/operator-framework/operator-registry/pkg/lib/semver"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -67,7 +69,7 @@ func (s *sqlLoader) AddOperatorBundle(bundle *registry.Bundle) error {
 }
 
 func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error {
-	addBundle, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips) values(?, ?, ?, ?, ?, ?, ?, ?)")
+	addBundle, err := tx.Prepare("insert into operatorbundle(name, csv, bundle, bundlepath, version, skiprange, replaces, skips, substitutesfor) values(?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -104,8 +106,12 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	if err != nil {
 		return err
 	}
+	substitutesFor, err := bundle.SubstitutesFor()
+	if err != nil {
+		return err
+	}
 
-	if _, err := addBundle.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ",")); err != nil {
+	if _, err := addBundle.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ","), substitutesFor); err != nil {
 		return err
 	}
 
@@ -130,7 +136,252 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		return err
 	}
 
+	err = s.addSubstitutesFor(tx, bundle)
+	if err != nil {
+		return err
+	}
+
 	return s.addAPIs(tx, bundle)
+}
+
+func (s *sqlLoader) addSubstitutesFor(tx *sql.Tx, bundle *registry.Bundle) error {
+
+	updateBundleReplaces, err := tx.Prepare("update operatorbundle set replaces = ? where replaces = ?")
+	if err != nil {
+		return err
+	}
+	defer updateBundleReplaces.Close()
+
+	updateBundleSkips, err := tx.Prepare("update operatorbundle set skips = ? where name = ?")
+	if err != nil {
+		return err
+	}
+	defer updateBundleSkips.Close()
+
+	updateBundleSubstitutesFor, err := tx.Prepare("update operatorbundle set substitutesfor = ? where name = ?")
+	if err != nil {
+		return err
+	}
+	defer updateBundleSubstitutesFor.Close()
+
+	updateBundleReplacesSkips, err := tx.Prepare("update operatorbundle set replaces = ?, skips = ? where name = ?")
+	if err != nil {
+		return err
+	}
+	defer updateBundleReplacesSkips.Close()
+
+	csvName := bundle.Name
+
+	replaces, err := bundle.Replaces()
+	if err != nil {
+		return err
+	}
+	skips, err := bundle.Skips()
+	if err != nil {
+		return err
+	}
+	version, err := bundle.Version()
+	if err != nil {
+		return err
+	}
+	substitutesFor, err := bundle.SubstitutesFor()
+	if err != nil {
+		return err
+	}
+	if substitutesFor != "" {
+		// Update any replaces that reference the substituted-for bundle
+		_, err = updateBundleReplaces.Exec(csvName, substitutesFor)
+		if err != nil {
+			return err
+		}
+		// Check if any other bundle substitutes for the same bundle
+		otherSubstitutions, err := s.getBundlesThatSubstitutesFor(tx, substitutesFor)
+		if err != nil {
+			return err
+		}
+		for len(otherSubstitutions) > 0 {
+			// consume the slice of substitutions
+			otherSubstitution := otherSubstitutions[0]
+			otherSubstitutions = otherSubstitutions[1:]
+			if otherSubstitution != csvName {
+				// Another bundle is substituting for that same bundle
+				// Get other bundle's version
+				_, _, rawVersion, err := s.getBundleSkipsReplacesVersion(tx, otherSubstitution)
+				if err != nil {
+					return err
+				}
+				otherSubstitutionVersion, err := semver.Parse(rawVersion)
+				if err != nil {
+					return err
+				}
+				currentSubstitutionVersion, err := semver.Parse(version)
+				if err != nil {
+					return err
+				}
+				// Compare versions
+				c, err := libsemver.BuildIdCompare(otherSubstitutionVersion, currentSubstitutionVersion)
+				if err != nil {
+					return err
+				}
+				if c < 0 {
+					// Update the currentSubstitution substitutesFor to point to otherSubstitution
+					// since it is latest
+					_, err = updateBundleSubstitutesFor.Exec(otherSubstitution, csvName)
+					if err != nil {
+						return err
+					}
+					moreSubstitutions, err := s.getBundlesThatSubstitutesFor(tx, otherSubstitution)
+					if err != nil {
+						return err
+					}
+					otherSubstitutions = append(otherSubstitutions, moreSubstitutions...)
+				} else if c > 0 {
+					// Update the otherSubstitution's substitutesFor to point to csvName
+					// Since it is the latest
+					_, err = updateBundleSubstitutesFor.Exec(csvName, otherSubstitution)
+					if err != nil {
+						return err
+					}
+					// Update the otherSubstitution's skips to include csvName and its skips
+					err = s.appendSkips(tx, append(skips, csvName), otherSubstitution)
+					if err != nil {
+						return err
+					}
+					moreSubstitutions, err := s.getBundlesThatSubstitutesFor(tx, csvName)
+					if err != nil {
+						return err
+					}
+					if len(moreSubstitutions) > 1 {
+						return fmt.Errorf("programmer error: more than one substitution pointing to %s", csvName)
+					}
+				} else {
+					// the versions are equal
+					return fmt.Errorf("cannot determine latest substitution because of duplicate versions")
+				}
+			}
+		}
+	}
+
+	// Get latest substitutesFor value of the current bundle
+	substitutesFor, err = s.getBundleSubstitution(tx, csvName)
+	if err != nil {
+		return err
+	}
+
+	// If the substituted-for of the current bundle substitutes for another bundle
+	// it should also be added to the skips of the substitutesFor bundle
+	for substitutesFor != "" {
+		skips = append(skips, substitutesFor)
+		substitutesFor, err = s.getBundleSubstitution(tx, substitutesFor)
+		if err != nil {
+			return err
+		}
+	}
+
+	// If the substitution (or substitution of substitution) is added before the
+	// substituted for bundle, (i.e. the bundle being added is substituted for by
+	// another bundle) then transfer the skips from the substitutedFor bundle (this
+	// bundle) over to the substitution's skips
+	var substitutesFors []string
+	substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, csvName)
+	if err != nil || len(substitutesFors) > 1 {
+		return err
+	}
+	for len(substitutesFors) > 0 {
+		err = s.appendSkips(tx, append(skips, csvName), substitutesFors[0])
+		if err != nil {
+			return err
+		}
+		substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, substitutesFors[0])
+		if err != nil || len(substitutesFors) > 1 {
+			return err
+		}
+	}
+
+	// Bundles that skip a bundle that is substituted for
+	// should also skip the substituted-for bundle
+	if len(skips) != 0 {
+		// ensure slice of skips doesn't contain duplicates
+		substitutesSkips := make(map[string]struct{})
+		skipsOverwrite := []string{}
+		for _, skip := range skips {
+			substitutesSkips[skip] = struct{}{}
+			substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, skip)
+			if err != nil || len(substitutesFors) > 1 {
+				return err
+			}
+			for len(substitutesFors) > 0 {
+				// consume the slice of substitutions
+				substitutesFor = substitutesFors[0]
+				substitutesFors = substitutesFors[1:]
+				// shouldn't skip yourself
+				if substitutesFor != csvName {
+					substitutesSkips[substitutesFor] = struct{}{}
+					substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, substitutesFor)
+					if err != nil || len(substitutesFors) > 1 {
+						return err
+					}
+				}
+			}
+		}
+		for s := range substitutesSkips {
+			skipsOverwrite = append(skipsOverwrite, s)
+		}
+		skips = skipsOverwrite
+	}
+
+	// If the bundle being added replaces a bundle that is substituted for
+	// (for example it was the previous head of the channel), change
+	// the replaces to the substituted-for bundle
+	if replaces != "" {
+		substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, replaces)
+		if err != nil {
+			return err
+		}
+		for len(substitutesFors) > 0 {
+			// update the replaces to a newer substitution
+			replaces = substitutesFors[0]
+			// try to get the substitution of the substitution
+			substitutesFors, err = s.getBundlesThatSubstitutesFor(tx, replaces)
+			if err != nil || len(substitutesFors) > 1 {
+				return err
+			}
+		}
+	}
+
+	_, err = updateBundleReplacesSkips.Exec(replaces, strings.Join(skips, ","), csvName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *sqlLoader) appendSkips(tx *sql.Tx, skips []string, csvName string) error {
+	updateSkips, err := tx.Prepare("update operatorbundle set skips = ? where name = ?")
+	if err != nil {
+		return err
+	}
+	defer updateSkips.Close()
+
+	_, currentSkips, _, err := s.getBundleSkipsReplacesVersion(tx, csvName)
+	if err != nil {
+		return err
+	}
+
+	// ensure slice of skips doesn't contain duplicates
+	skipsMap := make(map[string]struct{})
+	for _, skip := range currentSkips {
+		skipsMap[skip] = struct{}{}
+	}
+	for _, skip := range skips {
+		if _, ok := skipsMap[skip]; !ok {
+			currentSkips = append(currentSkips, skip)
+		}
+	}
+
+	_, err = updateSkips.Exec(strings.Join(currentSkips, ","), csvName)
+	return err
 }
 
 func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
@@ -1158,4 +1409,42 @@ func (s *sqlLoader) RemoveStrandedBundles() error {
 func (s *sqlLoader) rmStrandedBundles(tx *sql.Tx) error {
 	_, err := tx.Exec("DELETE FROM operatorbundle WHERE name NOT IN(select operatorbundle_name from channel_entry)")
 	return err
+}
+
+func (s *sqlLoader) getBundlesThatSubstitutesFor(tx *sql.Tx, replaces string) ([]string, error) {
+	query := `SELECT name FROM operatorbundle WHERE substitutesfor=?`
+	rows, err := tx.QueryContext(context.TODO(), query, replaces)
+	if err != nil {
+		return []string{}, err
+	}
+	defer rows.Close()
+
+	var substitutesFor []string
+	var subsFor sql.NullString
+	for rows.Next() {
+		if err := rows.Scan(&subsFor); err != nil {
+			return []string{}, err
+		}
+		if subsFor.Valid && subsFor.String != "" {
+			substitutesFor = append(substitutesFor, subsFor.String)
+		}
+	}
+	return substitutesFor, nil
+}
+
+func (s *sqlLoader) getBundleSubstitution(tx *sql.Tx, name string) (string, error) {
+	query := `SELECT substitutesfor FROM operatorbundle WHERE name=?`
+	rows, err := tx.QueryContext(context.TODO(), query, name)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var substitutesFor sql.NullString
+	if rows.Next() {
+		if err := rows.Scan(&substitutesFor); err != nil {
+			return "", err
+		}
+	}
+	return substitutesFor.String, nil
 }
