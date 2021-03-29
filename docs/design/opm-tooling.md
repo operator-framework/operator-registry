@@ -28,6 +28,14 @@ Now imagine that the 0.15.0 version of the `prometheus operator` was just releas
 
 Great! The existing `test-registry.db` file is updated. Now we have a registry that contains two versions of the operator and defines an update graph that, when added to a cluster, will signal to the Operator Lifecycle Manager that if you have already installed version `0.14.0` that `0.15.0` can be used to upgrade your installation.
 
+**Aside:** if using a custom CA for your bundle image registry, be sure to configure the container tool with the appropriate certificate
+([docker](https://docs.docker.com/engine/security/certificates/), [podman](http://docs.podman.io/en/latest/markdown/podman-image-sign.1.html#cert-dir-path)).
+If using the `none` container tool, download the root certificate to a file and pass the file path like so:
+
+```sh
+opm registry add -b "custom-ca-registry.com/operator-bundle-prometheus:0.15.0" -d "test-registry.db" --container-tool=none --ca-file="/path/to/cert.pem"
+```
+
 #### rm
 
 `opm` also currently supports removing entire packages from a registry.
