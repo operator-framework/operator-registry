@@ -349,19 +349,6 @@ func (i *ImageInput) findCSV(manifests string) (*unstructured.Unstructured, erro
 	return nil, fmt.Errorf("no csv found in bundle")
 }
 
-// loadOperatorBundle adds the package information to the loader's store
-func (i *DirectoryPopulator) loadOperatorBundle(manifest PackageManifest, bundle *Bundle) error {
-	if manifest.PackageName == "" {
-		return nil
-	}
-
-	if err := i.loader.AddBundlePackageChannels(manifest, bundle); err != nil {
-		return fmt.Errorf("error loading bundle into db: %s", err)
-	}
-
-	return nil
-}
-
 type bundleVersion struct {
 	name    string
 	version semver.Version

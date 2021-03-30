@@ -757,30 +757,6 @@ func (s *sqlLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bu
 	return nil
 }
 
-func (s *sqlLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle *registry.Bundle) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		tx.Rollback()
-	}()
-
-	if err := s.addOperatorBundle(tx, bundle); err != nil {
-		return err
-	}
-
-	if err := s.rmPackage(tx, manifest.PackageName); err != nil {
-		return err
-	}
-
-	if err := s.addPackageChannels(tx, manifest); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
 func (s *sqlLoader) rmPackage(tx *sql.Tx, pkg string) error {
 	// Delete package, channel, and entries - they will be recalculated
 	deletePkg, err := tx.Prepare("DELETE FROM package WHERE name = ?")

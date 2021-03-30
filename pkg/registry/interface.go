@@ -10,7 +10,6 @@ type Load interface {
 	AddOperatorBundle(bundle *Bundle) error
 	AddBundleSemver(graph *Package, bundle *Bundle) error
 	AddPackageChannels(manifest PackageManifest) error
-	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
 	RemoveStrandedBundles() error
 	DeprecateBundle(path string) error
