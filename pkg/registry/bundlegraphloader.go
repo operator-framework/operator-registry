@@ -152,34 +152,36 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		graph.Channels[channel] = channelGraph
 	}
 
+	if !skippatch {
+		return graph, nil
+	}
+
 	// Remove the nodes that where patch-skipped previously, also in channels unaffected by the new bundle
-	if skippatch {
-		for channel := range graph.Channels {
-			channelGraph := graph.Channels[channel]
-			allSkips := make([]BundleKey, len(channelGraph.Nodes))
-			for node, replacedNodes := range channelGraph.Nodes {
-				for replaced := range replacedNodes {
-					nodeVersion, err := semver.Make(node.Version)
-					if err != nil {
-						// not semver, skip this replacement
-						continue
-					}
+	for channel := range graph.Channels {
+		channelGraph := graph.Channels[channel]
+		allSkips := make([]BundleKey, len(channelGraph.Nodes))
+		for node, replacedNodes := range channelGraph.Nodes {
+			for replaced := range replacedNodes {
+				nodeVersion, err := semver.Make(node.Version)
+				if err != nil {
+					// not semver, skip this replacement
+					continue
+				}
 
-					replacedVersion, err := semver.Make(replaced.Version)
-					if err != nil {
-						// not semver, skip this replacement
-						continue
-					}
+				replacedVersion, err := semver.Make(replaced.Version)
+				if err != nil {
+					// not semver, skip this replacement
+					continue
+				}
 
-					if isSkipPatchCandidate(nodeVersion, replacedVersion) && len(channelGraph.Nodes[replaced]) == 0 {
-						allSkips = append(allSkips, replaced)
-					}
+				if isSkipPatchCandidate(nodeVersion, replacedVersion) && len(channelGraph.Nodes[replaced]) == 0 {
+					allSkips = append(allSkips, replaced)
 				}
 			}
+		}
 
-			for _, node := range allSkips {
-				delete(channelGraph.Nodes, node)
-			}
+		for _, node := range allSkips {
+			delete(channelGraph.Nodes, node)
 		}
 	}
 
