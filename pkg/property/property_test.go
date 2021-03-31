@@ -164,10 +164,10 @@ func TestFile_GetData(t *testing.T) {
 
 	createFile := func(root string) error {
 		dir := filepath.Join(root, "tmp")
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0777); err != nil {
 			return err
 		}
-		return ioutil.WriteFile(filepath.Join(dir, "foo.txt"), []byte("bar"), 0644)
+		return ioutil.WriteFile(filepath.Join(dir, "foo.txt"), []byte("bar"), 0666)
 	}
 
 	specs := []spec{

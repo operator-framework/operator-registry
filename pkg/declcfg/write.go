@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	objectsDirName = "objects"
-	globalName     = "__global"
+	globalName = "__global"
 )
 
 func WriteDir(cfg DeclarativeConfig, configDir string) error {
@@ -60,7 +59,7 @@ func writeToFS(cfg DeclarativeConfig, w fsWriter, rootDir string) error {
 		othersByPackage[pkgName] = append(othersByPackage[pkgName], o)
 	}
 
-	if err := w.MkdirAll(rootDir, 0755); err != nil {
+	if err := w.MkdirAll(rootDir, 0777); err != nil {
 		return fmt.Errorf("mkdir %q: %v", rootDir, err)
 	}
 
@@ -71,7 +70,7 @@ func writeToFS(cfg DeclarativeConfig, w fsWriter, rootDir string) error {
 			Others:   othersByPackage[p.Name],
 		}
 		pkgDir := filepath.Join(rootDir, p.Name)
-		if err := w.MkdirAll(pkgDir, 0755); err != nil {
+		if err := w.MkdirAll(pkgDir, 0777); err != nil {
 			return err
 		}
 		filename := filepath.Join(pkgDir, fmt.Sprintf("%s.json", p.Name))
@@ -110,10 +109,10 @@ func writeObjectFiles(b Bundle, w fsWriter, baseDir string) error {
 		if p.IsRef() {
 			objPath := filepath.Join(baseDir, p.GetRef())
 			objDir := filepath.Dir(objPath)
-			if err := w.MkdirAll(objDir, 0755); err != nil {
+			if err := w.MkdirAll(objDir, 0777); err != nil {
 				return fmt.Errorf("create directory %q for bundle object ref %q: %v", objDir, p.GetRef(), err)
 			}
-			if err := w.WriteFile(objPath, []byte(b.Objects[i]), 0644); err != nil {
+			if err := w.WriteFile(objPath, []byte(b.Objects[i]), 0666); err != nil {
 				return fmt.Errorf("write bundle object for ref %q: %v", p.GetRef(), err)
 			}
 		}
@@ -126,7 +125,7 @@ func writeFile(cfg DeclarativeConfig, w fsWriter, filename string) error {
 	if err := writeJSON(cfg, buf); err != nil {
 		return fmt.Errorf("write to buffer for %q: %v", filename, err)
 	}
-	if err := w.WriteFile(filename, buf.Bytes(), 0644); err != nil {
+	if err := w.WriteFile(filename, buf.Bytes(), 0666); err != nil {
 		return fmt.Errorf("write file %q: %v", filename, err)
 	}
 	return nil

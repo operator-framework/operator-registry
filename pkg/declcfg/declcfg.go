@@ -43,7 +43,7 @@ type Bundle struct {
 	// backwards-compatible way. These are populated from
 	// any `olm.bundle.object` properties.
 	//
-	// These fields are never be persisted in the bundle blob as
+	// These fields will never be persisted in the bundle blob as
 	// first class fields.
 	CsvJSON string   `json:"-"`
 	Objects []string `json:"-"`
