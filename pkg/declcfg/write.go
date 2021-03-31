@@ -72,7 +72,7 @@ func writeToFS(cfg DeclarativeConfig, w fsWriter, rootDir string) error {
 		}
 		pkgDir := filepath.Join(rootDir, p.Name)
 		if err := w.MkdirAll(pkgDir, 0755); err != nil {
-			return fmt.Errorf("mkdir %q: %v", pkgDir, err)
+			return err
 		}
 		filename := filepath.Join(pkgDir, fmt.Sprintf("%s.json", p.Name))
 		if err := writeFile(fcfg, w, filename); err != nil {
