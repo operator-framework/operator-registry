@@ -38,6 +38,17 @@ const (
 	// skips
 	skips = "skips"
 
+	// The yaml attribute that points to the icon for the ClusterServiceVersion
+	icon = "icon"
+
+	// The yaml attribute that points to the icon.base64data for the ClusterServiceVersion
+	base64data = "base64data"
+
+	// The yaml attribute that points to the icon.mediatype for the ClusterServiceVersion
+	mediatype = "mediatype"
+	// The yaml attribute that points to the description for the ClusterServiceVersion
+	description = "description"
+
 	// The yaml attribute that specifies the version of the ClusterServiceVersion
 	// expected to be semver and parseable by blang/semver
 	version = "version"
@@ -340,4 +351,49 @@ func (csv *ClusterServiceVersion) GetOperatorImages() (map[string]struct{}, erro
 	}
 
 	return images, nil
+}
+
+type Icon struct {
+	MediaType  string `json:"mediatype"`
+	Base64data []byte `json:"base64data"`
+}
+
+// GetIcons returns the icons from the ClusterServiceVersion
+func (csv *ClusterServiceVersion) GetIcons() ([]Icon, error) {
+	var objmap map[string]*json.RawMessage
+	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
+		return nil, err
+	}
+
+	rawValue, ok := objmap[icon]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	var icons []Icon
+	if err := json.Unmarshal(*rawValue, &icons); err != nil {
+		return nil, err
+	}
+	return icons, nil
+}
+
+// GetDescription returns the description from the ClusterServiceVersion
+// If not defined, the function returns an empty string.
+func (csv *ClusterServiceVersion) GetDescription() (string, error) {
+	var objmap map[string]*json.RawMessage
+
+	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
+		return "", err
+	}
+
+	rawValue, ok := objmap[description]
+	if !ok || rawValue == nil {
+		return "", nil
+	}
+
+	var desc string
+	if err := json.Unmarshal(*rawValue, &desc); err != nil {
+		return "", err
+	}
+
+	return desc, nil
 }

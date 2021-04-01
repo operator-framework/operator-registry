@@ -555,3 +555,98 @@ func makePackageChannelBundle() (*Package, *Channel) {
 
 	return pkg, ch
 }
+
+func TestAddBundle(t *testing.T) {
+	type spec struct {
+		name               string
+		model              Model
+		bundle             Bundle
+		numPkgIncrease     bool
+		numBundlesIncrease bool
+		pkgBundleAddedTo   string
+	}
+	pkg, _ := makePackageChannelBundle()
+	m := Model{}
+	m[pkg.Name] = pkg
+
+	bundle1 := Bundle{
+		Name:     "darth.vader.v0.0.1",
+		Replaces: "anakin.v0.0.1",
+		Skips:    []string{"anakin.v0.0.2"},
+		Package:  &Package{Name: pkg.Name},
+	}
+	ch1 := &Channel{
+		Name: "darkness",
+		Bundles: map[string]*Bundle{
+			"vader.v0.0.1": &bundle1,
+		},
+	}
+	bundle1.Channel = ch1
+
+	bundle2 := Bundle{
+		Name:     "kylo.ren.v0.0.1",
+		Replaces: "darth.vader.v0.0.1",
+		Skips:    []string{"anakin.v0.0.2"},
+		Package: &Package{
+			Name:        "Empire",
+			Description: "The Empire Will Rise Again",
+			Icon: &Icon{
+				MediaType: "gif",
+				Data:      []byte("palpatineLaughing"),
+			},
+			Channels: make(map[string]*Channel),
+		},
+	}
+	ch2 := &Channel{
+		Name: "darkeness",
+		Bundles: map[string]*Bundle{
+			"kylo.ren.v0.0.1": &bundle2,
+		},
+	}
+	bundle2.Channel = ch2
+	bundle2.Package.Channels[ch2.Name] = ch2
+
+	specs := []spec{
+		{
+			name:               "AddingToExistingPackage",
+			bundle:             bundle1,
+			model:              m,
+			numPkgIncrease:     false,
+			numBundlesIncrease: true,
+			pkgBundleAddedTo:   bundle1.Package.Name,
+		},
+		{
+			name:               "AddingNewPackage",
+			bundle:             bundle2,
+			model:              m,
+			numPkgIncrease:     true,
+			numBundlesIncrease: false,
+			pkgBundleAddedTo:   "",
+		},
+	}
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			existingPkgCount := len(s.model)
+			existingBundleCount := 0
+			if s.pkgBundleAddedTo != "" {
+				existingBundleCount = getNoOfBundles(m, s.pkgBundleAddedTo)
+			}
+			s.model.AddBundle(s.bundle)
+			if s.numPkgIncrease {
+				assert.Equal(t, len(s.model), existingPkgCount+1)
+			}
+			if s.numBundlesIncrease {
+				assert.Equal(t, getNoOfBundles(m, s.pkgBundleAddedTo), existingBundleCount+1)
+			}
+		})
+	}
+}
+
+func getNoOfBundles(m Model, pkg string) int {
+	count := 0
+	mpkg := m[pkg]
+	for _, ch := range mpkg.Channels {
+		count += len(ch.Bundles)
+	}
+	return count
+}

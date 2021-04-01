@@ -293,3 +293,27 @@ func (m Model) Normalize() {
 		}
 	}
 }
+
+func (m Model) AddBundle(b Bundle) {
+	if _, present := m[b.Package.Name]; !present {
+		m[b.Package.Name] = b.Package
+	}
+	p := m[b.Package.Name]
+	b.Package = p
+	if ch, ok := p.Channels[b.Channel.Name]; ok {
+		b.Channel = ch
+		ch.Bundles[b.Name] = &b
+	} else {
+		newCh := &Channel{
+			Name:    b.Channel.Name,
+			Package: p,
+			Bundles: make(map[string]*Bundle),
+		}
+		b.Channel = newCh
+		newCh.Bundles[b.Name] = &b
+		p.Channels[newCh.Name] = newCh
+	}
+	if p.DefaultChannel == nil {
+		p.DefaultChannel = b.Channel
+	}
+}
