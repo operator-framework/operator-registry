@@ -40,6 +40,11 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
 		}
+
+		if b.Package != props.Packages[0].PackageName {
+			return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
+		}
+
 		for _, bundleChannel := range props.Channels {
 			pkgChannel, ok := mpkg.Channels[bundleChannel.Name]
 			if !ok {
