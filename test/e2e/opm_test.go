@@ -108,6 +108,7 @@ func buildIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleIm
 		Bundles:           bundleImages,
 		Permissive:        false,
 		Overwrite:         overwriteLatest,
+		SkipTLS:           *skipTLSForRegistry,
 	}
 
 	return indexAdder.AddToIndex(request)
@@ -168,6 +169,7 @@ func exportPackageWith(containerTool string) error {
 		Packages:      packages,
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		SkipTLS:       *skipTLSForRegistry,
 	}
 
 	return indexExporter.ExportFromIndex(request)
@@ -183,6 +185,7 @@ func exportIndexImageWith(containerTool string) error {
 		Packages:      []string{},
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		SkipTLS:       *skipTLSForRegistry,
 	}
 
 	return indexExporter.ExportFromIndex(request)
@@ -458,7 +461,7 @@ var _ = Describe("opm", func() {
 
 					request := lregistry.AddToRegistryRequest{
 						Permissive:    false,
-						SkipTLS:       false,
+						SkipTLS:       *skipTLSForRegistry,
 						InputDatabase: dbFile,
 						Bundles:       []string{ch.Head.BundlePath},
 						Mode:          registry.ReplacesMode,

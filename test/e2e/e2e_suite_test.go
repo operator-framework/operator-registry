@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	opmroot "github.com/operator-framework/operator-registry/cmd/opm/root"
+	"github.com/operator-framework/operator-registry/test/e2e/ctx"
 )
 
 // quay.io is the default registry used if no local registry endpoint is provided
@@ -24,16 +26,22 @@ var (
 
 	// opm command under test.
 	opm *cobra.Command
+
+	skipTLSForRegistry = flag.Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
 )
 
 func TestE2E(t *testing.T) {
+	flag.Parse()
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2E Suite")
 }
 
+var deprovision func() = func() {}
+
 var _ = BeforeSuite(func() {
 	// Configure test registry (hostnames, credentials, etc.)
 	configureRegistry()
+	deprovision = ctx.MustProvision(ctx.Ctx())
 
 	opm = opmroot.NewCmd() // Creating multiple instances would cause flag registration conflicts
 })
@@ -60,3 +68,7 @@ func configureRegistry() {
 
 	By(fmt.Sprintf("Using container image registry %s", dockerHost))
 }
+
+var _ = AfterSuite(func() {
+	deprovision()
+})
