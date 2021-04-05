@@ -1151,6 +1151,7 @@ func (s *sqlLoader) addPackageProperty(tx *sql.Tx, bundleName, pkg, version, bun
 }
 
 func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) error {
+	// FIXME: bundle.cache() seems like the proper place for this to be generated. Let's investigate what that looks like at some point.
 	bundleVersion, err := bundle.Version()
 	if err != nil {
 		return err
@@ -1184,31 +1185,40 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		}
 	}
 
-	// Add label properties
-	if csv, err := bundle.ClusterServiceVersion(); err == nil {
-		annotations := csv.ObjectMeta.GetAnnotations()
-		if v, ok := annotations[registry.PropertyKey]; ok {
-			var props []registry.Property
-			if err := json.Unmarshal([]byte(v), &props); err == nil {
-				for _, prop := range props {
-					// Only add label type from the list
-					// TODO: Support more types such as GVK and package
-					if prop.Type == registry.LabelType {
-						var label registry.LabelProperty
-						err := json.Unmarshal(prop.Value, &label)
-						if err != nil {
-							continue
-						}
-						value, err := json.Marshal(label)
-						if err != nil {
-							continue
-						}
-						if err := s.addProperty(tx, registry.LabelType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-							continue
-						}
-					}
-				}
-			}
+	// Add properties from annotations
+	csv, err := bundle.ClusterServiceVersion()
+	if err != nil {
+		// FIXME: Returning nil here is in line with the original implementation, but that was probably wrong. We should probably just bubble-up the error.
+		return nil
+	}
+
+	if csv == nil {
+		// FIXME: Currently, a CSV is requirement of bundle addition. Should this return an error?
+		return nil
+	}
+
+	v, ok := csv.GetAnnotations()[registry.PropertyKey]
+	if !ok {
+		// No properties annotation to parse, we're done
+		return nil
+	}
+
+	// TODO: Handle conflicts with properties generated from provided APIs.
+	var props []registry.Property
+	if err := json.Unmarshal([]byte(v), &props); err != nil {
+		// FIXME: Returning nil here is in line with the original implementation, but that was probably wrong. We should probably just bubble-up the error.
+		return nil
+	}
+
+	for _, prop := range props {
+		// FIXME: An invalid/bad propery should probably be bubbled up instead of ignored.
+		value, err := json.Marshal(&prop.Value)
+		if err != nil {
+			continue
+		}
+		if err := s.addProperty(tx, prop.Type, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+			// FIXME: ignoring this error matches the original implementation, but that was probably wrong. We should probably just bubble-up the error.
+			continue
 		}
 	}
 
