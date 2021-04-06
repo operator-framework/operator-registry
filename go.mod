@@ -26,6 +26,9 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-health-probe v0.3.2
+	github.com/h2non/filetype v1.1.1
+	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/onsi/ginkgo v1.14.1
