@@ -1,0 +1,16 @@
+name: build
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    paths:
+      - '**'
+      - '!doc/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make build
