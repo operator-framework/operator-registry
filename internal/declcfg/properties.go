@@ -3,7 +3,7 @@ package declcfg
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-registry/pkg/property"
+	"github.com/operator-framework/operator-registry/internal/property"
 )
 
 func parseProperties(props []property.Property) (*property.Properties, error) {

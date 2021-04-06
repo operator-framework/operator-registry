@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/model"
-	"github.com/operator-framework/operator-registry/pkg/property"
+	"github.com/operator-framework/operator-registry/internal/model"
+	"github.com/operator-framework/operator-registry/internal/property"
 )
 
 func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {

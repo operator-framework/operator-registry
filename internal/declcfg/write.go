@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/operator-framework/operator-registry/pkg/property"
+	"github.com/operator-framework/operator-registry/internal/property"
 )
 
 const (

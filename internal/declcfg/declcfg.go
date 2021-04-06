@@ -3,7 +3,7 @@ package declcfg
 import (
 	"encoding/json"
 
-	"github.com/operator-framework/operator-registry/pkg/property"
+	"github.com/operator-framework/operator-registry/internal/property"
 )
 
 const (

@@ -11,7 +11,7 @@ import (
 	svg "github.com/h2non/go-is-svg"
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/operator-framework/operator-registry/pkg/property"
+	"github.com/operator-framework/operator-registry/internal/property"
 )
 
 func init() {
