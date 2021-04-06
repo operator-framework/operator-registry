@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/internal/model"
 	"github.com/operator-framework/operator-registry/internal/property"
@@ -272,4 +277,38 @@ func testBundleName(pkg, version string) string {
 
 func testBundleImage(pkg, version string) string {
 	return fmt.Sprintf("%s-bundle:v%s", pkg, version)
+}
+
+func equalsDeclarativeConfig(t *testing.T, expected, actual DeclarativeConfig) {
+	t.Helper()
+	removeJSONWhitespace(&expected)
+	removeJSONWhitespace(&actual)
+
+	assert.ElementsMatch(t, expected.Packages, actual.Packages)
+	assert.ElementsMatch(t, expected.Others, actual.Others)
+
+	// When comparing bundles, the order of properties doesn't matter.
+	// Unfortunately, assert.ElementsMatch() only ignores ordering of
+	// root elements, so we need to manually sort bundles and use
+	// assert.ElementsMatch on the properties fields between
+	// expected and actual.
+	require.Equal(t, len(expected.Bundles), len(actual.Bundles))
+	sort.SliceStable(expected.Bundles, func(i, j int) bool {
+		return expected.Bundles[i].Name < expected.Bundles[j].Name
+	})
+	sort.SliceStable(actual.Bundles, func(i, j int) bool {
+		return actual.Bundles[i].Name < actual.Bundles[j].Name
+	})
+	for i := range expected.Bundles {
+		assert.ElementsMatch(t, expected.Bundles[i].Properties, actual.Bundles[i].Properties)
+		expected.Bundles[i].Properties, actual.Bundles[i].Properties = nil, nil
+		assert.Equal(t, expected.Bundles[i], actual.Bundles[i])
+	}
+
+	// In case new fields are added to the DeclarativeConfig struct in the future,
+	// test that the rest is Equal.
+	expected.Packages, actual.Packages = nil, nil
+	expected.Bundles, actual.Bundles = nil, nil
+	expected.Others, actual.Others = nil, nil
+	assert.Equal(t, expected, actual)
 }

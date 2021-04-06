@@ -166,22 +166,6 @@ func TestWriteLoadRoundtrip(t *testing.T) {
 	}
 }
 
-func equalsDeclarativeConfig(t *testing.T, expected, actual DeclarativeConfig) {
-	removeJSONWhitespace(&expected)
-	removeJSONWhitespace(&actual)
-
-	assert.ElementsMatch(t, expected.Packages, actual.Packages)
-	assert.ElementsMatch(t, expected.Bundles, actual.Bundles)
-	assert.ElementsMatch(t, expected.Others, actual.Others)
-
-	// In case new fields are added to the DeclarativeConfig struct in the future,
-	// test that the rest is Equal.
-	expected.Packages, actual.Packages = nil, nil
-	expected.Bundles, actual.Bundles = nil, nil
-	expected.Others, actual.Others = nil, nil
-	assert.Equal(t, expected, actual)
-}
-
 func removeJSONWhitespace(cfg *DeclarativeConfig) {
 	replacer := strings.NewReplacer(" ", "", "\n", "")
 	for ib := range cfg.Bundles {

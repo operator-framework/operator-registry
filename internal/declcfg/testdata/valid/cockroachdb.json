@@ -10,6 +10,7 @@
 {
     "schema": "olm.bundle",
     "name": "cockroachdb.v2.0.9",
+    "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.0.9",
     "properties": [
         {
@@ -30,6 +31,7 @@
 {
     "schema": "olm.bundle",
     "name": "cockroachdb.v2.1.11",
+    "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.11",
     "properties": [
         {
@@ -51,6 +53,7 @@
 {
     "schema": "olm.bundle",
     "name": "cockroachdb.v2.1.1",
+    "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.1",
     "properties": [
         {
@@ -72,6 +75,7 @@
 {
     "schema": "olm.bundle",
     "name": "cockroachdb.v3.0.7",
+    "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v3.0.7",
     "properties": [
         {
@@ -92,6 +96,7 @@
 {
     "schema": "olm.bundle",
     "name": "cockroachdb.v5.0.3",
+    "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v5.0.3",
     "properties": [
         {
