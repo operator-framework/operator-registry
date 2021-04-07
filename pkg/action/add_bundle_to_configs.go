@@ -1,6 +1,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,17 +10,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/operator-framework/operator-registry/internal/declcfg"
-	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-type InputBundle struct {
-	Dir    string
-	ImgRef image.Reference
-}
 type AddConfigRequest struct {
 	ConfigsDir string
-	Bundles    []InputBundle
+	Bundles    []BundleExtractor
 }
 
 type BundleAdder struct {
@@ -43,13 +39,10 @@ func (b BundleAdder) AddToConfig(request AddConfigRequest) error {
 		return fmt.Errorf("error converting configs to internal model:%v", err)
 	}
 	for _, bundle := range request.Bundles {
-		img, err := registry.NewImageInput(bundle.ImgRef, bundle.Dir)
+		b, err := bundle.ExtractBundle(context.TODO())
+		mBundles, err := registry.ConvertRegistryBundleToModelBundles(b)
 		if err != nil {
-			return fmt.Errorf("error interpreting bundle image %q: %v", bundle.ImgRef.String(), err)
-		}
-		mBundles, err := registry.ConvertRegistryBundleToModelBundles(img.Bundle)
-		if err != nil {
-			return fmt.Errorf("error creating internal model bundles from registry bundle %q: %v", bundle.ImgRef.String(), err)
+			return fmt.Errorf("error creating internal model bundles from registry bundle %q: %v", b.BundleImage, err)
 		}
 		for _, b := range mBundles {
 			model.AddBundle(b)

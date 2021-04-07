@@ -2,17 +2,12 @@ package root
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"regexp"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/operator-framework/operator-registry/pkg/action"
-	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 )
@@ -73,38 +68,9 @@ func (a *add) addFunc(cmd *cobra.Command, args []string) error {
 			a.logger.Errorf("error destroying local cache: %v", err)
 		}
 	}()
-	bundles := []action.InputBundle{}
+	bundles := []action.BundleExtractor{}
 	for _, ref := range args[1:] {
-		simpleRef := image.SimpleReference(ref)
-		tmpDir, err := ioutil.TempDir("./", "bundle_tmp")
-		if err != nil {
-			return fmt.Errorf("error creating temp directory to unpack bundle image %q in:%v", simpleRef.String(), err)
-		}
-		defer func() {
-			a.logger.Infof("Removing temp directory %q bundle was unpacked in", tmpDir)
-			if err := os.RemoveAll(tmpDir); err != nil {
-				a.logger.Errorf("error removing temp directory %q bundle was unpacked in: %v", tmpDir, err)
-			}
-		}()
-		nonRetryableRegex := regexp.MustCompile(`(error resolving name)`)
-		a.logger.Infof("Pulling bundle %q", simpleRef.String())
-		if err := retry.OnError(retry.DefaultRetry,
-			func(err error) bool {
-				if nonRetryableRegex.MatchString(err.Error()) {
-					return false
-				}
-				a.logger.Warnf("  Error pulling image: %v. Retrying.", err)
-				return true
-			},
-			func() error { return reg.Pull(cmd.Context(), simpleRef) }); err != nil {
-			return fmt.Errorf("error pulling image %q into registry:%v", simpleRef.String(), err)
-		}
-		a.logger.Infof("Unpacking bundle %q into %q", simpleRef.String(), tmpDir)
-		err = reg.Unpack(cmd.Context(), simpleRef, tmpDir)
-		if err != nil {
-			return fmt.Errorf("error unpacking image %q: %v", simpleRef.String(), err)
-		}
-		bundles = append(bundles, action.InputBundle{Dir: tmpDir, ImgRef: simpleRef})
+		bundles = append(bundles, action.NewImageBundleExtractor(ref, reg, a.logger))
 	}
 	request := action.AddConfigRequest{
 		Bundles:    bundles,

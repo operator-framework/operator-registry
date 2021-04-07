@@ -12,7 +12,7 @@
     "schema": "olm.bundle",
     "name": "etcdoperator.v0.9.2",
     "package": "etcd",
-    "image": "empire.io/death-star/etcd.0.9.2",
+    "image": "",
     "properties": [
         {
             "type": "olm.skips",

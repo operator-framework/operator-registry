@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/operator-framework/operator-registry/internal/declcfg"
-	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ func TestAddBundle(t *testing.T) {
 	type spec struct {
 		name               string
 		configsDir         func() (string, error)
-		bundle             InputBundle
+		bundle             BundleExtractor
 		expectedConfigsDir string
 		assertion          require.ErrorAssertionFunc
 	}
@@ -27,11 +26,8 @@ func TestAddBundle(t *testing.T) {
 			name:               "Success/NewBundle",
 			configsDir:         func() (string, error) { return ioutil.TempDir("", "death-star") },
 			expectedConfigsDir: "test-configs",
-			bundle: InputBundle{
-				Dir:    "../../bundles/etcd.0.9.2",
-				ImgRef: image.SimpleReference("empire.io/death-star/etcd.0.9.2"),
-			},
-			assertion: require.NoError,
+			bundle:             NewDirBundleExtractor("../../bundles/etcd.0.9.2"),
+			assertion:          require.NoError,
 		},
 	}
 
@@ -44,7 +40,7 @@ func TestAddBundle(t *testing.T) {
 			}()
 			request := AddConfigRequest{
 				ConfigsDir: testDir,
-				Bundles:    []InputBundle{s.bundle},
+				Bundles:    []BundleExtractor{s.bundle},
 			}
 			bundleAdder := NewBundleAdder(logrus.NewEntry(logrus.New()))
 			err = bundleAdder.AddToConfig(request)
