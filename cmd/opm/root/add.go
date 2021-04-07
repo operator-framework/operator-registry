@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/operator-framework/operator-registry/pkg/action"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -85,16 +86,17 @@ func (a *add) addFunc(cmd *cobra.Command, args []string) error {
 				a.logger.Errorf("error removing temp directory %q bundle was unpacked in: %v", tmpDir, err)
 			}
 		}()
-		err = wait.PollImmediate(retryInterval, timeout, func() (done bool, e error) {
-			a.logger.Infof("Pulling bundle %q", simpleRef.String())
-			e = reg.Pull(cmd.Context(), simpleRef)
-			if err != nil {
-				a.logger.Info("Error pulling bundle %q. Trying to pull again.", simpleRef.String())
-				return false, err
-			}
-			return true, nil
-		})
-		if err != nil {
+		nonRetryableRegex := regexp.MustCompile(`(error resolving name)`)
+		a.logger.Infof("Pulling bundle %q", simpleRef.String())
+		if err := retry.OnError(retry.DefaultRetry,
+			func(err error) bool {
+				if nonRetryableRegex.MatchString(err.Error()) {
+					return false
+				}
+				a.logger.Warnf("  Error pulling image: %v. Retrying.", err)
+				return true
+			},
+			func() error { return reg.Pull(cmd.Context(), simpleRef) }); err != nil {
 			return fmt.Errorf("error pulling image %q into registry:%v", simpleRef.String(), err)
 		}
 		a.logger.Infof("Unpacking bundle %q into %q", simpleRef.String(), tmpDir)
