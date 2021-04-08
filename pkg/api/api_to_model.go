@@ -86,10 +86,11 @@ func convertAPIBundleToModelProperties(b *Bundle) ([]property.Property, error) {
 			k := property.GVKRequired{Group: v.Group, Kind: v.Kind, Version: v.Version}
 			requiredGVKs[k] = struct{}{}
 		case property.TypePackage:
-			out = append(out, property.Property{
-				Type:  property.TypePackageRequired,
-				Value: json.RawMessage(p.Value),
-			})
+			var v property.Package
+			if err := json.Unmarshal(json.RawMessage(p.Value), &v); err != nil {
+				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
+			}
+			out = append(out, property.MustBuildPackageRequired(v.PackageName, v.Version))
 		}
 	}
 

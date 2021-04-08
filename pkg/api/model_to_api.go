@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/operator-framework/operator-registry/internal/model"
@@ -16,6 +17,11 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 	if len(props.SkipRanges) > 0 {
 		skipRange = string(props.SkipRanges[0])
 	}
+
+	apiDeps, err := convertModelPropertiesToAPIDependencies(b.Properties)
+	if err != nil {
+		return nil, fmt.Errorf("convert model properties to api dependencies: %v", err)
+	}
 	return &Bundle{
 		CsvName:      b.Name,
 		PackageName:  b.Package.Name,
@@ -25,7 +31,7 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 		RequiredApis: gvksRequirestoAPIGVKs(props.GVKsRequired),
 		Version:      props.Packages[0].Version,
 		SkipRange:    skipRange,
-		Dependencies: convertModelPropertiesToAPIDependencies(b.Properties),
+		Dependencies: apiDeps,
 		Properties:   convertModelPropertiesToAPIProperties(b.Properties),
 		Replaces:     b.Replaces,
 		Skips:        b.Skips,
@@ -96,7 +102,7 @@ func convertModelPropertiesToAPIProperties(props []property.Property) []*Propert
 	return out
 }
 
-func convertModelPropertiesToAPIDependencies(props []property.Property) []*Dependency {
+func convertModelPropertiesToAPIDependencies(props []property.Property) ([]*Dependency, error) {
 	var out []*Dependency
 	for _, prop := range props {
 		switch prop.Type {
@@ -106,11 +112,16 @@ func convertModelPropertiesToAPIDependencies(props []property.Property) []*Depen
 				Value: string(prop.Value),
 			})
 		case property.TypePackageRequired:
+			var v property.PackageRequired
+			if err := json.Unmarshal(prop.Value, &v); err != nil {
+				return nil, err
+			}
+			pkg := property.MustBuildPackage(v.PackageName, v.VersionRange)
 			out = append(out, &Dependency{
-				Type:  property.TypePackage,
-				Value: string(prop.Value),
+				Type:  pkg.Type,
+				Value: string(pkg.Value),
 			})
 		}
 	}
-	return out
+	return out, nil
 }
