@@ -5,10 +5,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
+	"github.com/operator-framework/operator-registry/cmd/opm/generate"
 	"github.com/operator-framework/operator-registry/cmd/opm/index"
 	"github.com/operator-framework/operator-registry/cmd/opm/registry"
 	"github.com/operator-framework/operator-registry/cmd/opm/serve"
-	"github.com/operator-framework/operator-registry/cmd/opm/validate"
+	"github.com/operator-framework/operator-registry/cmd/opm/unpack"
 	"github.com/operator-framework/operator-registry/cmd/opm/version"
 )
 
@@ -25,7 +26,7 @@ func NewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), serve.NewCmd(), newAddCmd(), validate.NewCmd())
+	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), serve.NewCmd(), newAddCmd(), generate.NewCmd(), unpack.NewCmd())
 	index.AddCommand(cmd)
 	version.AddCommand(cmd)
 

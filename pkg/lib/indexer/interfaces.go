@@ -17,7 +17,7 @@ type IndexAdder interface {
 // NewIndexAdder is a constructor that returns an IndexAdder
 func NewIndexAdder(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexAdder {
 	return ImageIndexer{
-		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator: containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
 		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryAdder:       registry.NewRegistryAdder(logger),
@@ -37,7 +37,7 @@ type IndexDeleter interface {
 // NewIndexDeleter is a constructor that returns an IndexDeleter
 func NewIndexDeleter(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexDeleter {
 	return ImageIndexer{
-		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator: containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
 		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryDeleter:     registry.NewRegistryDeleter(logger),
@@ -55,7 +55,7 @@ type IndexExporter interface {
 // NewIndexExporter is a constructor that returns an IndexExporter
 func NewIndexExporter(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexExporter {
 	return ImageIndexer{
-		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator: containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		BuildTool:           containerTool,
@@ -71,7 +71,7 @@ type IndexStrandedPruner interface {
 
 func NewIndexStrandedPruner(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexStrandedPruner {
 	return ImageIndexer{
-		DockerfileGenerator:    containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator:    containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:          containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:            containertools.NewLabelReader(containerTool, logger),
 		RegistryStrandedPruner: registry.NewRegistryStrandedPruner(logger),
@@ -88,7 +88,7 @@ type IndexPruner interface {
 
 func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexPruner {
 	return ImageIndexer{
-		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator: containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(containerTool, logger),
 		LabelReader:         containertools.NewLabelReader(containerTool, logger),
 		RegistryPruner:      registry.NewRegistryPruner(logger),
@@ -105,7 +105,7 @@ type IndexDeprecator interface {
 
 func NewIndexDeprecator(buildTool, pullTool containertools.ContainerTool, logger *logrus.Entry) IndexDeprecator {
 	return ImageIndexer{
-		DockerfileGenerator: containertools.NewDockerfileGenerator(logger),
+		DockerfileGenerator: containertools.NewIndexDockerfileGenerator(logger),
 		CommandRunner:       containertools.NewCommandRunner(buildTool, logger),
 		LabelReader:         containertools.NewLabelReader(pullTool, logger),
 		RegistryDeprecator:  registry.NewRegistryDeprecator(logger),

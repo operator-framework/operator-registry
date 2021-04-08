@@ -11,6 +11,8 @@ const (
 	defaultBinarySourceImage = "quay.io/operator-framework/upstream-opm-builder"
 	DefaultDbLocation        = "/database/index.db"
 	DbLocationLabel          = "operators.operatorframework.io.index.database.v1"
+	DefaultConfigsLocation   = "/configs"
+	ConfigsLocationLabel     = "operators.operatorframework.io.index.configs.v1"
 )
 
 // DockerfileGenerator defines functions to generate index dockerfiles
@@ -23,8 +25,8 @@ type IndexDockerfileGenerator struct {
 	Logger *logrus.Entry
 }
 
-// NewDockerfileGenerator is a constructor that returns a DockerfileGenerator
-func NewDockerfileGenerator(logger *logrus.Entry) DockerfileGenerator {
+// NewIndexDockerfileGenerator is a constructor that returns a DockerfileGenerator
+func NewIndexDockerfileGenerator(logger *logrus.Entry) DockerfileGenerator {
 	return &IndexDockerfileGenerator{
 		Logger: logger,
 	}
@@ -52,6 +54,36 @@ func (g *IndexDockerfileGenerator) GenerateIndexDockerfile(binarySourceImage, da
 	dockerfile += fmt.Sprintf("EXPOSE 50051\n")
 	dockerfile += fmt.Sprintf("ENTRYPOINT [\"/bin/opm\"]\n")
 	dockerfile += fmt.Sprintf("CMD [\"registry\", \"serve\", \"--database\", \"%s\"]\n", DefaultDbLocation)
+
+	return dockerfile
+}
+
+type ConfigDockerFileGenerator struct {
+	Logger *logrus.Entry
+}
+
+func NewConfigDockerFileGenerator(logger *logrus.Entry) DockerfileGenerator {
+	return &ConfigDockerFileGenerator{
+		Logger: logger,
+	}
+}
+
+func (g *ConfigDockerFileGenerator) GenerateIndexDockerfile(binarySourceImage, configsPath string) string {
+	var dockerfile string
+
+	g.Logger.Info("Generating dockerfile")
+
+	// From
+	dockerfile += fmt.Sprintf("FROM %s\n", binarySourceImage)
+
+	// Labels
+	dockerfile += fmt.Sprintf("LABEL %s=%s\n", ConfigsLocationLabel, DefaultConfigsLocation)
+
+	// Content
+	dockerfile += fmt.Sprintf("ADD %s %s\n", configsPath, DefaultConfigsLocation)
+	dockerfile += fmt.Sprintf("EXPOSE 50051\n")
+	dockerfile += fmt.Sprintf("ENTRYPOINT [\"/bin/opm\"]\n")
+	dockerfile += fmt.Sprintf("CMD [\"serve\",\"%s\"]\n", DefaultConfigsLocation)
 
 	return dockerfile
 }

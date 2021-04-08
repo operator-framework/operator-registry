@@ -56,3 +56,27 @@ CMD ["registry", "serve", "--database", "/database/index.db"]
 	dockerfile := dockerfileGenerator.GenerateIndexDockerfile("", databasePath)
 	require.Equal(t, dockerfile, expectedDockerfile)
 }
+
+func TestGenerateConfigsDockerfile(t *testing.T) {
+	controller := gomock.NewController(t)
+	defer controller.Finish()
+
+	binarySourceImage := "quay.io/operator-framework/builder"
+	configsPath := "configs"
+	expectedDockerfile := `FROM quay.io/operator-framework/builder
+LABEL operators.operatorframework.io.index.configs.v1=/configs
+ADD configs /configs
+EXPOSE 50051
+ENTRYPOINT ["/bin/opm"]
+CMD ["serve","/configs"]
+`
+
+	logger := logrus.NewEntry(logrus.New())
+
+	dockerfileGenerator := containertools.ConfigDockerFileGenerator{
+		Logger: logger,
+	}
+
+	dockerfile := dockerfileGenerator.GenerateIndexDockerfile(binarySourceImage, configsPath)
+	require.Equal(t, dockerfile, expectedDockerfile)
+}
