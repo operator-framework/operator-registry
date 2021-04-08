@@ -629,20 +629,20 @@ func TestAddBundle(t *testing.T) {
 			existingPkgCount := len(s.model)
 			existingBundleCount := 0
 			if s.pkgBundleAddedTo != "" {
-				existingBundleCount = getNoOfBundles(m, s.pkgBundleAddedTo)
+				existingBundleCount = countBundles(m, s.pkgBundleAddedTo)
 			}
 			s.model.AddBundle(s.bundle)
 			if s.numPkgIncrease {
 				assert.Equal(t, len(s.model), existingPkgCount+1)
 			}
 			if s.numBundlesIncrease {
-				assert.Equal(t, getNoOfBundles(m, s.pkgBundleAddedTo), existingBundleCount+1)
+				assert.Equal(t, countBundles(m, s.pkgBundleAddedTo), existingBundleCount+1)
 			}
 		})
 	}
 }
 
-func getNoOfBundles(m Model, pkg string) int {
+func countBundles(m Model, pkg string) int {
 	count := 0
 	mpkg := m[pkg]
 	for _, ch := range mpkg.Channels {
