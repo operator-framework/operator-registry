@@ -125,11 +125,11 @@ func convertRegistryBundleToModelProperties(b *Bundle) ([]property.Property, err
 			k := property.GVK{Group: v.Group, Kind: v.Kind, Version: v.Version}
 			providedGVKs[k] = struct{}{}
 		case property.TypePackage:
-			foundPackageProperty = true
-			out = append(out, property.Property{
-				Type:  property.TypePackage,
-				Value: json.RawMessage(p.Value),
-			})
+			var v property.Package
+			if err := json.Unmarshal(json.RawMessage(p.Value), &v); err != nil {
+				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
+			}
+			out = append(out, property.MustBuildPackageRequired(v.PackageName, v.Version))
 		default:
 			out = append(out, property.Property{
 				Type:  p.Type,

@@ -68,17 +68,3 @@ func (i imageBundleExtractor) ExtractBundle(ctx context.Context) (*registry.Bund
 	}
 	return img.Bundle, nil
 }
-
-type DirBundleExtractor string
-
-func NewDirBundleExtractor(path string) DirBundleExtractor {
-	return DirBundleExtractor(path)
-}
-func (d DirBundleExtractor) ExtractBundle(ctx context.Context) (*registry.Bundle, error) {
-
-	img, err := registry.NewImageInput(image.SimpleReference(""), string(d))
-	if err != nil {
-		return nil, fmt.Errorf("error creating registry bundle from %q: %v", d, err)
-	}
-	return img.Bundle, nil
-}
