@@ -15,6 +15,7 @@ func ConvertRegistryBundleToModelBundles(b *Bundle) ([]model.Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Could not get description from bundle CSV:%s", err)
 	}
+
 	i, err := b.csv.GetIcons()
 	if err != nil {
 		return nil, fmt.Errorf("Could not get icon from bundle CSV:%s", err)
@@ -34,11 +35,13 @@ func ConvertRegistryBundleToModelBundles(b *Bundle) ([]model.Bundle, error) {
 		Icon:        mIcon,
 		Channels:    make(map[string]*model.Channel),
 	}
+
 	mb, err := registryBundleToModelBundle(b)
 	mb.Package = pkg
 	if err != nil {
 		return nil, err
 	}
+
 	for _, ch := range extractChannels(b.Annotations.Channels) {
 		newCh := &model.Channel{
 			Name: ch,

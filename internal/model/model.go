@@ -300,6 +300,7 @@ func (m Model) AddBundle(b Bundle) {
 	}
 	p := m[b.Package.Name]
 	b.Package = p
+
 	if ch, ok := p.Channels[b.Channel.Name]; ok {
 		b.Channel = ch
 		ch.Bundles[b.Name] = &b
@@ -313,6 +314,7 @@ func (m Model) AddBundle(b Bundle) {
 		newCh.Bundles[b.Name] = &b
 		p.Channels[newCh.Name] = newCh
 	}
+
 	if p.DefaultChannel == nil {
 		p.DefaultChannel = b.Channel
 	}

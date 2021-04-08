@@ -34,10 +34,12 @@ func (b BundleAdder) AddToConfig(request AddConfigRequest) error {
 	if err != nil {
 		return fmt.Errorf("error loading directory %q: %v", request.ConfigsDir, err)
 	}
+
 	model, err := declcfg.ConvertToModel(*decCfg)
 	if err != nil {
 		return fmt.Errorf("error converting configs to internal model:%v", err)
 	}
+
 	for _, bundle := range request.Bundles {
 		b, err := bundle.ExtractBundle(context.TODO())
 		mBundles, err := registry.ConvertRegistryBundleToModelBundles(b)
@@ -48,13 +50,16 @@ func (b BundleAdder) AddToConfig(request AddConfigRequest) error {
 			model.AddBundle(b)
 		}
 	}
+
 	newDecCfg := declcfg.ConvertFromModel(model)
 	tmpDir, err := ioutil.TempDir("./", "configs_tmp")
 	if err != nil {
 		return fmt.Errorf("error creating temp directory to write modified configs into:%v", err)
 	}
+
 	b.Logger.Infof("writing modified temp directory to %q", tmpDir)
 	err = declcfg.WriteDir(newDecCfg, tmpDir)
+
 	if err != nil {
 		return fmt.Errorf("error writing new configs into %q:%v", tmpDir, err)
 	} else {
