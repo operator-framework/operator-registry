@@ -28,11 +28,11 @@ func TestConvertToModel(t *testing.T) {
 			assertion: require.Error,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("bar", "0.1.0")},
+				Bundles:  []Bundle{newTestBundle("bar", "0.1.0", withChannel("alpha", ""))},
 			},
 		},
 		{
-			name:      "Error/FailedModelValidation",
+			name:      "Error/BundleMissingChannel",
 			assertion: require.Error,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
@@ -45,6 +45,38 @@ func TestConvertToModel(t *testing.T) {
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", "1"), withChannel("alpha", "2"))},
+			},
+		},
+		{
+			name:      "Error/BundleMissingDefaultChannel",
+			assertion: require.Error,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "", svgSmallCircle)},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""))},
+			},
+		},
+		{
+			name:      "Error/BundleMissingImageAndData",
+			assertion: require.Error,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), withNoBundleImage(), withNoBundleData())},
+			},
+		},
+		{
+			name:      "NoError/BundleMissingProperties",
+			assertion: require.Error,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), withNoProperties())},
+			},
+		},
+		{
+			name:      "NoError/BundleWithDataButMissingImage",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), withNoBundleImage())},
 			},
 		},
 		{

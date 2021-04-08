@@ -79,6 +79,25 @@ func withSkips(name string) func(*Bundle) {
 	}
 }
 
+func withNoProperties() func(*Bundle) {
+	return func(b *Bundle) {
+		b.Properties = []property.Property{}
+	}
+}
+
+func withNoBundleImage() func(*Bundle) {
+	return func(b *Bundle) {
+		b.Image = ""
+	}
+}
+
+func withNoBundleData() func(*Bundle) {
+	return func(b *Bundle) {
+		b.Objects = []string{}
+		b.CsvJSON = ""
+	}
+}
+
 func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 	csvJson := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
 	b := Bundle{

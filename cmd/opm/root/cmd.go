@@ -25,7 +25,7 @@ func NewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), serve.NewCmd(), newAddCmd(), validate.NewConfigValidateCmd())
+	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), serve.NewCmd(), newAddCmd(), validate.NewCmd())
 	index.AddCommand(cmd)
 	version.AddCommand(cmd)
 

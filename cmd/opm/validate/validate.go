@@ -10,15 +10,13 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/lib/config"
 )
 
-func NewConfigValidateCmd() *cobra.Command {
+func NewCmd() *cobra.Command {
 	validate := &cobra.Command{
 		Use:   "validate <directory>",
 		Short: "Validate the declarative index config",
 		Long:  "Validate the declarative config JSON file(s) in a given directory",
-		Args: func(cmd *cobra.Command, args []string) error {
-			return cobra.ExactArgs(1)(cmd, args)
-		},
-		RunE: configValidate,
+		Args:  cobra.ExactArgs(1),
+		RunE:  configValidate,
 	}
 
 	validate.Flags().BoolP("debug", "d", false, "enable debug log output")
@@ -31,16 +29,17 @@ func configValidate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	directory := args[0]
+	if _, err := os.Stat(directory); os.IsNotExist(err) {
+		return err
+	}
+
 	logger := logrus.WithField("cmd", "validate")
 	if debug {
 		logger.Logger.SetLevel(logrus.DebugLevel)
 	}
 
-	if _, err := os.Stat(args[0]); os.IsNotExist(err) {
-		logger.Error(err.Error())
-	}
-
-	err = config.ValidateConfig(args[0])
+	err = config.ValidateConfig(directory)
 	if err != nil {
 		logger.Error(err.Error())
 		return fmt.Errorf("failed to validate config: %s", err)

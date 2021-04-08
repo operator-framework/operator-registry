@@ -362,7 +362,7 @@ func TestValidators(t *testing.T) {
 				Package:  pkg,
 				Channel:  ch,
 				Name:     "anakin.v0.1.0",
-				Image:    "",
+				Image:    "registry.io/image",
 				Replaces: "anakin.v0.0.1",
 				Skips:    []string{"anakin.v0.0.2"},
 				Properties: []property.Property{
@@ -374,6 +374,39 @@ func TestValidators(t *testing.T) {
 				},
 			},
 			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/NoBundleImage/HaveBundleData",
+			v: &Bundle{
+				Package: pkg,
+				Channel: ch,
+				Name:    "anakin.v0.1.0",
+				Image:   "",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
+					property.MustBuildChannel("light", "anakin.v0.0.1"),
+					property.MustBuildBundleObjectRef("path/to/data"),
+				},
+				Objects: []string{"testdata"},
+				CsvJSON: "CSVjson",
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Error/NoBundleImage/NoBundleData",
+			v: &Bundle{
+				Package: pkg,
+				Channel: ch,
+				Name:    "anakin.v0.1.0",
+				Image:   "",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
+					property.MustBuildChannel("light", "anakin.v0.0.1"),
+				},
+			},
+			assertion: require.Error,
 		},
 		{
 			name:      "Bundle/Error/NoName",

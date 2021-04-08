@@ -54,12 +54,12 @@ func (m *Package) Validate() error {
 		result = multierror.Append(result, fmt.Errorf("invalid icon: %v", err))
 	}
 
-	if len(m.Channels) == 0 {
-		result = multierror.Append(result, fmt.Errorf("package must contain at least one channel"))
-	}
-
 	if m.DefaultChannel == nil {
 		result = multierror.Append(result, fmt.Errorf("default channel must be set"))
+	}
+
+	if len(m.Channels) == 0 {
+		result = multierror.Append(result, fmt.Errorf("package must contain at least one channel"))
 	}
 
 	foundDefault := false
@@ -258,6 +258,10 @@ func (b *Bundle) Validate() error {
 
 	if props != nil && len(props.Packages) != 1 {
 		result = multierror.Append(result, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
+	}
+
+	if b.Image == "" && len(b.Objects) == 0 {
+		result = multierror.Append(result, errors.New("bundle image must be set"))
 	}
 
 	return result.ErrorOrNil()

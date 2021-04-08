@@ -41,8 +41,16 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
 		}
 
+		if len(props.Packages) == 0 {
+			return nil, fmt.Errorf("missing package property for bundle %q", b.Name)
+		}
+
 		if b.Package != props.Packages[0].PackageName {
 			return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
+		}
+
+		if len(props.Channels) == 0 {
+			return nil, fmt.Errorf("bundle %q is missing channel information", b.Name)
 		}
 
 		for _, bundleChannel := range props.Channels {
@@ -75,7 +83,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 	for _, mpkg := range mpkgs {
 		defaultChannelName := defaultChannels[mpkg.Name]
-		if mpkg.DefaultChannel == nil {
+		if defaultChannelName != "" && mpkg.DefaultChannel == nil {
 			dch := &model.Channel{
 				Package: mpkg,
 				Name:    defaultChannelName,
