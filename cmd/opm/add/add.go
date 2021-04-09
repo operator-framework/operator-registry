@@ -1,4 +1,4 @@
-package root
+package add
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ type add struct {
 	skipTLS    bool
 }
 
-func newAddCmd() *cobra.Command {
+func NewCmd() *cobra.Command {
 	logger := logrus.New()
 	a := add{
 		logger:   logrus.NewEntry(logger),
