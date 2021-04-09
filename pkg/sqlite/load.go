@@ -1151,17 +1151,23 @@ func (s *sqlLoader) addPackageProperty(tx *sql.Tx, bundleName, pkg, version, bun
 }
 
 func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) error {
-	// FIXME: bundle.cache() seems like the proper place for this to be generated. Let's investigate what that looks like at some point.
+	type propstring struct {
+		Type  string
+		Value string
+	}
+	properties := make(map[propstring]struct{})
+
 	bundleVersion, err := bundle.Version()
 	if err != nil {
 		return err
 	}
 
 	for _, prop := range bundle.Properties {
-		value, _ := json.Marshal(prop.Value)
-		if err := s.addProperty(tx, prop.Type, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+		value, err := json.Marshal(prop.Value)
+		if err != nil {
 			return err
 		}
+		properties[propstring{Type: prop.Type, Value: string(value)}] = struct{}{}
 	}
 
 	// Look up providedAPIs in CSV and add them in properties table
@@ -1180,9 +1186,7 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		if err != nil {
 			return err
 		}
-		if err := s.addProperty(tx, registry.GVKType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-			return err
-		}
+		properties[propstring{Type: registry.GVKType, Value: string(value)}] = struct{}{}
 	}
 
 	// Add properties from annotations
@@ -1197,28 +1201,46 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		return nil
 	}
 
-	v, ok := csv.GetAnnotations()[registry.PropertyKey]
-	if !ok {
-		// No properties annotation to parse, we're done
-		return nil
-	}
-
-	// TODO: Handle conflicts with properties generated from provided APIs.
 	var props []registry.Property
-	if err := json.Unmarshal([]byte(v), &props); err != nil {
-		// FIXME: Returning nil here is in line with the original implementation, but that was probably wrong. We should probably just bubble-up the error.
-		return nil
+	if csv.GetAnnotations() != nil {
+		v, ok := csv.GetAnnotations()[registry.PropertyKey]
+		if ok {
+			if err := json.Unmarshal([]byte(v), &props); err != nil {
+				return err
+			}
+		}
 	}
 
 	for _, prop := range props {
-		// FIXME: An invalid/bad propery should probably be bubbled up instead of ignored.
 		value, err := json.Marshal(&prop.Value)
 		if err != nil {
-			continue
+			return err
 		}
-		if err := s.addProperty(tx, prop.Type, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-			// FIXME: ignoring this error matches the original implementation, but that was probably wrong. We should probably just bubble-up the error.
-			continue
+
+		// validate if Type is known
+		switch prop.Type {
+		case registry.LabelType:
+			if err := json.Unmarshal(prop.Value, &registry.LabelProperty{}); err != nil {
+				return err
+			}
+		case registry.PackageType:
+			if err := json.Unmarshal(prop.Value, &registry.PackageProperty{}); err != nil {
+				return err
+			}
+		case registry.GVKType:
+			if err := json.Unmarshal(prop.Value, &registry.GVKProperty{}); err != nil {
+				return err
+			}
+		case registry.DeprecatedType:
+			// deprecated has no value
+		}
+
+		properties[propstring{Type: prop.Type, Value: string(value)}] = struct{}{}
+	}
+
+	for prop := range properties {
+		if err := s.addProperty(tx, prop.Type, prop.Value, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+			return err
 		}
 	}
 
