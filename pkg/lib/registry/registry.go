@@ -31,6 +31,7 @@ type AddToRegistryRequest struct {
 	Mode          registry.Mode
 	ContainerTool containertools.ContainerTool
 	Overwrite     bool
+	EnableAlpha   bool
 }
 
 func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
@@ -40,10 +41,11 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 	}
 	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	dbLoader, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(request.EnableAlpha))
 	if err != nil {
 		return err
 	}
+
 	if err := dbLoader.Migrate(context.TODO()); err != nil {
 		return err
 	}

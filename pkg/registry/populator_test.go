@@ -2085,7 +2085,7 @@ func TestSubstitutesFor(t *testing.T) {
 			db, cleanup := CreateTestDb(t)
 			defer cleanup()
 
-			load, err := sqlite.NewSQLLiteLoader(db)
+			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(true))
 			require.NoError(t, err)
 			err = load.Migrate(context.TODO())
 			require.NoError(t, err)
@@ -2156,4 +2156,81 @@ func getBundleSubstitution(ctx context.Context, db *sql.DB, name string) (string
 		}
 	}
 	return substitutesFor.String, nil
+}
+
+func TestEnableAlpha(t *testing.T) {
+	type args struct {
+		bundles     []string
+		enableAlpha bool
+	}
+	type expected struct {
+		err error
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "SubstitutesForTrue",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+					"prometheus.0.15.0.substitutesfor",
+				},
+				enableAlpha: true,
+			},
+			expected: expected{
+				err: nil,
+			},
+		},
+		{
+			description: "SubstitutesForFalse",
+			args: args{
+				bundles: []string{
+					"prometheus.0.22.2",
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+					"prometheus.0.15.0.substitutesfor",
+				},
+				enableAlpha: false,
+			},
+			expected: expected{
+				err: errors.NewAggregate([]error{fmt.Errorf("SubstitutesFor is an alpha-only feature. You must enable alpha features with the flag --enable-alpha in order to use this feature.")}),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(tt.args.enableAlpha))
+			require.NoError(t, err)
+			err = load.Migrate(context.TODO())
+			require.NoError(t, err)
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			populate := func(names []string) error {
+				refMap := make(map[image.Reference]string, 0)
+				for _, name := range names {
+					refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+				}
+				return registry.NewDirectoryPopulator(
+					load,
+					graphLoader,
+					query,
+					refMap,
+					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+			}
+			require.Equal(t, tt.expected.err, populate(tt.args.bundles))
+		})
+	}
 }

@@ -16,8 +16,9 @@ import (
 )
 
 type sqlLoader struct {
-	db       *sql.DB
-	migrator Migrator
+	db          *sql.DB
+	migrator    Migrator
+	enableAlpha bool
 }
 
 type MigratableLoader interface {
@@ -42,7 +43,7 @@ func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (MigratableLoader, error) {
 		return nil, err
 	}
 
-	return &sqlLoader{db: db, migrator: migrator}, nil
+	return &sqlLoader{db: db, migrator: migrator, enableAlpha: options.EnableAlpha}, nil
 }
 
 func (s *sqlLoader) Migrate(ctx context.Context) error {
@@ -111,6 +112,10 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		return err
 	}
 
+	if substitutesFor != "" && !s.enableAlpha {
+		return fmt.Errorf("SubstitutesFor is an alpha-only feature. You must enable alpha features with the flag --enable-alpha in order to use this feature.")
+	}
+
 	if _, err := addBundle.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ","), substitutesFor); err != nil {
 		return err
 	}
@@ -136,9 +141,11 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 		return err
 	}
 
-	err = s.addSubstitutesFor(tx, bundle)
-	if err != nil {
-		return err
+	if s.enableAlpha {
+		err = s.addSubstitutesFor(tx, bundle)
+		if err != nil {
+			return err
+		}
 	}
 
 	return s.addAPIs(tx, bundle)
