@@ -1,8 +1,11 @@
 package e2e_test
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -27,6 +30,9 @@ var (
 	img           = dockerHost + "/olmtest/e2e-bundle"
 	tag1          = rand.String(6)
 	containerTool = "docker"
+
+	indexImg = dockerHost + "/olmtest/e2e-index"
+	tag2     = rand.String(6)
 )
 var _ = Describe("opm", func() {
 	var (
@@ -34,7 +40,7 @@ var _ = Describe("opm", func() {
 		reg        *containerdregistry.Registry
 	)
 	BeforeEach(func() {
-		tmpDir, err := ioutil.TempDir("", "configs")
+		tmpDir, err := ioutil.TempDir("./", "configs")
 		Expect(err).ToNot(HaveOccurred())
 
 		configsDir = tmpDir
@@ -63,12 +69,12 @@ var _ = Describe("opm", func() {
 	})
 	It("creates configs for bundles and adds them to a configs directory", func() {
 		When("a new bundle is added that does not belong to an existing package is added", func() {
-
 			request := action.AddConfigRequest{
 				ConfigsDir: configsDir,
 				Bundles:    []action.BundleExtractor{action.NewImageBundleExtractor(img+":"+tag1, reg, logrus.NewEntry(logrus.New()))},
 			}
 
+			By("calling BundleAdder")
 			adder := action.NewBundleAdder(logrus.NewEntry(logrus.New()))
 			adder.AddToConfig(request)
 
@@ -81,6 +87,47 @@ var _ = Describe("opm", func() {
 			equalsDeclarativeConfig(expectedConfigs, actualConfigs)
 			Expect(err).ToNot(HaveOccurred())
 
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+	It("can unpack an index image", func() {
+		When("an index is built", func() {
+			By("generating the Dockerfile")
+			path := filepath.Join("./", "index.Dockerfile")
+			f, err := os.Create(path)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := action.GenerateDockerfileRequest{
+				SourceImage: "quay.io/operator-framework/upstream-opm-builder",
+				ConfigsDir:  configsDir,
+				File:        f,
+			}
+			generator := action.NewGenerator(logrus.NewEntry(logrus.New()))
+
+			err = generator.GenerateDockerfile(request)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("building the index")
+			i := indexImg + ":" + tag2
+			dockerbuild := exec.Command(containerTool, "build", "-f", path, ".", "-t", i)
+			err = dockerbuild.Run()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("building pushing the index")
+			dockerpush := exec.Command(containerTool, "push", i)
+			err = dockerpush.Run()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("calling IndexUnpacker")
+			unpacker := action.NewIndexUnpacker(logrus.NewEntry(logrus.New()), reg, context.TODO())
+			unpackRequest := action.UnpackRequest{
+				Image:     i,
+				UnpackDir: "test-dir",
+			}
+			err = unpacker.Unpack(unpackRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.Remove(f.Name())
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
