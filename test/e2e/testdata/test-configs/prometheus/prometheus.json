@@ -1,0 +1,69 @@
+{
+    "schema": "olm.package",
+    "name": "prometheus",
+    "defaultChannel": "alpha",
+    "icon": {
+        "base64data": "PHN2ZyB3aWR0aD0iMjQ5MCIgaGVpZ2h0PSIyNTAwIiB2aWV3Qm94PSIwIDAgMjU2IDI1NyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCI+PHBhdGggZD0iTTEyOC4wMDEuNjY3QzU3LjMxMS42NjcgMCA1Ny45NzEgMCAxMjguNjY0YzAgNzAuNjkgNTcuMzExIDEyNy45OTggMTI4LjAwMSAxMjcuOTk4UzI1NiAxOTkuMzU0IDI1NiAxMjguNjY0QzI1NiA1Ny45NyAxOTguNjg5LjY2NyAxMjguMDAxLjY2N3ptMCAyMzkuNTZjLTIwLjExMiAwLTM2LjQxOS0xMy40MzUtMzYuNDE5LTMwLjAwNGg3Mi44MzhjMCAxNi41NjYtMTYuMzA2IDMwLjAwNC0zNi40MTkgMzAuMDA0em02MC4xNTMtMzkuOTRINjcuODQyVjE3OC40N2gxMjAuMzE0djIxLjgxNmgtLjAwMnptLS40MzItMzMuMDQ1SDY4LjE4NWMtLjM5OC0uNDU4LS44MDQtLjkxLTEuMTg4LTEuMzc1LTEyLjMxNS0xNC45NTQtMTUuMjE2LTIyLjc2LTE4LjAzMi0zMC43MTYtLjA0OC0uMjYyIDE0LjkzMyAzLjA2IDI1LjU1NiA1LjQ1IDAgMCA1LjQ2NiAxLjI2NSAxMy40NTggMi43MjItNy42NzMtOC45OTQtMTIuMjMtMjAuNDI4LTEyLjIzLTMyLjExNiAwLTI1LjY1OCAxOS42OC00OC4wNzkgMTIuNTgtNjYuMjAxIDYuOTEuNTYyIDE0LjMgMTQuNTgzIDE0LjggMzYuNTA1IDcuMzQ2LTEwLjE1MiAxMC40Mi0yOC42OSAxMC40Mi00MC4wNTYgMC0xMS43NjkgNy43NTUtMjUuNDQgMTUuNTEyLTI1LjkwNy02LjkxNSAxMS4zOTYgMS43OSAyMS4xNjUgOS41MyA0NS40IDIuOTAyIDkuMTAzIDIuNTMyIDI0LjQyMyA0Ljc3MiAzNC4xMzguNzQ0LTIwLjE3OCA0LjIxMy00OS42MiAxNy4wMTQtNTkuNzg0LTUuNjQ3IDEyLjguODM2IDI4LjgxOCA1LjI3IDM2LjUxOCA3LjE1NCAxMi40MjQgMTEuNDkgMjEuODM2IDExLjQ5IDM5LjYzOCAwIDExLjkzNi00LjQwNyAyMy4xNzMtMTEuODQgMzEuOTU4IDguNDUyLTEuNTg2IDE0LjI4OS0zLjAxNiAxNC4yODktMy4wMTZsMjcuNDUtNS4zNTVjLjAwMi0uMDAyLTMuOTg3IDE2LjQwMS0xOS4zMTQgMzIuMTk3eiIgZmlsbD0iI0RBNEUzMSIvPjwvc3ZnPg==",
+        "mediatype": "image/svg+xml"
+    },
+    "description": "An open-source monitoring system with a dimensional data model, flexible query language, efficient time series database and modern alerting approach.\n\n_The Prometheus Open Cloud Service is Public Alpha. The goal before Beta is for additional user testing and minor bug fixes._\n\n### Monitoring applications\n\nPrometheus scrapes your application metrics based on targets maintained in a ServiceMonitor object. When alerts need to be sent, they are processsed by an AlertManager.\n\n[Read the complete guide to monitoring applications with the Prometheus Open Cloud Service](https://coreos.com/tectonic/docs/latest/alm/prometheus-ocs.html)\n\n## Supported Features\n\n**High availability**\nMultiple instances are run across failure zones and data is replicated. This keeps your monitoring available during an outage, when you need it most.\n**Updates via automated operations**\nNew Prometheus versions are deployed using a rolling update with no downtime, making it easy to stay up to date.\n**Handles the dynamic nature of containers**\nAlerting rules are attached to groups of containers instead of individual instances, which is ideal for the highly dynamic nature of container deployment.\n"
+}
+{
+    "schema": "olm.bundle",
+    "name": "prometheusoperator.0.14.0",
+    "package": "prometheus",
+    "image": "docker.io/anik120/e2e-bundle:9prd26",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "alpha"
+            }
+        },
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "prometheus",
+                "version": "0.14.0"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "monitoring.coreos.com",
+                "kind": "Alertmanager",
+                "version": "v1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "monitoring.coreos.com",
+                "kind": "Prometheus",
+                "version": "v1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "monitoring.coreos.com",
+                "kind": "PrometheusRule",
+                "version": "v1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "monitoring.coreos.com",
+                "kind": "ServiceMonitor",
+                "version": "v1"
+            }
+        }
+    ]
+}
