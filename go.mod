@@ -20,6 +20,7 @@ require (
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.4.1
 	github.com/golang/protobuf v1.4.3
@@ -48,7 +49,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/mod v0.3.0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
 	google.golang.org/protobuf v1.25.0
