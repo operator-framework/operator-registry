@@ -1151,16 +1151,23 @@ func (s *sqlLoader) addPackageProperty(tx *sql.Tx, bundleName, pkg, version, bun
 }
 
 func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) error {
+	type propstring struct {
+		Type  string
+		Value string
+	}
+	properties := make(map[propstring]struct{})
+
 	bundleVersion, err := bundle.Version()
 	if err != nil {
 		return err
 	}
 
 	for _, prop := range bundle.Properties {
-		value, _ := json.Marshal(prop.Value)
-		if err := s.addProperty(tx, prop.Type, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+		value, err := json.Marshal(prop.Value)
+		if err != nil {
 			return err
 		}
+		properties[propstring{Type: prop.Type, Value: string(value)}] = struct{}{}
 	}
 
 	// Look up providedAPIs in CSV and add them in properties table
@@ -1179,36 +1186,61 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		if err != nil {
 			return err
 		}
-		if err := s.addProperty(tx, registry.GVKType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-			return err
+		properties[propstring{Type: registry.GVKType, Value: string(value)}] = struct{}{}
+	}
+
+	// Add properties from annotations
+	csv, err := bundle.ClusterServiceVersion()
+	if err != nil {
+		// FIXME: Returning nil here is in line with the original implementation, but that was probably wrong. We should probably just bubble-up the error.
+		return nil
+	}
+
+	if csv == nil {
+		// FIXME: Currently, a CSV is requirement of bundle addition. Should this return an error?
+		return nil
+	}
+
+	var props []registry.Property
+	if csv.GetAnnotations() != nil {
+		v, ok := csv.GetAnnotations()[registry.PropertyKey]
+		if ok {
+			if err := json.Unmarshal([]byte(v), &props); err != nil {
+				return err
+			}
 		}
 	}
 
-	// Add label properties
-	if csv, err := bundle.ClusterServiceVersion(); err == nil {
-		annotations := csv.ObjectMeta.GetAnnotations()
-		if v, ok := annotations[registry.PropertyKey]; ok {
-			var props []registry.Property
-			if err := json.Unmarshal([]byte(v), &props); err == nil {
-				for _, prop := range props {
-					// Only add label type from the list
-					// TODO: Support more types such as GVK and package
-					if prop.Type == registry.LabelType {
-						var label registry.LabelProperty
-						err := json.Unmarshal(prop.Value, &label)
-						if err != nil {
-							continue
-						}
-						value, err := json.Marshal(label)
-						if err != nil {
-							continue
-						}
-						if err := s.addProperty(tx, registry.LabelType, string(value), bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
-							continue
-						}
-					}
-				}
+	for _, prop := range props {
+		value, err := json.Marshal(&prop.Value)
+		if err != nil {
+			return err
+		}
+
+		// validate if Type is known
+		switch prop.Type {
+		case registry.LabelType:
+			if err := json.Unmarshal(prop.Value, &registry.LabelProperty{}); err != nil {
+				return err
 			}
+		case registry.PackageType:
+			if err := json.Unmarshal(prop.Value, &registry.PackageProperty{}); err != nil {
+				return err
+			}
+		case registry.GVKType:
+			if err := json.Unmarshal(prop.Value, &registry.GVKProperty{}); err != nil {
+				return err
+			}
+		case registry.DeprecatedType:
+			// deprecated has no value
+		}
+
+		properties[propstring{Type: prop.Type, Value: string(value)}] = struct{}{}
+	}
+
+	for prop := range properties {
+		if err := s.addProperty(tx, prop.Type, prop.Value, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
+			return err
 		}
 	}
 
