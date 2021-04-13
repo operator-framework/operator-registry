@@ -27,10 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+type ConfigOpt func(*configuration.Configuration)
+
 // RunDockerRegistry runs a docker registry on an available port and returns its host string if successful, otherwise it returns an error.
 // If the rootDir argument isn't empty, the registry is configured to use this as the root directory for persisting image data to the filesystem.
 // If the rootDir argument is empty, the registry is configured to keep image data in memory.
-func RunDockerRegistry(ctx context.Context, rootDir string) (string, string, error) {
+func RunDockerRegistry(ctx context.Context, rootDir string, configOpts ...ConfigOpt) (string, string, error) {
 	dockerPort, err := freeport.GetFreePort()
 	if err != nil {
 		return "", "", err
@@ -77,6 +79,10 @@ func RunDockerRegistry(ctx context.Context, rootDir string) (string, string, err
 		config.Storage = map[string]configuration.Parameters{"inmemory": map[string]interface{}{}}
 	}
 	config.HTTP.DrainTimeout = 2 * time.Second
+
+	for _, opt := range configOpts {
+		opt(config)
+	}
 
 	dockerRegistry, err := registry.NewRegistry(ctx, config)
 	if err != nil {
