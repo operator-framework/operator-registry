@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"time"
 
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
@@ -18,6 +20,8 @@ import (
 	"github.com/containerd/containerd/remotes"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
@@ -32,6 +36,8 @@ type Registry struct {
 }
 
 var _ image.Registry = &Registry{}
+
+var nonRetriablePullError = regexp.MustCompile("specified image is a docker schema v1 manifest, which is not supported")
 
 // Pull fetches and stores an image by reference.
 func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
@@ -49,7 +55,23 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 		return err
 	}
 
-	if err := r.fetch(ctx, fetcher, root); err != nil {
+	retryBackoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   1.0,
+		Jitter:   0.1,
+		Steps:    5,
+	}
+
+	if err := retry.OnError(retryBackoff,
+		func(pullErr error) bool {
+			if nonRetriablePullError.MatchString(pullErr.Error()) {
+				return false
+			}
+			r.log.Warnf("Error pulling image %q: %v. Retrying", ref.String(), pullErr)
+			return true
+		},
+		func() error { return r.fetch(ctx, fetcher, root) },
+	); err != nil {
 		return err
 	}
 
