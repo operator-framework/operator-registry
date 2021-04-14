@@ -27,7 +27,6 @@ jobs:
           minikube start --driver=none
           sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
           sudo usermod -aG docker "$USER"
-          eval $(minikube docker-env)
       - run: |
           mkdir -p certs
           openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -subj '/CN=localhost' -nodes -addext 'subjectAltName = DNS:localhost'
