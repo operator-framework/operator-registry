@@ -385,3 +385,10 @@ func (b *Bundle) cache() error {
 	b.cacheStale = false
 	return nil
 }
+
+func (b *Bundle) SubstitutesFor() (string, error) {
+	if err := b.cache(); err != nil {
+		return "", err
+	}
+	return b.csv.GetSubstitutesFor(), nil
+}

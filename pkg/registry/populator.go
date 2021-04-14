@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
+	libsemver "github.com/operator-framework/operator-registry/pkg/lib/semver"
 )
 
 type Dependencies struct {
@@ -373,48 +374,7 @@ type bundleVersion struct {
 // compare returns a value less than one if the receiver arg is less smaller the given version, greater than one if it is larger, and zero if they are equal.
 // This comparison follows typical semver precedence rules, with one addition: whenever two versions are equal with the exception of their build-ids, the build-ids are compared using prerelease precedence rules. Further, versions with no build-id are always less than versions with build-ids; e.g. 1.0.0 < 1.0.0+1.
 func (b bundleVersion) compare(v bundleVersion) (int, error) {
-	if c := b.version.Compare(v.version); c != 0 {
-		return c, nil
-	}
-
-	bPre, err := buildAsPrerelease(b.version)
-	if err != nil {
-		return 0, fmt.Errorf("failed to convert build-id of %s to prerelease version for comparison: %s", b.version, err)
-	}
-
-	vPre, err := buildAsPrerelease(v.version)
-	if err != nil {
-		return 0, fmt.Errorf("failed to convert build-id of %s to prerelease version for comparison: %s", v.version, err)
-	}
-
-	return bPre.Compare(*vPre), nil
-}
-
-func buildAsPrerelease(v semver.Version) (*semver.Version, error) {
-	var pre []semver.PRVersion
-	for _, b := range v.Build {
-		p, err := semver.NewPRVersion(b)
-		if err != nil {
-			return nil, err
-		}
-		pre = append(pre, p)
-	}
-
-	var major uint64
-	if len(pre) > 0 {
-		// Adjust for the case where we compare a build-id prerelease analog to a version without a build-id.
-		// Without this `0.0.0+1` and `0.0.0` would become `0.0.0-1` and `0.0.0`, where the rules of prerelease comparison would
-		// end up giving us the wrong result; i.e. `0.0.0+1` < `0.0.0`. With this, `0.0.0+1` and `0.0.0` become `1.0.0-1` and `0.0.0`
-		// respectively, which does yield the intended result.
-		major = 1
-	}
-
-	return &semver.Version{
-		Major: major,
-		Minor: 0,
-		Patch: 0,
-		Pre:   pre,
-	}, nil
+	return libsemver.BuildIdCompare(b.version, v.version)
 }
 
 // SemverPackageManifest generates a PackageManifest from a set of bundles, determining channel heads and the default channel using semver.
