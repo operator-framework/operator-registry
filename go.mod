@@ -47,18 +47,18 @@ require (
 	golang.org/x/mod v0.3.0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.20.0
-	k8s.io/apiextensions-apiserver v0.20.0
-	k8s.io/apimachinery v0.20.0
-	k8s.io/apiserver v0.20.0
-	k8s.io/client-go v0.20.0
+	k8s.io/api v0.20.6
+	k8s.io/apiextensions-apiserver v0.20.6
+	k8s.io/apimachinery v0.20.6
+	k8s.io/apiserver v0.20.6
+	k8s.io/client-go v0.20.6
 	k8s.io/klog v1.0.0
-	k8s.io/kubectl v0.20.0
+	k8s.io/kubectl v0.20.6
 )
 
 replace (
