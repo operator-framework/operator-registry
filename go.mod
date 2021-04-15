@@ -58,6 +58,8 @@ require (
 	k8s.io/apimachinery v0.20.1
 	k8s.io/client-go v0.20.1
 	k8s.io/kubectl v0.20.0
+	sigs.k8s.io/controller-runtime v0.8.0
+	sigs.k8s.io/kind v0.10.0
 )
 
 replace (

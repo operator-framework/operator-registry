@@ -546,7 +546,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 				bundleDir.bundleVersion = strconv.Itoa(rand.Intn(10000))
 			}
 			exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, bundleDir.pkgName, bundleDir.bundleVersion), request.ContainerTool)
-			if err := exporter.Export(); err != nil {
+			if err := exporter.Export(request.SkipTLS); err != nil {
 				err = fmt.Errorf("exporting bundle image:%s failed with %s", bundleImage, err)
 				mu.Lock()
 				errs = append(errs, err)

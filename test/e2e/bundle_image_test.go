@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -15,14 +17,13 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/operator-framework/operator-registry/pkg/client"
 	"github.com/operator-framework/operator-registry/pkg/configmap"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/test/e2e/ctx"
 )
 
 var builderCmd string
@@ -713,7 +714,7 @@ var _ = Describe("Launch bundle", func() {
 		It("should populate specified configmap", func() {
 			// these permissions are only necessary for the e2e (and not OLM using the feature)
 			By("configuring configmap service account")
-			kubeclient, err := client.NewKubeClient("", logrus.StandardLogger())
+			kubeclient, err := kubernetes.NewForConfig(ctx.Ctx().RESTConfig())
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = kubeclient.RbacV1().Roles(namespace).Create(context.TODO(), &rbacv1.Role{
@@ -822,28 +823,33 @@ var _ = Describe("Launch bundle", func() {
 	})
 })
 
-const kindControlPlaneNodeName = "kind-control-plane"
+var kindControlPlaneNodeNameRegex = regexp.MustCompile("^kind-.*-control-plane$|^kind-control-plane$")
 
-func isKindCluster(client *kubernetes.Clientset) (bool, error) {
-	kindNode, err := client.CoreV1().Nodes().Get(context.TODO(), kindControlPlaneNodeName, metav1.GetOptions{})
+func isKindCluster(client *kubernetes.Clientset) (bool, string, error) {
+	nodes, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// not a kind cluster
-			return false, nil
-		}
 		// transient error accessing nodes in cluster
 		// return an error, failing the test
-		return false, fmt.Errorf("accessing nodes in cluster")
+		return false, "", fmt.Errorf("accessing nodes in cluster")
 	}
+
+	var kindNode *corev1.Node
+	for _, node := range nodes.Items {
+		if kindControlPlaneNodeNameRegex.MatchString(node.Name) {
+			kindNode = &node
+		}
+	}
+
 	if kindNode == nil {
-		return true, fmt.Errorf("finding kind node %s in cluster", kindControlPlaneNodeName)
+		return false, "", nil
 	}
-	return true, nil
+	// found a match... strip off -control-plane from name and return to caller
+	return true, strings.TrimSuffix(kindNode.Name, "-control-plane"), nil
 }
 
 // maybeLoadKind loads the built images via kind load docker-image if the test is running in a kind cluster
 func maybeLoadKind(client *kubernetes.Clientset, w io.Writer, images ...string) error {
-	kind, err := isKindCluster(client)
+	kind, kindServerName, err := isKindCluster(client)
 	if err != nil {
 		return err
 	}
@@ -852,7 +858,7 @@ func maybeLoadKind(client *kubernetes.Clientset, w io.Writer, images ...string) 
 	}
 
 	for _, image := range images {
-		cmd := exec.Command("kind", "load", "docker-image", image)
+		cmd := exec.Command("kind", "load", "docker-image", image, "--name", kindServerName)
 		cmd.Stderr = w
 		cmd.Stdout = w
 		err := cmd.Run()

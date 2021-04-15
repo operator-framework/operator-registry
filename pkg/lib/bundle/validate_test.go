@@ -3,6 +3,7 @@ package bundle
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -112,35 +113,35 @@ func TestValidateBundleContent(t *testing.T) {
 		mediaType   string
 		directory   string
 		numErrors   int
-		errString   string
+		errStrings  []string
 	}{
 		{
 			description: "registryv1 bundle/invalid csv",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_csv/",
 			numErrors:   1,
-			errString:   "install modes not found",
+			errStrings:  []string{"install modes not found"},
 		},
 		{
 			description: "registryv1 bundle/invalid crd",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_crd/",
 			numErrors:   1,
-			errString:   "must contain unique version name",
+			errStrings:  []string{"must contain unique version names"},
 		},
 		{
 			description: "registryv1 bundle/invalid sa",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_sa/",
 			numErrors:   1,
-			errString:   "json: cannot unmarshal number into Go struct field ObjectMeta.metadata.namespace of type string",
+			errStrings:  []string{"json: cannot unmarshal number into Go struct field ObjectMeta.metadata.namespace of type string"},
 		},
 		{
 			description: "registryv1 bundle/invalid type",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_type/",
 			numErrors:   1,
-			errString:   "ResourceQuota is not supported type for registryV1 bundle",
+			errStrings:  []string{"ResourceQuota is not supported type for registryV1 bundle"},
 		},
 		{
 			description: "valid registryv1 bundle",
@@ -153,15 +154,39 @@ func TestValidateBundleContent(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle/",
 			numErrors:   1,
-			errString:   "owned CRD etcdclusters.etcd.database.coreos.com/v1beta2 not found in bundle",
+			errStrings:  []string{"owned CRD etcdclusters.etcd.database.coreos.com/v1beta2 not found in bundle"},
 		},
 		{
 			description: "invalid registryv1 bundle/extra crd",
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_bundle_2/",
 			numErrors:   1,
-			errString:   `CRD etcdclusters.etcd.database.coreos.com/v1beta2 is present in bundle "etcdoperator.v0.9.4" but not defined in CSV`,
+			errStrings:  []string{`CRD etcdclusters.etcd.database.coreos.com/v1beta2 is present in bundle "etcdoperator.v0.9.4" but not defined in CSV`},
 		},
+		{
+			description: "invalid annotation names",
+			mediaType:   RegistryV1Type,
+			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_annotation_name/",
+			numErrors:   3,
+			errStrings: []string{
+				"provided annotation olm.operatorgroup uses wrong case and should be olm.operatorGroup instead",
+				"provided annotation olm.operatornamespace uses wrong case and should be olm.operatorNamespace instead",
+				"provided annotation olm.skiprange uses wrong case and should be olm.skipRange instead",
+			},
+		},
+	}
+
+	// doesActualErrorMatchExpected iterates through expected error messages and looks for substring match against actualError.
+	// returns true for match, false otherwise
+	doesActualErrorMatchExpected := func(actualError string, expectedSlice []string) bool {
+		for _, expected := range expectedSlice {
+			if strings.Contains(actualError, expected) {
+				// found a substring match
+				return true
+			}
+		}
+		// no substring matches
+		return false
 	}
 
 	for i, tt := range table {
@@ -173,9 +198,9 @@ func TestValidateBundleContent(t *testing.T) {
 			require.True(t, isValidationErr)
 		}
 		require.Len(t, validationError.Errors, tt.numErrors, table[i].description)
-		if len(validationError.Errors) > 0 {
-			e := validationError.Errors[0]
-			require.Contains(t, e.Error(), tt.errString)
+		// convert each validation error to a string and check against all expected errStrings looking for a match
+		for _, e := range validationError.Errors {
+			require.True(t, doesActualErrorMatchExpected(e.Error(), tt.errStrings))
 		}
 	}
 }

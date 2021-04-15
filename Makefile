@@ -6,14 +6,29 @@ PKG := github.com/operator-framework/operator-registry
 GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
 OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-TAGS := -tags "json1"
+
+# define characters
+null  :=
+space := $(null) #
+comma := ,
+# default to json1 for sqlite3
+TAGS := -tags=json1
+
+# Cluster to use for e2e testing 
+CLUSTER ?= ""
+ifeq ($(CLUSTER), kind)
+# add kind to the list of tags
+TAGS += kind
+# convert tag format from space to comma list
+TAGS := $(subst $(space),$(comma),$(strip $(TAGS)))
+endif
+
 # -race is only supported on linux/amd64, linux/ppc64le, linux/arm64, freebsd/amd64, netbsd/amd64, darwin/amd64 and windows/amd64
 ifeq ($(shell go env GOARCH),s390x)
 TEST_RACE :=
 else
 TEST_RACE := -race
 endif
-
 
 .PHONY: all
 all: clean test build
@@ -98,4 +113,4 @@ clean:
 
 .PHONY: e2e
 e2e:
-	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(TAGS) ./test/e2e
+	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls true) 
