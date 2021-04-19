@@ -4,6 +4,7 @@ package buildahregistry
 import (
 	"context"
 	"path"
+	"time"
 
 	"github.com/containers/buildah"
 	"github.com/containers/image/v5/types"
@@ -42,8 +43,8 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 		BlobDirectory:    r.CacheDir,
 		AllTags:          false,
 		RemoveSignatures: false,
-		MaxRetries:       0,
-		RetryDelay:       0,
+		MaxRetries:       5,
+		RetryDelay:       1 * time.Second,
 	})
 
 	r.log.Info(img)
