@@ -1397,6 +1397,12 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 		tx.Rollback()
 	}()
 
+	nullifyBundleReplaces, err := tx.Prepare("update operatorbundle set replaces = NULL where name = ?")
+	if err != nil {
+		return err
+	}
+	defer nullifyBundleReplaces.Close()
+
 	name, version, err := getBundleNameAndVersionForImage(tx, path)
 	if err != nil {
 		return err
@@ -1422,6 +1428,13 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 		return err
 	}
 	err = s.addProperty(tx, registry.DeprecatedType, string(deprecatedValue), name, version, path)
+	if err != nil {
+		return err
+	}
+
+	// update replaces field of deprecated bundle so that inserting a new bundle
+	// (which rebuilds the graph) is possible
+	_, err = nullifyBundleReplaces.Exec(name)
 	if err != nil {
 		return err
 	}
