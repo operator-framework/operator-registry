@@ -61,6 +61,7 @@ require (
 	k8s.io/kubectl v0.20.6
 	sigs.k8s.io/controller-runtime v0.8.0
 	sigs.k8s.io/kind v0.10.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (

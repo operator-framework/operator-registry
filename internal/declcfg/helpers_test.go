@@ -40,14 +40,14 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 			{Schema: "custom.1", Blob: json.RawMessage(`{"schema": "custom.1"}`)},
 			{Schema: "custom.2", Blob: json.RawMessage(`{"schema": "custom.2"}`)},
 			{Schema: "custom.3", Package: "anakin", Blob: json.RawMessage(`{
-				"schema": "custom.3",
+				"myField": "foobar",
 				"package": "anakin",
-				"myField": "foobar"
+				"schema": "custom.3"
 			}`)},
 			{Schema: "custom.3", Package: "boba-fett", Blob: json.RawMessage(`{
-				"schema": "custom.3",
+				"myField": "foobar",
 				"package": "boba-fett",
-				"myField": "foobar"
+				"schema": "custom.3"
 			}`)},
 		}
 	}

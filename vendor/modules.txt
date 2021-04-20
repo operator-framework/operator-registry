@@ -901,6 +901,7 @@ sigs.k8s.io/kind/pkg/log
 # sigs.k8s.io/structured-merge-diff/v4 v4.0.3
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
+## explicit
 sigs.k8s.io/yaml
 # github.com/containerd/containerd => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
 # github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d

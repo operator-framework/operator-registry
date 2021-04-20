@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
@@ -73,7 +75,7 @@ func writeToFS(cfg DeclarativeConfig, w fsWriter, rootDir string) error {
 		if err := w.MkdirAll(pkgDir, 0777); err != nil {
 			return err
 		}
-		filename := filepath.Join(pkgDir, fmt.Sprintf("%s.json", p.Name))
+		filename := filepath.Join(pkgDir, fmt.Sprintf("%s.yaml", p.Name))
 		if err := writeFile(fcfg, w, filename); err != nil {
 			return err
 		}
@@ -89,7 +91,7 @@ func writeToFS(cfg DeclarativeConfig, w fsWriter, rootDir string) error {
 		gcfg := DeclarativeConfig{
 			Others: globals,
 		}
-		filename := filepath.Join(rootDir, fmt.Sprintf("%s.json", globalName))
+		filename := filepath.Join(rootDir, fmt.Sprintf("%s.yaml", globalName))
 		if err := writeFile(gcfg, w, filename); err != nil {
 			return err
 		}
@@ -122,7 +124,7 @@ func writeObjectFiles(b Bundle, w fsWriter, baseDir string) error {
 
 func writeFile(cfg DeclarativeConfig, w fsWriter, filename string) error {
 	buf := &bytes.Buffer{}
-	if err := writeJSON(cfg, buf); err != nil {
+	if err := writeYAML(cfg, buf); err != nil {
 		return fmt.Errorf("write to buffer for %q: %v", filename, err)
 	}
 	if err := w.WriteFile(filename, buf.Bytes(), 0666); err != nil {
@@ -131,10 +133,8 @@ func writeFile(cfg DeclarativeConfig, w fsWriter, filename string) error {
 	return nil
 }
 
-func writeJSON(cfg DeclarativeConfig, w io.Writer) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "    ")
-	enc.SetEscapeHTML(false)
+func writeYAML(cfg DeclarativeConfig, w io.Writer) error {
+	enc := newEncoder(w)
 
 	bundlesByPackage := map[string][]Bundle{}
 	for _, b := range cfg.Bundles {
@@ -158,4 +158,28 @@ func writeJSON(cfg DeclarativeConfig, w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+type encoder struct {
+	w io.Writer
+}
+
+func newEncoder(w io.Writer) encoder {
+	return encoder{w}
+}
+
+func (e encoder) Encode(v interface{}) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return err
+	}
+	yamlData, err := yaml.JSONToYAML(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	yamlData = append([]byte("---\n"), yamlData...)
+	_, err = e.w.Write(yamlData)
+	return err
 }

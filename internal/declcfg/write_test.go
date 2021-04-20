@@ -1,11 +1,12 @@
 package declcfg
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -88,36 +89,36 @@ func TestWriteDir(t *testing.T) {
 				}
 
 				expectedEntryNames := []string{
-					fmt.Sprintf("%s.json", globalName),
+					fmt.Sprintf("%s.yaml", globalName),
 					"anakin",
 					"boba-fett",
 				}
 				require.ElementsMatch(t, expectedEntryNames, entryNames)
 
-				anakinFilename := filepath.Join(testDir, "anakin", "anakin.json")
+				anakinFilename := filepath.Join(testDir, "anakin", "anakin.yaml")
 				anakinFile, err := os.Open(anakinFilename)
 				require.NoError(t, err)
 				defer anakinFile.Close()
-				anakin, err := readJSON(anakinFile)
+				anakin, err := readYAMLOrJSON(anakinFile)
 				require.NoError(t, err)
 				assert.Len(t, anakin.Packages, 1)
 				assert.Len(t, anakin.Bundles, 3)
 				assert.Len(t, anakin.Others, 1)
 
-				bobaFettFilename := filepath.Join(testDir, "boba-fett", "boba-fett.json")
+				bobaFettFilename := filepath.Join(testDir, "boba-fett", "boba-fett.yaml")
 				bobaFettFile, err := os.Open(bobaFettFilename)
 				require.NoError(t, err)
 				defer bobaFettFile.Close()
-				bobaFett, err := readJSON(bobaFettFile)
+				bobaFett, err := readYAMLOrJSON(bobaFettFile)
 				require.NoError(t, err)
 				assert.Len(t, bobaFett.Packages, 1)
 				assert.Len(t, bobaFett.Bundles, 2)
 				assert.Len(t, bobaFett.Others, 1)
 
-				globalFilename := filepath.Join(testDir, fmt.Sprintf("%s.json", globalName))
+				globalFilename := filepath.Join(testDir, fmt.Sprintf("%s.yaml", globalName))
 				globalFile, err := os.Open(globalFilename)
 				require.NoError(t, err)
-				globals, err := readJSON(globalFile)
+				globals, err := readYAMLOrJSON(globalFile)
 				require.NoError(t, err)
 				assert.Len(t, globals.Packages, 0)
 				assert.Len(t, globals.Bundles, 0)
@@ -167,15 +168,16 @@ func TestWriteLoadRoundtrip(t *testing.T) {
 }
 
 func removeJSONWhitespace(cfg *DeclarativeConfig) {
-	replacer := strings.NewReplacer(" ", "", "\n", "")
 	for ib := range cfg.Bundles {
 		for ip := range cfg.Bundles[ib].Properties {
-			cfg.Bundles[ib].Properties[ip].Value = []byte(replacer.Replace(string(cfg.Bundles[ib].Properties[ip].Value)))
+			var buf bytes.Buffer
+			json.Compact(&buf, cfg.Bundles[ib].Properties[ip].Value)
+			cfg.Bundles[ib].Properties[ip].Value = buf.Bytes()
 		}
 	}
 	for io := range cfg.Others {
-		for _, v := range cfg.Others[io].Blob {
-			cfg.Others[io].Blob = []byte(replacer.Replace(string(v)))
-		}
+		var buf bytes.Buffer
+		json.Compact(&buf, cfg.Others[io].Blob)
+		cfg.Others[io].Blob = buf.Bytes()
 	}
 }
