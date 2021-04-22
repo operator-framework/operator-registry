@@ -911,6 +911,140 @@ func TestDeprecateBundle(t *testing.T) {
 	}
 }
 
+func TestAddAfterDeprecate(t *testing.T) {
+	type args struct {
+		firstBundles      []string
+		deprecatedBundles []string
+		secondBundles     []string
+	}
+	type pkgChannel map[string][]string
+	type expected struct {
+		err                  error
+		remainingBundles     []string
+		deprecatedBundles    []string
+		remainingPkgChannels pkgChannel
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "SimpleAdd",
+			args: args{
+				firstBundles: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/prometheus.0.15.0",
+				},
+				secondBundles: []string{
+					"prometheus.0.22.2",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.22.2/preview",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+				},
+				remainingPkgChannels: pkgChannel{
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(true))
+			require.NoError(t, err)
+			err = load.Migrate(context.TODO())
+			require.NoError(t, err)
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			populate := func(names []string) error {
+				refMap := make(map[image.Reference]string, 0)
+				for _, name := range names {
+					refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+				}
+				return registry.NewDirectoryPopulator(
+					load,
+					graphLoader,
+					query,
+					refMap,
+					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+			}
+			// Initialize index with some bundles
+			require.NoError(t, populate(tt.args.firstBundles))
+
+			deprecator := sqlite.NewSQLDeprecatorForBundles(load, tt.args.deprecatedBundles)
+			err = deprecator.Deprecate()
+			require.Equal(t, tt.expected.err, err)
+
+			require.NoError(t, populate(tt.args.secondBundles))
+
+			// Ensure remaining bundlePaths in db match
+			bundles, err := query.ListBundles(context.Background())
+			require.NoError(t, err)
+			var bundlePaths []string
+			for _, bundle := range bundles {
+				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+			}
+			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
+
+			// Ensure deprecated bundles match
+			var deprecatedBundles []string
+			deprecatedProperty, err := json.Marshal(registry.DeprecatedProperty{})
+			require.NoError(t, err)
+			for _, bundle := range bundles {
+				for _, prop := range bundle.Properties {
+					if prop.Type == registry.DeprecatedType && prop.Value == string(deprecatedProperty) {
+						deprecatedBundles = append(deprecatedBundles, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+					}
+				}
+			}
+
+			require.ElementsMatch(t, tt.expected.deprecatedBundles, deprecatedBundles)
+
+			// Ensure remaining channels match
+			packages, err := query.ListPackages(context.Background())
+			require.NoError(t, err)
+
+			for _, pkg := range packages {
+				channelEntries, err := query.GetChannelEntriesFromPackage(context.Background(), pkg)
+				require.NoError(t, err)
+
+				uniqueChannels := make(map[string]struct{})
+				var channels []string
+				for _, ch := range channelEntries {
+					uniqueChannels[ch.ChannelName] = struct{}{}
+				}
+				for k := range uniqueChannels {
+					channels = append(channels, k)
+				}
+				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
+			}
+		})
+	}
+}
+
 func TestOverwrite(t *testing.T) {
 	type args struct {
 		firstAdd   map[image.Reference]string
