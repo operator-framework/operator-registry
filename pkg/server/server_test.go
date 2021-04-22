@@ -641,6 +641,7 @@ func testListBundles(addr string, etcdAlpha *api.Bundle, etcdStable *api.Bundle)
 }
 
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
+	t.Helper()
 	stripPlural(actual.ProvidedApis)
 	stripPlural(actual.RequiredApis)
 
