@@ -73,7 +73,7 @@ func extractCSV(objs []string) string {
 
 func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
-	dec := yaml.NewYAMLOrJSONDecoder(r, 16)
+	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
 	for {
 		doc := json.RawMessage{}
 		if err := dec.Decode(&doc); err != nil {
