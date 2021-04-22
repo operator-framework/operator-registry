@@ -1367,28 +1367,7 @@ func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 
 }
 
-func getBundleNameAndVersionForImage(tx *sql.Tx, path string) (string, string, error) {
-	query := `SELECT name, version FROM operatorbundle WHERE bundlepath=? LIMIT 1`
-	rows, err := tx.QueryContext(context.TODO(), query, path)
-	if err != nil {
-		return "", "", err
-	}
-	defer rows.Close()
-
-	var name sql.NullString
-	var version sql.NullString
-	if rows.Next() {
-		if err := rows.Scan(&name, &version); err != nil {
-			return "", "", err
-		}
-	}
-	if name.Valid && version.Valid {
-		return name.String, version.String, nil
-	}
-	return "", "", registry.ErrBundleImageNotInDatabase
-}
-
-func (s *sqlLoader) DeprecateBundle(path string) error {
+func (s *sqlLoader) DeprecateBundle(name, version, path string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -1403,10 +1382,6 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 	}
 	defer nullifyBundleReplaces.Close()
 
-	name, version, err := getBundleNameAndVersionForImage(tx, path)
-	if err != nil {
-		return err
-	}
 	tailBundles, err := getTailFromBundle(tx, name)
 	if err != nil {
 		return err
