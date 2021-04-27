@@ -117,7 +117,7 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	}
 
 	if _, err := addBundle.Exec(csvName, csvBytes, bundleBytes, bundleImage, version, skiprange, replaces, strings.Join(skips, ","), substitutesFor); err != nil {
-		return err
+		return fmt.Errorf("failed to add bundle %q: %s", csvName, err.Error())
 	}
 
 	imgs, err := bundle.Images()
@@ -126,7 +126,7 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	}
 	for img := range imgs {
 		if _, err := addImage.Exec(img, csvName); err != nil {
-			return err
+			return fmt.Errorf("failed to add related images %q for bundle %q: %s", img, csvName, err.Error())
 		}
 	}
 
@@ -572,23 +572,21 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	}
 	defer getReplaces.Close()
 
-	var errs []error
-
 	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
-		errs = append(errs, err)
-		return utilerrors.NewAggregate(errs)
+		return fmt.Errorf("failed to add package %q: %s", manifest.PackageName, err.Error())
 	}
 
+	var errs []error
 	hasDefault := false
 	for _, c := range manifest.Channels {
 		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed to add channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
 			continue
 		}
 		if c.IsDefaultChannel(manifest) {
 			hasDefault = true
 			if _, err := addDefaultChannel.Exec(c.Name, manifest.PackageName); err != nil {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("failed to add default channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
 				continue
 			}
 		}
@@ -600,7 +598,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	for _, c := range manifest.Channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("failed to add channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
 			continue
 		}
 		currentID, err := res.LastInsertId()
@@ -638,7 +636,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 				// add dummy channel entry for the skipped version
 				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
 				if err != nil {
-					errs = append(errs, err)
+					errs = append(errs, fmt.Errorf("failed to add channel %q for skipped version %q in package %q: %s", c.Name, skip, manifest.PackageName, err.Error()))
 					continue
 				}
 
@@ -651,7 +649,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 				// add another channel entry for the parent, which replaces the skipped
 				synthesizedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, channelEntryCSVName, depth)
 				if err != nil {
-					errs = append(errs, err)
+					errs = append(errs, fmt.Errorf("failed to add channel %q for replaces %q in package %q: %s", c.Name, channelEntryCSVName, manifest.PackageName, err.Error()))
 					continue
 				}
 
@@ -677,7 +675,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 
 			replacedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, replaces, depth)
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("failed to add channel %q for replaces %q in package %q: %s", c.Name, replaces, manifest.PackageName, err.Error()))
 				break
 			}
 
@@ -1294,8 +1292,8 @@ func (s *sqlLoader) rmChannelEntry(tx *sql.Tx, csvName string) error {
 
 func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 	getReplacesSkips := `SELECT replaces, skips FROM operatorbundle WHERE name=?`
-	isDefaultChannelHead := `SELECT head_operatorbundle_name FROM channel 
-							INNER JOIN package ON channel.name = package.default_channel 
+	isDefaultChannelHead := `SELECT head_operatorbundle_name FROM channel
+							INNER JOIN package ON channel.name = package.default_channel
 							WHERE channel.head_operatorbundle_name = ?`
 
 	tail := make(map[string]struct{})
