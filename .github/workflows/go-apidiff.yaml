@@ -1,0 +1,27 @@
+name: go-apidiff
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    paths:
+      - '**'
+      - '!doc/**'
+
+jobs:
+  go-apidiff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+      id: go
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Run go-apidiff
+      uses: joelanford/go-apidiff@master
