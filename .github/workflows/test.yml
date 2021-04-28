@@ -28,15 +28,19 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          sudo apt-get -y update
+          . /etc/os-release
+          echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+          curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key | sudo apt-key add -
+          sudo apt-get update
           sudo apt-get -y install conntrack podman
+          podman version
+      - run: |
           curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
           chmod +x minikube
           sudo mv minikube /bin/
           minikube start --driver=none
           sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
           sudo usermod -aG docker "$USER"
-          eval $(minikube docker-env)
       - run: |
           mkdir -p certs
           openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -subj '/CN=localhost' -nodes -addext 'subjectAltName = DNS:localhost'
@@ -57,8 +61,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          sudo apt-get -y update
-          sudo apt-get -y install podman
+          . /etc/os-release
+          echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+          curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get -y install conntrack podman
+          podman version
+      - run: |
           curl -sLo kind "$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r '[.assets[] | select(.name == "kind-linux-amd64")] | first | .browser_download_url')"
           chmod +x kind
           sudo mv kind /bin/
