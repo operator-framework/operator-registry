@@ -99,10 +99,10 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		}
 	}
 
-	if manifestsFound == false {
+	if !manifestsFound {
 		validationErrors = append(validationErrors, fmt.Errorf("Unable to locate manifests directory"))
 	}
-	if metadataFound == false {
+	if !metadataFound {
 		validationErrors = append(validationErrors, fmt.Errorf("Unable to locate metadata directory"))
 	}
 
@@ -278,6 +278,8 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	unstObjs := []*unstructured.Unstructured{}
 	csvValidator := v.ClusterServiceVersionValidator
 	crdValidator := v.CustomResourceDefinitionValidator
+	registryBundleValidator := validation.BundleValidator
+	apiBundleValidator := v.BundleValidator
 
 	// Read all files in manifests directory
 	items, err := ioutil.ReadDir(manifestDir)
@@ -367,16 +369,28 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 		}
 	}
 
-	// Validate the bundle object
+	// Validate the registry bundle type
 	if len(unstObjs) > 0 {
 		bundle := registry.NewBundle(csvName, &registry.Annotations{}, unstObjs...)
-		bundleValidator := validation.BundleValidator
-		results := bundleValidator.Validate(bundle)
+		results := registryBundleValidator.Validate(bundle)
 		if len(results) > 0 {
 			for _, err := range results[0].Errors {
 				validationErrors = append(validationErrors, err)
 			}
 		}
+	}
+
+	// Validate the api bundle type
+	if bundle, bundleErr := manifests.GetBundleFromDir(manifestDir); bundleErr == nil {
+		results := apiBundleValidator.Validate(bundle)
+		if len(results) > 0 {
+			for _, err := range results[0].Errors {
+				validationErrors = append(validationErrors, err)
+			}
+		}
+	} else {
+		// unable to load the api bundle type
+		validationErrors = append(validationErrors, bundleErr)
 	}
 
 	// Determine if optional validations are enabled
@@ -397,7 +411,11 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 	// Run the bundle object validation if specified
 	if _, ok := optionalValidators[validateBundleObjectsKey]; ok {
 		i.logger.Debug("Performing bundle objects validation")
-		results := v.ObjectValidator.Validate(unstObjs)
+		temp := []interface{}{}
+		for _, unstObj := range unstObjs {
+			temp = append(temp, unstObj)
+		}
+		results := v.ObjectValidator.Validate(temp...)
 		if len(results) > 0 {
 			for _, err := range results[0].Errors {
 				validationErrors = append(validationErrors, err)

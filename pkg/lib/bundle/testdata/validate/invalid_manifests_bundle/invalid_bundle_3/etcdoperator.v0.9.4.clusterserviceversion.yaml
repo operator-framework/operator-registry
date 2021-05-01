@@ -270,6 +270,15 @@ spec:
           - get
         serviceAccountName: etcd-operator
     strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
   keywords:
   - etcd
   - key value
@@ -291,7 +300,7 @@ spec:
     name: etcd Community
   maturity: alpha
   provider:
-    name: 
+    name: CNCF
   replaces: etcdoperator.v0.9.2
   selector:
     matchLabels:
