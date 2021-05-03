@@ -8,30 +8,6 @@ on:
       - '**'
       - '!doc/**'
 jobs:
-  e2e-minikube:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - run: |
-          . /etc/os-release
-          echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-          curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key | sudo apt-key add -
-          sudo apt-get update
-          sudo apt-get -y install conntrack podman
-          podman version
-      - run: |
-          curl -sLo minikube "$(curl -sL https://api.github.com/repos/kubernetes/minikube/releases/latest | jq -r '[.assets[] | select(.name == "minikube-linux-amd64")] | first | .browser_download_url')"
-          chmod +x minikube
-          sudo mv minikube /bin/
-          minikube start --driver=none
-          sudo chown -R "$USER" "$HOME/.kube" "$HOME/.minikube"
-          sudo usermod -aG docker "$USER"
-      - run: |
-          "${GITHUB_WORKSPACE}/scripts/start_registry.sh" minikube-registry
-          export DOCKER_REGISTRY_HOST=localhost:443
-      - run: |
-          KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:443 make build e2e
-
   e2e-kind:
     runs-on: ubuntu-20.04
     steps:
