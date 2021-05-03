@@ -38,25 +38,19 @@ func (d *BundleDeprecator) Deprecate() error {
 	log.Info("deprecating bundles")
 
 	var errs []error
-	type nameVersion struct {
-		name    string
-		version string
-	}
-	bundleInfo := make(map[string]nameVersion)
 	// Check if all bundlepaths are valid
 	for _, bundlePath := range d.bundles {
-		name, version, err := d.querier.GetBundleNameAndVersionForImage(context.TODO(), bundlePath)
+		_, _, err := d.querier.GetBundleNameAndVersionForImage(context.TODO(), bundlePath)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error deprecating bundle %s: %s", bundlePath, err))
 		}
-		bundleInfo[bundlePath] = nameVersion{name, version}
 	}
 
 	if len(errs) != 0 {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	for bundlePath, bundle := range bundleInfo {
+	for _, bundlePath := range d.bundles {
 		// verify that bundle is still present
 		_, _, err := d.querier.GetBundleNameAndVersionForImage(context.TODO(), bundlePath)
 		if err != nil {
@@ -65,7 +59,7 @@ func (d *BundleDeprecator) Deprecate() error {
 			}
 			continue
 		}
-		if err := d.store.DeprecateBundle(bundle.name, bundle.version, bundlePath); err != nil {
+		if err := d.store.DeprecateBundle(bundlePath); err != nil {
 			if !errors.Is(err, registry.ErrRemovingDefaultChannelDuringDeprecation) {
 				return utilerrors.NewAggregate(append(errs, fmt.Errorf("error deprecating bundle %s: %s", bundlePath, err)))
 			}
