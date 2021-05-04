@@ -89,13 +89,13 @@ func TestWriteDir(t *testing.T) {
 				}
 
 				expectedEntryNames := []string{
-					fmt.Sprintf("%s.yaml", globalName),
+					fmt.Sprintf("%s.json", globalName),
 					"anakin",
 					"boba-fett",
 				}
 				require.ElementsMatch(t, expectedEntryNames, entryNames)
 
-				anakinFilename := filepath.Join(testDir, "anakin", "anakin.yaml")
+				anakinFilename := filepath.Join(testDir, "anakin", "anakin.json")
 				anakinFile, err := os.Open(anakinFilename)
 				require.NoError(t, err)
 				defer anakinFile.Close()
@@ -105,7 +105,7 @@ func TestWriteDir(t *testing.T) {
 				assert.Len(t, anakin.Bundles, 3)
 				assert.Len(t, anakin.Others, 1)
 
-				bobaFettFilename := filepath.Join(testDir, "boba-fett", "boba-fett.yaml")
+				bobaFettFilename := filepath.Join(testDir, "boba-fett", "boba-fett.json")
 				bobaFettFile, err := os.Open(bobaFettFilename)
 				require.NoError(t, err)
 				defer bobaFettFile.Close()
@@ -115,7 +115,7 @@ func TestWriteDir(t *testing.T) {
 				assert.Len(t, bobaFett.Bundles, 2)
 				assert.Len(t, bobaFett.Others, 1)
 
-				globalFilename := filepath.Join(testDir, fmt.Sprintf("%s.yaml", globalName))
+				globalFilename := filepath.Join(testDir, fmt.Sprintf("%s.json", globalName))
 				globalFile, err := os.Open(globalFilename)
 				require.NoError(t, err)
 				globals, err := readYAMLOrJSON(globalFile)
