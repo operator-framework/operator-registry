@@ -77,7 +77,7 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 	for {
 		doc := json.RawMessage{}
 		if err := dec.Decode(&doc); err != nil {
-			return cfg, nil
+			break
 		}
 
 		var in Meta
