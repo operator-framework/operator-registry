@@ -913,16 +913,17 @@ func TestDeprecateBundle(t *testing.T) {
 
 func TestAddAfterDeprecate(t *testing.T) {
 	type args struct {
-		firstBundles      []string
-		deprecatedBundles []string
-		secondBundles     []string
+		existing  []string
+		deprecate []string
+		add       []string
+		overwrite map[string][]string
 	}
 	type pkgChannel map[string][]string
 	type expected struct {
-		err                  error
-		remainingBundles     []string
-		deprecatedBundles    []string
-		remainingPkgChannels pkgChannel
+		err         error
+		remaining   []string
+		deprecated  []string
+		pkgChannels pkgChannel
 	}
 	tests := []struct {
 		description string
@@ -932,29 +933,66 @@ func TestAddAfterDeprecate(t *testing.T) {
 		{
 			description: "SimpleAdd",
 			args: args{
-				firstBundles: []string{
+				existing: []string{
 					"prometheus.0.14.0",
 					"prometheus.0.15.0",
 				},
-				deprecatedBundles: []string{
+				deprecate: []string{
 					"quay.io/test/prometheus.0.15.0",
 				},
-				secondBundles: []string{
+				add: []string{
 					"prometheus.0.22.2",
 				},
 			},
 			expected: expected{
 				err: nil,
-				remainingBundles: []string{
+				remaining: []string{
 					"quay.io/test/prometheus.0.15.0/preview",
 					"quay.io/test/prometheus.0.15.0/stable",
 					"quay.io/test/prometheus.0.22.2/preview",
 				},
-				deprecatedBundles: []string{
+				deprecated: []string{
 					"quay.io/test/prometheus.0.15.0/preview",
 					"quay.io/test/prometheus.0.15.0/stable",
 				},
-				remainingPkgChannels: pkgChannel{
+				pkgChannels: pkgChannel{
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+		{
+			description: "OverwriteLatest",
+			args: args{
+				existing: []string{
+					"prometheus.0.14.0",
+					"prometheus.0.15.0",
+					"prometheus.0.22.2",
+				},
+				deprecate: []string{
+					"quay.io/test/prometheus.0.15.0",
+				},
+				overwrite: map[string][]string{
+					"prometheus": []string{
+						"prometheus.0.15.0",
+						"prometheus.0.22.2",
+					},
+				},
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.22.2/preview",
+				},
+				deprecated: []string{
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+				},
+				pkgChannels: pkgChannel{
 					"prometheus": []string{
 						"preview",
 						"stable",
@@ -979,49 +1017,61 @@ func TestAddAfterDeprecate(t *testing.T) {
 			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
 			require.NoError(t, err)
 
-			populate := func(names []string) error {
-				refMap := make(map[image.Reference]string, 0)
-				for _, name := range names {
-					refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+			populate := func(add []string, overwrite map[string][]string) error {
+				addRefs := map[image.Reference]string{}
+				for _, a := range add {
+					addRefs[image.SimpleReference("quay.io/test/"+a)] = "../../bundles/" + a
 				}
+
+				overwriteRefs := map[string]map[image.Reference]string{}
+				for pkg, pkgOverwrite := range overwrite {
+					overwriteRefs[pkg] = map[image.Reference]string{}
+					for _, o := range pkgOverwrite {
+						overwriteRefs[pkg][image.SimpleReference("quay.io/test/"+o)] = "../../bundles/" + o
+					}
+				}
+
 				return registry.NewDirectoryPopulator(
 					load,
 					graphLoader,
 					query,
-					refMap,
-					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+					addRefs,
+					overwriteRefs,
+					len(overwriteRefs) > 0,
+				).Populate(registry.ReplacesMode)
+
 			}
 			// Initialize index with some bundles
-			require.NoError(t, populate(tt.args.firstBundles))
+			require.NoError(t, populate(tt.args.existing, nil))
 
-			deprecator := sqlite.NewSQLDeprecatorForBundles(load, tt.args.deprecatedBundles)
+			deprecator := sqlite.NewSQLDeprecatorForBundles(load, tt.args.deprecate)
 			err = deprecator.Deprecate()
 			require.Equal(t, tt.expected.err, err)
 
-			require.NoError(t, populate(tt.args.secondBundles))
+			require.NoError(t, populate(tt.args.add, tt.args.overwrite))
 
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
 			require.NoError(t, err)
-			var bundlePaths []string
+			var remaining []string
 			for _, bundle := range bundles {
-				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+				remaining = append(remaining, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
-			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
+			require.ElementsMatch(t, tt.expected.remaining, remaining)
 
 			// Ensure deprecated bundles match
-			var deprecatedBundles []string
+			var deprecated []string
 			deprecatedProperty, err := json.Marshal(registry.DeprecatedProperty{})
 			require.NoError(t, err)
 			for _, bundle := range bundles {
 				for _, prop := range bundle.Properties {
 					if prop.Type == registry.DeprecatedType && prop.Value == string(deprecatedProperty) {
-						deprecatedBundles = append(deprecatedBundles, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+						deprecated = append(deprecated, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 					}
 				}
 			}
 
-			require.ElementsMatch(t, tt.expected.deprecatedBundles, deprecatedBundles)
+			require.ElementsMatch(t, tt.expected.deprecated, deprecated)
 
 			// Ensure remaining channels match
 			packages, err := query.ListPackages(context.Background())
@@ -1039,7 +1089,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 				for k := range uniqueChannels {
 					channels = append(channels, k)
 				}
-				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
+				require.ElementsMatch(t, tt.expected.pkgChannels[pkg], channels)
 			}
 		})
 	}
