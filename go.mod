@@ -5,7 +5,6 @@ go 1.16
 require (
 	github.com/Microsoft/hcsshim v0.8.9 // indirect
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/blang/semver/v4 v4.0.0
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect
 	github.com/containerd/containerd v1.3.2
@@ -62,7 +61,6 @@ require (
 	k8s.io/kubectl v0.20.6
 	sigs.k8s.io/controller-runtime v0.8.0
 	sigs.k8s.io/kind v0.10.0
-	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (

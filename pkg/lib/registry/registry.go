@@ -342,9 +342,7 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 		return fmt.Errorf("unable to migrate database: %s", err)
 	}
 
-	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
-
-	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, dbQuerier, request.Bundles)
+	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, request.Bundles)
 	if err := deprecator.Deprecate(); err != nil {
 		r.Logger.Debugf("unable to deprecate bundles from database: %s", err)
 		if !request.Permissive {

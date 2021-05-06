@@ -859,7 +859,7 @@ func TestDeprecateBundle(t *testing.T) {
 			store, err := sqlite.NewSQLLiteLoader(db)
 			require.NoError(t, err)
 
-			deprecator := sqlite.NewSQLDeprecatorForBundles(store, querier, tt.args.bundles)
+			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
 			err = deprecator.Deprecate()
 			fmt.Printf("error: %s\n", err)
 			require.Equal(t, tt.expected.err, err)
@@ -994,7 +994,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 			// Initialize index with some bundles
 			require.NoError(t, populate(tt.args.firstBundles))
 
-			deprecator := sqlite.NewSQLDeprecatorForBundles(load, query, tt.args.deprecatedBundles)
+			deprecator := sqlite.NewSQLDeprecatorForBundles(load, tt.args.deprecatedBundles)
 			err = deprecator.Deprecate()
 			require.Equal(t, tt.expected.err, err)
 

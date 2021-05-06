@@ -1405,7 +1405,7 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 
 	name, version, err := getBundleNameAndVersionForImage(tx, path)
 	if err != nil {
-		return fmt.Errorf("error deprecating bundle %s: %s", path, err)
+		return err
 	}
 	tailBundles, err := getTailFromBundle(tx, name)
 	if err != nil {
