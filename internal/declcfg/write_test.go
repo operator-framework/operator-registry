@@ -451,7 +451,8 @@ func TestWriteYAML(t *testing.T) {
 		{
 			name: "Success",
 			cfg:  buildValidDeclarativeConfig(true),
-			expected: `defaultChannel: dark
+			expected: `---
+defaultChannel: dark
 description: anakin operator
 icon:
   base64data: PHN2ZyB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iMjUiIGN5PSIyNSIgcj0iMjUiLz48L3N2Zz4=

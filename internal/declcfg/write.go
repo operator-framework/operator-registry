@@ -148,12 +148,11 @@ func WriteYAML(cfg DeclarativeConfig, w io.Writer) error {
 }
 
 type yamlEncoder struct {
-	encodedFirst bool
-	w            io.Writer
+	w io.Writer
 }
 
 func newYAMLEncoder(w io.Writer) *yamlEncoder {
-	return &yamlEncoder{false, w}
+	return &yamlEncoder{w}
 }
 
 func (e *yamlEncoder) Encode(v interface{}) error {
@@ -167,10 +166,7 @@ func (e *yamlEncoder) Encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if e.encodedFirst {
-		yamlData = append([]byte("---\n"), yamlData...)
-	}
-	e.encodedFirst = true
+	yamlData = append([]byte("---\n"), yamlData...)
 	_, err = e.w.Write(yamlData)
 	return err
 }
