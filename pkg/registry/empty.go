@@ -112,10 +112,6 @@ func (EmptyQuery) ListRegistryBundles(ctx context.Context) ([]*Bundle, error) {
 	return nil, errors.New("empty querier: cannot list registry bundles")
 }
 
-func (EmptyQuery) GetBundleNameAndVersionForImage(ctx context.Context, path string) (bundleName string, bundleVersion string, err error) {
-	return "", "", errors.New("empty querier: cannot get bundle from path")
-}
-
 var _ Query = &EmptyQuery{}
 
 func NewEmptyQuerier() *EmptyQuery {

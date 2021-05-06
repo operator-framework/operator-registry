@@ -1233,27 +1233,6 @@ func (s *SQLQuerier) GetBundlePathIfExists(ctx context.Context, bundleName strin
 	return
 }
 
-func (s *SQLQuerier) GetBundleNameAndVersionForImage(ctx context.Context, path string) (string, string, error) {
-	query := `SELECT name, version FROM operatorbundle WHERE bundlepath=? LIMIT 1`
-	rows, err := s.db.QueryContext(ctx, query, path)
-	if err != nil {
-		return "", "", err
-	}
-	defer rows.Close()
-
-	var name sql.NullString
-	var version sql.NullString
-	if rows.Next() {
-		if err := rows.Scan(&name, &version); err != nil {
-			return "", "", err
-		}
-	}
-	if name.Valid && version.Valid {
-		return name.String, version.String, nil
-	}
-	return "", "", registry.ErrBundleImageNotInDatabase
-}
-
 // ListRegistryBundles returns a set of registry bundles.
 // The set can be filtered by package by setting the given context's 'package' key to a desired package name.
 // e.g.

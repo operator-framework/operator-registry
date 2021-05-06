@@ -79,8 +79,6 @@ type Query interface {
 	GetBundlePathIfExists(ctx context.Context, csvName string) (string, error)
 	// ListRegistryBundles returns a set of registry bundles.
 	ListRegistryBundles(ctx context.Context) ([]*Bundle, error)
-
-	GetBundleNameAndVersionForImage(ctx context.Context, bundlepath string) (name string, version string, err error)
 }
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . GraphLoader
