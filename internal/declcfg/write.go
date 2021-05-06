@@ -144,21 +144,27 @@ func WriteJSON(cfg DeclarativeConfig, w io.Writer) error {
 
 func WriteYAML(cfg DeclarativeConfig, w io.Writer) error {
 	enc := newYAMLEncoder(w)
+	enc.SetEscapeHTML(false)
 	return writeToEncoder(cfg, enc)
 }
 
 type yamlEncoder struct {
-	w io.Writer
+	w          io.Writer
+	escapeHTML bool
 }
 
 func newYAMLEncoder(w io.Writer) *yamlEncoder {
-	return &yamlEncoder{w}
+	return &yamlEncoder{w, true}
+}
+
+func (e *yamlEncoder) SetEscapeHTML(on bool) {
+	e.escapeHTML = on
 }
 
 func (e *yamlEncoder) Encode(v interface{}) error {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
+	enc.SetEscapeHTML(e.escapeHTML)
 	if err := enc.Encode(v); err != nil {
 		return err
 	}
