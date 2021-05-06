@@ -30,25 +30,25 @@ func TestValidate(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
-			name: "Error/NoType",
-			v: Property{
-				Value: json.RawMessage(""),
-			},
-			assertion: require.Error,
-		},
-		{
-			name: "Error/NoValue",
+			name: "Success/NoValue",
 			v: Property{
 				Type:  "custom.type",
 				Value: nil,
 			},
-			assertion: require.Error,
+			assertion: require.NoError,
 		},
 		{
-			name: "Error/EmptyValue",
+			name: "Success/EmptyValue",
 			v: Property{
 				Type:  "custom.type",
 				Value: json.RawMessage{},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Error/NoType",
+			v: Property{
+				Value: json.RawMessage(""),
 			},
 			assertion: require.Error,
 		},

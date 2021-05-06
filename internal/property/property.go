@@ -21,12 +21,11 @@ func (p Property) Validate() error {
 	if len(p.Type) == 0 {
 		return errors.New("type must be set")
 	}
-	if len(p.Value) == 0 {
-		return errors.New("value must be set")
-	}
-	var raw json.RawMessage
-	if err := json.Unmarshal(p.Value, &raw); err != nil {
-		return fmt.Errorf("value is not valid json: %v", err)
+	if len(p.Value) > 0 {
+		var raw json.RawMessage
+		if err := json.Unmarshal(p.Value, &raw); err != nil {
+			return fmt.Errorf("value is not valid json: %v", err)
+		}
 	}
 	return nil
 }
@@ -202,8 +201,10 @@ func Parse(in []Property) (*Properties, error) {
 			out.BundleObjects = append(out.BundleObjects, p)
 		default:
 			var p json.RawMessage
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
+			if len(prop.Value) > 0 {
+				if err := json.Unmarshal(prop.Value, &p); err != nil {
+					return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
+				}
 			}
 			out.Others = append(out.Others, prop)
 		}

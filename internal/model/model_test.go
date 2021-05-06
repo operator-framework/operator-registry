@@ -454,7 +454,7 @@ func TestValidators(t *testing.T) {
 				Channel:    ch,
 				Name:       "anakin.v0.1.0",
 				Replaces:   "anakin.v0.0.1",
-				Properties: []property.Property{{Value: json.RawMessage("")}},
+				Properties: []property.Property{{Value: json.RawMessage("{")}},
 			},
 			assertion: require.Error,
 		},
