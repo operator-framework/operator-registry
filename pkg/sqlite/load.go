@@ -695,6 +695,15 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 				errs = append(errs, err)
 				break
 			}
+			deprecated, err := s.deprecated(tx, channelEntryCSVName)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+			if deprecated {
+				// The package is truncated below this point, we're done!
+				break
+			}
 			if _, _, _, err := s.getBundleSkipsReplacesVersion(tx, replaces); err != nil {
 				errs = append(errs, fmt.Errorf("Invalid bundle %s, replaces nonexistent bundle %s", c.CurrentCSVName, replaces))
 				break
@@ -1236,6 +1245,19 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 		properties[propstring{Type: prop.Type, Value: string(value)}] = struct{}{}
 	}
 
+	// If the bundle has been deprecated before, readd the deprecated property
+	deprecated, err := s.deprecated(tx, bundle.Name)
+	if err != nil {
+		return err
+	}
+	if deprecated {
+		value, err := json.Marshal(registry.DeprecatedProperty{})
+		if err != nil {
+			return err
+		}
+		properties[propstring{Type: registry.DeprecatedType, Value: string(value)}] = struct{}{}
+	}
+
 	for prop := range properties {
 		if err := s.addProperty(tx, prop.Type, prop.Value, bundle.Name, bundleVersion, bundle.BundleImage); err != nil {
 			return err
@@ -1395,12 +1417,6 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 		tx.Rollback()
 	}()
 
-	nullifyBundleReplaces, err := tx.Prepare("update operatorbundle set replaces = NULL where name = ?")
-	if err != nil {
-		return err
-	}
-	defer nullifyBundleReplaces.Close()
-
 	name, version, err := getBundleNameAndVersionForImage(tx, path)
 	if err != nil {
 		return err
@@ -1430,9 +1446,9 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 		return err
 	}
 
-	// update replaces field of deprecated bundle so that inserting a new bundle
-	// (which rebuilds the graph) is possible
-	_, err = nullifyBundleReplaces.Exec(name)
+	// Create a persistent record of the bundle's deprecation
+	// This lets us recover from losing the properties and augmented bundle rows
+	_, err = tx.Exec("INSERT INTO deprecated(operatorbundle_name) VALUES(?)", name)
 	if err != nil {
 		return err
 	}
@@ -1497,4 +1513,17 @@ func (s *sqlLoader) getBundleSubstitution(tx *sql.Tx, name string) (string, erro
 		}
 	}
 	return substitutesFor.String, nil
+}
+
+func (s *sqlLoader) deprecated(tx *sql.Tx, name string) (bool, error) {
+	var err error
+	if row := tx.QueryRow(`SELECT * FROM deprecated WHERE operatorbundle_name = ?`, name); row != nil {
+		err = row.Scan(&sql.NullString{})
+	}
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+
+	// Ignore any deprecated bundles
+	return err == nil, err
 }
