@@ -11,7 +11,7 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
-func TestReadJSON(t *testing.T) {
+func TestReadYAMLOrJSON(t *testing.T) {
 	type spec struct {
 		name              string
 		file              string
@@ -22,8 +22,8 @@ func TestReadJSON(t *testing.T) {
 	}
 	specs := []spec{
 		{
-			name:              "Ignored/NotJSON",
-			file:              "testdata/invalid/not-json.txt",
+			name:              "Ignored/NotYAMLOrJSON",
+			file:              "testdata/invalid/not-yaml-or-json.txt",
 			assertion:         require.NoError,
 			expectNumPackages: 0,
 			expectNumBundles:  0,
@@ -31,7 +31,7 @@ func TestReadJSON(t *testing.T) {
 		},
 		{
 			name:              "Ignored/NotJSONObject",
-			file:              "testdata/invalid/not-json-object.json",
+			file:              "testdata/invalid/not-yaml-or-json-object.json",
 			assertion:         require.NoError,
 			expectNumPackages: 0,
 			expectNumBundles:  0,
@@ -57,7 +57,7 @@ func TestReadJSON(t *testing.T) {
 		},
 		{
 			name:              "Success/ValidFile",
-			file:              "testdata/valid/etcd.json",
+			file:              "testdata/valid/etcd.yaml",
 			assertion:         require.NoError,
 			expectNumPackages: 1,
 			expectNumBundles:  6,
@@ -70,7 +70,7 @@ func TestReadJSON(t *testing.T) {
 			f, err := os.Open(s.file)
 			require.NoError(t, err)
 
-			cfg, err := readJSON(f)
+			cfg, err := readYAMLOrJSON(f)
 			s.assertion(t, err)
 			if err == nil {
 				require.NotNil(t, cfg)
@@ -206,7 +206,7 @@ func TestLoadDir(t *testing.T) {
 						Properties: []property.Property{
 							{Type: "olm.package", Value: json.RawMessage(`{"packageName":"etcd","version":"0.9.2-clusterwide"}`)},
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`)},
-							{Type: "olm.skipRange", Value: json.RawMessage(`">=0.9.0<=0.9.1"`)},
+							{Type: "olm.skipRange", Value: json.RawMessage(`"\u003e=0.9.0 \u003c=0.9.1"`)},
 							{Type: "olm.skips", Value: json.RawMessage(`"etcdoperator.v0.6.1"`)},
 							{Type: "olm.skips", Value: json.RawMessage(`"etcdoperator.v0.9.0"`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"clusterwide-alpha","replaces":"etcdoperator.v0.9.0"}`)},
@@ -220,7 +220,7 @@ func TestLoadDir(t *testing.T) {
 						Image:   "quay.io/operatorhubio/etcd:v0.9.4",
 						Properties: []property.Property{
 							{Type: "olm.package", Value: json.RawMessage(`{"packageName":"etcd","version":"0.9.4"}`)},
-							{Type: "olm.package.required", Value: json.RawMessage(`{"packageName":"test","versionRange":">=1.2.3<2.0.0-0"}`)},
+							{Type: "olm.package.required", Value: json.RawMessage(`{"packageName":"test","versionRange":"\u003e=1.2.3 \u003c2.0.0-0"}`)},
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`)},
 							{Type: "olm.gvk.required", Value: json.RawMessage(`{"group":"testapi.coreos.com","kind":"Testapi","version":"v1"}`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"singlenamespace-alpha","replaces":"etcdoperator.v0.9.2"}`)},
@@ -244,7 +244,7 @@ func TestLoadDir(t *testing.T) {
 					},
 				},
 				Others: []Meta{
-					{Schema: "unexpected", Package: "", Blob: json.RawMessage(`"{ "schema":  "unexpected" }`)},
+					{Schema: "unexpected", Package: "", Blob: json.RawMessage(`{ "schema":  "unexpected" }`)},
 				},
 			},
 		},
