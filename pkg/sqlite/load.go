@@ -576,9 +576,16 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 		return fmt.Errorf("failed to add package %q: %s", manifest.PackageName, err.Error())
 	}
 
-	var errs []error
-	hasDefault := false
+	var (
+		errs       []error
+		channels   []registry.PackageChannel
+		hasDefault bool
+	)
 	for _, c := range manifest.Channels {
+		if deprecated, err := s.deprecated(tx, c.CurrentCSVName); err != nil || deprecated {
+			// Elide channels that start with a deprecated bundle
+			continue
+		}
 		if _, err := addChannel.Exec(c.Name, manifest.PackageName, c.CurrentCSVName); err != nil {
 			errs = append(errs, fmt.Errorf("failed to add channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
 			continue
@@ -590,12 +597,13 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 				continue
 			}
 		}
+		channels = append(channels, c)
 	}
 	if !hasDefault {
 		errs = append(errs, fmt.Errorf("no default channel specified for %s", manifest.PackageName))
 	}
 
-	for _, c := range manifest.Channels {
+	for _, c := range channels {
 		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to add channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
@@ -1268,19 +1276,18 @@ func (s *sqlLoader) addBundleProperties(tx *sql.Tx, bundle *registry.Bundle) err
 }
 
 func (s *sqlLoader) rmChannelEntry(tx *sql.Tx, csvName string) error {
-	getEntryID := `SELECT entry_id FROM channel_entry WHERE operatorbundle_name=?`
-	rows, err := tx.QueryContext(context.TODO(), getEntryID, csvName)
+	rows, err := tx.Query(`SELECT entry_id FROM channel_entry WHERE operatorbundle_name=?`, csvName)
 	if err != nil {
 		return err
 	}
+
 	var entryIDs []int64
 	for rows.Next() {
 		var entryID sql.NullInt64
 		rows.Scan(&entryID)
 		entryIDs = append(entryIDs, entryID.Int64)
 	}
-	err = rows.Close()
-	if err != nil {
+	if err := rows.Close(); err != nil {
 		return err
 	}
 
@@ -1299,35 +1306,50 @@ func (s *sqlLoader) rmChannelEntry(tx *sql.Tx, csvName string) error {
 		return err
 	}
 
-	stmt, err := tx.Prepare("DELETE FROM channel_entry WHERE operatorbundle_name=?")
+	_, err = tx.Exec(`DELETE FROM channel WHERE head_operatorbundle_name=?`, csvName)
 	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	if _, err := stmt.Exec(csvName); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
+func getTailFromBundle(tx *sql.Tx, head string) (bundles []string, err error) {
 	getReplacesSkips := `SELECT replaces, skips FROM operatorbundle WHERE name=?`
 	isDefaultChannelHead := `SELECT head_operatorbundle_name FROM channel
 							INNER JOIN package ON channel.name = package.default_channel
 							WHERE channel.head_operatorbundle_name = ?`
 
-	tail := make(map[string]struct{})
-	next := name
+	visited := map[string]struct{}{}
+	next := []string{head}
 
-	for next != "" {
-		rows, err := tx.QueryContext(context.TODO(), getReplacesSkips, next)
+	for len(next) > 0 {
+		// Pop the next bundle off of the queue
+		bundle := next[0]
+		next = next[1:] // Potentially inefficient queue implementation, but this function is only used when deprecate is called
+
+		// Check if next is the head of the defaultChannel
+		// If it is, the defaultChannel would be removed -- this is not allowed because we cannot know which channel to promote as the new default
+		var err error
+		if row := tx.QueryRow(isDefaultChannelHead, bundle); row != nil {
+			err = row.Scan(&sql.NullString{})
+		}
+		if err == nil {
+			// A nil error indicates that next is the default channel head
+			return nil, registry.ErrRemovingDefaultChannelDuringDeprecation
+		} else if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		rows, err := tx.QueryContext(context.TODO(), getReplacesSkips, bundle)
 		if err != nil {
 			return nil, err
 		}
-		var replaces sql.NullString
-		var skips sql.NullString
+
+		var (
+			replaces sql.NullString
+			skips    sql.NullString
+		)
 		if rows.Next() {
 			if err := rows.Scan(&replaces, &skips); err != nil {
 				if nerr := rows.Close(); nerr != nil {
@@ -1341,49 +1363,32 @@ func getTailFromBundle(tx *sql.Tx, name string) (bundles []string, err error) {
 		}
 		if skips.Valid && skips.String != "" {
 			for _, skip := range strings.Split(skips.String, ",") {
-				tail[skip] = struct{}{}
+				if _, ok := visited[skip]; ok {
+					// We've already visited this bundle's subgraph
+					continue
+				}
+				visited[skip] = struct{}{}
+				next = append(next, skip)
 			}
 		}
 		if replaces.Valid && replaces.String != "" {
-			// check if replaces is the head of the defaultChannel
-			// if it is, the defaultChannel will be removed
-			// this is not allowed because we cannot know which channel to promote as the new default
-			rows, err := tx.QueryContext(context.TODO(), isDefaultChannelHead, replaces.String)
-			if err != nil {
-				return nil, err
+			r := replaces.String
+			if _, ok := visited[r]; ok {
+				// We've already visited this bundle's subgraph
+				continue
 			}
-			if rows.Next() {
-				var defaultChannelHead sql.NullString
-				err := rows.Scan(&defaultChannelHead)
-				if err != nil {
-					if nerr := rows.Close(); nerr != nil {
-						return nil, nerr
-					}
-					return nil, err
-				}
-				if defaultChannelHead.Valid {
-					if nerr := rows.Close(); nerr != nil {
-						return nil, nerr
-					}
-					return nil, registry.ErrRemovingDefaultChannelDuringDeprecation
-				}
-			}
-			if err := rows.Close(); err != nil {
-				return nil, err
-			}
-			next = replaces.String
-			tail[replaces.String] = struct{}{}
-		} else {
-			next = ""
+			visited[r] = struct{}{}
+			next = append(next, r)
 		}
 	}
-	var allTails []string
 
-	for k := range tail {
-		allTails = append(allTails, k)
+	// The tail is exactly the set of bundles we visited while traversing the graph from head
+	var tail []string
+	for v := range visited {
+		tail = append(tail, v)
 	}
 
-	return allTails, nil
+	return tail, nil
 
 }
 
@@ -1427,14 +1432,18 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 	}
 
 	for _, bundle := range tailBundles {
-		err = s.rmChannelEntry(tx, bundle)
-		if err != nil {
+		if err := s.rmChannelEntry(tx, bundle); err != nil {
 			return err
 		}
-		err := s.rmBundle(tx, bundle)
-		if err != nil {
+		if err := s.rmBundle(tx, bundle); err != nil {
 			return err
 		}
+	}
+
+	// Remove any channels that start with the deprecated bundle
+	_, err = tx.Exec(fmt.Sprintf(`DELETE FROM channel WHERE head_operatorbundle_name="%s"`, name))
+	if err != nil {
+		return err
 	}
 
 	deprecatedValue, err := json.Marshal(registry.DeprecatedProperty{})

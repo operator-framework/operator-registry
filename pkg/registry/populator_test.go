@@ -741,7 +741,7 @@ func TestDeprecateBundle(t *testing.T) {
 		expected    expected
 	}{
 		{
-			description: "BundleDeprecated/IgnoreIfNotInIndex",
+			description: "IgnoreIfNotInIndex",
 			args: args{
 				bundles: []string{
 					"quay.io/test/etcd.0.6.0",
@@ -776,7 +776,7 @@ func TestDeprecateBundle(t *testing.T) {
 			},
 		},
 		{
-			description: "BundleDeprecated/SingleChannel",
+			description: "ChannelRemoved",
 			args: args{
 				bundles: []string{
 					"quay.io/test/prometheus.0.15.0",
@@ -790,13 +790,11 @@ func TestDeprecateBundle(t *testing.T) {
 					"quay.io/test/etcd.0.9.0/stable",
 					"quay.io/test/etcd.0.9.2/stable",
 					"quay.io/test/etcd.0.9.2/alpha",
-					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
 					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
 				},
 				deprecatedBundles: []string{
 					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
 				},
 				remainingPkgChannels: pkgChannel{
 					"etcd": []string{
@@ -806,35 +804,35 @@ func TestDeprecateBundle(t *testing.T) {
 					},
 					"prometheus": []string{
 						"preview",
-						"stable",
 					},
 				},
 			},
 		},
 		{
-			description: "BundleDeprecated/ChannelRemoved",
+			description: "ChannelRemoved/ErrorOnDefault",
 			args: args{
 				bundles: []string{
-					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/prometheus.0.22.2",
 				},
 			},
 			expected: expected{
-				err: nil,
+				err: errors.NewAggregate([]error{fmt.Errorf("error deprecating bundle quay.io/test/prometheus.0.22.2: %s", registry.ErrRemovingDefaultChannelDuringDeprecation)}),
 				remainingBundles: []string{
-					"quay.io/test/etcd.0.9.2/alpha",
+					"quay.io/test/etcd.0.9.0/alpha",
+					"quay.io/test/etcd.0.9.0/beta",
+					"quay.io/test/etcd.0.9.0/stable",
 					"quay.io/test/etcd.0.9.2/stable",
+					"quay.io/test/etcd.0.9.2/alpha",
 					"quay.io/test/prometheus.0.22.2/preview",
-					"quay.io/test/prometheus.0.14.0/preview",
-					"quay.io/test/prometheus.0.14.0/stable",
 					"quay.io/test/prometheus.0.15.0/preview",
 					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
 				},
-				deprecatedBundles: []string{
-					"quay.io/test/etcd.0.9.2/alpha",
-					"quay.io/test/etcd.0.9.2/stable",
-				},
+				deprecatedBundles: []string{},
 				remainingPkgChannels: pkgChannel{
 					"etcd": []string{
+						"beta",
 						"alpha",
 						"stable",
 					},
@@ -860,9 +858,7 @@ func TestDeprecateBundle(t *testing.T) {
 			require.NoError(t, err)
 
 			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
-			err = deprecator.Deprecate()
-			fmt.Printf("error: %s\n", err)
-			require.Equal(t, tt.expected.err, err)
+			require.Equal(t, tt.expected.err, deprecator.Deprecate())
 
 			// Ensure remaining bundlePaths in db match
 			bundles, err := querier.ListBundles(context.Background())
@@ -938,7 +934,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 					"prometheus.0.15.0",
 				},
 				deprecate: []string{
-					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
 				},
 				add: []string{
 					"prometheus.0.22.2",
@@ -947,13 +943,15 @@ func TestAddAfterDeprecate(t *testing.T) {
 			expected: expected{
 				err: nil,
 				remaining: []string{
-					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
 					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.14.0/stable",
 				},
 				deprecated: []string{
-					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
 				},
 				pkgChannels: pkgChannel{
 					"prometheus": []string{
@@ -984,18 +982,15 @@ func TestAddAfterDeprecate(t *testing.T) {
 			expected: expected{
 				err: nil,
 				remaining: []string{
-					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
 					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
 				},
 				deprecated: []string{
 					"quay.io/test/prometheus.0.15.0/preview",
-					"quay.io/test/prometheus.0.15.0/stable",
 				},
 				pkgChannels: pkgChannel{
 					"prometheus": []string{
 						"preview",
-						"stable",
 					},
 				},
 			},
@@ -1045,8 +1040,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 			require.NoError(t, populate(tt.args.existing, nil))
 
 			deprecator := sqlite.NewSQLDeprecatorForBundles(load, tt.args.deprecate)
-			err = deprecator.Deprecate()
-			require.Equal(t, tt.expected.err, err)
+			require.Equal(t, tt.expected.err, deprecator.Deprecate())
 
 			require.NoError(t, populate(tt.args.add, tt.args.overwrite))
 

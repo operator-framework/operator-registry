@@ -224,7 +224,7 @@ func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstr
 	return &unstructured.Unstructured{Object: out}
 }
 
-func newUnstructuredCSVwithSkips(t *testing.T, name, replaces string, skips ...string) *unstructured.Unstructured {
+func newUnstructuredCSVWithSkips(t *testing.T, name, replaces string, skips ...string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
 	csv.TypeMeta.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
@@ -271,7 +271,7 @@ func TestGetTailFromBundle(t *testing.T) {
 		expected    expected
 	}{
 		{
-			description: "GetTailFromBundle/RemoveDefaultChannelForbidden",
+			description: "ContainsDefaultChannel",
 			fields: fields{
 				bundles: []*registry.Bundle{
 					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-a", "csv-b")),
@@ -304,7 +304,7 @@ func TestGetTailFromBundle(t *testing.T) {
 			},
 		},
 		{
-			description: "GetTailFromBundle/RemovingNonDefaultChannel",
+			description: "ContainsNoDefaultChannel",
 			fields: fields{
 				bundles: []*registry.Bundle{
 					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-a", "csv-b")),
@@ -329,23 +329,23 @@ func TestGetTailFromBundle(t *testing.T) {
 				},
 			},
 			args: args{
-				bundle: "csv-a",
+				bundle: "csv-b",
 			},
 			expected: expected{
 				err: nil,
 				tail: []string{
-					"csv-b",
 					"csv-c",
 				},
 			},
 		},
 		{
-			description: "GetTailFromBundle/HandlesSkips",
+			description: "ContainsSkips",
 			fields: fields{
 				bundles: []*registry.Bundle{
-					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSVwithSkips(t, "csv-a", "csv-b", "csv-d", "csv-e", "csv-f")),
-					newBundle(t, "csv-b", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-b", "csv-c")),
-					newBundle(t, "csv-c", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-c", "")),
+					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-a", "csv-b")),
+					newBundle(t, "csv-b", "pkg-0", []string{"alpha"}, newUnstructuredCSVWithSkips(t, "csv-b", "csv-c", "csv-d", "csv-e", "csv-f")),
+					newBundle(t, "csv-c", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-c", "csv-d")),
+					newBundle(t, "csv-d", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-d", "")),
 				},
 				pkgs: []registry.PackageManifest{
 					{
@@ -365,17 +365,50 @@ func TestGetTailFromBundle(t *testing.T) {
 				},
 			},
 			args: args{
-				bundle: "csv-a",
+				bundle: "csv-b",
 			},
 			expected: expected{
 				err: nil,
 				tail: []string{
-					"csv-b",
 					"csv-c",
 					"csv-d",
 					"csv-e",
 					"csv-f",
 				},
+			},
+		},
+		{
+			description: "ContainsDefaultChannelFromSkips",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-a", "csv-b")),
+					newBundle(t, "csv-b", "pkg-0", []string{"alpha"}, newUnstructuredCSVWithSkips(t, "csv-b", "csv-d", "csv-c")),
+					newBundle(t, "csv-c", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-c", "csv-d")),
+					newBundle(t, "csv-d", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-d", "")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-c",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-b",
+			},
+			expected: expected{
+				err:  registry.ErrRemovingDefaultChannelDuringDeprecation,
+				tail: nil,
 			},
 		},
 	}
