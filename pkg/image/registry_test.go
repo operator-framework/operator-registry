@@ -233,19 +233,19 @@ func (f *mockRepo) init(ctx context.Context, base distribution.Repository, optio
 	return f, nil
 }
 
-func (f mockRepo) Named() reference.Named {
+func (f *mockRepo) Named() reference.Named {
 	return f.base.Named()
 }
 
-func (f mockRepo) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
+func (f *mockRepo) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
 	return f.base.Manifests(ctx, options...)
 }
 
-func (f mockRepo) Blobs(ctx context.Context) distribution.BlobStore {
+func (f *mockRepo) Blobs(ctx context.Context) distribution.BlobStore {
 	return f.blobStore
 }
 
-func (f mockRepo) Tags(ctx context.Context) distribution.TagService {
+func (f *mockRepo) Tags(ctx context.Context) distribution.TagService {
 	return f.base.Tags(ctx)
 }
 
@@ -270,30 +270,30 @@ func (f *mockBlobStore) Stat(ctx context.Context, dgst digest.Digest) (distribut
 	return f.base.Stat(ctx, dgst)
 }
 
-func (f mockBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
+func (f *mockBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
 	return f.base.Get(ctx, dgst)
 }
 
-func (f mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (f *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
 	return f.base.Open(ctx, dgst)
 }
 
-func (f mockBlobStore) Put(ctx context.Context, mediaType string, p []byte) (distribution.Descriptor, error) {
+func (f *mockBlobStore) Put(ctx context.Context, mediaType string, p []byte) (distribution.Descriptor, error) {
 	return f.base.Put(ctx, mediaType, p)
 }
 
-func (f mockBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
+func (f *mockBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
 	return f.base.Create(ctx, options...)
 }
 
-func (f mockBlobStore) Resume(ctx context.Context, id string) (distribution.BlobWriter, error) {
+func (f *mockBlobStore) Resume(ctx context.Context, id string) (distribution.BlobWriter, error) {
 	return f.base.Resume(ctx, id)
 }
 
-func (f mockBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
+func (f *mockBlobStore) ServeBlob(ctx context.Context, w http.ResponseWriter, r *http.Request, dgst digest.Digest) error {
 	return f.base.ServeBlob(ctx, w, r, dgst)
 }
 
-func (f mockBlobStore) Delete(ctx context.Context, dgst digest.Digest) error {
+func (f *mockBlobStore) Delete(ctx context.Context, dgst digest.Digest) error {
 	return f.base.Delete(ctx, dgst)
 }
