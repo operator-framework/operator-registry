@@ -263,7 +263,7 @@ func (csv *ClusterServiceVersion) GetApiServiceDefinitions() (owned []*Definitio
 	var objmap map[string]*json.RawMessage
 
 	if err = json.Unmarshal(csv.Spec, &objmap); err != nil {
-		return
+		return nil, nil, fmt.Errorf("error unmarshaling into object map: %s", err)
 	}
 
 	rawValue, ok := objmap[apiServiceDefinitions]

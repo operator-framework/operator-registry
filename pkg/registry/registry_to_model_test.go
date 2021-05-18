@@ -13,7 +13,7 @@ import (
 
 func TestConvertRegistryBundleToModelBundle(t *testing.T) {
 	registryBundle, err := testRegistryBundle()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := testModelBundle()
 
 	actual, err := registryBundleToModelBundle(registryBundle)
@@ -35,14 +35,10 @@ func testModelBundle() model.Bundle {
 			property.MustBuildChannel("stable", "etcdoperator.v0.9.0"),
 			property.MustBuildPackage("etcd", "0.9.2"),
 			property.MustBuildSkips("etcdoperator.v0.9.1"),
-			//TODO(anik120): check if etcdclusters. is supposed to be prefixed
 			property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "testapi"),
-			//TODO(anik120): check if etcdclusters. is supposed to be prefixed
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
-			//TODO(anik120): check if etcdbackups. is supposed to be prefixed
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
-			//TODO(anik120): check if etcdrestores. is supposed to be prefixed
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdRestore"),
 		},
 	}

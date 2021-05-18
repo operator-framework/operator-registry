@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,6 +89,25 @@ func TestDecodePackageManifest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeFileFS(t *testing.T) {
+	type foo struct {
+		Bar string
+	}
+
+	root := fstest.MapFS{
+		"foo.yaml": &fstest.MapFile{Data: []byte("bar: baz")},
+	}
+
+	var nilPtr *foo
+	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr))
+	require.Nil(t, nilPtr)
+
+	ptr := &foo{}
+	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr))
+	require.NotNil(t, ptr)
+	require.Equal(t, "baz", ptr.Bar)
 }
 
 func loadFile(t *testing.T, path string) io.Reader {
