@@ -252,6 +252,18 @@ func newBundle(t *testing.T, name, pkgName string, channels []string, objs ...*u
 	return bundle
 }
 
+func TestRMBundle(t *testing.T) {
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(t, err)
+	require.NoError(t, store.Migrate(context.Background()))
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	loader := store.(*sqlLoader)
+	require.NoError(t, loader.rmBundle(tx, "non-existent"))
+}
+
 func TestGetTailFromBundle(t *testing.T) {
 	type fields struct {
 		bundles []*registry.Bundle
