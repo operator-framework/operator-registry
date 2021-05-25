@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/containerd/containerd/archive"
@@ -205,7 +206,9 @@ func (r *Registry) unpackLayer(ctx context.Context, layer ocispec.Descriptor, di
 	if err != nil {
 		return err
 	}
-	_, err = archive.Apply(ctx, dir, decompressed, archive.WithFilter(adjustPerms))
+
+	filters := filterList{adjustPerms, dropXattrs}
+	_, err = archive.Apply(ctx, dir, decompressed, archive.WithFilter(filters.and))
 
 	return err
 }
@@ -217,6 +220,19 @@ func ensureNamespace(ctx context.Context) context.Context {
 	return ctx
 }
 
+type filterList []archive.Filter
+
+func (f filterList) and(h *tar.Header) (bool, error) {
+	for _, filter := range f {
+		ok, err := filter(h)
+		if !ok || err != nil {
+			return ok, err
+		}
+	}
+
+	return true, nil
+}
+
 func adjustPerms(h *tar.Header) (bool, error) {
 	h.Uid = os.Getuid()
 	h.Gid = os.Getgid()
@@ -226,6 +242,22 @@ func adjustPerms(h *tar.Header) (bool, error) {
 	// file contents cannot be unpacked into the unpacked read-only folder).
 	// This also means that "unpacked" layers cannot be "repacked" without potential information loss
 	h.Mode |= 0200
+
+	return true, nil
+}
+
+// paxSchilyXattr contains the key prefix for xattrs stored in PAXRecords (see https://golang.org/src/archive/tar/common.go for more details).
+const paxSchilyXattr = "SCHILY.xattr."
+
+// dropXattrs removes all xattrs from a Header.
+// This is useful for unpacking on systems where writing certain xattrs is a restricted operation; e.g. "security.capability" on SELinux.
+func dropXattrs(h *tar.Header) (bool, error) {
+	h.Xattrs = nil // Deprecated, but still in use, clear anyway.
+	for key := range h.PAXRecords {
+		if strings.HasPrefix(key, paxSchilyXattr) { // Xattrs are stored under keys with the "Schilly.xattr." prefix.
+			delete(h.PAXRecords, key)
+		}
+	}
 
 	return true, nil
 }
