@@ -22,20 +22,14 @@ func TestReadYAMLOrJSON(t *testing.T) {
 	}
 	specs := []spec{
 		{
-			name:              "Ignored/NotYAMLOrJSON",
-			file:              "testdata/invalid/not-yaml-or-json.txt",
-			assertion:         require.NoError,
-			expectNumPackages: 0,
-			expectNumBundles:  0,
-			expectNumOthers:   0,
+			name:      "Error/NotYAMLOrJSON",
+			file:      "testdata/invalid/not-yaml-or-json.txt",
+			assertion: require.Error,
 		},
 		{
-			name:              "Ignored/NotJSONObject",
-			file:              "testdata/invalid/not-yaml-or-json-object.json",
-			assertion:         require.NoError,
-			expectNumPackages: 0,
-			expectNumBundles:  0,
-			expectNumOthers:   0,
+			name:      "Error/NotJSONObject",
+			file:      "testdata/invalid/not-yaml-or-json-object.json",
+			assertion: require.Error,
 		},
 		{
 			name:      "Error/InvalidPackageJSON",
