@@ -49,6 +49,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			cfg *declcfg.DeclarativeConfig
 			err error
 		)
+		// TODO(joelanford): Add support for detecting and rendering sqlite files.
 		if stat, serr := os.Stat(ref); serr == nil && stat.IsDir() {
 			cfg, err = declcfg.LoadDir(ref)
 		} else {
@@ -72,6 +73,10 @@ func (r Render) createRegistry() (*containerdregistry.Registry, error) {
 
 	reg, err := containerdregistry.NewRegistry(
 		containerdregistry.WithCacheDir(cacheDir),
+
+		// The containerd registry impl is somewhat verbose, even on the happy path,
+		// so discard all logger logs. Any important failures will be returned from
+		// registry methods and eventually logged as fatal errors.
 		containerdregistry.WithLog(nullLogger()),
 	)
 	if err != nil {

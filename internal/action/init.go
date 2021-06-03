@@ -19,6 +19,7 @@ type Init struct {
 
 func (i Init) Run() (*declcfg.Package, error) {
 	pkg := &declcfg.Package{
+		// TODO(joelanford): Use a constant for "olm.package"
 		Schema:         "olm.package",
 		Name:           i.Package,
 		DefaultChannel: i.DefaultChannel,

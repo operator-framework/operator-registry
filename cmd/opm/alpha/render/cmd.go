@@ -19,7 +19,7 @@ func NewCmd() *cobra.Command {
 		output string
 	)
 	cmd := &cobra.Command{
-		Use:   "render <index-or-bundle-image1> <index-or-bundle-image2> <index-or-bundle-imageN>",
+		Use:   "render [index-image | bundle-image]...",
 		Short: "Generate declarative config blobs from the provided index and bundle images",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -35,7 +35,9 @@ func NewCmd() *cobra.Command {
 				log.Fatalf("invalid --output value %q, expected (json|yaml)", output)
 			}
 
-			// TODO(joelanford): What's this for?
+			// The bundle loading impl is somewhat verbose, even on the happy path,
+			// so discard all logrus default logger logs. Any important failures will be
+			// returned from render.Run and logged as fatal errors.
 			logrus.SetOutput(ioutil.Discard)
 
 			cfg, err := render.Run(cmd.Context())
