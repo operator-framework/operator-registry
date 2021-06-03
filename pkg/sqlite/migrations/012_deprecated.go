@@ -29,7 +29,7 @@ var deprecatedMigration = &Migration{
 			return err
 		}
 
-		initDeprecated := fmt.Sprintf(`INSERT INTO deprecated(operatorbundle_name) SELECT operatorbundle_name FROM properties WHERE properties.type='%s'`, registry.DeprecatedType)
+		initDeprecated := fmt.Sprintf(`INSERT OR REPLACE INTO deprecated(operatorbundle_name) SELECT operatorbundle_name FROM properties WHERE properties.type='%s'`, registry.DeprecatedType)
 		_, err := tx.ExecContext(ctx, initDeprecated)
 
 		return err

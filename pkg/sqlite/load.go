@@ -1457,7 +1457,7 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 
 	// Create a persistent record of the bundle's deprecation
 	// This lets us recover from losing the properties and augmented bundle rows
-	_, err = tx.Exec("INSERT INTO deprecated(operatorbundle_name) VALUES(?)", name)
+	_, err = tx.Exec("INSERT OR REPLACE INTO deprecated(operatorbundle_name) VALUES(?)", name)
 	if err != nil {
 		return err
 	}

@@ -26,6 +26,9 @@ func TestDeprecated(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec(insertProperty, registry.DeprecatedType, "operator.v1.0.0", "1.0.0", "quay.io/operator:v1.0.0")
 	require.NoError(t, err)
+	// Add a duplicate deprecated property to ensure idempotency of the migration
+	_, err = db.Exec(insertProperty, registry.DeprecatedType, "operator.v1.0.0", "1.0.0", "quay.io/operator:v1.0.0")
+	require.NoError(t, err)
 	_, err = db.Exec(insertProperty, "extraneous", "operator.v1.0.0", "1.0.0", "quay.io/operator:v1.0.0")
 	require.NoError(t, err)
 
