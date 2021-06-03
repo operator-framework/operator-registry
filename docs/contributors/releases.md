@@ -13,7 +13,7 @@ Releases are triggered via tags. Make a new release by tagging a commit with an 
 
 ## Checking the build
 
-Builds for a release can be found [on GitHub Actions](https://github.com/operator-framework/operator-registry/actions). After triggering a build, watch for logs. If the build is successful, a new [release](https://github.com/operator-framework/operator-registry/releases) should appear in GitHub.
+Builds for a release can be found [on GitHub Actions](https://github.com/operator-framework/operator-registry/actions). After triggering a build, watch for logs. If the build is successful, a new [release](https://github.com/operator-framework/operator-registry/releases) should appear in GitHub. It will be a draft release, so once all the artifacts are available you need to edit the release to publish the draft.
 
 ## Docker images
 
