@@ -172,7 +172,6 @@ github.com/docker/docker/registry
 github.com/docker/docker/registry/resumable
 github.com/docker/docker/rootless
 # github.com/docker/docker-credential-helpers v0.6.3
-## explicit
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
 # github.com/docker/go-connections v0.4.0
@@ -197,6 +196,12 @@ github.com/evanphx/json-patch
 github.com/evanphx/json-patch/v5
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
+# github.com/gabriel-vasile/mimetype v1.3.0
+## explicit
+github.com/gabriel-vasile/mimetype
+github.com/gabriel-vasile/mimetype/internal/charset
+github.com/gabriel-vasile/mimetype/internal/json
+github.com/gabriel-vasile/mimetype/internal/magic
 # github.com/garyburd/redigo v1.6.0
 ## explicit
 github.com/garyburd/redigo/internal
@@ -240,7 +245,10 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/go-cmp v0.5.2
+# github.com/google/crfs v0.0.0-20191108021818-71d77da419c9
+## explicit
+github.com/google/crfs/stargz
+# github.com/google/go-cmp v0.5.4
 ## explicit
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
@@ -288,6 +296,9 @@ github.com/inconshreveable/mousetrap
 github.com/json-iterator/go
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 github.com/kardianos/osext
+# github.com/karrick/godirwalk v1.16.1
+## explicit
+github.com/karrick/godirwalk
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/mailru/easyjson v0.7.0
@@ -459,7 +470,7 @@ golang.org/x/crypto/ssh/terminal
 golang.org/x/mod/module
 golang.org/x/mod/semver
 golang.org/x/mod/sumdb/dirhash
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+# golang.org/x/net v0.0.0-20210505024714-0287a6fb4125
 ## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -479,11 +490,11 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+# golang.org/x/sys v0.0.0-20210423082822-04245dca01da
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.4
+# golang.org/x/text v0.3.6
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex

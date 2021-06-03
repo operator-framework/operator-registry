@@ -13,22 +13,24 @@ require (
 	github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
-	github.com/docker/docker-credential-helpers v0.6.3 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
+	github.com/gabriel-vasile/mimetype v1.3.0
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.4.1
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.2
+	github.com/google/crfs v0.0.0-20191108021818-71d77da419c9
+	github.com/google/go-cmp v0.5.4
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-health-probe v0.3.2
 	github.com/h2non/filetype v1.1.1
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
 	github.com/hashicorp/go-multierror v1.0.0
+	github.com/karrick/godirwalk v1.16.1
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/onsi/ginkgo v1.14.1
@@ -48,7 +50,7 @@ require (
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/mod v0.3.0
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/net v0.0.0-20210505024714-0287a6fb4125
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
