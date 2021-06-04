@@ -9,6 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -246,6 +247,113 @@ func TestRender(t *testing.T) {
 	}
 }
 
+func TestRenderDBFile(t *testing.T) {
+
+	foov1csv, err := bundleImageV1.ReadFile("testdata/foo-bundle-v0.1.0/manifests/foo.v0.1.0.csv.yaml")
+	require.NoError(t, err)
+	foov1crd, err := bundleImageV1.ReadFile("testdata/foo-bundle-v0.1.0/manifests/foos.test.foo.crd.yaml")
+	require.NoError(t, err)
+	foov2csv, err := bundleImageV2.ReadFile("testdata/foo-bundle-v0.2.0/manifests/foo.v0.2.0.csv.yaml")
+	require.NoError(t, err)
+	foov2crd, err := bundleImageV2.ReadFile("testdata/foo-bundle-v0.2.0/manifests/foos.test.foo.crd.yaml")
+	require.NoError(t, err)
+
+	foov1csv, err = yaml.ToJSON(foov1csv)
+	require.NoError(t, err)
+	foov1crd, err = yaml.ToJSON(foov1crd)
+	require.NoError(t, err)
+	foov2csv, err = yaml.ToJSON(foov2csv)
+	require.NoError(t, err)
+	foov2crd, err = yaml.ToJSON(foov2crd)
+	require.NoError(t, err)
+
+	expectCfg := &declcfg.DeclarativeConfig{
+		Packages: []declcfg.Package{
+			{
+				Schema:         "olm.package",
+				Name:           "foo",
+				DefaultChannel: "beta",
+			},
+		},
+		Bundles: []declcfg.Bundle{
+			{
+				Schema:  "olm.bundle",
+				Name:    "foo.v0.1.0",
+				Package: "foo",
+				Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
+				Properties: []property.Property{
+					property.MustBuildChannel("beta", ""),
+					property.MustBuildGVK("test.foo", "v1", "Foo"),
+					property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+					property.MustBuildPackage("foo", "0.1.0"),
+					property.MustBuildPackageRequired("bar", "v0.1.0"),
+					property.MustBuildSkipRange("<0.1.0"),
+					property.MustBuildBundleObjectData(foov1csv),
+					property.MustBuildBundleObjectData(foov1crd),
+				},
+				RelatedImages: []declcfg.RelatedImage{
+					{
+						Name:  "operator",
+						Image: "test.registry/foo-operator/foo:v0.1.0",
+					},
+					{
+						Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+					},
+				},
+				CsvJSON: string(foov1csv),
+				Objects: []string{string(foov1csv), string(foov1crd)},
+			},
+			{
+				Schema:  "olm.bundle",
+				Name:    "foo.v0.2.0",
+				Package: "foo",
+				Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+				Properties: []property.Property{
+					property.MustBuildChannel("beta", "foo.v0.1.0"),
+					property.MustBuildGVK("test.foo", "v1", "Foo"),
+					property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+					property.MustBuildPackage("foo", "0.2.0"),
+					property.MustBuildPackageRequired("bar", "v0.1.0"),
+					property.MustBuildSkipRange("<0.2.0"),
+					property.MustBuildSkips("foo.v0.1.1"),
+					property.MustBuildSkips("foo.v0.1.2"),
+					property.MustBuildBundleObjectData(foov2csv),
+					property.MustBuildBundleObjectData(foov2crd),
+				},
+				RelatedImages: []declcfg.RelatedImage{
+					{
+						Name:  "operator",
+						Image: "test.registry/foo-operator/foo:v0.2.0",
+					},
+					{
+						Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+					},
+				},
+				CsvJSON: string(foov2csv),
+				Objects: []string{string(foov2csv), string(foov2crd)},
+			},
+		},
+	}
+
+	dir := t.TempDir()
+
+	dbFile := filepath.Join(dir, "index.db")
+	imageMap := map[image.Reference]string{
+		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
+		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
+	}
+	assert.NoError(t, generateSqliteFile(dbFile, imageMap))
+
+	render := action.Render{
+		Refs:     []string{dbFile},
+		Registry: &image.MockRegistry{RemoteImages: map[image.Reference]*image.MockImage{}},
+	}
+
+	actualCfg, actualErr := render.Run(context.Background())
+	assert.NoError(t, actualErr)
+	assert.Equal(t, expectCfg, actualCfg)
+}
+
 //go:embed testdata/foo-bundle-v0.1.0/manifests/*
 //go:embed testdata/foo-bundle-v0.1.0/metadata/*
 var bundleImageV1 embed.FS
@@ -281,25 +389,25 @@ func newRegistry() (image.Registry, error) {
 	}
 	return &image.MockRegistry{
 		RemoteImages: map[image.Reference]*image.MockImage{
-			image.SimpleReference("test.registry/foo-operator/foo-index-sqlite:v0.2.0"): &image.MockImage{
+			image.SimpleReference("test.registry/foo-operator/foo-index-sqlite:v0.2.0"): {
 				Labels: map[string]string{
 					containertools.DbLocationLabel: "/database/index.db",
 				},
 				FS: subSqliteImage,
 			},
-			image.SimpleReference("test.registry/foo-operator/foo-index-declcfg:v0.2.0"): &image.MockImage{
+			image.SimpleReference("test.registry/foo-operator/foo-index-declcfg:v0.2.0"): {
 				Labels: map[string]string{
 					"operators.operatorframework.io.index.configs.v1": "/foo",
 				},
 				FS: subDeclcfgImage,
 			},
-			image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): &image.MockImage{
+			image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): {
 				Labels: map[string]string{
 					bundle.PackageLabel: "foo",
 				},
 				FS: subBundleImageV1,
 			},
-			image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): &image.MockImage{
+			image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): {
 				Labels: map[string]string{
 					bundle.PackageLabel: "foo",
 				},

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/matchers"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -50,9 +52,17 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			cfg *declcfg.DeclarativeConfig
 			err error
 		)
-		// TODO(joelanford): Add support for detecting and rendering sqlite files.
-		if stat, serr := os.Stat(ref); serr == nil && stat.IsDir() {
-			cfg, err = declcfg.LoadFS(os.DirFS(ref))
+		if stat, serr := os.Stat(ref); serr == nil {
+			if stat.IsDir() {
+				cfg, err = declcfg.LoadFS(os.DirFS(ref))
+			} else {
+				// The only supported file type is an sqlite DB file,
+				// since declarative configs will be in a directory.
+				if err := checkDBFile(ref); err != nil {
+					return nil, err
+				}
+				cfg, err = sqliteToDeclcfg(ctx, ref)
+			}
 		} else {
 			cfg, err = r.imageToDeclcfg(ctx, ref)
 		}
@@ -139,6 +149,18 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		}
 	}
 	return cfg, nil
+}
+
+// checkDBFile returns an error if ref is not an sqlite3 database.
+func checkDBFile(ref string) error {
+	typ, err := filetype.MatchFile(ref)
+	if err != nil {
+		return err
+	}
+	if typ != matchers.TypeSqlite {
+		return fmt.Errorf("ref %q has unsupported file type: %s", ref, typ)
+	}
+	return nil
 }
 
 func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeConfig, error) {
