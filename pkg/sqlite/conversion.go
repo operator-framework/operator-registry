@@ -122,9 +122,11 @@ func populatePackageIcons(ctx context.Context, pkgs model.Model, q *SQLQuerier) 
 				continue
 			}
 		}
-		pkg.Icon = &model.Icon{
-			Data:      iconData,
-			MediaType: csv.Spec.Icon[0].MediaType,
+		if len(iconData) > 0 {
+			pkg.Icon = &model.Icon{
+				Data:      iconData,
+				MediaType: csv.Spec.Icon[0].MediaType,
+			}
 		}
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/operator-framework/api/pkg/operators"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -79,6 +80,7 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 		if err := dec.Decode(&doc); err != nil {
 			break
 		}
+		doc = []byte(strings.NewReplacer(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(string(doc)))
 
 		var in Meta
 		if err := json.Unmarshal(doc, &in); err != nil {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -256,7 +255,7 @@ func Build(p interface{}) (*Property, error) {
 
 	return &Property{
 		Type:  typ,
-		Value: bytes.TrimSpace(d),
+		Value: d,
 	}, nil
 }
 
@@ -270,18 +269,17 @@ func MustBuild(p interface{}) Property {
 
 func jsonMarshal(p interface{}) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	enc := newJSONEncoder(buf)
-	if err := enc.Encode(p); err != nil {
+	dec := json.NewEncoder(buf)
+	dec.SetEscapeHTML(false)
+	err := dec.Encode(p)
+	if err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
-}
-
-func newJSONEncoder(w io.Writer) json.Encoder {
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "")
-	return *enc
+	out := &bytes.Buffer{}
+	if err := json.Compact(out, buf.Bytes()); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 func MustBuildPackage(name, version string) Property {

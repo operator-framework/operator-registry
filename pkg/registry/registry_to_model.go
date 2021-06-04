@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/operator-framework/operator-registry/internal/model"
@@ -54,7 +55,7 @@ func ConvertRegistryBundleToModelBundles(b *Bundle) ([]model.Bundle, error) {
 }
 
 func registryBundleToModelBundle(b *Bundle) (*model.Bundle, error) {
-	bundleProps, err := convertRegistryBundleToModelProperties(b)
+	bundleProps, err := PropertiesFromBundle(b)
 	if err != nil {
 		return nil, fmt.Errorf("error converting properties for internal model: %v", err)
 	}
@@ -86,87 +87,92 @@ func registryBundleToModelBundle(b *Bundle) (*model.Bundle, error) {
 	}, nil
 }
 
-func convertRegistryBundleToModelProperties(b *Bundle) ([]property.Property, error) {
-	var out []property.Property
-
-	skips, err := b.csv.GetSkips()
+func PropertiesFromBundle(b *Bundle) ([]property.Property, error) {
+	csv, err := b.ClusterServiceVersion()
 	if err != nil {
-		return nil, fmt.Errorf("Could not get Skips from CSV for bundle: %s", err)
+		return nil, fmt.Errorf("get csv: %v", err)
+	}
+
+	skips, err := csv.GetSkips()
+	if err != nil {
+		return nil, fmt.Errorf("get csv skips: %v", err)
+	}
+
+	var graphProps []property.Property
+	replaces, err := csv.GetReplaces()
+	if err != nil {
+		return nil, fmt.Errorf("get csv replaces: %v", err)
+	}
+	for _, ch := range b.Channels {
+		graphProps = append(graphProps, property.MustBuildChannel(ch, replaces))
 	}
 
 	for _, skip := range skips {
-		out = append(out, property.MustBuildSkips(skip))
+		graphProps = append(graphProps, property.MustBuildSkips(skip))
 	}
 
-	skipRange := b.csv.GetSkipRange()
+	skipRange := csv.GetSkipRange()
 	if skipRange != "" {
-		out = append(out, property.MustBuildSkipRange(skipRange))
-	}
-
-	replaces, err := b.csv.GetReplaces()
-	if err != nil {
-		return nil, fmt.Errorf("Could not get Replaces from CSV for bundle: %s", err)
-	}
-	for _, ch := range extractChannels(b.Annotations.Channels) {
-		out = append(out, property.MustBuildChannel(ch, replaces))
+		graphProps = append(graphProps, property.MustBuildSkipRange(skipRange))
 	}
 
 	providedGVKs := map[property.GVK]struct{}{}
 	requiredGVKs := map[property.GVKRequired]struct{}{}
 
-	foundPackageProperty := false
+	var packageProvidedProperty *property.Property
+	var otherProps []property.Property
+
 	for i, p := range b.Properties {
 		switch p.Type {
 		case property.TypeGVK:
 			var v property.GVK
-			if err := json.Unmarshal(json.RawMessage(p.Value), &v); err != nil {
+			if err := json.Unmarshal(p.Value, &v); err != nil {
 				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
 			}
 			k := property.GVK{Group: v.Group, Kind: v.Kind, Version: v.Version}
 			providedGVKs[k] = struct{}{}
 		case property.TypePackage:
 			var v property.Package
-			if err := json.Unmarshal(json.RawMessage(p.Value), &v); err != nil {
+			if err := json.Unmarshal(p.Value, &v); err != nil {
 				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
 			}
-			out = append(out, property.MustBuildPackageRequired(v.PackageName, v.Version))
+			p := property.MustBuildPackage(v.PackageName, v.Version)
+			packageProvidedProperty = &p
 		default:
-			out = append(out, property.Property{
+			otherProps = append(otherProps, property.Property{
 				Type:  p.Type,
-				Value: json.RawMessage(p.Value),
+				Value: p.Value,
 			})
 		}
 	}
 
+	var packageRequiredProps []property.Property
 	for i, p := range b.Dependencies {
 		switch p.Type {
 		case property.TypeGVK:
 			var v property.GVK
-			if err := json.Unmarshal(json.RawMessage(p.Value), &v); err != nil {
+			if err := json.Unmarshal(p.Value, &v); err != nil {
 				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
 			}
 			k := property.GVKRequired{Group: v.Group, Kind: v.Kind, Version: v.Version}
 			requiredGVKs[k] = struct{}{}
 		case property.TypePackage:
-			out = append(out, property.Property{
-				Type:  property.TypePackageRequired,
-				Value: json.RawMessage(p.Value),
-			})
+			var v property.Package
+			if err := json.Unmarshal(p.Value, &v); err != nil {
+				return nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
+			}
+			packageRequiredProps = append(packageRequiredProps, property.MustBuildPackageRequired(v.PackageName, v.Version))
 		}
 	}
 
 	version, err := b.Version()
 	if err != nil {
-		return nil, fmt.Errorf("error getting bundle version from CSV %q:%v", b.csv.Name, err)
-	}
-
-	if !foundPackageProperty {
-		out = append(out, property.MustBuildPackage(b.Annotations.PackageName, version))
+		return nil, fmt.Errorf("get version: %v", err)
 	}
 
 	providedApis, err := b.ProvidedAPIs()
 	if err != nil {
-		return nil, fmt.Errorf("error getting Provided APIs for bundle %q:%v", b.Name, err)
+		return nil, fmt.Errorf("get provided apis: %v", err)
 	}
 
 	for p := range providedApis {
@@ -177,7 +183,7 @@ func convertRegistryBundleToModelProperties(b *Bundle) ([]property.Property, err
 	}
 	requiredApis, err := b.RequiredAPIs()
 	if err != nil {
-		return nil, fmt.Errorf("Could not get Required APIs from bundle:%s", err)
+		return nil, fmt.Errorf("get required apis: %v", err)
 	}
 	for p := range requiredApis {
 		k := property.GVKRequired{Group: p.Group, Kind: p.Kind, Version: p.Version}
@@ -186,6 +192,14 @@ func convertRegistryBundleToModelProperties(b *Bundle) ([]property.Property, err
 		}
 	}
 
+	var out []property.Property
+	if packageProvidedProperty == nil {
+		p := property.MustBuildPackage(b.Package, version)
+		packageProvidedProperty = &p
+	}
+	out = append(out, *packageProvidedProperty)
+	out = append(out, graphProps...)
+
 	for p := range providedGVKs {
 		out = append(out, property.MustBuildGVK(p.Group, p.Version, p.Kind))
 	}
@@ -193,6 +207,16 @@ func convertRegistryBundleToModelProperties(b *Bundle) ([]property.Property, err
 	for p := range requiredGVKs {
 		out = append(out, property.MustBuildGVKRequired(p.Group, p.Version, p.Kind))
 	}
+
+	out = append(out, packageRequiredProps...)
+	out = append(out, otherProps...)
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		return string(out[i].Value) < string(out[j].Value)
+	})
 
 	return out, nil
 }

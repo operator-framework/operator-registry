@@ -170,6 +170,7 @@ func TestLoadDir(t *testing.T) {
 							{Type: "olm.package", Value: json.RawMessage(`{"packageName":"etcd","version":"0.6.1"}`)},
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"alpha"}`)},
+							{Type: "olm.skipRange", Value: json.RawMessage(`"<0.6.1"`)},
 						},
 						RelatedImages: []RelatedImage{{Name: "etcdv0.6.1", Image: "quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943"}},
 					},
@@ -206,7 +207,7 @@ func TestLoadDir(t *testing.T) {
 						Properties: []property.Property{
 							{Type: "olm.package", Value: json.RawMessage(`{"packageName":"etcd","version":"0.9.2-clusterwide"}`)},
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`)},
-							{Type: "olm.skipRange", Value: json.RawMessage(`"\u003e=0.9.0 \u003c=0.9.1"`)},
+							{Type: "olm.skipRange", Value: json.RawMessage(`">=0.9.0 <=0.9.1"`)},
 							{Type: "olm.skips", Value: json.RawMessage(`"etcdoperator.v0.6.1"`)},
 							{Type: "olm.skips", Value: json.RawMessage(`"etcdoperator.v0.9.0"`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"clusterwide-alpha","replaces":"etcdoperator.v0.9.0"}`)},
@@ -220,7 +221,7 @@ func TestLoadDir(t *testing.T) {
 						Image:   "quay.io/operatorhubio/etcd:v0.9.4",
 						Properties: []property.Property{
 							{Type: "olm.package", Value: json.RawMessage(`{"packageName":"etcd","version":"0.9.4"}`)},
-							{Type: "olm.package.required", Value: json.RawMessage(`{"packageName":"test","versionRange":"\u003e=1.2.3 \u003c2.0.0-0"}`)},
+							{Type: "olm.package.required", Value: json.RawMessage(`{"packageName":"test","versionRange":">=1.2.3 <2.0.0-0"}`)},
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdBackup","version":"v1beta2"}`)},
 							{Type: "olm.gvk.required", Value: json.RawMessage(`{"group":"testapi.coreos.com","kind":"Testapi","version":"v1"}`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"singlenamespace-alpha","replaces":"etcdoperator.v0.9.2"}`)},

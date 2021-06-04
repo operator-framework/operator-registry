@@ -54,9 +54,12 @@ func TestNormalize(t *testing.T) {
 		assert.Equal(t, unchanged, b.Properties[0].Value)
 	})
 
-	t.Run("Success/RemoveSpacesAndHTMLEscapes", func(t *testing.T) {
-		withWhitespace := json.RawMessage("{\n\"test\":\"\u003C\"   }")
-		expected := json.RawMessage(`{"test":"<"}`)
+	t.Run("Success/RemoveSpaces", func(t *testing.T) {
+		withWhitespace := json.RawMessage(`  {  
+  "foo": "bar"   
+  
+  }  `)
+		expected := json.RawMessage(`{"foo":"bar"}`)
 		b.Properties = []property.Property{{Value: withWhitespace}}
 		pkgs.Normalize()
 		assert.Equal(t, expected, b.Properties[0].Value)
