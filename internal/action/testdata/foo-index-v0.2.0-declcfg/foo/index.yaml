@@ -28,7 +28,7 @@ properties:
   - type: olm.package.required
     value:
       packageName: bar
-      versionRange: v0.1.0
+      versionRange: <0.1.0
   - type: olm.skipRange
     value: <0.1.0
   - type: olm.bundle.object
@@ -72,7 +72,7 @@ properties:
   - type: olm.package.required
     value:
       packageName: bar
-      versionRange: v0.1.0
+      versionRange: <0.1.0
   - type: olm.skipRange
     value: <0.2.0
   - type: olm.skips
