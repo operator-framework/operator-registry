@@ -3,7 +3,6 @@ package alpha
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/add"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
 	initcmd "github.com/operator-framework/operator-registry/cmd/opm/alpha/init"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/render"
@@ -18,6 +17,6 @@ func NewCmd() *cobra.Command {
 		Short:  "Run an alpha subcommand",
 	}
 
-	runCmd.AddCommand(bundle.NewCmd(), add.NewCmd(), initcmd.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd())
+	runCmd.AddCommand(bundle.NewCmd(), initcmd.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd())
 	return runCmd
 }
