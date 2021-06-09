@@ -171,8 +171,11 @@ func TestLoadDir(t *testing.T) {
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"alpha"}`)},
 							{Type: "olm.skipRange", Value: json.RawMessage(`"<0.6.1"`)},
+							{Type: "olm.bundle.object", Value: json.RawMessage(`{"ref":"etcdoperator.v0.6.1.clusterserviceversion.yaml"}`)},
 						},
 						RelatedImages: []RelatedImage{{Name: "etcdv0.6.1", Image: "quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943"}},
+						Objects:       []string{string(mustLoadFile(t, "testdata/valid/etcdoperator.v0.6.1.clusterserviceversion.yaml"))},
+						CsvJSON:       string(mustLoadFile(t, "testdata/valid/etcdoperator.v0.6.1.clusterserviceversion.yaml")),
 					},
 					{
 						Schema:  "olm.bundle",
@@ -261,4 +264,11 @@ func TestLoadDir(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustLoadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
 }
