@@ -32,6 +32,11 @@ func TestReadYAMLOrJSON(t *testing.T) {
 			assertion: require.Error,
 		},
 		{
+			name:      "Error/NoSchema",
+			file:      "testdata/invalid/no-schema.yaml",
+			assertion: require.Error,
+		},
+		{
 			name:      "Error/InvalidPackageJSON",
 			file:      "testdata/invalid/invalid-package-json.json",
 			assertion: require.Error,
