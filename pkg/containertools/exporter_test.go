@@ -2,8 +2,11 @@ package containertools
 
 import (
 	"archive/tar"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -17,7 +20,7 @@ var files = map[string]string{
 }
 
 // 1. create a tar archive in memory
-// 2. setup Exporter with Writer pipe
+// 2. setup exporter with Writer pipe
 // 4. read tar archive contents to a temporary directory on disk
 // 5. Ensure file contents are there
 // 6. Ensure permissions are set as expected
@@ -29,7 +32,9 @@ func TestExporter_Run(t *testing.T) {
 	}
 	defer os.RemoveAll(temp)
 
-	exporter, err := NewExporter(temp, log)
+	piper, pipew := io.Pipe()
+	reader := tar.NewReader(piper)
+	exporter, err := newExporter(temp, log, reader, pipew)
 	if err != nil || exporter == nil {
 		t.Error(err)
 	}
@@ -91,6 +96,13 @@ func TestExporter_Run(t *testing.T) {
 		// the file mode is changed from 0777 to 0755 due to the default umask 022
 		if info.Mode() != os.FileMode(0755) {
 			t.Errorf("unexpected file mode %s, expected %s", info.Mode(), os.FileMode(0755))
+		}
+
+		// check contents match expected
+		key := entry.Name()
+		content, err := ioutil.ReadFile(filepath.Join(temp, key))
+		if !reflect.DeepEqual(content, []byte(files[key])) {
+			t.Errorf("file %s does not match after extraction: got %s expected %s", key, content, files[key])
 		}
 	}
 }

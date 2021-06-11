@@ -32,4 +32,4 @@ type Registry interface {
 
 // Root represents the root of the filesystem.
 // Used as the source when copying the entire contents of a container filesystem.
-const Root string = "/."
+const Root string = "/"

@@ -106,7 +106,7 @@ func (r *Registry) Unpack(ctx context.Context, ref image.Reference, from, to str
 
 	for _, layer := range manifest.Layers {
 		r.log.Debugf("unpacking layer: %v", layer)
-		if err := r.unpackLayer(ctx, layer, to); err != nil {
+		if err := r.unpackLayer(ctx, layer, from, to); err != nil {
 			return err
 		}
 	}
@@ -194,7 +194,7 @@ func (r *Registry) fetch(ctx context.Context, fetcher remotes.Fetcher, root ocis
 	return images.Dispatch(ctx, handler, nil, root)
 }
 
-func (r *Registry) unpackLayer(ctx context.Context, layer ocispec.Descriptor, dir string) error {
+func (r *Registry) unpackLayer(ctx context.Context, layer ocispec.Descriptor, from, to string) error {
 	ra, err := r.Content().ReaderAt(ctx, layer)
 	if err != nil {
 		return err
@@ -207,8 +207,12 @@ func (r *Registry) unpackLayer(ctx context.Context, layer ocispec.Descriptor, di
 		return err
 	}
 
-	filters := filterList{adjustPerms, dropXattrs}
-	_, err = archive.Apply(ctx, dir, decompressed, archive.WithFilter(filters.and))
+	// create file filter when unpacking, if the from argument is not root
+	// return a noOp if unpacking the entire filesystem
+	fileFilter := fromFilter(from)
+
+	filters := filterList{adjustPerms, dropXattrs, fileFilter}
+	_, err = archive.Apply(ctx, to, decompressed, archive.WithFilter(filters.and))
 
 	return err
 }
@@ -260,4 +264,33 @@ func dropXattrs(h *tar.Header) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// only unpack specified files (if not root)
+func fromFilter(from string) archive.Filter {
+	if from == image.Root {
+		// no-op, unpacks everything
+		return func(h *tar.Header) (bool, error) {
+			return true, nil
+		}
+	}
+
+	return func(h *tar.Header) (bool, error) {
+		// check if from is a dir or a file
+		if !h.FileInfo().IsDir() {
+			// we have a file
+			// only unpack this file
+			if from != h.FileInfo().Name() {
+				return false, nil
+			}
+			return true, nil
+		}
+		// we have a directory
+		// unpack the directory and all files under this directory
+		// TODO ensure directory is an exact match and only files under the heirarchy are pulled
+		if from == h.FileInfo().Name() || strings.Contains(from, h.FileInfo().Name()) {
+			return true, nil
+		}
+		return false, nil
+	}
 }
