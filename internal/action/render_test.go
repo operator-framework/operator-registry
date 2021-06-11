@@ -270,7 +270,7 @@ func newRegistry() (image.Registry, error) {
 			},
 			image.SimpleReference("test.registry/foo-operator/foo-index-declcfg:v0.2.0"): &image.MockImage{
 				Labels: map[string]string{
-					"operators.operatorframework.io.index.configs.v1": "/foo/index.yaml",
+					"operators.operatorframework.io.index.configs.v1": "/foo",
 				},
 				FS: subDeclcfgImage,
 			},
