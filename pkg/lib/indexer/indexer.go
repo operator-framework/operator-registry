@@ -354,18 +354,16 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 
 	dbLocation, ok := labels[containertools.DbLocationLabel]
 	if !ok {
-		// fallback to extracting the entire filesystem?
-		dbLocation = image.Root
+		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
-	dbName := filepath.Base(dbLocation)
 
-	i.Logger.Debugf("Copying index db from %s inside the container to %s on the filesystem", dbLocation, path.Join(workingDir, dbName))
+	i.Logger.Debugf("Copying index db from %s inside the container to %s on the filesystem", dbLocation, workingDir)
 	// unpack just the index db file from the container filesystem to avoid potential file permissions errors
 	if err := reg.Unpack(context.TODO(), imageRef, dbLocation, workingDir); err != nil {
 		return "", err
 	}
 
-	return path.Join(workingDir, dbName), nil
+	return path.Join(workingDir, dbLocation), nil
 }
 
 func copyDatabaseTo(databaseFile, targetDir string) (string, error) {

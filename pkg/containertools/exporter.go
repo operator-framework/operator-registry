@@ -10,40 +10,38 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Exporter can read a tar archive being passed along from a writer and write it to a local destination.
-type Exporter struct {
+// exporter can read a tar archive being passed along from a writer and write it to a local destination.
+type exporter struct {
 	dest   string
 	writer io.WriteCloser
 	reader *tar.Reader
 	log    *logrus.Entry
 }
 
-func NewExporter(dest string, logger *logrus.Entry) (*Exporter, error) {
-	// use stdout as pipew
-	piper, pipew := io.Pipe()
+func newExporter(dest string, logger *logrus.Entry, reader *tar.Reader, writer io.WriteCloser) (*exporter, error) {
 	d, err := filepath.Abs(dest)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Exporter{
+	return &exporter{
 		dest:   d,
-		writer: pipew,
-		reader: tar.NewReader(piper),
+		writer: writer,
+		reader: reader,
 		log:    logger,
 	}, nil
 }
 
-func (e *Exporter) Writer() io.WriteCloser {
+func (e *exporter) Writer() io.WriteCloser {
 	return e.writer
 }
 
-func (e *Exporter) Close() error {
+func (e *exporter) Close() error {
 	return e.writer.Close()
 }
 
 // Run reads the tar stream from reader as it comes from stdout and writes the file/dir to the destination specified.
-func (e *Exporter) Run() error {
+func (e *exporter) Run() error {
 	for {
 		header, err := e.reader.Next()
 		if err == io.EOF {

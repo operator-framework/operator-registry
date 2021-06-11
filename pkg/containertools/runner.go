@@ -2,7 +2,9 @@
 package containertools
 
 import (
+	"archive/tar"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"sync"
@@ -141,7 +143,9 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 
 	// Create a new exporter to copy and read output from stdout to a tar reader.
 	// This is done to rewrite file permissions on the fly to avoid permissions-related errors in standard docker cp.
-	exporter, err := NewExporter(dst, r.logger)
+	piper, pipew := io.Pipe()
+	reader := tar.NewReader(piper)
+	exporter, err := newExporter(dst, r.logger, reader, pipew)
 	if err != nil {
 		return fmt.Errorf("setting unpacking destination: #%v", err)
 	}
