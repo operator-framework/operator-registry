@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -17,20 +17,18 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
-func LoadDir(configDir string) (*DeclarativeConfig, error) {
-	w := &dirWalker{}
-	return loadFS(configDir, w)
-}
-
-func loadFS(root string, w fsWalker) (*DeclarativeConfig, error) {
+func LoadFS(configFS fs.FS) (*DeclarativeConfig, error) {
+	if configFS == nil {
+		return nil, fmt.Errorf("no declarative config filesystem provided")
+	}
 	cfg := &DeclarativeConfig{}
 
-	matcher, err := ignore.NewMatcher(os.DirFS(root), ".indexignore")
+	matcher, err := ignore.NewMatcher(configFS, ".indexignore")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := w.WalkFiles(root, func(path string, r io.Reader) error {
+	if err := walkFiles(configFS, func(path string, r io.Reader) error {
 		if matcher.Match(path, false) {
 			return nil
 		}
@@ -38,7 +36,7 @@ func loadFS(root string, w fsWalker) (*DeclarativeConfig, error) {
 		if err != nil {
 			return fmt.Errorf("could not load config file %q: %v", path, err)
 		}
-		if err := readBundleObjects(fileCfg.Bundles, root, path); err != nil {
+		if err := readBundleObjects(fileCfg.Bundles, configFS, path); err != nil {
 			return fmt.Errorf("read bundle objects: %v", err)
 		}
 		cfg.Packages = append(cfg.Packages, fileCfg.Packages...)
@@ -52,7 +50,7 @@ func loadFS(root string, w fsWalker) (*DeclarativeConfig, error) {
 	return cfg, nil
 }
 
-func readBundleObjects(bundles []Bundle, root, path string) error {
+func readBundleObjects(bundles []Bundle, root fs.FS, path string) error {
 	for bi, b := range bundles {
 		props, err := property.Parse(b.Properties)
 		if err != nil {
@@ -123,21 +121,15 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 	return cfg, nil
 }
 
-type fsWalker interface {
-	WalkFiles(root string, f func(path string, r io.Reader) error) error
-}
-
-type dirWalker struct{}
-
-func (w dirWalker) WalkFiles(root string, f func(string, io.Reader) error) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+func walkFiles(root fs.FS, f func(string, io.Reader) error) error {
+	return fs.WalkDir(root, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() {
 			return nil
 		}
-		file, err := os.Open(path)
+		file, err := root.Open(path)
 		if err != nil {
 			return err
 		}

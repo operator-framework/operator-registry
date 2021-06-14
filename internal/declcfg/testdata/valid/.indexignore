@@ -1,5 +1,0 @@
-*
-!*.json
-!*.yaml
-
-*.clusterserviceversion.yaml

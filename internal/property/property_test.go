@@ -217,7 +217,7 @@ func TestFile_GetData(t *testing.T) {
 				require.NoError(t, s.createFile(dir))
 			}
 
-			data, err := s.file.GetData(dir, dir)
+			data, err := s.file.GetData(os.DirFS(dir), ".")
 			s.assertion(t, err)
 			assert.Equal(t, s.expectData, data)
 		})

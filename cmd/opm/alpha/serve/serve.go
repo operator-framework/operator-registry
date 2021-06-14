@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -72,7 +73,7 @@ func (s *serve) run(ctx context.Context) error {
 
 	s.logger = s.logger.WithFields(logrus.Fields{"configs": s.configDir, "port": s.port})
 
-	cfg, err := declcfg.LoadDir(s.configDir)
+	cfg, err := declcfg.LoadFS(os.DirFS(s.configDir))
 	if err != nil {
 		return fmt.Errorf("load declarative config directory: %v", err)
 	}

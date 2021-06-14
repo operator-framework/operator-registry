@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+
 	"github.com/operator-framework/operator-registry/internal/declcfg"
 )
 
@@ -13,7 +15,7 @@ import (
 // error: a wrapped error that contains a list of error strings
 func ValidateConfig(directory string) error {
 	// Load config files and convert them to declcfg objects
-	cfg, err := declcfg.LoadDir(directory)
+	cfg, err := declcfg.LoadFS(os.DirFS(directory))
 	if err != nil {
 		return err
 	}

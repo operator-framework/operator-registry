@@ -2,8 +2,9 @@ package declcfg
 
 import (
 	"encoding/json"
-	"os"
+	"io/fs"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,8 @@ import (
 func TestReadYAMLOrJSON(t *testing.T) {
 	type spec struct {
 		name              string
-		file              string
+		fsys              fs.FS
+		path              string
 		assertion         require.ErrorAssertionFunc
 		expectNumPackages int
 		expectNumBundles  int
@@ -23,32 +25,38 @@ func TestReadYAMLOrJSON(t *testing.T) {
 	specs := []spec{
 		{
 			name:      "Error/NotYAMLOrJSON",
-			file:      "testdata/invalid/not-yaml-or-json.txt",
+			fsys:      invalidFS,
+			path:      "invalid-format.txt",
 			assertion: require.Error,
 		},
 		{
 			name:      "Error/NotJSONObject",
-			file:      "testdata/invalid/not-yaml-or-json-object.json",
+			fsys:      invalidFS,
+			path:      "not-object.json",
 			assertion: require.Error,
 		},
 		{
 			name:      "Error/NoSchema",
-			file:      "testdata/invalid/no-schema.yaml",
+			fsys:      invalidFS,
+			path:      "no-schema.yaml",
 			assertion: require.Error,
 		},
 		{
 			name:      "Error/InvalidPackageJSON",
-			file:      "testdata/invalid/invalid-package-json.json",
+			fsys:      invalidFS,
+			path:      "invalid-package.json",
 			assertion: require.Error,
 		},
 		{
 			name:      "Error/InvalidBundleJSON",
-			file:      "testdata/invalid/invalid-bundle-json.json",
+			fsys:      invalidFS,
+			path:      "invalid-bundle.json",
 			assertion: require.Error,
 		},
 		{
 			name:              "Success/UnrecognizedSchema",
-			file:              "testdata/valid/unrecognized-schema.json",
+			fsys:              validFS,
+			path:              "unrecognized-schema.json",
 			assertion:         require.NoError,
 			expectNumPackages: 1,
 			expectNumBundles:  1,
@@ -56,7 +64,8 @@ func TestReadYAMLOrJSON(t *testing.T) {
 		},
 		{
 			name:              "Success/ValidFile",
-			file:              "testdata/valid/etcd.yaml",
+			fsys:              validFS,
+			path:              "etcd.yaml",
 			assertion:         require.NoError,
 			expectNumPackages: 1,
 			expectNumBundles:  6,
@@ -66,7 +75,7 @@ func TestReadYAMLOrJSON(t *testing.T) {
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			f, err := os.Open(s.file)
+			f, err := s.fsys.Open(s.path)
 			require.NoError(t, err)
 
 			cfg, err := readYAMLOrJSON(f)
@@ -81,27 +90,27 @@ func TestReadYAMLOrJSON(t *testing.T) {
 	}
 }
 
-func TestLoadDir(t *testing.T) {
+func TestLoadFS(t *testing.T) {
 	type spec struct {
 		name      string
-		dir       string
+		fsys      fs.FS
 		assertion require.ErrorAssertionFunc
 		expected  *DeclarativeConfig
 	}
 	specs := []spec{
 		{
 			name:      "Error/NonExistentDir",
-			dir:       "testdata/nonexistent",
+			fsys:      nil,
 			assertion: require.Error,
 		},
 		{
 			name:      "Error/Invalid",
-			dir:       "testdata/invalid",
+			fsys:      invalidFS,
 			assertion: require.Error,
 		},
 		{
 			name:      "Success/ValidDir",
-			dir:       "testdata/valid",
+			fsys:      validFS,
 			assertion: require.NoError,
 			expected: &DeclarativeConfig{
 				Packages: []Package{
@@ -173,8 +182,8 @@ func TestLoadDir(t *testing.T) {
 							{Type: "olm.bundle.object", Value: json.RawMessage(`{"ref":"etcdoperator.v0.6.1.clusterserviceversion.yaml"}`)},
 						},
 						RelatedImages: []RelatedImage{{Name: "etcdv0.6.1", Image: "quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943"}},
-						Objects:       []string{string(mustLoadFile(t, "testdata/valid/etcdoperator.v0.6.1.clusterserviceversion.yaml"))},
-						CsvJSON:       string(mustLoadFile(t, "testdata/valid/etcdoperator.v0.6.1.clusterserviceversion.yaml")),
+						Objects:       []string{string(etcdCSV.Data)},
+						CsvJSON:       string(etcdCSV.Data),
 					},
 					{
 						Schema:  "olm.bundle",
@@ -255,7 +264,7 @@ func TestLoadDir(t *testing.T) {
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			cfg, err := LoadDir(s.dir)
+			cfg, err := LoadFS(s.fsys)
 			s.assertion(t, err)
 			if err == nil {
 				require.NotNil(t, cfg)
@@ -265,9 +274,534 @@ func TestLoadDir(t *testing.T) {
 	}
 }
 
-func mustLoadFile(t *testing.T, path string) []byte {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	return data
+var (
+	invalidBundle = &fstest.MapFile{
+		Data: []byte(`{"schema": "olm.bundle","relatedImages": {}}`),
+	}
+	invalidPackage = &fstest.MapFile{
+		Data: []byte(`{"schema": "olm.package","name": {}}`),
+	}
+	noSchema = &fstest.MapFile{
+		Data: []byte(`hello: world`),
+	}
+	invalidFormat = &fstest.MapFile{
+		Data: []byte(`[This is not yaml or json.}`),
+	}
+	notObject = &fstest.MapFile{
+		Data: []byte(`[]`),
+	}
+	invalidFS = fstest.MapFS{
+		"invalid-bundle.json":  invalidBundle,
+		"invalid-package.json": invalidPackage,
+		"no-schema.yaml":       noSchema,
+		"invalid-format.txt":   invalidFormat,
+		"not-object.json":      notObject,
+	}
+
+	indexIgnore = &fstest.MapFile{
+		Data: []byte(`*
+!*.json
+!*.yaml
+
+*.clusterserviceversion.yaml`),
+	}
+	cockroachdb = &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "cockroachdb",
+    "defaultChannel": "stable-5.x",
+    "icon": {
+        "base64data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMS44MiAzMiIgd2lkdGg9IjI0ODYiIGhlaWdodD0iMjUwMCI+PHRpdGxlPkNMPC90aXRsZT48cGF0aCBkPSJNMTkuNDIgOS4xN2ExNS4zOSAxNS4zOSAwIDAgMS0zLjUxLjQgMTUuNDYgMTUuNDYgMCAwIDEtMy41MS0uNCAxNS42MyAxNS42MyAwIDAgMSAzLjUxLTMuOTEgMTUuNzEgMTUuNzEgMCAwIDEgMy41MSAzLjkxek0zMCAuNTdBMTcuMjIgMTcuMjIgMCAwIDAgMjUuNTkgMGExNy40IDE3LjQgMCAwIDAtOS42OCAyLjkzQTE3LjM4IDE3LjM4IDAgMCAwIDYuMjMgMGExNy4yMiAxNy4yMiAwIDAgMC00LjQ0LjU3QTE2LjIyIDE2LjIyIDAgMCAwIDAgMS4xM2EuMDcuMDcgMCAwIDAgMCAuMDkgMTcuMzIgMTcuMzIgMCAwIDAgLjgzIDEuNTcuMDcuMDcgMCAwIDAgLjA4IDAgMTYuMzkgMTYuMzkgMCAwIDEgMS44MS0uNTQgMTUuNjUgMTUuNjUgMCAwIDEgMTEuNTkgMS44OCAxNy41MiAxNy41MiAwIDAgMC0zLjc4IDQuNDhjLS4yLjMyLS4zNy42NS0uNTUgMXMtLjIyLjQ1LS4zMy42OS0uMzEuNzItLjQ0IDEuMDhhMTcuNDYgMTcuNDYgMCAwIDAgNC4yOSAxOC43Yy4yNi4yNS41My40OS44MS43M3MuNDQuMzcuNjcuNTQuNTkuNDQuODkuNjRhLjA3LjA3IDAgMCAwIC4wOCAwYy4zLS4yMS42LS40Mi44OS0uNjRzLjQ1LS4zNS42Ny0uNTQuNTUtLjQ4LjgxLS43M2ExNy40NSAxNy40NSAwIDAgMCA1LjM4LTEyLjYxIDE3LjM5IDE3LjM5IDAgMCAwLTEuMDktNi4wOWMtLjE0LS4zNy0uMjktLjczLS40NS0xLjA5cy0uMjItLjQ3LS4zMy0uNjktLjM1LS42Ni0uNTUtMWExNy42MSAxNy42MSAwIDAgMC0zLjc4LTQuNDggMTUuNjUgMTUuNjUgMCAwIDEgMTEuNi0xLjg0IDE2LjEzIDE2LjEzIDAgMCAxIDEuODEuNTQuMDcuMDcgMCAwIDAgLjA4IDBxLjQ0LS43Ni44Mi0xLjU2YS4wNy4wNyAwIDAgMCAwLS4wOUExNi44OSAxNi44OSAwIDAgMCAzMCAuNTd6IiBmaWxsPSIjMTUxZjM0Ii8+PHBhdGggZD0iTTIxLjgyIDE3LjQ3YTE1LjUxIDE1LjUxIDAgMCAxLTQuMjUgMTAuNjkgMTUuNjYgMTUuNjYgMCAwIDEtLjcyLTQuNjggMTUuNSAxNS41IDAgMCAxIDQuMjUtMTAuNjkgMTUuNjIgMTUuNjIgMCAwIDEgLjcyIDQuNjgiIGZpbGw9IiMzNDg1NDAiLz48cGF0aCBkPSJNMTUgMjMuNDhhMTUuNTUgMTUuNTUgMCAwIDEtLjcyIDQuNjggMTUuNTQgMTUuNTQgMCAwIDEtMy41My0xNS4zN0ExNS41IDE1LjUgMCAwIDEgMTUgMjMuNDgiIGZpbGw9IiM3ZGJjNDIiLz48L3N2Zz4=",
+        "mediatype": "image/svg+xml"
+    }
 }
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v2.0.9",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v2.0.9",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "2.0.9"
+            }
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v2.1.11",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.11",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable",
+                "replaces": "cockroachdb.v2.1.1"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "2.1.11"
+            }
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v2.1.1",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.1",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable",
+                "replaces": "cockroachdb.v2.0.9"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "2.1.1"
+            }
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v3.0.7",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v3.0.7",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable-3.x"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "3.0.7"
+            }
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v5.0.3",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v5.0.3",
+    "properties": [
+        {
+            "type": "olm.channel",
+            "value": {
+                "name": "stable-5.x"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "5.0.3"
+            }
+        }
+    ]
+}`),
+	}
+	etcd = &fstest.MapFile{
+		Data: []byte(`---
+schema: olm.package
+name: etcd
+defaultChannel: singlenamespace-alpha
+description: A message about etcd operator, a description of channels
+icon:
+  base64data: PHN2ZyB3aWR0aD0iMjUwMCIgaGVpZ2h0PSIyNDIyIiB2aWV3Qm94PSIwIDAgMjU2IDI0OCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCI+PHBhdGggZD0iTTI1Mi4zODYgMTI4LjA2NGMtMS4yMDIuMS0yLjQxLjE0Ny0zLjY5My4xNDctNy40NDYgMC0xNC42Ny0xLjc0Ni0yMS4xODctNC45NDQgMi4xNy0xMi40NDcgMy4wOTItMjQuOTg3IDIuODUtMzcuNDgxLTcuMDY1LTEwLjIyLTE1LjE0LTE5Ljg2My0yNC4yNTYtMjguNzQ3IDMuOTU1LTcuNDE1IDkuODAxLTEzLjc5NSAxNy4xLTE4LjMxOWwzLjEzMy0xLjkzNy0yLjQ0Mi0yLjc1NGMtMTIuNTgxLTE0LjE2Ny0yNy41OTYtMjUuMTItNDQuNjItMzIuNTUyTDE3NS44NzYgMGwtLjg2MiAzLjU4OGMtMi4wMyA4LjM2My02LjI3NCAxNS45MDgtMTIuMSAyMS45NjJhMTkzLjg0MiAxOTMuODQyIDAgMCAwLTM0Ljk1Ni0xNC40MDVBMTk0LjAxMiAxOTQuMDEyIDAgMCAwIDkzLjA1NiAyNS41MkM4Ny4yNTQgMTkuNDczIDgzLjAyIDExLjk0NyA4MC45OTkgMy42MDhMODAuMTMuMDJsLTMuMzgyIDEuNDdDNTkuOTM5IDguODE1IDQ0LjUxIDIwLjA2NSAzMi4xMzUgMzQuMDJsLTIuNDQ5IDIuNzYgMy4xMyAxLjkzN2M3LjI3NiA0LjUwNiAxMy4xMDYgMTAuODQ5IDE3LjA1NCAxOC4yMjMtOS4wODggOC44NS0xNy4xNTQgMTguNDYyLTI0LjIxNCAyOC42MzUtLjI3NSAxMi40ODkuNiAyNS4xMiAyLjc4IDM3Ljc0LTYuNDg0IDMuMTY3LTEzLjY2OCA0Ljg5NC0yMS4wNjUgNC44OTQtMS4yOTggMC0yLjUxMy0uMDQ3LTMuNjkzLS4xNDVMMCAxMjcuNzg1bC4zNDUgMy42NzFjMS44MDIgMTguNTc4IDcuNTcgMzYuMjQ3IDE3LjE1NCA1Mi41MjNsMS44NyAzLjE3NiAyLjgxLTIuMzg0YTQ4LjA0IDQ4LjA0IDAgMCAxIDIyLjczNy0xMC42NSAxOTQuODYgMTk0Ljg2IDAgMCAwIDE5LjQ2IDMxLjY5NmMxMS44MjggNC4xMzcgMjQuMTUxIDcuMjI1IDM2Ljg3OCA5LjA2MyAxLjIyIDguNDE3LjI0OCAxNy4xMjItMy4wNzIgMjUuMTcxbC0xLjQgMy40MTEgMy42Ljc5M2M5LjIyIDIuMDI3IDE4LjUyMyAzLjA2IDI3LjYzMSAzLjA2bDI3LjYyMy0zLjA2IDMuNjA0LS43OTMtMS40MDMtMy40MTdjLTMuMzEyLTguMDUtNC4yODQtMTYuNzY1LTMuMDYzLTI1LjE4MyAxMi42NzYtMS44NCAyNC45NTQtNC45MiAzNi43MzgtOS4wNDVhMTk1LjEwOCAxOTUuMTA4IDAgMCAwIDE5LjQ4Mi0zMS43MjYgNDguMjU0IDQ4LjI1NCAwIDAgMSAyMi44NDggMTAuNjZsMi44MDkgMi4zOCAxLjg2Mi0zLjE2OGM5LjYtMTYuMjk3IDE1LjM2OC0zMy45NjUgMTcuMTQyLTUyLjUxM2wuMzQ1LTMuNjY1LTMuNjE0LjI3OXpNMTY3LjQ5IDE3Mi45NmMtMTMuMDY4IDMuNTU0LTI2LjM0IDUuMzQ4LTM5LjUzMiA1LjM0OC0xMy4yMjggMC0yNi40ODMtMS43OTMtMzkuNTYzLTUuMzQ4YTE1My4yNTUgMTUzLjI1NSAwIDAgMS0xNi45MzItMzUuNjdjLTQuMDY2LTEyLjUxNy02LjQ0NS0yNS42My03LjEzNS0zOS4xMzQgOC40NDYtMTAuNDQzIDE4LjA1Mi0xOS41OTEgMjguNjY1LTI3LjI5M2ExNTIuNjIgMTUyLjYyIDAgMCAxIDM0Ljk2NS0xOS4wMTEgMTUzLjI0MiAxNTMuMjQyIDAgMCAxIDM0Ljg5OCAxOC45N2MxMC42NTQgNy43NDMgMjAuMzAyIDE2Ljk2MiAyOC43OSAyNy40Ny0uNzI0IDEzLjQyNy0zLjEzMiAyNi40NjUtNy4yMDQgMzguOTYxYTE1Mi43NjcgMTUyLjc2NyAwIDAgMS0xNi45NTIgMzUuNzA3em0tMjguNzQtNjIuOTk4YzAgOS4yMzIgNy40ODIgMTYuNyAxNi43MDIgMTYuNyA5LjIxNyAwIDE2LjY5LTcuNDY2IDE2LjY5LTE2LjcgMC05LjE5Ni03LjQ3My0xNi42OTItMTYuNjktMTYuNjkyLTkuMjIgMC0xNi43MDEgNy40OTYtMTYuNzAxIDE2LjY5MnptLTIxLjU3OCAwYzAgOS4yMzItNy40OCAxNi43LTE2LjcgMTYuNy05LjIyNiAwLTE2LjY4NS03LjQ2Ni0xNi42ODUtMTYuNyAwLTkuMTkzIDcuNDYtMTYuNjg5IDE2LjY4Ni0xNi42ODkgOS4yMiAwIDE2LjcgNy40OTYgMTYuNyAxNi42OXoiIGZpbGw9IiM0MTlFREEiLz48L3N2Zz4K
+  mediatype: image/svg+xml
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator-community.v0.6.1
+image: quay.io/operatorhubio/etcd:v0.6.1
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.6.1
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdCluster
+      version: v1beta2
+  - type: olm.channel
+    value:
+      name: alpha
+  - type: olm.skipRange
+    value: <0.6.1
+  - type: olm.bundle.object
+    value:
+      ref: etcdoperator.v0.6.1.clusterserviceversion.yaml
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943
+    name: etcdv0.6.1
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator.v0.9.0
+image: quay.io/operatorhubio/etcd:v0.9.0
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.9.0
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdBackup
+      version: v1beta2
+  - type: olm.channel
+    value:
+      name: singlenamespace-alpha
+  - type: olm.channel
+    value:
+      name: clusterwide-alpha
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:db563baa8194fcfe39d1df744ed70024b0f1f9e9b55b5923c2f3a413c44dc6b8
+    name: etcdv0.9.0
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator.v0.9.2
+image: quay.io/operatorhubio/etcd:v0.9.2
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.9.2
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdRestore
+      version: v1beta2
+  - type: olm.channel
+    value:
+      name: singlenamespace-alpha
+      replaces: etcdoperator.v0.9.0
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2
+    name: etcdv0.9.2
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator.v0.9.2-clusterwide
+image: quay.io/operatorhubio/etcd:v0.9.2-clusterwide
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.9.2-clusterwide
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdBackup
+      version: v1beta2
+  - type: olm.skipRange
+    value: '>=0.9.0 <=0.9.1'
+  - type: olm.skips
+    value: etcdoperator.v0.6.1
+  - type: olm.skips
+    value: etcdoperator.v0.9.0
+  - type: olm.channel
+    value:
+      name: clusterwide-alpha
+      replaces: etcdoperator.v0.9.0
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2
+    name: etcdv0.9.2
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator.v0.9.4
+image: quay.io/operatorhubio/etcd:v0.9.4
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.9.4
+  - type: olm.package.required
+    value:
+      packageName: test
+      versionRange: '>=1.2.3 <2.0.0-0'
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdBackup
+      version: v1beta2
+  - type: olm.gvk.required
+    value:
+      group: testapi.coreos.com
+      kind: Testapi
+      version: v1
+  - type: olm.channel
+    value:
+      name: singlenamespace-alpha
+      replaces: etcdoperator.v0.9.2
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:66a37fd61a06a43969854ee6d3e21087a98b93838e284a6086b13917f96b0d9b
+    name: etcdv0.9.2
+
+---
+schema: olm.bundle
+package: etcd
+name: etcdoperator.v0.9.4-clusterwide
+image: quay.io/operatorhubio/etcd:v0.9.4-clusterwide
+properties:
+  - type: olm.package
+    value:
+      packageName: etcd
+      version: 0.9.4-clusterwide
+  - type: olm.gvk
+    value:
+      group: etcd.database.coreos.com
+      kind: EtcdBackup
+      version: v1beta2
+  - type: olm.channel
+    value:
+      name: clusterwide-alpha
+      replaces: etcdoperator.v0.9.2-clusterwide
+relatedImages:
+  - image: quay.io/coreos/etcd-operator@sha256:66a37fd61a06a43969854ee6d3e21087a98b93838e284a6086b13917f96b0d9b
+    name: etcdv0.9.2`),
+	}
+	etcdCSV = &fstest.MapFile{
+		Data: []byte(`apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    capabilities: Full Lifecycle
+    description: etcd is a distributed key value store providing a reliable way to
+      store data across a cluster of machines.
+    tectonic-visibility: ocs
+  name: etcdoperator.v0.6.1
+  namespace: placeholder
+spec:
+  customresourcedefinitions:
+    owned:
+    - description: Represents a cluster of etcd nodes.
+      displayName: etcd Cluster
+      kind: EtcdCluster
+      name: etcdclusters.etcd.database.coreos.com
+      resources:
+      - kind: Service
+        version: v1
+      - kind: Pod
+        version: v1
+      specDescriptors:
+      - description: The desired number of member Pods for the etcd cluster.
+        displayName: Size
+        path: size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      statusDescriptors:
+      - description: The status of each of the member Pods for the etcd cluster.
+        displayName: Member Status
+        path: members
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podStatuses
+      - description: The service at which the running etcd cluster can be accessed.
+        displayName: Service
+        path: service
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Service
+      - description: The current size of the etcd cluster.
+        displayName: Cluster Size
+        path: size
+      - description: The current version of the etcd cluster.
+        displayName: Current Version
+        path: currentVersion
+      - description: The target version of the etcd cluster, after upgrading.
+        displayName: Target Version
+        path: targetVersion
+      - description: The current status of the etcd cluster.
+        displayName: Status
+        path: phase
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.phase
+      - description: Explanation for the current status of the cluster.
+        displayName: Status Details
+        path: reason
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.phase:reason
+      version: v1beta2
+  description: "etcd is a distributed key value store that provides a reliable way\
+    \ to store data across a cluster of machines. It\xE2\u20AC\u2122s open-source\
+    \ and available on GitHub. etcd gracefully handles leader elections during network\
+    \ partitions and will tolerate machine failure, including the leader. Your applications\
+    \ can read and write data into etcd.\nA simple use-case is to store database connection\
+    \ details or feature flags within etcd as key value pairs. These values can be\
+    \ watched, allowing your app to reconfigure itself when they change. Advanced\
+    \ uses take advantage of the consistency guarantees to implement database leader\
+    \ elections or do distributed locking across a cluster of workers.\n\n_The etcd\
+    \ Open Cloud Service is Public Alpha. The goal before Beta is to fully implement\
+    \ backup features._\n\n### Reading and writing to etcd\n\nCommunicate with etcd\
+    \ though its command line utility ` + "`etcdctl`" + ` or with the API using the automatically\
+    \ generated Kubernetes Service.\n\n[Read the complete guide to using the etcd\
+    \ Open Cloud Service](https://coreos.com/tectonic/docs/latest/alm/etcd-ocs.html)\n\
+    \n### Supported Features\n**High availability**\nMultiple instances of etcd are\
+    \ networked together and secured. Individual failures or networking issues are\
+    \ transparently handled to keep your cluster up and running.\n**Automated updates**\n\
+    Rolling out a new etcd version works like all Kubernetes rolling updates. Simply\
+    \ declare the desired version, and the etcd service starts a safe rolling update\
+    \ to the new version automatically.\n**Backups included**\nComing soon, the ability\
+    \ to schedule backups to happen on or off cluster.\n"
+  displayName: etcd
+  icon:
+  - base64data: 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
+    mediatype: image/png
+  install:
+    spec:
+      deployments:
+      - name: etcd-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: etcd-operator-alm-owned
+          template:
+            metadata:
+              labels:
+                name: etcd-operator-alm-owned
+              name: etcd-operator-alm-owned
+            spec:
+              containers:
+              - command:
+                - etcd-operator
+                - --create-crd=false
+                env:
+                - name: MY_POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: MY_POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                image: quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943
+                name: etcd-operator
+              serviceAccountName: etcd-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - etcd.database.coreos.com
+          resources:
+          - etcdclusters
+          verbs:
+          - '*'
+        - apiGroups:
+          - storage.k8s.io
+          resources:
+          - storageclasses
+          verbs:
+          - '*'
+        - apiGroups:
+          - ''
+          resources:
+          - pods
+          - services
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - '*'
+        - apiGroups:
+          - ''
+          resources:
+          - secrets
+          verbs:
+          - get
+        serviceAccountName: etcd-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - etcd
+  - key value
+  - database
+  - coreos
+  - open source
+  labels:
+    alm-owner-etcd: etcdoperator
+    alm-status-descriptors: etcdoperator.v0.6.1
+    operated-by: etcdoperator
+  links:
+  - name: Blog
+    url: https://coreos.com/etcd
+  - name: Documentation
+    url: https://coreos.com/operators/etcd/docs/latest/
+  - name: etcd Operator Source Code
+    url: https://github.com/coreos/etcd-operator
+  maintainers:
+  - email: support@coreos.com
+    name: CoreOS, Inc
+  maturity: alpha
+  provider:
+    name: CoreOS, Inc
+  selector:
+    matchLabels:
+      alm-owner-etcd: etcdoperator
+      operated-by: etcdoperator
+  version: 0.6.1
+`),
+	}
+	readme = &fstest.MapFile{
+		Data: []byte(`# Valid Declarative Config
+
+This is a README file about this declarative config. It should be ignored
+when loading this directory as declarative config due to the patterns
+present in the .indexignore file.`),
+	}
+	unrecognizedSchema = &fstest.MapFile{
+		Data: []byte(`{"schema":"olm.package"}{"schema":"unexpected"}{"schema":"olm.bundle"}`),
+	}
+
+	validFS = fstest.MapFS{
+		".indexignore":     indexIgnore,
+		"cockroachdb.json": cockroachdb,
+		"etcd.yaml":        etcd,
+		"etcdoperator.v0.6.1.clusterserviceversion.yaml": etcdCSV,
+		"README.md":                readme,
+		"unrecognized-schema.json": unrecognizedSchema,
+	}
+)
