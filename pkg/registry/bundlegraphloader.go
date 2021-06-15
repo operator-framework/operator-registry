@@ -130,6 +130,12 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		// the new node. If we didn't find a node semantically ahead, the new node is
 		// the new channel head
 		if !lowestAhead.IsEmpty() {
+
+			// Inherit replacements form the version replacing the new node.
+			for replaced, val := range channelGraph.Nodes[lowestAhead] {
+				replaces[replaced] = val
+			}
+
 			channelGraph.Nodes[lowestAhead] = map[BundleKey]struct{}{
 				newBundleKey: struct{}{},
 			}
