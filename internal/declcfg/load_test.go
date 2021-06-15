@@ -3,6 +3,7 @@ package declcfg
 import (
 	"encoding/json"
 	"io/fs"
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -99,8 +100,13 @@ func TestLoadFS(t *testing.T) {
 	}
 	specs := []spec{
 		{
-			name:      "Error/NonExistentDir",
+			name:      "Error/NilFS",
 			fsys:      nil,
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/NonExistentDir",
+			fsys:      os.DirFS("non/existent/dir/"),
 			assertion: require.Error,
 		},
 		{
