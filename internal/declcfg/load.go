@@ -17,18 +17,23 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
-func LoadFS(configFS fs.FS) (*DeclarativeConfig, error) {
-	if configFS == nil {
+// LoadFS loads a declarative config from the provided root FS. LoadFS walks the
+// filesystem from root and uses a gitignore-style filename matcher to skip files
+// that match patterns found in .indexignore files found throughout the filesystem.
+// If LoadFS encounters an error loading or parsing any file, the error will be
+// immedidately returned.
+func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
+	if root == nil {
 		return nil, fmt.Errorf("no declarative config filesystem provided")
 	}
 	cfg := &DeclarativeConfig{}
 
-	matcher, err := ignore.NewMatcher(configFS, ".indexignore")
+	matcher, err := ignore.NewMatcher(root, ".indexignore")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := walkFiles(configFS, func(path string, r io.Reader) error {
+	if err := walkFiles(root, func(path string, r io.Reader) error {
 		if matcher.Match(path, false) {
 			return nil
 		}
@@ -36,7 +41,7 @@ func LoadFS(configFS fs.FS) (*DeclarativeConfig, error) {
 		if err != nil {
 			return fmt.Errorf("could not load config file %q: %v", path, err)
 		}
-		if err := readBundleObjects(fileCfg.Bundles, configFS, path); err != nil {
+		if err := readBundleObjects(fileCfg.Bundles, root, path); err != nil {
 			return fmt.Errorf("read bundle objects: %v", err)
 		}
 		cfg.Packages = append(cfg.Packages, fileCfg.Packages...)
