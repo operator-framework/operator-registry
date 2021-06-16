@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine as builder
+FROM quay.io/fedora/fedora:34-x86_64 as builder
 
 RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /go/src/github.com/operator-framework/operator-registry
@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/operator-framework/operator-registry
 COPY . .
 RUN make static
 
-FROM golang:1.16-alpine as probe-builder
+FROM quay.io/fedora/fedora:34-x86_64 as probe-builder
 
 RUN apk update && apk add build-base git
 ENV ORG github.com/grpc-ecosystem

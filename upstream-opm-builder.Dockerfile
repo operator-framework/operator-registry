@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine AS builder
+FROM quay.io/fedora/fedora:34-x86_64 AS builder
 
 RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /build

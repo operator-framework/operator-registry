@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine
+FROM quay.io/fedora/fedora:34-x86_64
 
 RUN apk update && \
     apk add make git protobuf
