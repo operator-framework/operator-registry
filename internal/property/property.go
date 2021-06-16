@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
-	"strings"
 )
 
 type Property struct {
@@ -106,25 +106,18 @@ func (f File) GetRef() string {
 	return f.ref
 }
 
-func (f File) GetData(root, cwd string) ([]byte, error) {
+func (f File) GetData(root fs.FS, cwd string) ([]byte, error) {
 	if !f.IsRef() {
 		return f.data, nil
-	}
-	rootAbs, err := filepath.Abs(root)
-	if err != nil {
-		return nil, err
 	}
 	if filepath.IsAbs(f.ref) {
 		return nil, fmt.Errorf("reference must be a relative path")
 	}
-	refAbs, err := filepath.Abs(filepath.Join(cwd, f.ref))
+	file, err := root.Open(filepath.Join(cwd, f.ref))
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(refAbs, rootAbs) {
-		return nil, fmt.Errorf("reference %q must be within root %q", refAbs, rootAbs)
-	}
-	return ioutil.ReadFile(refAbs)
+	return ioutil.ReadAll(file)
 }
 
 type Properties struct {

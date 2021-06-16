@@ -51,7 +51,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		)
 		// TODO(joelanford): Add support for detecting and rendering sqlite files.
 		if stat, serr := os.Stat(ref); serr == nil && stat.IsDir() {
-			cfg, err = declcfg.LoadDir(ref)
+			cfg, err = declcfg.LoadFS(os.DirFS(ref))
 		} else {
 			cfg, err = r.imageToDeclcfg(ctx, ref)
 		}
@@ -111,7 +111,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		}
 	} else if configsDir, ok := labels["operators.operatorframework.io.index.configs.v1"]; ok {
 		// TODO(joelanford): Make a constant for above configs location label
-		cfg, err = declcfg.LoadDir(filepath.Join(tmpDir, configsDir))
+		cfg, err = declcfg.LoadFS(os.DirFS(filepath.Join(tmpDir, configsDir)))
 		if err != nil {
 			return nil, err
 		}
