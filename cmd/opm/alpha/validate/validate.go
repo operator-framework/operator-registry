@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -18,11 +19,15 @@ func NewCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			directory := args[0]
-			if _, err := os.Stat(directory); os.IsNotExist(err) {
+			s, err := os.Stat(directory)
+			if err != nil {
 				return err
 			}
+			if !s.IsDir() {
+				return fmt.Errorf("%q is not a directory", directory)
+			}
 
-			if err := config.ValidateConfig(directory); err != nil {
+			if err := config.Validate(os.DirFS(directory)); err != nil {
 				logger.Fatal(err)
 			}
 			return nil
