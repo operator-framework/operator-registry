@@ -342,7 +342,21 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 		return fmt.Errorf("unable to migrate database: %s", err)
 	}
 
-	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, request.Bundles)
+	// Check if all bundlepaths are valid
+	var toDeprecate []string
+
+	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
+
+	toDeprecate, _, err = checkForBundlePaths(dbQuerier, request.Bundles)
+	if err != nil {
+		if !request.Permissive {
+			r.Logger.WithError(err).Error("permissive mode disabled")
+			return err
+		}
+		r.Logger.WithError(err).Warn("permissive mode enabled")
+	}
+
+	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, toDeprecate)
 	if err := deprecator.Deprecate(); err != nil {
 		r.Logger.Debugf("unable to deprecate bundles from database: %s", err)
 		if !request.Permissive {
@@ -353,4 +367,38 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 	}
 
 	return nil
+}
+
+// checkForBundlePaths verifies presence of a list of bundle paths in the registry.
+func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]string, []string, error) {
+	if len(bundlePaths) == 0 {
+		return bundlePaths, nil, nil
+	}
+
+	registryBundles, err := querier.ListBundles(context.TODO())
+	if err != nil {
+		return bundlePaths, nil, err
+	}
+
+	if len(registryBundles) == 0 {
+		return nil, bundlePaths, nil
+	}
+
+	registryBundlePaths := map[string]struct{}{}
+	for _, b := range registryBundles {
+		registryBundlePaths[b.BundlePath] = struct{}{}
+	}
+
+	var found, missing []string
+	for _, b := range bundlePaths {
+		if _, ok := registryBundlePaths[b]; ok {
+			found = append(found, b)
+			continue
+		}
+		missing = append(missing, b)
+	}
+	if len(missing) > 0 {
+		return found, missing, fmt.Errorf("target bundlepaths for deprecation missing from registry: %v", missing)
+	}
+	return found, missing, nil
 }
