@@ -43,6 +43,29 @@ func TestValidationError_Error(t *testing.T) {
 └── foobar`,
 		},
 		{
+			name: "WithEmptyLeafSubErrors",
+			err: &validationError{
+				message: "hello",
+				subErrors: []error{
+					&validationError{
+						message:   "foo",
+						subErrors: []error{},
+					},
+					&validationError{
+						message: "bar",
+						subErrors: []error{
+							fmt.Errorf("bar1"),
+							fmt.Errorf("bar2"),
+						},
+					},
+				}},
+			expect: `hello:
+├── foo
+└── bar:
+    ├── bar1
+    └── bar2`,
+		},
+		{
 			name: "WithSubSubErrors",
 			err: &validationError{
 				message: "hello",

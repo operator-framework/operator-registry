@@ -32,7 +32,7 @@ func (v *validationError) Error() string {
 func (v *validationError) errorPrefix(prefix []rune, last bool) string {
 	sep := ":\n"
 	if len(v.subErrors) == 0 {
-		sep = ""
+		sep = "\n"
 	}
 	errMsg := bytes.NewBufferString(fmt.Sprintf("%s%s%s", string(prefix), v.message, sep))
 	for i, serr := range v.subErrors {
