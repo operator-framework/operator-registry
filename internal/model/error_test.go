@@ -14,6 +14,22 @@ func TestValidationError_Error(t *testing.T) {
 		expect string
 	}
 
+	recursiveErr := &validationError{
+		message: "l1",
+	}
+	recursiveErr.subErrors = []error{
+		fmt.Errorf("err1"),
+		&validationError{
+			message: "l2",
+			subErrors: []error{
+				fmt.Errorf("err3"),
+				recursiveErr,
+				fmt.Errorf("err4"),
+			},
+		},
+		fmt.Errorf("err2"),
+	}
+
 	specs := []spec{
 		{
 			name:   "Nil",
@@ -24,6 +40,16 @@ func TestValidationError_Error(t *testing.T) {
 			name:   "Empty",
 			err:    &validationError{},
 			expect: "",
+		},
+		{
+			name: "RecursiveError",
+			err:  recursiveErr,
+			expect: `l1:
+├── err1
+├── l2:
+│   ├── err3
+│   └── err4
+└── err2`,
 		},
 		{
 			name:   "MessageOnly",

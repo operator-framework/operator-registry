@@ -26,10 +26,16 @@ func (v *validationError) Error() string {
 	if v == nil {
 		return ""
 	}
-	return strings.TrimSpace(v.errorPrefix(nil, true))
+	return strings.TrimSpace(v.errorPrefix(nil, true, nil))
 }
 
-func (v *validationError) errorPrefix(prefix []rune, last bool) string {
+func (v *validationError) errorPrefix(prefix []rune, last bool, seen []error) string {
+	for _, s := range seen {
+		if v == s {
+			return ""
+		}
+	}
+	seen = append(seen, v)
 	sep := ":\n"
 	if len(v.subErrors) == 0 {
 		sep = "\n"
@@ -51,7 +57,7 @@ func (v *validationError) errorPrefix(prefix []rune, last bool) string {
 			subPrefix = append(subPrefix, []rune("├── ")...)
 		}
 		if verr, ok := serr.(*validationError); ok {
-			errMsg.WriteString(verr.errorPrefix(subPrefix, subLast))
+			errMsg.WriteString(verr.errorPrefix(subPrefix, subLast, seen))
 		} else {
 			errMsg.WriteString(fmt.Sprintf("%s%s\n", string(subPrefix), serr))
 		}
