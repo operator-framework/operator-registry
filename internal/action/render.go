@@ -146,6 +146,7 @@ func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeCo
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close()
 
 	migrator, err := sqlite.NewSQLLiteMigrator(db)
 	if err != nil {
@@ -178,6 +179,8 @@ func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
+
 	images := map[string]sets.String{}
 	for rows.Next() {
 		var (
