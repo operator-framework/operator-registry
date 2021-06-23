@@ -81,6 +81,9 @@ func TestRender(t *testing.T) {
 								Name:  "operator",
 								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+							},
 						},
 						CsvJSON: string(foov1csv),
 						Objects: []string{string(foov1csv), string(foov1crd)},
@@ -106,6 +109,9 @@ func TestRender(t *testing.T) {
 							{
 								Name:  "operator",
 								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
@@ -150,6 +156,9 @@ func TestRender(t *testing.T) {
 								Name:  "operator",
 								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+							},
 						},
 						CsvJSON: string(foov1csv),
 						Objects: []string{string(foov1csv), string(foov1crd)},
@@ -175,6 +184,9 @@ func TestRender(t *testing.T) {
 							{
 								Name:  "operator",
 								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
