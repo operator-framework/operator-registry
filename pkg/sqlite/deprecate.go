@@ -35,9 +35,9 @@ func (d *BundleDeprecator) Deprecate() error {
 
 	var errs []error
 	for _, bundlePath := range d.bundles {
-		if err := d.store.DeprecateBundle(bundlePath); err != nil {
+		if err := d.store.DeprecateBundle(bundlePath); err != nil && !errors.Is(err, registry.ErrBundleImageNotInDatabase) {
 			errs = append(errs, fmt.Errorf("error deprecating bundle %s: %s", bundlePath, err))
-			if !errors.Is(err, registry.ErrBundleImageNotInDatabase) && !errors.Is(err, registry.ErrRemovingDefaultChannelDuringDeprecation) {
+			if !errors.Is(err, registry.ErrRemovingDefaultChannelDuringDeprecation) {
 				break
 			}
 		}

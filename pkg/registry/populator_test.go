@@ -748,7 +748,7 @@ func TestDeprecateBundle(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{fmt.Errorf("error deprecating bundle quay.io/test/etcd.0.6.0: %s", registry.ErrBundleImageNotInDatabase)}),
+				err: nil,
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -843,6 +843,40 @@ func TestDeprecateBundle(t *testing.T) {
 				},
 			},
 		},
+		{
+			description: "OutOfOrderDeprecate",
+			args: args{
+				bundles: []string{
+					"quay.io/test/prometheus.0.15.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.0/alpha",
+					"quay.io/test/etcd.0.9.0/beta",
+					"quay.io/test/etcd.0.9.0/stable",
+					"quay.io/test/etcd.0.9.2/stable",
+					"quay.io/test/etcd.0.9.2/alpha",
+					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/prometheus.0.15.0/preview",
+				},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"alpha",
+						"beta",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -867,7 +901,6 @@ func TestDeprecateBundle(t *testing.T) {
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
-			fmt.Println("remaining", bundlePaths)
 			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
 
 			// Ensure deprecated bundles match
@@ -881,7 +914,6 @@ func TestDeprecateBundle(t *testing.T) {
 					}
 				}
 			}
-			fmt.Println("deprecated", deprecatedBundles)
 
 			require.ElementsMatch(t, tt.expected.deprecatedBundles, deprecatedBundles)
 
