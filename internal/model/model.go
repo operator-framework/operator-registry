@@ -196,6 +196,25 @@ func (c *Channel) Validate() error {
 			result = multierror.Append(result, fmt.Errorf("bundle %q not correctly linked to parent channel", b.Name))
 		}
 	}
+
+	skipped := map[string]struct{}{}
+	for _, b := range c.Bundles {
+		for _, s := range b.Skips {
+			skipped[s] = struct{}{}
+		}
+	}
+	replacers := map[string][]string{}
+	for name, b := range c.Bundles {
+		if _, ok := skipped[name]; !ok {
+			replacers[b.Replaces] = append(replacers[b.Replaces], name)
+		}
+	}
+	for name, rep := range replacers {
+		if len(rep) > 1 {
+			result = multierror.Append(result, fmt.Errorf("bundle %q is replaced by multiple non-skipped bundles %v in channel %q ", name, rep, c.Name))
+		}
+	}
+
 	return result.ErrorOrNil()
 }
 

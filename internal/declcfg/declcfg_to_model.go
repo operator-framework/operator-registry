@@ -36,7 +36,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			return nil, fmt.Errorf("unknown package %q for bundle %q", b.Package, b.Name)
 		}
 
-		props, err := parseProperties(b.Properties)
+		props, err := property.Parse(b.Properties)
 		if err != nil {
 			return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
 		}
