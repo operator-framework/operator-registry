@@ -8,11 +8,13 @@ import (
 
 const (
 	schemaPackage = "olm.package"
+	schemaChannel = "olm.channel"
 	schemaBundle  = "olm.bundle"
 )
 
 type DeclarativeConfig struct {
 	Packages []Package
+	Channels []Channel
 	Bundles  []Bundle
 	Others   []Meta
 }
@@ -30,10 +32,19 @@ type Icon struct {
 	MediaType string `json:"mediatype"`
 }
 
+type Channel struct {
+	Schema     string   `json:"schema"`
+	Package    string   `json:"package"`
+	Name       string   `json:"name"`
+	Versions   []string `json:"versions"`
+	Tombstones []string `json:"tombstones,omitempty"`
+}
+
 type Bundle struct {
 	Schema        string              `json:"schema"`
 	Name          string              `json:"name"`
 	Package       string              `json:"package"`
+	Version       string              `json:"version"`
 	Image         string              `json:"image"`
 	Properties    []property.Property `json:"properties,omitempty"`
 	RelatedImages []RelatedImage      `json:"relatedImages,omitempty"`
