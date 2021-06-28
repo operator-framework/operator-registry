@@ -9,7 +9,6 @@ import (
 	"github.com/h2non/filetype/matchers"
 	"github.com/h2non/filetype/types"
 	svg "github.com/h2non/go-is-svg"
-	"github.com/hashicorp/go-multierror"
 
 	"github.com/operator-framework/operator-registry/internal/property"
 )
@@ -23,17 +22,17 @@ func init() {
 type Model map[string]*Package
 
 func (m Model) Validate() error {
-	var result *multierror.Error
+	result := newValidationError("invalid index")
 
 	for name, pkg := range m {
 		if name != pkg.Name {
-			result = multierror.Append(result, fmt.Errorf("package key %q does not match package name %q", name, pkg.Name))
+			result.subErrors = append(result.subErrors, fmt.Errorf("package key %q does not match package name %q", name, pkg.Name))
 		}
 		if err := pkg.Validate(); err != nil {
-			result = multierror.Append(result, fmt.Errorf("invalid package %q: %v", pkg.Name, err))
+			result.subErrors = append(result.subErrors, err)
 		}
 	}
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 type Package struct {
@@ -45,43 +44,44 @@ type Package struct {
 }
 
 func (m *Package) Validate() error {
-	var result *multierror.Error
+	result := newValidationError(fmt.Sprintf("invalid package %q", m.Name))
+
 	if m.Name == "" {
-		result = multierror.Append(result, errors.New("package name must not be empty"))
+		result.subErrors = append(result.subErrors, errors.New("package name must not be empty"))
 	}
 
 	if err := m.Icon.Validate(); err != nil {
-		result = multierror.Append(result, fmt.Errorf("invalid icon: %v", err))
+		result.subErrors = append(result.subErrors, err)
 	}
 
 	if m.DefaultChannel == nil {
-		result = multierror.Append(result, fmt.Errorf("default channel must be set"))
+		result.subErrors = append(result.subErrors, fmt.Errorf("default channel must be set"))
 	}
 
 	if len(m.Channels) == 0 {
-		result = multierror.Append(result, fmt.Errorf("package must contain at least one channel"))
+		result.subErrors = append(result.subErrors, fmt.Errorf("package must contain at least one channel"))
 	}
 
 	foundDefault := false
 	for name, ch := range m.Channels {
 		if name != ch.Name {
-			result = multierror.Append(result, fmt.Errorf("channel key %q does not match channel name %q", name, ch.Name))
+			result.subErrors = append(result.subErrors, fmt.Errorf("channel key %q does not match channel name %q", name, ch.Name))
 		}
 		if err := ch.Validate(); err != nil {
-			result = multierror.Append(result, fmt.Errorf("invalid channel %q: %v", ch.Name, err))
+			result.subErrors = append(result.subErrors, err)
 		}
 		if ch == m.DefaultChannel {
 			foundDefault = true
 		}
 		if ch.Package != m {
-			result = multierror.Append(result, fmt.Errorf("channel %q not correctly linked to parent package", ch.Name))
+			result.subErrors = append(result.subErrors, fmt.Errorf("channel %q not correctly linked to parent package", ch.Name))
 		}
 	}
 
 	if m.DefaultChannel != nil && !foundDefault {
-		result = multierror.Append(result, fmt.Errorf("default channel %q not found in channels list", m.DefaultChannel.Name))
+		result.subErrors = append(result.subErrors, fmt.Errorf("default channel %q not found in channels list", m.DefaultChannel.Name))
 	}
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 type Icon struct {
@@ -98,19 +98,19 @@ func (i *Icon) Validate() error {
 	//   mediatype listed in the icon field? Currently, some production
 	//   index databases are failing these tests, so leaving this
 	//   commented out for now.
-	var result *multierror.Error
+	result := newValidationError("invalid icon")
 	//if len(i.Data) == 0 {
-	//	result = multierror.Append(result, errors.New("icon data must be set if icon is defined"))
+	//	result.subErrors = append(result.subErrors, errors.New("icon data must be set if icon is defined"))
 	//}
 	//if len(i.MediaType) == 0 {
-	//	result = multierror.Append(result, errors.New("icon mediatype must be set if icon is defined"))
+	//	result.subErrors = append(result.subErrors, errors.New("icon mediatype must be set if icon is defined"))
 	//}
 	//if len(i.Data) > 0 {
 	//	if err := i.validateData(); err != nil {
-	//		result = multierror.Append(result, err)
+	//		result.subErrors = append(result.subErrors, err)
 	//	}
 	//}
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 func (i *Icon) validateData() error {
@@ -166,37 +166,38 @@ func (c Channel) Head() (*Bundle, error) {
 }
 
 func (c *Channel) Validate() error {
-	var result *multierror.Error
+	result := newValidationError(fmt.Sprintf("invalid channel %q", c.Name))
+
 	if c.Name == "" {
-		result = multierror.Append(result, errors.New("channel name must not be empty"))
+		result.subErrors = append(result.subErrors, errors.New("channel name must not be empty"))
 	}
 
 	if c.Package == nil {
-		result = multierror.Append(result, errors.New("package must be set"))
+		result.subErrors = append(result.subErrors, errors.New("package must be set"))
 	}
 
 	if len(c.Bundles) == 0 {
-		result = multierror.Append(result, fmt.Errorf("channel must contain at least one bundle"))
+		result.subErrors = append(result.subErrors, fmt.Errorf("channel must contain at least one bundle"))
 	}
 
 	if len(c.Bundles) > 0 {
 		if _, err := c.Head(); err != nil {
-			result = multierror.Append(result, err)
+			result.subErrors = append(result.subErrors, err)
 		}
 	}
 
 	for name, b := range c.Bundles {
 		if name != b.Name {
-			result = multierror.Append(result, fmt.Errorf("bundle key %q does not match bundle name %q", name, b.Name))
+			result.subErrors = append(result.subErrors, fmt.Errorf("bundle key %q does not match bundle name %q", name, b.Name))
 		}
 		if err := b.Validate(); err != nil {
-			result = multierror.Append(result, fmt.Errorf("invalid bundle %q: %v", b.Name, err))
+			result.subErrors = append(result.subErrors, err)
 		}
 		if b.Channel != c {
-			result = multierror.Append(result, fmt.Errorf("bundle %q not correctly linked to parent channel", b.Name))
+			result.subErrors = append(result.subErrors, fmt.Errorf("bundle %q not correctly linked to parent channel", b.Name))
 		}
 	}
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 type Bundle struct {
@@ -217,26 +218,34 @@ type Bundle struct {
 }
 
 func (b *Bundle) Validate() error {
-	var result *multierror.Error
+	result := newValidationError(fmt.Sprintf("invalid bundle %q", b.Name))
+
 	if b.Name == "" {
-		result = multierror.Append(result, errors.New("name must be set"))
+		result.subErrors = append(result.subErrors, errors.New("name must be set"))
 	}
 	if b.Channel == nil {
-		result = multierror.Append(result, errors.New("channel must be set"))
+		result.subErrors = append(result.subErrors, errors.New("channel must be set"))
 	}
 	if b.Package == nil {
-		result = multierror.Append(result, errors.New("package must be set"))
+		result.subErrors = append(result.subErrors, errors.New("package must be set"))
 	}
 	if b.Channel != nil && b.Package != nil && b.Package != b.Channel.Package {
-		result = multierror.Append(result, errors.New("package does not match channel's package"))
+		result.subErrors = append(result.subErrors, errors.New("package does not match channel's package"))
+	}
+	if b.Replaces != "" {
+		if b.Channel != nil && b.Channel.Bundles != nil {
+			if _, ok := b.Channel.Bundles[b.Replaces]; !ok {
+				result.subErrors = append(result.subErrors, fmt.Errorf("replaces %q not found in channel", b.Replaces))
+			}
+		}
 	}
 	props, err := property.Parse(b.Properties)
 	if err != nil {
-		result = multierror.Append(result, err)
+		result.subErrors = append(result.subErrors, err)
 	}
 	for i, skip := range b.Skips {
 		if skip == "" {
-			result = multierror.Append(result, fmt.Errorf("skip[%d] is empty", i))
+			result.subErrors = append(result.subErrors, fmt.Errorf("skip[%d] is empty", i))
 		}
 	}
 	// TODO(joelanford): Validate related images? It looks like some
@@ -245,19 +254,19 @@ func (b *Bundle) Validate() error {
 	//   Example is in redhat-operators: 3scale-operator.v0.5.5
 	//for i, relatedImage := range b.RelatedImages {
 	//	if err := relatedImage.Validate(); err != nil {
-	//		result = multierror.Append(result, fmt.Errorf("invalid related image[%d]: %v", i, err))
+	//		result.subErrors = append(result.subErrors, WithIndex(i, err))
 	//	}
 	//}
 
 	if props != nil && len(props.Packages) != 1 {
-		result = multierror.Append(result, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
+		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
 	}
 
 	if b.Image == "" && len(b.Objects) == 0 {
-		result = multierror.Append(result, errors.New("bundle image must be set"))
+		result.subErrors = append(result.subErrors, errors.New("bundle image must be set"))
 	}
 
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 type RelatedImage struct {
@@ -266,14 +275,14 @@ type RelatedImage struct {
 }
 
 func (i RelatedImage) Validate() error {
-	var result *multierror.Error
+	result := newValidationError("invalid related image")
 	if i.Name == "" {
-		result = multierror.Append(result, fmt.Errorf("name must be set"))
+		result.subErrors = append(result.subErrors, fmt.Errorf("name must be set"))
 	}
 	if i.Image == "" {
-		result = multierror.Append(result, fmt.Errorf("image must be set"))
+		result.subErrors = append(result.subErrors, fmt.Errorf("image must be set"))
 	}
-	return result.ErrorOrNil()
+	return result.orNil()
 }
 
 func (m Model) Normalize() {
