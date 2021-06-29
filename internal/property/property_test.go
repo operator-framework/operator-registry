@@ -30,6 +30,14 @@ func TestValidate(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
+			name: "Success/maxOpenShiftVersion",
+			v: Property{
+				Type:  "ol.maxOpenShiftVersion",
+				Value: json.RawMessage("4.8"),
+			},
+			assertion: require.NoError,
+		},
+		{
 			name: "Error/NoType",
 			v: Property{
 				Value: json.RawMessage(""),
