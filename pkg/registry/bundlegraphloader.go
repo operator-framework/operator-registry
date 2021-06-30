@@ -87,6 +87,19 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 					node.CsvName, node.Version, node.BundlePath)
 			}
 
+			// if skippatch mode is enabled, check each node to determine if z-updates should
+			// be replaced as well. Keep track of them to delete those nodes from the graph itself,
+			// just be aware of them for replacements
+			if skippatch {
+				if isSkipPatchCandidate(versionToAdd, nodeVersion) {
+					skipPatchCandidates = append(skipPatchCandidates, node)
+					replaces[node] = struct{}{}
+
+					// don't consider this version as related (previous/next) to the new one
+					continue
+				}
+			}
+
 			switch comparison := nodeVersion.Compare(versionToAdd); comparison {
 			case 0:
 				return nil, fmt.Errorf("Bundle version %s already added to index", bundleVersion)
@@ -107,16 +120,6 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 					if nodeVersion.GT(greatestBehindSemver) {
 						greatestBehind = node
 					}
-				}
-			}
-
-			// if skippatch mode is enabled, check each node to determine if z-updates should
-			// be replaced as well. Keep track of them to delete those nodes from the graph itself,
-			// just be aware of them for replacements
-			if skippatch {
-				if isSkipPatchCandidate(versionToAdd, nodeVersion) {
-					skipPatchCandidates = append(skipPatchCandidates, node)
-					replaces[node] = struct{}{}
 				}
 			}
 		}
