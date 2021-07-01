@@ -16,7 +16,7 @@ const (
 	PodDisruptionBudgetKind   = "PodDisruptionBudget"
 	PriorityClassKind         = "PriorityClass"
 	VerticalPodAutoscalerKind = "VerticalPodAutoscaler"
-	ConsoleYamlSampleKind     = "ConsoleYamlSample"
+	ConsoleYAMLSampleKind     = "ConsoleYAMLSample"
 	ConsoleQuickStartKind     = "ConsoleQuickStart"
 	ConsoleCLIDownloadKind    = "ConsoleCLIDownload"
 	ConsoleLinkKind           = "ConsoleLink"
@@ -43,7 +43,7 @@ var supportedResources = map[string]Namespaced{
 	PodDisruptionBudgetKind:   true,
 	PriorityClassKind:         false,
 	VerticalPodAutoscalerKind: false,
-	ConsoleYamlSampleKind:     false,
+	ConsoleYAMLSampleKind:     false,
 	ConsoleQuickStartKind:     false,
 	ConsoleCLIDownloadKind:    false,
 	ConsoleLinkKind:           false,
