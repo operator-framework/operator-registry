@@ -4,7 +4,10 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -15,6 +18,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func TestRender(t *testing.T) {
@@ -25,7 +30,7 @@ func TestRender(t *testing.T) {
 		assertion require.ErrorAssertionFunc
 	}
 
-	registry, err := newRegistry()
+	reg, err := newRegistry()
 	require.NoError(t, err)
 	foov1csv, err := bundleImageV1.ReadFile("testdata/foo-bundle-v0.1.0/manifests/foo.v0.1.0.csv.yaml")
 	require.NoError(t, err)
@@ -50,7 +55,7 @@ func TestRender(t *testing.T) {
 			name: "Success/SqliteIndexImage",
 			render: action.Render{
 				Refs:     []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry: registry,
+				Registry: reg,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -125,7 +130,7 @@ func TestRender(t *testing.T) {
 			name: "Success/DeclcfgIndexImage",
 			render: action.Render{
 				Refs:     []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
-				Registry: registry,
+				Registry: reg,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -200,7 +205,7 @@ func TestRender(t *testing.T) {
 			name: "Success/BundleImage",
 			render: action.Render{
 				Refs:     []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
-				Registry: registry,
+				Registry: reg,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Bundles: []declcfg.Bundle{
@@ -249,14 +254,16 @@ var bundleImageV1 embed.FS
 //go:embed testdata/foo-bundle-v0.2.0/metadata/*
 var bundleImageV2 embed.FS
 
-//go:embed testdata/foo-index-v0.2.0-sqlite/database/*
-var sqliteImage embed.FS
-
 //go:embed testdata/foo-index-v0.2.0-declcfg/foo/*
 var declcfgImage embed.FS
 
 func newRegistry() (image.Registry, error) {
-	subSqliteImage, err := fs.Sub(sqliteImage, "testdata/foo-index-v0.2.0-sqlite")
+	imageMap := map[image.Reference]string{
+		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
+		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
+	}
+
+	subSqliteImage, err := generateSqliteFS(imageMap)
 	if err != nil {
 		return nil, err
 	}
@@ -300,4 +307,61 @@ func newRegistry() (image.Registry, error) {
 			},
 		},
 	}, nil
+}
+
+func generateSqliteFS(imageMap map[image.Reference]string) (fs.FS, error) {
+	dir, err := os.MkdirTemp("", "opm-render-test-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+
+	dbFile := filepath.Join(dir, "index.db")
+	if err := generateSqliteFile(dbFile, imageMap); err != nil {
+		return nil, err
+	}
+
+	dbData, err := os.ReadFile(dbFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return &fstest.MapFS{
+		"database/index.db": &fstest.MapFile{
+			Data: dbData,
+		},
+	}, nil
+}
+
+func generateSqliteFile(path string, imageMap map[image.Reference]string) error {
+	db, err := sqlite.Open(path)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	m, err := sqlite.NewSQLLiteMigrator(db)
+	if err != nil {
+		return err
+	}
+	if err := m.Migrate(context.Background()); err != nil {
+		return err
+	}
+
+	graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+	if err != nil {
+		return err
+	}
+	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
+
+	loader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, dbQuerier, imageMap, nil, false)
+	if err := populator.Populate(registry.ReplacesMode); err != nil {
+		return err
+	}
+	return nil
 }
