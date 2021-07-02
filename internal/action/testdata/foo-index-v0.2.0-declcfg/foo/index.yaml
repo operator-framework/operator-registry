@@ -40,6 +40,7 @@ properties:
 relatedImages:
   - image: test.registry/foo-operator/foo:v0.1.0
     name: operator
+  - image: test.registry/foo-operator/foo-bundle:v0.1.0
 ---
 schema: olm.bundle
 package: foo
@@ -83,3 +84,4 @@ properties:
 relatedImages:
   - image: test.registry/foo-operator/foo:v0.2.0
     name: operator
+  - image: test.registry/foo-operator/foo-bundle:v0.2.0

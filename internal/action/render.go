@@ -2,6 +2,7 @@ package action
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -145,6 +146,7 @@ func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeCo
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close()
 
 	migrator, err := sqlite.NewSQLLiteMigrator(db)
 	if err != nil {
@@ -165,7 +167,55 @@ func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeCo
 	}
 
 	cfg := declcfg.ConvertFromModel(m)
+
+	if err := populateDBRelatedImages(ctx, &cfg, db); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, "SELECT image, operatorbundle_name FROM related_image")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	images := map[string]sets.String{}
+	for rows.Next() {
+		var (
+			img        sql.NullString
+			bundleName sql.NullString
+		)
+		if err := rows.Scan(&img, &bundleName); err != nil {
+			return err
+		}
+		if !img.Valid || !bundleName.Valid {
+			continue
+		}
+		m, ok := images[bundleName.String]
+		if !ok {
+			m = sets.NewString()
+		}
+		m.Insert(img.String)
+		images[bundleName.String] = m
+	}
+
+	for i, b := range cfg.Bundles {
+		ris, ok := images[b.Name]
+		if !ok {
+			continue
+		}
+		for _, ri := range b.RelatedImages {
+			if ris.Has(ri.Image) {
+				ris.Delete(ri.Image)
+			}
+		}
+		for ri := range ris {
+			cfg.Bundles[i].RelatedImages = append(cfg.Bundles[i].RelatedImages, declcfg.RelatedImage{Image: ri})
+		}
+	}
+	return nil
 }
 
 func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.DeclarativeConfig, error) {
