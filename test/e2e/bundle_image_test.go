@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -801,6 +802,16 @@ var _ = Describe("Launch bundle", func() {
 			Logf("Waiting on job to update status")
 			<-done
 			Logf("Job complete")
+
+			pl, err := kubeclient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(job.Spec.Selector)})
+			Expect(err).NotTo(HaveOccurred())
+			for _, pod := range pl.Items {
+				logs, err := kubeclient.CoreV1().Pods(namespace).GetLogs(pod.GetName(), &corev1.PodLogOptions{}).Stream(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+				logData, err := ioutil.ReadAll(logs)
+				Expect(err).NotTo(HaveOccurred())
+				Logf("Pod logs for unpack job pod %q:\n%s", pod.GetName(), string(logData))
+			}
 
 			bundleDataConfigMap, err = kubeclient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), bundleDataConfigMap.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
