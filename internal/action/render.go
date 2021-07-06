@@ -25,9 +25,34 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
+type RefType uint
+
+const (
+	RefBundleImage RefType = 1 << iota
+	RefSqliteImage
+	RefSqliteFile
+	RefDCImage
+	RefDCDir
+
+	RefAll = 0
+)
+
+func (r RefType) Allowed(refType RefType) bool {
+	return r == RefAll || r&refType == refType
+}
+
+var _ error = &ErrNotAllowed{}
+
+type ErrNotAllowed struct{}
+
+func (_ *ErrNotAllowed) Error() string {
+	return "not allowed"
+}
+
 type Render struct {
-	Refs     []string
-	Registry image.Registry
+	Refs           []string
+	Registry       image.Registry
+	AllowedRefMask RefType
 }
 
 func nullLogger() *logrus.Entry {
@@ -48,26 +73,9 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 
 	var cfgs []declcfg.DeclarativeConfig
 	for _, ref := range r.Refs {
-		var (
-			cfg *declcfg.DeclarativeConfig
-			err error
-		)
-		if stat, serr := os.Stat(ref); serr == nil {
-			if stat.IsDir() {
-				cfg, err = declcfg.LoadFS(os.DirFS(ref))
-			} else {
-				// The only supported file type is an sqlite DB file,
-				// since declarative configs will be in a directory.
-				if err := checkDBFile(ref); err != nil {
-					return nil, err
-				}
-				cfg, err = sqliteToDeclcfg(ctx, ref)
-			}
-		} else {
-			cfg, err = r.imageToDeclcfg(ctx, ref)
-		}
+		cfg, err := r.renderReference(ctx, ref)
 		if err != nil {
-			return nil, fmt.Errorf("render reference %q: %v", ref, err)
+			return nil, fmt.Errorf("render reference %q: %w", ref, err)
 		}
 		renderBundleObjects(cfg)
 		cfgs = append(cfgs, *cfg)
@@ -96,6 +104,28 @@ func (r Render) createRegistry() (*containerdregistry.Registry, error) {
 	return reg, nil
 }
 
+func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
+	if stat, serr := os.Stat(ref); serr == nil {
+		if stat.IsDir() {
+			if !r.AllowedRefMask.Allowed(RefDCDir) {
+				return nil, fmt.Errorf("cannot render DC directory: %w", &ErrNotAllowed{})
+			}
+			return declcfg.LoadFS(os.DirFS(ref))
+		} else {
+			// The only supported file type is an sqlite DB file,
+			// since declarative configs will be in a directory.
+			if err := checkDBFile(ref); err != nil {
+				return nil, err
+			}
+			if !r.AllowedRefMask.Allowed(RefSqliteFile) {
+				return nil, fmt.Errorf("cannot render sqlite file: %w", &ErrNotAllowed{})
+			}
+			return sqliteToDeclcfg(ctx, ref)
+		}
+	}
+	return r.imageToDeclcfg(ctx, ref)
+}
+
 func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
 	ref := image.SimpleReference(imageRef)
 	if err := r.Registry.Pull(ctx, ref); err != nil {
@@ -116,17 +146,26 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 
 	var cfg *declcfg.DeclarativeConfig
 	if dbFile, ok := labels[containertools.DbLocationLabel]; ok {
+		if !r.AllowedRefMask.Allowed(RefSqliteImage) {
+			return nil, fmt.Errorf("cannot render sqlite image: %w", &ErrNotAllowed{})
+		}
 		cfg, err = sqliteToDeclcfg(ctx, filepath.Join(tmpDir, dbFile))
 		if err != nil {
 			return nil, err
 		}
 	} else if configsDir, ok := labels["operators.operatorframework.io.index.configs.v1"]; ok {
 		// TODO(joelanford): Make a constant for above configs location label
+		if !r.AllowedRefMask.Allowed(RefDCImage) {
+			return nil, fmt.Errorf("cannot render DC image: %w", &ErrNotAllowed{})
+		}
 		cfg, err = declcfg.LoadFS(os.DirFS(filepath.Join(tmpDir, configsDir)))
 		if err != nil {
 			return nil, err
 		}
 	} else if _, ok := labels[bundle.PackageLabel]; ok {
+		if !r.AllowedRefMask.Allowed(RefBundleImage) {
+			return nil, fmt.Errorf("cannot render bundle image: %w", &ErrNotAllowed{})
+		}
 		img, err := registry.NewImageInput(ref, tmpDir)
 		if err != nil {
 			return nil, err

@@ -125,6 +125,12 @@ func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 	for _, opt := range opts {
 		opt(&b)
 	}
+	sort.Slice(b.Properties, func(i, j int) bool {
+		if b.Properties[i].Type != b.Properties[j].Type {
+			return b.Properties[i].Type < b.Properties[j].Type
+		}
+		return string(b.Properties[i].Value) < string(b.Properties[j].Value)
+	})
 	return b
 }
 

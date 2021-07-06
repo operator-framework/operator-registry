@@ -68,6 +68,14 @@ func traverseModelChannels(mpkg model.Package) []Bundle {
 	var out []Bundle
 	for _, b := range bundles {
 		b.Properties = property.Deduplicate(b.Properties)
+
+		sort.Slice(b.Properties, func(i, j int) bool {
+			if b.Properties[i].Type != b.Properties[j].Type {
+				return b.Properties[i].Type < b.Properties[j].Type
+			}
+			return string(b.Properties[i].Value) < string(b.Properties[j].Value)
+		})
+
 		out = append(out, *b)
 	}
 	return out
