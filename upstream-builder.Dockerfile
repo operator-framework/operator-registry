@@ -20,7 +20,6 @@ COPY --from=builder [ \
     "/bin/grpc_health_probe", \
     "/build/bin/opm", \
     "/build/bin/initializer", \
-    "/build/bin/appregistry-server", \
     "/build/bin/configmap-server", \
     "/build/bin/registry-server", \
     "/bin/" \
