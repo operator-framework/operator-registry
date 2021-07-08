@@ -307,8 +307,14 @@ func (m Model) AddBundle(b Bundle) {
 	p := m[b.Package.Name]
 	b.Package = p
 
+	if p.Channels == nil {
+		p.Channels = map[string]*Channel{}
+	}
 	if ch, ok := p.Channels[b.Channel.Name]; ok {
 		b.Channel = ch
+		if ch.Bundles == nil {
+			ch.Bundles = map[string]*Bundle{}
+		}
 		ch.Bundles[b.Name] = &b
 	} else {
 		newCh := &Channel{

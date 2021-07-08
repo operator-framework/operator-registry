@@ -923,6 +923,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
 ## explicit
 sigs.k8s.io/controller-runtime/pkg/client
 sigs.k8s.io/controller-runtime/pkg/client/apiutil
+sigs.k8s.io/controller-runtime/pkg/client/fake
+sigs.k8s.io/controller-runtime/pkg/internal/objectutil
 sigs.k8s.io/controller-runtime/pkg/scheme
 # sigs.k8s.io/kind v0.11.1
 ## explicit

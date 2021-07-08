@@ -19,17 +19,14 @@ func NewCmd() *cobra.Command {
 	var (
 		snapshot action.CatalogSnapshot
 
-		output         string
-		kubeconfigPath string
-		timeout        time.Duration
+		output  string
+		timeout time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:   "catalog-snapshot [args]",
-		Short: "Generate a snapshot of all catalogs in the cluster as a declarative config",
+		Short: "Generate a snapshot of all installed operators in the cluster as a declarative config",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			snapshot.KubeconfigPath = kubeconfigPath
-
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
 			switch output {
 			case "yaml":
@@ -59,7 +56,7 @@ func NewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&kubeconfigPath, "output", "o", "json", "Output format (json|yaml)")
+	cmd.Flags().StringVarP(&snapshot.KubeconfigPath, "output", "o", "json", "Output format (json|yaml)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 2*time.Minute, "Command timeout")
 	return cmd
 }
