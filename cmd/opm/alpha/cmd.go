@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
+	"github.com/operator-framework/operator-registry/cmd/opm/alpha/catalogsnapshot"
 	initcmd "github.com/operator-framework/operator-registry/cmd/opm/alpha/init"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/render"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/serve"
@@ -17,6 +18,13 @@ func NewCmd() *cobra.Command {
 		Short:  "Run an alpha subcommand",
 	}
 
-	runCmd.AddCommand(bundle.NewCmd(), initcmd.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd())
+	runCmd.AddCommand(
+		bundle.NewCmd(),
+		initcmd.NewCmd(),
+		serve.NewCmd(),
+		render.NewCmd(),
+		validate.NewCmd(),
+		catalogsnapshot.NewCmd(),
+	)
 	return runCmd
 }
