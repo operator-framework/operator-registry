@@ -232,13 +232,6 @@ func (b *Bundle) Validate() error {
 	if b.Channel != nil && b.Package != nil && b.Package != b.Channel.Package {
 		result.subErrors = append(result.subErrors, errors.New("package does not match channel's package"))
 	}
-	if b.Replaces != "" {
-		if b.Channel != nil && b.Channel.Bundles != nil {
-			if _, ok := b.Channel.Bundles[b.Replaces]; !ok {
-				result.subErrors = append(result.subErrors, fmt.Errorf("replaces %q not found in channel", b.Replaces))
-			}
-		}
-	}
 	props, err := property.Parse(b.Properties)
 	if err != nil {
 		result.subErrors = append(result.subErrors, err)
