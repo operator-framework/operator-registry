@@ -19,8 +19,8 @@ func NewCmd() *cobra.Command {
 		output string
 	)
 	cmd := &cobra.Command{
-		Use:   "render [index-image | bundle-image]...",
-		Short: "Generate declarative config blobs from the provided index and bundle images",
+		Use:   "render [index-image | bundle-image | sqlite-file]...",
+		Short: "Generate a declarative config blob from the provided index images, bundle images, and sqlite database files",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			render.Refs = args
