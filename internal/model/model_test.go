@@ -379,6 +379,20 @@ func TestValidators(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
+			name: "Bundle/Success/ReplacesNotInChannel",
+			v: &Bundle{
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Image:    "registry.io/image",
+				Replaces: "anakin.v0.0.0",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
 			name: "Bundle/Success/NoBundleImage/HaveBundleData",
 			v: &Bundle{
 				Package: pkg,
@@ -437,16 +451,6 @@ func TestValidators(t *testing.T) {
 				Package: &Package{},
 				Channel: ch,
 				Name:    "anakin.v0.1.0",
-			},
-			assertion: require.Error,
-		},
-		{
-			name: "Bundle/Error/ReplacesNotInChannel",
-			v: &Bundle{
-				Package:  pkg,
-				Channel:  ch,
-				Name:     "anakin.v0.1.0",
-				Replaces: "anakin.v0.0.0",
 			},
 			assertion: require.Error,
 		},
