@@ -269,9 +269,6 @@ type RelatedImage struct {
 
 func (i RelatedImage) Validate() error {
 	result := newValidationError("invalid related image")
-	if i.Name == "" {
-		result.subErrors = append(result.subErrors, fmt.Errorf("name must be set"))
-	}
 	if i.Image == "" {
 		result.subErrors = append(result.subErrors, fmt.Errorf("image must be set"))
 	}

@@ -97,7 +97,7 @@ func TestChannelHead(t *testing.T) {
 				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Replaces: "anakin.v0.0.3"},
 				"anakin.v0.0.3": head,
 			}},
-			assertion: require.Error,
+			assertion: hasError(`no channel head found in graph`),
 		},
 		{
 			name: "Error/MultipleChannelHeads",
@@ -106,7 +106,7 @@ func TestChannelHead(t *testing.T) {
 				"anakin.v0.0.3": head,
 				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.1"},
 			}},
-			assertion: require.Error,
+			assertion: hasError(`multiple channel heads found in graph: anakin.v0.0.3, anakin.v0.0.4`),
 		},
 	}
 	for _, s := range specs {
@@ -115,6 +115,32 @@ func TestChannelHead(t *testing.T) {
 			assert.Equal(t, s.head, h)
 			s.assertion(t, err)
 		})
+	}
+}
+
+func hasError(expectedError string) require.ErrorAssertionFunc {
+	return func(t require.TestingT, actualError error, args ...interface{}) {
+		if stdt, ok := t.(*testing.T); ok {
+			stdt.Helper()
+		}
+		errsToCheck := []error{actualError}
+		for len(errsToCheck) > 0 {
+			var err error
+			err, errsToCheck = errsToCheck[0], errsToCheck[1:]
+			if err == nil {
+				continue
+			}
+			if verr, ok := err.(*validationError); ok {
+				if verr.message == expectedError {
+					return
+				}
+				errsToCheck = append(errsToCheck, verr.subErrors...)
+			} else if expectedError == err.Error() {
+				return
+			}
+		}
+		t.Errorf("expected error to be or contain suberror %q, got %v", expectedError, actualError)
+		t.FailNow()
 	}
 }
 
@@ -144,14 +170,14 @@ func TestValidators(t *testing.T) {
 			v: Model{
 				"foo": pkg,
 			},
-			assertion: require.Error,
+			assertion: hasError(`package key "foo" does not match package name "anakin"`),
 		},
 		{
 			name: "Model/Error/InvalidPackage",
 			v: Model{
 				pkgIncorrectDefaultChannel.Name: pkgIncorrectDefaultChannel,
 			},
-			assertion: require.Error,
+			assertion: hasError(`invalid package "anakin"`),
 		},
 		{
 			name:      "Package/Success/Valid",
@@ -161,23 +187,23 @@ func TestValidators(t *testing.T) {
 		{
 			name:      "Package/Error/NoName",
 			v:         &Package{},
-			assertion: require.Error,
+			assertion: hasError("package name must not be empty"),
 		},
-		{
-			name: "Package/Error/InvalidIcon",
-			v: &Package{
-				Name: "anakin",
-				Icon: &Icon{Data: mustBase64Decode(svgData)},
-			},
-			assertion: require.Error,
-		},
+		//{
+		//	name: "Package/Error/InvalidIcon",
+		//	v: &Package{
+		//		Name: "anakin",
+		//		Icon: &Icon{Data: mustBase64Decode(svgData)},
+		//	},
+		//	assertion: hasError("icon mediatype must be set if icon is defined"),
+		//},
 		{
 			name: "Package/Error/NoChannels",
 			v: &Package{
 				Name: "anakin",
 				Icon: &Icon{Data: mustBase64Decode(svgData), MediaType: "image/svg+xml"},
 			},
-			assertion: require.Error,
+			assertion: hasError("package must contain at least one channel"),
 		},
 		{
 			name: "Package/Error/NoDefaultChannel",
@@ -186,7 +212,7 @@ func TestValidators(t *testing.T) {
 				Icon:     &Icon{Data: mustBase64Decode(svgData), MediaType: "image/svg+xml"},
 				Channels: map[string]*Channel{"light": ch},
 			},
-			assertion: require.Error,
+			assertion: hasError("default channel must be set"),
 		},
 		{
 			name: "Package/Error/ChannelKeyNameMismatch",
@@ -196,7 +222,7 @@ func TestValidators(t *testing.T) {
 				DefaultChannel: ch,
 				Channels:       map[string]*Channel{"dark": ch},
 			},
-			assertion: require.Error,
+			assertion: hasError(`channel key "dark" does not match channel name "light"`),
 		},
 		{
 			name: "Package/Error/InvalidChannel",
@@ -206,7 +232,7 @@ func TestValidators(t *testing.T) {
 				DefaultChannel: ch,
 				Channels:       map[string]*Channel{"light": {Name: "light"}},
 			},
-			assertion: require.Error,
+			assertion: hasError(`invalid channel "light"`),
 		},
 		{
 			name: "Package/Error/InvalidChannelPackageLink",
@@ -216,12 +242,12 @@ func TestValidators(t *testing.T) {
 				DefaultChannel: ch,
 				Channels:       map[string]*Channel{"light": ch},
 			},
-			assertion: require.Error,
+			assertion: hasError(`channel "light" not correctly linked to parent package`),
 		},
 		{
 			name:      "Package/Error/DefaultChannelNotInChannelMap",
 			v:         pkgIncorrectDefaultChannel,
-			assertion: require.Error,
+			assertion: hasError(`default channel "not-found" not found in channels list`),
 		},
 		{
 			name: "Icon/Success/ValidSVG",
@@ -258,7 +284,7 @@ func TestValidators(t *testing.T) {
 		//		Data:      nil,
 		//		MediaType: "image/svg+xml",
 		//	},
-		//	assertion: require.Error,
+		//	assertion: hasError(`icon data must be set if icon is defined`),
 		//},
 		//{
 		//	name: "Icon/Error/NoMediaType",
@@ -266,7 +292,7 @@ func TestValidators(t *testing.T) {
 		//		Data:      mustBase64Decode(svgData),
 		//		MediaType: "",
 		//	},
-		//	assertion: require.Error,
+		//	assertion: hasError(`icon mediatype must be set if icon is defined`),
 		//},
 		//{
 		//	name: "Icon/Error/DataIsNotImage",
@@ -274,7 +300,7 @@ func TestValidators(t *testing.T) {
 		//		Data:      []byte("{}"),
 		//		MediaType: "application/json",
 		//	},
-		//	assertion: require.Error,
+		//	assertion: hasError(`icon data is not an image`),
 		//},
 		//{
 		//	name: "Icon/Error/DataDoesNotMatchMediaType",
@@ -282,7 +308,7 @@ func TestValidators(t *testing.T) {
 		//		Data:      mustBase64Decode(svgData),
 		//		MediaType: "image/jpeg",
 		//	},
-		//	assertion: require.Error,
+		//	assertion: hasError(`icon media type "image/jpeg" does not match detected media type "image/svg+xml"`),
 		//},
 		{
 			name:      "Channel/Success/Valid",
@@ -292,14 +318,14 @@ func TestValidators(t *testing.T) {
 		{
 			name:      "Channel/Error/NoName",
 			v:         &Channel{},
-			assertion: require.Error,
+			assertion: hasError(`channel name must not be empty`),
 		},
 		{
 			name: "Channel/Error/NoPackage",
 			v: &Channel{
 				Name: "light",
 			},
-			assertion: require.Error,
+			assertion: hasError(`package must be set`),
 		},
 		{
 			name: "Channel/Error/NoBundles",
@@ -307,7 +333,7 @@ func TestValidators(t *testing.T) {
 				Package: pkg,
 				Name:    "light",
 			},
-			assertion: require.Error,
+			assertion: hasError(`channel must contain at least one bundle`),
 		},
 		{
 			name: "Channel/Error/InvalidHead",
@@ -319,7 +345,7 @@ func TestValidators(t *testing.T) {
 					"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`multiple channel heads found in graph: anakin.v0.0.0, anakin.v0.0.1`),
 		},
 		{
 			name: "Channel/Error/BundleKeyNameMismatch",
@@ -330,7 +356,7 @@ func TestValidators(t *testing.T) {
 					"foo": {Name: "bar"},
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`bundle key "foo" does not match bundle name "bar"`),
 		},
 		{
 			name: "Channel/Error/InvalidBundle",
@@ -341,7 +367,7 @@ func TestValidators(t *testing.T) {
 					"anakin.v0.0.0": {Name: "anakin.v0.0.0"},
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`invalid bundle "anakin.v0.0.0"`),
 		},
 		{
 			name: "Channel/Error/InvalidBundleChannelLink",
@@ -357,7 +383,7 @@ func TestValidators(t *testing.T) {
 					},
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`bundle "anakin.v0.0.0" not correctly linked to parent channel`),
 		},
 		{
 			name: "Bundle/Success/Valid",
@@ -411,7 +437,7 @@ func TestValidators(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
-			name: "Bundle/Error/NoBundleImage/NoBundleData",
+			name: "Bundle/Error/NoBundleImage",
 			v: &Bundle{
 				Package: pkg,
 				Channel: ch,
@@ -423,19 +449,19 @@ func TestValidators(t *testing.T) {
 					property.MustBuildChannel("light", "anakin.v0.0.1"),
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`bundle image must be set`),
 		},
 		{
 			name:      "Bundle/Error/NoName",
 			v:         &Bundle{},
-			assertion: require.Error,
+			assertion: hasError(`name must be set`),
 		},
 		{
 			name: "Bundle/Error/NoChannel",
 			v: &Bundle{
 				Name: "anakin.v0.1.0",
 			},
-			assertion: require.Error,
+			assertion: hasError(`channel must be set`),
 		},
 		{
 			name: "Bundle/Error/NoPackage",
@@ -443,7 +469,7 @@ func TestValidators(t *testing.T) {
 				Channel: ch,
 				Name:    "anakin.v0.1.0",
 			},
-			assertion: require.Error,
+			assertion: hasError(`package must be set`),
 		},
 		{
 			name: "Bundle/Error/WrongPackage",
@@ -452,7 +478,7 @@ func TestValidators(t *testing.T) {
 				Channel: ch,
 				Name:    "anakin.v0.1.0",
 			},
-			assertion: require.Error,
+			assertion: hasError(`package does not match channel's package`),
 		},
 		{
 			name: "Bundle/Error/InvalidProperty",
@@ -461,9 +487,9 @@ func TestValidators(t *testing.T) {
 				Channel:    ch,
 				Name:       "anakin.v0.1.0",
 				Replaces:   "anakin.v0.0.1",
-				Properties: []property.Property{{Value: json.RawMessage("")}},
+				Properties: []property.Property{{Type: "broken", Value: json.RawMessage("")}},
 			},
-			assertion: require.Error,
+			assertion: hasError(`parse property[0] of type "broken": unexpected end of JSON input`),
 		},
 		{
 			name: "Bundle/Error/EmptySkipsValue",
@@ -475,19 +501,7 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{{Type: "custom", Value: json.RawMessage("{}")}},
 				Skips:      []string{""},
 			},
-			assertion: require.Error,
-		},
-		{
-			name: "Bundle/Error/SkipsNotInPackage",
-			v: &Bundle{
-				Package:    pkg,
-				Channel:    ch,
-				Name:       "anakin.v0.1.0",
-				Replaces:   "anakin.v0.0.1",
-				Properties: []property.Property{{Type: "custom", Value: json.RawMessage("{}")}},
-				Skips:      []string{"foobar"},
-			},
-			assertion: require.Error,
+			assertion: hasError(`skip[0] is empty`),
 		},
 		{
 			name: "Bundle/Error/MissingPackage",
@@ -504,7 +518,7 @@ func TestValidators(t *testing.T) {
 					property.MustBuildChannel("dark", "anakin.v0.0.1"),
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`must be exactly one property with type "olm.package"`),
 		},
 		{
 			name: "Bundle/Error/MultiplePackages",
@@ -523,7 +537,7 @@ func TestValidators(t *testing.T) {
 					property.MustBuildChannel("dark", "anakin.v0.0.1"),
 				},
 			},
-			assertion: require.Error,
+			assertion: hasError(`must be exactly one property with type "olm.package"`),
 		},
 		{
 			name: "RelatedImage/Success/Valid",
@@ -534,20 +548,12 @@ func TestValidators(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
-			name: "RelatedImage/Error/NoName",
-			v: RelatedImage{
-				Name:  "",
-				Image: "",
-			},
-			assertion: require.Error,
-		},
-		{
 			name: "RelatedImage/Error/NoImage",
 			v: RelatedImage{
 				Name:  "foo",
 				Image: "",
 			},
-			assertion: require.Error,
+			assertion: hasError(`image must be set`),
 		},
 	}
 	for _, s := range specs {
