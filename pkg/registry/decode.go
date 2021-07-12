@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"github.com/sirupsen/logrus"
 )
 
 // DecodeUnstructured decodes a raw stream into a an
@@ -44,7 +45,7 @@ func DecodePackageManifest(reader io.Reader) (manifest *PackageManifest, err err
 	return
 }
 
-func decodeFileFS(root fs.FS, path string, into interface{}) error {
+func decodeFileFS(root fs.FS, path string, into interface{}, log *logrus.Entry) error {
 	fileReader, err := root.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to read file %s: %s", path, err)
@@ -53,5 +54,14 @@ func decodeFileFS(root fs.FS, path string, into interface{}) error {
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 
-	return decoder.Decode(into)
+    errRet := decoder.Decode(into)
+
+    // Look for and warn about extra documents
+	extraDocument := &unstructured.Unstructured{}
+    err = decoder.Decode(extraDocument)
+    if err == nil && log != nil {
+        log.Warnf("found more than one document inside %s, using only the first one", path)
+    }
+
+	return errRet
 }
