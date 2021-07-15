@@ -4,24 +4,22 @@ pkg: {
 	...
 }
 
+#provides: {
+	group:   "monitoring.coreos.com"
+	version: "v1"
+	kinds: ["Alertmanager", "ServiceMonitor", "PrometheusRule", "Prometheus"]
+}
+
 bundles: [
 {
 	version: "0.14.0"
 	image:   "docker.io/anik120/e2e-bundle:9prd26"
-	provides: {
-		group:   "monitoring.coreos.com"
-		version: "v1"
-		kinds: ["Alertmanager", "ServiceMonitor", "PrometheusRule", "Prometheus"]
-	}
+	provides: #provides
 },
 {
 	version: "0.15.0"
 	image:   "docker.io/anik120/e2e-bundle:9prd26"
-	provides: {
-		group:   "monitoring.coreos.com"
-		version: "v1"
-		kinds: ["Alertmanager", "ServiceMonitor", "PrometheusRule", "Prometheus"]
-	}
+	provides: #provides
 }
 ]
 
