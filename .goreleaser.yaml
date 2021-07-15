@@ -1,0 +1,173 @@
+builds:
+  - id: linux-amd64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CC=gcc
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: &build-flags
+      - -tags=json1
+    asmflags: &build-asmflags
+      - all=-trimpath={{ .Env.PWD }}
+    gcflags: &build-gcflags
+      - all=-trimpath={{ .Env.PWD }}
+    ldflags: &build-ldflags
+      - -s -w
+      - -X {{ .Env.PKG }}/cmd/opm/version.gitCommit={{ .Env.GIT_COMMIT }}
+      - -X {{ .Env.PKG }}/cmd/opm/version.opmVersion={{ .Env.OPM_VERSION }}
+      - -X {{ .Env.PKG }}/cmd/opm/version.buildDate={{ .Env.BUILD_DATE }}
+  - id: linux-arm64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CC=aarch64-linux-gnu-gcc
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+  - id: linux-ppc64le
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - linux
+    goarch:
+      - ppc64le
+    env:
+      - CC=powerpc64le-linux-gnu-gcc
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+  - id: linux-s390x
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - linux
+    goarch:
+      - s390x
+    env:
+      - CC=s390x-linux-gnu-gcc
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+  - id: windows-amd64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - windows
+    goarch:
+      - amd64
+    env:
+      - CC=x86_64-w64-mingw32-gcc-posix
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+  - id: darwin-amd64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    env:
+      - CC=o64-clang
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+  - id: darwin-arm64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - CC=oa64e-clang
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+archives:
+  - id: opm
+    builds:
+      - linux-amd64
+      - linux-arm64
+      - linux-ppc64le
+      - linux-s390x
+      - windows-amd64
+      - darwin-amd64
+      - darwin-arm64
+    name_template: "{{ .Binary }}_{{ .Env.OPM_VERSION }}_{{ .Os }}_{{ .Arch }}"
+    format: binary
+dockers:
+  - image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
+    ids: ["linux-amd64"]
+    goos: linux
+    goarch: amd64
+    dockerfile: release/goreleaser.opm.Dockerfile
+    extra_files: ["nsswitch.conf"]
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+  - image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
+    ids: ["linux-arm64"]
+    goos: linux
+    goarch: arm64
+    dockerfile: release/goreleaser.opm.Dockerfile
+    extra_files: ["nsswitch.conf"]
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64
+  - image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
+    ids: ["linux-ppc64le"]
+    goos: linux
+    goarch: ppc64le
+    dockerfile: release/goreleaser.opm.Dockerfile
+    extra_files: ["nsswitch.conf"]
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/ppc64le
+  - image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+    ids: ["linux-s390x"]
+    goos: linux
+    goarch: s390x
+    dockerfile: release/goreleaser.opm.Dockerfile
+    extra_files: ["nsswitch.conf"]
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/s390x
+docker_manifests:
+  - name_template: "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}"
+    image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Env.OPM_VERSION }}"
+release:
+  name_template: "{{ .Env.OPM_VERSION }}"
+  draft: true
