@@ -6,6 +6,7 @@ metadata:
   annotations:
     olm.skipRange: <0.2.0
 spec:
+  displayName: "Foo Operator"
   customresourcedefinitions:
     owned:
       - group: test.foo
