@@ -87,6 +87,19 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 					node.CsvName, node.Version, node.BundlePath)
 			}
 
+			// if skippatch mode is enabled, check each node to determine if z-updates should
+			// be replaced as well. Keep track of them to delete those nodes from the graph itself,
+			// just be aware of them for replacements
+			if skippatch {
+				if isSkipPatchCandidate(versionToAdd, nodeVersion) {
+					skipPatchCandidates = append(skipPatchCandidates, node)
+					replaces[node] = struct{}{}
+
+					// don't consider this version as related (previous/next) to the new one
+					continue
+				}
+			}
+
 			switch comparison := nodeVersion.Compare(versionToAdd); comparison {
 			case 0:
 				return nil, fmt.Errorf("Bundle version %s already added to index", bundleVersion)
@@ -109,16 +122,6 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 					}
 				}
 			}
-
-			// if skippatch mode is enabled, check each node to determine if z-updates should
-			// be replaced as well. Keep track of them to delete those nodes from the graph itself,
-			// just be aware of them for replacements
-			if skippatch {
-				if isSkipPatchCandidate(versionToAdd, nodeVersion) {
-					skipPatchCandidates = append(skipPatchCandidates, node)
-					replaces[node] = struct{}{}
-				}
-			}
 		}
 
 		// If we found a node behind the one we're adding, make the new node replace it
@@ -130,6 +133,12 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		// the new node. If we didn't find a node semantically ahead, the new node is
 		// the new channel head
 		if !lowestAhead.IsEmpty() {
+
+			// Inherit replacements form the version replacing the new node.
+			for replaced, val := range channelGraph.Nodes[lowestAhead] {
+				replaces[replaced] = val
+			}
+
 			channelGraph.Nodes[lowestAhead] = map[BundleKey]struct{}{
 				newBundleKey: struct{}{},
 			}
@@ -140,6 +149,9 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		if skippatch {
 			// Remove the nodes that are now being skipped by a new patch version update
 			for _, candidate := range skipPatchCandidates {
+				for replaced, val := range channelGraph.Nodes[candidate] {
+					replaces[replaced] = val
+				}
 				delete(channelGraph.Nodes, candidate)
 			}
 		}
@@ -147,6 +159,39 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		// add the node and update the graph
 		channelGraph.Nodes[newBundleKey] = replaces
 		graph.Channels[channel] = channelGraph
+	}
+
+	if !skippatch {
+		return graph, nil
+	}
+
+	// Remove the nodes that where patch-skipped previously, also in channels unaffected by the new bundle
+	for channel := range graph.Channels {
+		channelGraph := graph.Channels[channel]
+		allSkips := make([]BundleKey, len(channelGraph.Nodes))
+		for node, replacedNodes := range channelGraph.Nodes {
+			for replaced := range replacedNodes {
+				nodeVersion, err := semver.Make(node.Version)
+				if err != nil {
+					// not semver, skip this replacement
+					continue
+				}
+
+				replacedVersion, err := semver.Make(replaced.Version)
+				if err != nil {
+					// not semver, skip this replacement
+					continue
+				}
+
+				if isSkipPatchCandidate(nodeVersion, replacedVersion) && len(channelGraph.Nodes[replaced]) == 0 {
+					allSkips = append(allSkips, replaced)
+				}
+			}
+		}
+
+		for _, node := range allSkips {
+			delete(channelGraph.Nodes, node)
+		}
 	}
 
 	return graph, nil
