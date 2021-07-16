@@ -25,18 +25,6 @@ func TestValidateBundle(t *testing.T) {
 			directory:   "./testdata/valid_bundle",
 			hasError:    false,
 		},
-		{
-			description: "registryv1 bundle/invalid bundle",
-			directory:   "./testdata/invalid_bundle",
-			hasError:    true,
-			errString:   "owned CRD etcdclusters.etcd.database.coreos.com/v1beta2 not found in bundle",
-		},
-		{
-			description: "registryv1 bundle/invalid bundle 2",
-			directory:   "./testdata/invalid_bundle_2",
-			hasError:    true,
-			errString:   `CRD etcdclusters.etcd.database.coreos.com/v1beta2 is present in bundle "test" but not defined in CSV`,
-		},
 	}
 
 	for _, tt := range table {
@@ -68,6 +56,32 @@ func TestValidateBundle(t *testing.T) {
 			if results[0].HasError() {
 				require.Contains(t, results[0].Errors[0].Error(), tt.errString)
 			}
+		}
+	}
+}
+
+func TestValidateBundleWithBadCRD(t *testing.T) {
+	// Validate the bundle object using a bad CRD
+	bundle := registry.NewBundle("test",
+		&registry.Annotations{}, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "operators.coreos.com/v1alpha1xxx",
+				"kind":       "ClusterServiceVersion",
+			},
+		},
+		&unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1", // bogus api version for CRD to force an error
+				"kind":       "CustomResourceDefinition",
+			},
+		},
+	)
+	results := BundleValidator.Validate(bundle)
+
+	if len(results) > 0 {
+		require.Equal(t, true, results[0].HasError(), "%s: %s", "Bad CRD", results[0])
+		if results[0].HasError() {
+			require.Contains(t, results[0].Errors[0].Error(), "Value error decoding v1 CRD")
 		}
 	}
 }
