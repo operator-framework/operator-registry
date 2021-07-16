@@ -101,11 +101,11 @@ func TestDecodeFileFS(t *testing.T) {
 	}
 
 	var nilPtr *foo
-	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr))
+	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr, nil))
 	require.Nil(t, nilPtr)
 
 	ptr := &foo{}
-	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr))
+	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr, nil))
 	require.NotNil(t, ptr)
 	require.Equal(t, "baz", ptr.Bar)
 }
