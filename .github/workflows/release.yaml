@@ -1,48 +1,85 @@
 name: release
 on:
   push:
+    branches:
+      - 'master'
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  pull_request: {}
 defaults:
   run:
     shell: bash
 jobs:
-  create:
+  release:
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.release.outputs.upload_url }}
-    steps:
-      - uses: actions/create-release@v1
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          draft: true
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-  assets:
-    needs: create
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-go@v2
         with:
           go-version: '~1.16'
-      - run: |
-          echo "asset_path=bin/opm" >> $GITHUB_ENV
-          echo "asset_name=$(go env GOOS)-$(go env GOARCH)-opm$(go env GOEXE)" >> $GITHUB_ENV
-      - run: make ${{ env.asset_path }}
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: "Download osxcross cross-compiler for macOS builds"
+        run: |
+          git clone https://github.com/tpoechtrager/osxcross /tmp/osxcross
+          cd /tmp/osxcross
+          wget -P tarballs 'https://www.dropbox.com/s/cklcenl4667il6b/MacOSX11.1.sdk.tar.xz'
+          echo "/tmp/osxcross/target/bin" >> $GITHUB_PATH
+
+      - name: "Cache the osxcross + tarball build output"
+        id: cache-osxcross
+        uses: actions/cache@v2
         with:
-          upload_url: ${{ needs.create.outputs.upload_url }}
-          asset_path: ${{ env.asset_path }}
-          asset_name: ${{ env.asset_name }}
-          asset_content_type: application/octet-stream
+          path: /tmp/osxcross/target
+          key: ${{ runner.os }}-osxcross-${{ hashFiles('/tmp/osxcross/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-osxcross-
+
+      - name: "Build osxcross"
+        if: steps.cache-osxcross.outputs.cache-hit != 'true'
+        run: |
+          cd /tmp/osxcross
+          sudo ./tools/get_dependencies.sh
+          UNATTENDED=1 ./build.sh
+
+      - name: "Install linux cross-compilers"
+        run: sudo apt-get install -y gcc-aarch64-linux-gnu gcc-s390x-linux-gnu gcc-powerpc64le-linux-gnu gcc-mingw-w64-x86-64
+
+      - name: "Install yq"
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.10.0/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: "Disable image pushes for pull requests"
+        if: github.event_name == 'pull_request' 
+        run: |
+          yq eval '.dockers[].skip_push=true' -i .goreleaser.yaml
+          yq eval '.docker_manifests[].skip_push=true' -i .goreleaser.yaml
+
+      - name: "Disable the Github release upload for non-tag builds"
+        if: startsWith(github.ref, 'refs/tags') != true
+        run: |
+          yq eval '.release.disable=true' -i .goreleaser.yaml
+
+      - name: "Set the image tag"
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            # Release tags.
+            echo IMAGE_TAG="${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == refs/heads/* ]]; then
+            # Branch build.
+            echo IMAGE_TAG="$(echo "${GITHUB_REF#refs/heads/}" | sed -r 's|/+|-|g')" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == refs/pull/* ]]; then
+            # PR build.
+            echo IMAGE_TAG="pr-$(echo "${GITHUB_REF}" | sed -E 's|refs/pull/([^/]+)/?.*|\1|')" >> $GITHUB_ENV
+          else
+            echo IMAGE_TAG="$(git describe --tags --always)" >> $GITHUB_ENV
+          fi
+
+      - name: "Run GoReleaser"
+        run: make release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ARGS: release --rm-dist ${{ !startsWith(github.ref, 'refs/tags') && '--skip-validate' || '' }}

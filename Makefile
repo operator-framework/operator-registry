@@ -2,10 +2,10 @@ GO := GOFLAGS="-mod=vendor" go
 CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
-PKG := github.com/operator-framework/operator-registry
-GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
-OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
-BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+export PKG := github.com/operator-framework/operator-registry
+export GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
+export OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
+export BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 # define characters
 null  :=
@@ -114,3 +114,11 @@ clean:
 .PHONY: e2e
 e2e:
 	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls true) 
+
+
+.PHONY: release
+export OPM_IMAGE_REPO ?= quay.io/operator-framework/opm
+export IMAGE_TAG ?= $(OPM_VERSION)
+release: RELEASE_ARGS?=release --rm-dist --snapshot
+release:
+	./scripts/fetch goreleaser 0.173.2 && ./bin/goreleaser $(RELEASE_ARGS)
