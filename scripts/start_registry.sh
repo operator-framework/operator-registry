@@ -19,7 +19,7 @@ Creates a named docker registry and optionally generates and uses TLS certs.
 TLS uses port 443 and non-TLS uses port 5000.
 
   <registry name>  name of target regsitry (e.g. cp.stg.icr.io/cp)
-  
+
  Options:
   -s, --skip-tls   Skip TLS certificate generation and usage in image registry (defaults to using TLS if not provided)
   -c, --cert-dir   Output directory for cert and key files (defaults to ./certs)
@@ -80,7 +80,7 @@ function installMkcert() {
     fi
 
     # use sub shell to prevent changing users CWD
-    if (cd "${MKCERT_TEMP_DIR}" && go install -ldflags "-X main.Version=$(git describe --tags)"); then
+    if (cd "${MKCERT_TEMP_DIR}" && GOFLAGS="-mod=mod" go install -ldflags "-X main.Version=$(git describe --tags)"); then
       # run mkcert
       if ! "$(go env GOPATH)/bin/mkcert" --version &>/dev/null; then
         err_exit "mkcert is not functioning correctly"
