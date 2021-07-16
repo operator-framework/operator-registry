@@ -3,6 +3,7 @@ module github.com/operator-framework/operator-registry
 go 1.16
 
 require (
+	cuelang.org/go v0.4.0
 	github.com/Microsoft/hcsshim v0.8.9 // indirect
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
@@ -47,9 +48,10 @@ require (
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.etcd.io/bbolt v1.3.5
-	golang.org/x/mod v0.3.0
+	golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449
 	golang.org/x/net v0.0.0-20210326060303-6b1517762897
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	golang.org/x/text v0.3.4
 	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
 	google.golang.org/protobuf v1.25.0
