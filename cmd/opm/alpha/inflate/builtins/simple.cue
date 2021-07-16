@@ -27,6 +27,7 @@ data: {
 #blob: {
 	schema: string
 	properties: [...#property]
+	...
 }
 
 // out is the output schema; sources its data from `data`

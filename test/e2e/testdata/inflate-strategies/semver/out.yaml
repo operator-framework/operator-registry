@@ -1,0 +1,128 @@
+schema: olm.package
+name: test
+defaultChannel: stable
+properties: []
+---
+schema: olm.bundle
+name: test.v1.1.0
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.1.0
+  - type: olm.channel
+    value:
+      name: stable
+      replaces: test.v1.0.1
+---
+schema: olm.bundle
+name: test.v1.1.0
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.1.0
+  - type: olm.channel
+    value:
+      name: fast
+      replaces: test.v1.0.1
+---
+schema: olm.bundle
+name: test.v1.0.0-1+2
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: stable
+      replaces: ""
+---
+schema: olm.bundle
+name: test.v1.0.0-1+2
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: fast
+      replaces: ""
+---
+schema: olm.bundle
+name: test.v1.0.1
+package: test
+image: test.v1.0.1
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.1
+  - type: olm.skips
+    value: test.v1.0.0-2+2
+  - type: olm.skips
+    value: test.v1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: stable
+      replaces: ""
+---
+schema: olm.bundle
+name: test.v1.0.1
+package: test
+image: test.v1.0.1
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.1
+  - type: olm.skips
+    value: test.v1.0.0-2+2
+  - type: olm.skips
+    value: test.v1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: fast
+      replaces: ""
+---
+schema: olm.bundle
+name: test.v1.0.0-2+2
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.0-2+2
+  - type: olm.skips
+    value: test.v1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: stable
+      replaces: ""
+---
+schema: olm.bundle
+name: test.v1.0.0-2+2
+package: test
+image: test.v1.0.0
+properties:
+  - type: olm.package
+    value:
+      packageName: test
+      version: 1.0.0-2+2
+  - type: olm.skips
+    value: test.v1.0.0-1+2
+  - type: olm.channel
+    value:
+      name: fast
+      replaces: ""
