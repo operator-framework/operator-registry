@@ -58,14 +58,14 @@ func (m *MockRegistry) Pull(_ context.Context, ref Reference) error {
 	return nil
 }
 
-func (m *MockRegistry) Unpack(_ context.Context, ref Reference, dir string) error {
+func (m *MockRegistry) Unpack(_ context.Context, ref Reference, from, to string) error {
 	m.m.RLock()
 	defer m.m.RUnlock()
 	image, ok := m.localImages[ref]
 	if !ok {
 		return errors.New("not found")
 	}
-	return image.unpack(dir)
+	return image.unpack(to)
 }
 
 func (m *MockRegistry) Labels(_ context.Context, ref Reference) (map[string]string, error) {

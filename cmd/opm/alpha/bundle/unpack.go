@@ -133,7 +133,7 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 			logger.Error(err.Error())
 		}
 	}()
-	if err := registry.Unpack(ctx, ref, dir); err != nil {
+	if err := registry.Unpack(ctx, ref, image.Root, dir); err != nil {
 		return err
 	}
 

@@ -200,7 +200,7 @@ func testPullAndUnpack(t *testing.T, name string, newRegistry newRegistryFunc) {
 			if tt.expected.checksum != "" {
 				// Copy golden manifests to a temp dir
 				dir := "kiali-unpacked"
-				require.NoError(t, r.Unpack(ctx, ref, dir))
+				require.NoError(t, r.Unpack(ctx, ref, image.Root, dir))
 
 				checksum := dirChecksum(t, dir)
 				require.Equal(t, tt.expected.checksum, checksum)

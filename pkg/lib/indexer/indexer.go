@@ -357,7 +357,9 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
 
-	if err := reg.Unpack(context.TODO(), imageRef, workingDir); err != nil {
+	i.Logger.Debugf("Copying index db from %s inside the container to %s on the filesystem", dbLocation, workingDir)
+	// unpack just the index db file from the container filesystem to avoid potential file permissions errors
+	if err := reg.Unpack(context.TODO(), imageRef, dbLocation, workingDir); err != nil {
 		return "", err
 	}
 

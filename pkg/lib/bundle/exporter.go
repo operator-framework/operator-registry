@@ -63,7 +63,7 @@ func (i *BundleExporter) Export(skipTLS bool) error {
 		return err
 	}
 
-	if err := reg.Unpack(context.TODO(), image.SimpleReference(i.image), tmpDir); err != nil {
+	if err := reg.Unpack(context.TODO(), image.SimpleReference(i.image), image.Root, tmpDir); err != nil {
 		return err
 	}
 

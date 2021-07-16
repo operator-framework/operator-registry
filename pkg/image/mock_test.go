@@ -43,7 +43,7 @@ func TestMockRegistry(t *testing.T) {
 	require.Error(t, r.Pull(ctx, dne))
 
 	// Test unpack and labels of unpulled ref
-	require.Error(t, r.Unpack(ctx, exists, tmpDir))
+	require.Error(t, r.Unpack(ctx, exists, Root, tmpDir))
 	_, err = r.Labels(ctx, exists)
 	require.Error(t, err)
 
@@ -51,7 +51,7 @@ func TestMockRegistry(t *testing.T) {
 	require.NoError(t, r.Pull(ctx, exists))
 
 	// Test unpack and labels of existing ref
-	require.NoError(t, r.Unpack(ctx, exists, tmpDir))
+	require.NoError(t, r.Unpack(ctx, exists, Root, tmpDir))
 	checkFile(t, filepath.Join(tmpDir, "file1"))
 	checkFile(t, filepath.Join(tmpDir, "subdir", "file2"))
 
@@ -63,7 +63,7 @@ func TestMockRegistry(t *testing.T) {
 	require.NoError(t, r.Destroy())
 
 	// Test unpack and labels of unpulled ref
-	require.Error(t, r.Unpack(ctx, exists, tmpDir))
+	require.Error(t, r.Unpack(ctx, exists, Root, tmpDir))
 	_, err = r.Labels(ctx, exists)
 	require.Error(t, err)
 }

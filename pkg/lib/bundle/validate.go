@@ -60,7 +60,7 @@ func (i imageValidator) PullBundleImage(imageTag, directory string) error {
 		return err
 	}
 
-	return i.registry.Unpack(ctx, ref, directory)
+	return i.registry.Unpack(ctx, ref, image.Root, directory)
 }
 
 // ValidateBundle takes a directory containing the contents of a bundle and validates

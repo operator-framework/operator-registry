@@ -110,7 +110,7 @@ func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (
 		errs = append(errs, err)
 	}
 
-	if err = reg.Unpack(ctx, ref, workingDir); err != nil {
+	if err = reg.Unpack(ctx, ref, image.Root, workingDir); err != nil {
 		errs = append(errs, err)
 	}
 
