@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver"
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
 	"github.com/h2non/filetype/types"
@@ -215,6 +216,10 @@ type Bundle struct {
 	// backwards-compatible way.
 	Objects []string
 	CsvJSON string
+
+	// These fields are used to compare bundles in a diff.
+	PropertiesP *property.Properties
+	Version     semver.Version
 }
 
 func (b *Bundle) Validate() error {
