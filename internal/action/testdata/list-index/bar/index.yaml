@@ -1,0 +1,91 @@
+---
+schema: olm.package
+name: bar
+defaultChannel: beta
+---
+schema: olm.bundle
+package: bar
+name: bar.v0.1.0
+image: test.registry/bar-operator/bar-bundle:v0.1.0
+properties:
+  - type: olm.channel
+    value:
+      name: beta
+  - type: olm.gvk
+    value:
+      group: test.bar
+      kind: Bar
+      version: v1
+  - type: olm.gvk.required
+    value:
+      group: test.baz
+      kind: Baz
+      version: v1alpha1
+  - type: olm.package
+    value:
+      packageName: bar
+      version: 0.1.0
+  - type: olm.package.required
+    value:
+      packageName: baz
+      versionRange: v0.1.0
+  - type: olm.skipRange
+    value: <0.1.0
+  - type: olm.bundle.object
+    value:
+      data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMS4wIn0sIm5hbWUiOiJiYXIudjAuMS4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmJhciIsImtpbmQiOiJCYXIiLCJuYW1lIjoiYmFycy50ZXN0LmJhciIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiQmFyIE9wZXJhdG9yIiwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhci1vcGVyYXRvci9iYXI6djAuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMC4xLjAifX0=
+  - type: olm.bundle.object
+    value:
+      data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhcnMudGVzdC5iYXIifSwic3BlYyI6eyJncm91cCI6InRlc3QuYmFyIiwibmFtZXMiOnsia2luZCI6IkJhciIsInBsdXJhbCI6ImJhcnMifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19
+relatedImages:
+  - image: test.registry/bar-operator/bar:v0.1.0
+    name: operator
+  - image: test.registry/bar-operator/bar-bundle:v0.1.0
+---
+schema: olm.bundle
+package: bar
+name: bar.v0.2.0
+image: test.registry/bar-operator/bar-bundle:v0.2.0
+properties:
+  - type: olm.channel
+    value:
+      name: beta
+      replaces: bar.v0.1.0
+  - type: olm.channel
+    value:
+      name: stable
+      replaces: bar.v0.1.0
+  - type: olm.gvk
+    value:
+      group: test.bar
+      kind: Bar
+      version: v1
+  - type: olm.gvk.required
+    value:
+      group: test.baz
+      kind: Baz
+      version: v1alpha1
+  - type: olm.package
+    value:
+      packageName: bar
+      version: 0.2.0
+  - type: olm.package.required
+    value:
+      packageName: baz
+      versionRange: v0.1.0
+  - type: olm.skipRange
+    value: <0.2.0
+  - type: olm.skips
+    value: bar.v0.1.1
+  - type: olm.skips
+    value: bar.v0.1.2
+  - type: olm.bundle.object
+    value:
+      data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJiYXIudjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmJhciIsImtpbmQiOiJCYXIiLCJuYW1lIjoiYmFycy50ZXN0LmJhciIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiQmFyIE9wZXJhdG9yIiwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhci1vcGVyYXRvci9iYXI6djAuMi4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJyZXBsYWNlcyI6ImJhci52MC4xLjAiLCJza2lwcyI6WyJiYXIudjAuMS4xIiwiYmFyLnYwLjEuMiJdLCJ2ZXJzaW9uIjoiMC4yLjAifX0=
+  - type: olm.bundle.object
+    value:
+      data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhcnMudGVzdC5iYXIifSwic3BlYyI6eyJncm91cCI6InRlc3QuYmFyIiwibmFtZXMiOnsia2luZCI6IkJhciIsInBsdXJhbCI6ImJhcnMifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19
+relatedImages:
+  - image: test.registry/bar-operator/bar:v0.2.0
+    name: operator
+  - image: test.registry/bar-operator/bar-bundle:v0.2.0
