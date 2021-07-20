@@ -17,40 +17,61 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
+type WalkFunc func(path string, cfg *DeclarativeConfig, err error) error
+
+// WalkFS walks root using a gitignore-style filename matcher to skip files
+// that match patterns found in .indexignore files found throughout the filesystem.
+// It calls walkFn for each declarative config file it finds. If WalkFS encounters
+// an error loading or parsing any file, the error will be immediately returned.
+func WalkFS(root fs.FS, walkFn WalkFunc) error {
+	if root == nil {
+		return fmt.Errorf("no declarative config filesystem provided")
+	}
+	matcher, err := ignore.NewMatcher(root, ".indexignore")
+	if err != nil {
+		return err
+	}
+
+	return fs.WalkDir(root, ".", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+		if info.IsDir() || matcher.Match(path, false) {
+			return nil
+		}
+		file, err := root.Open(path)
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+		defer file.Close()
+		cfg, err := readYAMLOrJSON(file)
+		if err != nil {
+			return walkFn(path, cfg, err)
+		}
+		if err := readBundleObjects(cfg.Bundles, root, path); err != nil {
+			return fmt.Errorf("read bundle objects: %v", err)
+		}
+		return walkFn(path, cfg, err)
+	})
+}
+
 // LoadFS loads a declarative config from the provided root FS. LoadFS walks the
 // filesystem from root and uses a gitignore-style filename matcher to skip files
 // that match patterns found in .indexignore files found throughout the filesystem.
 // If LoadFS encounters an error loading or parsing any file, the error will be
-// immedidately returned.
+// immediately returned.
 func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
-	if root == nil {
-		return nil, fmt.Errorf("no declarative config filesystem provided")
-	}
 	cfg := &DeclarativeConfig{}
-
-	matcher, err := ignore.NewMatcher(root, ".indexignore")
-	if err != nil {
-		return nil, err
-	}
-
-	if err := walkFiles(root, func(path string, r io.Reader) error {
-		if matcher.Match(path, false) {
-			return nil
-		}
-		fileCfg, err := readYAMLOrJSON(r)
+	if err := WalkFS(root, func(path string, fcfg *DeclarativeConfig, err error) error {
 		if err != nil {
-			return fmt.Errorf("could not load config file %q: %v", path, err)
+			return err
 		}
-		if err := readBundleObjects(fileCfg.Bundles, root, path); err != nil {
-			return fmt.Errorf("read bundle objects: %v", err)
-		}
-		cfg.Packages = append(cfg.Packages, fileCfg.Packages...)
-		cfg.Bundles = append(cfg.Bundles, fileCfg.Bundles...)
-		cfg.Others = append(cfg.Others, fileCfg.Others...)
-
+		cfg.Packages = append(cfg.Packages, fcfg.Packages...)
+		cfg.Bundles = append(cfg.Bundles, fcfg.Bundles...)
+		cfg.Others = append(cfg.Others, fcfg.Others...)
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to read declarative configs dir: %v", err)
+		return nil, err
 	}
 	return cfg, nil
 }
@@ -124,21 +145,4 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 		}
 	}
 	return cfg, nil
-}
-
-func walkFiles(root fs.FS, f func(string, io.Reader) error) error {
-	return fs.WalkDir(root, ".", func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		file, err := root.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		return f(path, file)
-	})
 }
