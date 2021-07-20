@@ -22,8 +22,8 @@ require (
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.4.1
-	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.2
+	github.com/golang/protobuf v1.5.2
+	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-health-probe v0.3.2
 	github.com/h2non/filetype v1.1.1
@@ -40,25 +40,25 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.6.1
+	github.com/sirupsen/logrus v1.7.0
+	github.com/spf13/cobra v1.1.3
+	github.com/stretchr/testify v1.7.0
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
-	go.etcd.io/bbolt v1.3.5
-	golang.org/x/mod v0.3.0
-	golang.org/x/net v0.0.0-20210326060303-6b1517762897
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	google.golang.org/grpc v1.30.0
+	go.etcd.io/bbolt v1.3.6
+	golang.org/x/mod v0.4.2
+	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	google.golang.org/grpc v1.38.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
-	google.golang.org/protobuf v1.25.0
-	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.20.6
-	k8s.io/apiextensions-apiserver v0.20.6
-	k8s.io/apimachinery v0.20.6
-	k8s.io/client-go v0.20.6
-	k8s.io/kubectl v0.20.6
+	google.golang.org/protobuf v1.26.0
+	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/api v0.22.0-beta.2
+	k8s.io/apiextensions-apiserver v0.22.0-beta.2
+	k8s.io/apimachinery v0.22.0-beta.2
+	k8s.io/client-go v0.22.0-beta.2
+	k8s.io/kubectl v0.22.0-beta.2
 	sigs.k8s.io/controller-runtime v0.8.0
 	sigs.k8s.io/kind v0.11.1
 	sigs.k8s.io/yaml v1.2.0
