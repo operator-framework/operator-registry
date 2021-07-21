@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/h2non/filetype"
@@ -160,6 +161,7 @@ func (c Channel) Head() (*Bundle, error) {
 		for _, head := range heads {
 			headNames = append(headNames, head.Name)
 		}
+		sort.Strings(headNames)
 		return nil, fmt.Errorf("multiple channel heads found in graph: %s", strings.Join(headNames, ", "))
 	}
 	return heads[0], nil

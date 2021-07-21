@@ -35,10 +35,9 @@ func TestWriteJSON(t *testing.T) {
     "image": "anakin-bundle:v0.0.1",
     "properties": [
         {
-            "type": "olm.package",
+            "type": "olm.bundle.object",
             "value": {
-                "packageName": "anakin",
-                "version": "0.0.1"
+                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
             }
         },
         {
@@ -48,9 +47,9 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.bundle.object",
+            "type": "olm.channel",
             "value": {
-                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
+                "name": "dark"
             }
         },
         {
@@ -60,9 +59,10 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.channel",
+            "type": "olm.package",
             "value": {
-                "name": "dark"
+                "packageName": "anakin",
+                "version": "0.0.1"
             }
         }
     ],
@@ -80,10 +80,9 @@ func TestWriteJSON(t *testing.T) {
     "image": "anakin-bundle:v0.1.0",
     "properties": [
         {
-            "type": "olm.package",
+            "type": "olm.bundle.object",
             "value": {
-                "packageName": "anakin",
-                "version": "0.1.0"
+                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
             }
         },
         {
@@ -93,9 +92,10 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.bundle.object",
+            "type": "olm.channel",
             "value": {
-                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
+                "name": "dark",
+                "replaces": "anakin.v0.0.1"
             }
         },
         {
@@ -106,10 +106,10 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.channel",
+            "type": "olm.package",
             "value": {
-                "name": "dark",
-                "replaces": "anakin.v0.0.1"
+                "packageName": "anakin",
+                "version": "0.1.0"
             }
         }
     ],
@@ -127,10 +127,9 @@ func TestWriteJSON(t *testing.T) {
     "image": "anakin-bundle:v0.1.1",
     "properties": [
         {
-            "type": "olm.package",
+            "type": "olm.bundle.object",
             "value": {
-                "packageName": "anakin",
-                "version": "0.1.1"
+                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
             }
         },
         {
@@ -140,16 +139,17 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.bundle.object",
-            "value": {
-                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
-            }
-        },
-        {
             "type": "olm.channel",
             "value": {
                 "name": "dark",
                 "replaces": "anakin.v0.0.1"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "anakin",
+                "version": "0.1.1"
             }
         },
         {
@@ -186,10 +186,9 @@ func TestWriteJSON(t *testing.T) {
     "image": "boba-fett-bundle:v1.0.0",
     "properties": [
         {
-            "type": "olm.package",
+            "type": "olm.bundle.object",
             "value": {
-                "packageName": "boba-fett",
-                "version": "1.0.0"
+                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
             }
         },
         {
@@ -199,15 +198,16 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.bundle.object",
-            "value": {
-                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
-            }
-        },
-        {
             "type": "olm.channel",
             "value": {
                 "name": "mando"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "boba-fett",
+                "version": "1.0.0"
             }
         }
     ],
@@ -225,10 +225,9 @@ func TestWriteJSON(t *testing.T) {
     "image": "boba-fett-bundle:v2.0.0",
     "properties": [
         {
-            "type": "olm.package",
+            "type": "olm.bundle.object",
             "value": {
-                "packageName": "boba-fett",
-                "version": "2.0.0"
+                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
             }
         },
         {
@@ -238,16 +237,17 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.bundle.object",
-            "value": {
-                "data": "eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0="
-            }
-        },
-        {
             "type": "olm.channel",
             "value": {
                 "name": "mando",
                 "replaces": "boba-fett.v1.0.0"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "boba-fett",
+                "version": "2.0.0"
             }
         }
     ],
@@ -305,22 +305,22 @@ image: anakin-bundle:v0.0.1
 name: anakin.v0.0.1
 package: anakin
 properties:
+- type: olm.bundle.object
+  value:
+    data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
+- type: olm.bundle.object
+  value:
+    ref: objects/anakin.v0.0.1.csv.yaml
+- type: olm.channel
+  value:
+    name: dark
+- type: olm.channel
+  value:
+    name: light
 - type: olm.package
   value:
     packageName: anakin
     version: 0.0.1
-- type: olm.bundle.object
-  value:
-    ref: objects/anakin.v0.0.1.csv.yaml
-- type: olm.bundle.object
-  value:
-    data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
-- type: olm.channel
-  value:
-    name: light
-- type: olm.channel
-  value:
-    name: dark
 relatedImages:
 - image: anakin-bundle:v0.0.1
   name: bundle
@@ -330,24 +330,24 @@ image: anakin-bundle:v0.1.0
 name: anakin.v0.1.0
 package: anakin
 properties:
-- type: olm.package
-  value:
-    packageName: anakin
-    version: 0.1.0
-- type: olm.bundle.object
-  value:
-    ref: objects/anakin.v0.1.0.csv.yaml
 - type: olm.bundle.object
   value:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
-- type: olm.channel
+- type: olm.bundle.object
   value:
-    name: light
-    replaces: anakin.v0.0.1
+    ref: objects/anakin.v0.1.0.csv.yaml
 - type: olm.channel
   value:
     name: dark
     replaces: anakin.v0.0.1
+- type: olm.channel
+  value:
+    name: light
+    replaces: anakin.v0.0.1
+- type: olm.package
+  value:
+    packageName: anakin
+    version: 0.1.0
 relatedImages:
 - image: anakin-bundle:v0.1.0
   name: bundle
@@ -357,20 +357,20 @@ image: anakin-bundle:v0.1.1
 name: anakin.v0.1.1
 package: anakin
 properties:
-- type: olm.package
-  value:
-    packageName: anakin
-    version: 0.1.1
-- type: olm.bundle.object
-  value:
-    ref: objects/anakin.v0.1.1.csv.yaml
 - type: olm.bundle.object
   value:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
+- type: olm.bundle.object
+  value:
+    ref: objects/anakin.v0.1.1.csv.yaml
 - type: olm.channel
   value:
     name: dark
     replaces: anakin.v0.0.1
+- type: olm.package
+  value:
+    packageName: anakin
+    version: 0.1.1
 - type: olm.skips
   value: anakin.v0.1.0
 relatedImages:
@@ -394,19 +394,19 @@ image: boba-fett-bundle:v1.0.0
 name: boba-fett.v1.0.0
 package: boba-fett
 properties:
+- type: olm.bundle.object
+  value:
+    data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
+- type: olm.bundle.object
+  value:
+    ref: objects/boba-fett.v1.0.0.csv.yaml
+- type: olm.channel
+  value:
+    name: mando
 - type: olm.package
   value:
     packageName: boba-fett
     version: 1.0.0
-- type: olm.bundle.object
-  value:
-    ref: objects/boba-fett.v1.0.0.csv.yaml
-- type: olm.bundle.object
-  value:
-    data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
-- type: olm.channel
-  value:
-    name: mando
 relatedImages:
 - image: boba-fett-bundle:v1.0.0
   name: bundle
@@ -416,20 +416,20 @@ image: boba-fett-bundle:v2.0.0
 name: boba-fett.v2.0.0
 package: boba-fett
 properties:
-- type: olm.package
-  value:
-    packageName: boba-fett
-    version: 2.0.0
-- type: olm.bundle.object
-  value:
-    ref: objects/boba-fett.v2.0.0.csv.yaml
 - type: olm.bundle.object
   value:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
+- type: olm.bundle.object
+  value:
+    ref: objects/boba-fett.v2.0.0.csv.yaml
 - type: olm.channel
   value:
     name: mando
     replaces: boba-fett.v1.0.0
+- type: olm.package
+  value:
+    packageName: boba-fett
+    version: 2.0.0
 relatedImages:
 - image: boba-fett-bundle:v2.0.0
   name: bundle
