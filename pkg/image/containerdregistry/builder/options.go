@@ -73,6 +73,7 @@ func NewImageBuilder(ctx context.Context, tag string, r containerdregistry.Regis
 	if err != nil {
 		return nil, fmt.Errorf("error getting index for %v: %v", builder.fromImage.String(), err)
 	}
+
 	builder.head = &img.Target
 
 	return builder, nil

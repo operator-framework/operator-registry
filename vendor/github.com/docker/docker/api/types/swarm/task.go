@@ -1,4 +1,4 @@
-package swarm // import "github.com/docker/docker/api/types/swarm"
+package swarm
 
 import (
 	"time"
@@ -56,23 +56,14 @@ type Task struct {
 	DesiredState        TaskState           `json:",omitempty"`
 	NetworksAttachments []NetworkAttachment `json:",omitempty"`
 	GenericResources    []GenericResource   `json:",omitempty"`
-
-	// JobIteration is the JobIteration of the Service that this Task was
-	// spawned from, if the Service is a ReplicatedJob or GlobalJob. This is
-	// used to determine which Tasks belong to which run of the job. This field
-	// is absent if the Service mode is Replicated or Global.
-	JobIteration *Version `json:",omitempty"`
 }
 
 // TaskSpec represents the spec of a task.
 type TaskSpec struct {
-	// ContainerSpec, NetworkAttachmentSpec, and PluginSpec are mutually exclusive.
-	// PluginSpec is only used when the `Runtime` field is set to `plugin`
-	// NetworkAttachmentSpec is used if the `Runtime` field is set to
-	// `attachment`.
-	ContainerSpec         *ContainerSpec         `json:",omitempty"`
-	PluginSpec            *runtime.PluginSpec    `json:",omitempty"`
-	NetworkAttachmentSpec *NetworkAttachmentSpec `json:",omitempty"`
+	// ContainerSpec and PluginSpec are mutually exclusive.
+	// PluginSpec will only be used when the `Runtime` field is set to `plugin`
+	ContainerSpec *ContainerSpec      `json:",omitempty"`
+	PluginSpec    *runtime.PluginSpec `json:",omitempty"`
 
 	Resources     *ResourceRequirements     `json:",omitempty"`
 	RestartPolicy *RestartPolicy            `json:",omitempty"`
@@ -133,7 +124,6 @@ type ResourceRequirements struct {
 type Placement struct {
 	Constraints []string              `json:",omitempty"`
 	Preferences []PlacementPreference `json:",omitempty"`
-	MaxReplicas uint64                `json:",omitempty"`
 
 	// Platforms stores all the platforms that the image can run on.
 	// This field is used in the platform filter for scheduling. If empty,
@@ -176,19 +166,19 @@ const (
 
 // TaskStatus represents the status of a task.
 type TaskStatus struct {
-	Timestamp       time.Time        `json:",omitempty"`
-	State           TaskState        `json:",omitempty"`
-	Message         string           `json:",omitempty"`
-	Err             string           `json:",omitempty"`
-	ContainerStatus *ContainerStatus `json:",omitempty"`
-	PortStatus      PortStatus       `json:",omitempty"`
+	Timestamp       time.Time       `json:",omitempty"`
+	State           TaskState       `json:",omitempty"`
+	Message         string          `json:",omitempty"`
+	Err             string          `json:",omitempty"`
+	ContainerStatus ContainerStatus `json:",omitempty"`
+	PortStatus      PortStatus      `json:",omitempty"`
 }
 
 // ContainerStatus represents the status of a container.
 type ContainerStatus struct {
-	ContainerID string
-	PID         int
-	ExitCode    int
+	ContainerID string `json:",omitempty"`
+	PID         int    `json:",omitempty"`
+	ExitCode    int    `json:",omitempty"`
 }
 
 // PortStatus represents the port status of a task's host ports whose

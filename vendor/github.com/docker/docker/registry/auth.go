@@ -1,4 +1,4 @@
-package registry // import "github.com/docker/docker/registry"
+package registry
 
 import (
 	"io/ioutil"
@@ -12,7 +12,6 @@ import (
 	"github.com/docker/distribution/registry/client/transport"
 	"github.com/docker/docker/api/types"
 	registrytypes "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/errdefs"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -30,10 +29,10 @@ func loginV1(authConfig *types.AuthConfig, apiEndpoint APIEndpoint, userAgent st
 	logrus.Debugf("attempting v1 login to registry endpoint %s", serverAddress)
 
 	if serverAddress == "" {
-		return "", "", errdefs.System(errors.New("server Error: Server Address not set"))
+		return "", "", systemError{errors.New("server Error: Server Address not set")}
 	}
 
-	req, err := http.NewRequest(http.MethodGet, serverAddress+"users/", nil)
+	req, err := http.NewRequest("GET", serverAddress+"users/", nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -48,23 +47,23 @@ func loginV1(authConfig *types.AuthConfig, apiEndpoint APIEndpoint, userAgent st
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", errdefs.System(err)
+		return "", "", systemError{err}
 	}
 
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return "Login Succeeded", "", nil
 	case http.StatusUnauthorized:
-		return "", "", errdefs.Unauthorized(errors.New("Wrong login/password, please try again"))
+		return "", "", unauthorizedError{errors.New("Wrong login/password, please try again")}
 	case http.StatusForbidden:
 		// *TODO: Use registry configuration to determine what this says, if anything?
-		return "", "", errdefs.Forbidden(errors.Errorf("Login: Account is not active. Please see the documentation of the registry %s for instructions how to activate it.", serverAddress))
+		return "", "", notActivatedError{errors.Errorf("Login: Account is not active. Please see the documentation of the registry %s for instructions how to activate it.", serverAddress)}
 	case http.StatusInternalServerError:
 		logrus.Errorf("%s returned status code %d. Response Body :\n%s", req.URL.String(), resp.StatusCode, body)
-		return "", "", errdefs.System(errors.New("Internal Server Error"))
+		return "", "", systemError{errors.New("Internal Server Error")}
 	}
-	return "", "", errdefs.System(errors.Errorf("Login: %s (Code: %d; Headers: %s)", body,
-		resp.StatusCode, resp.Header))
+	return "", "", systemError{errors.Errorf("Login: %s (Code: %d; Headers: %s)", body,
+		resp.StatusCode, resp.Header)}
 }
 
 type loginCredentialStore struct {
@@ -140,7 +139,7 @@ func loginV2(authConfig *types.AuthConfig, endpoint APIEndpoint, userAgent strin
 	}
 
 	endpointStr := strings.TrimRight(endpoint.URL.String(), "/") + "/v2/"
-	req, err := http.NewRequest(http.MethodGet, endpointStr, nil)
+	req, err := http.NewRequest("GET", endpointStr, nil)
 	if err != nil {
 		if !foundV2 {
 			err = fallbackError{err: err}
@@ -248,6 +247,7 @@ func (err PingResponseError) Error() string {
 // challenge manager for the supported authentication types and
 // whether v2 was confirmed by the response. If a response is received but
 // cannot be interpreted a PingResponseError will be returned.
+// nolint: interfacer
 func PingV2Registry(endpoint *url.URL, transport http.RoundTripper) (challenge.Manager, bool, error) {
 	var (
 		foundV2   = false
@@ -262,7 +262,7 @@ func PingV2Registry(endpoint *url.URL, transport http.RoundTripper) (challenge.M
 		Timeout:   15 * time.Second,
 	}
 	endpointStr := strings.TrimRight(endpoint.String(), "/") + "/v2/"
-	req, err := http.NewRequest(http.MethodGet, endpointStr, nil)
+	req, err := http.NewRequest("GET", endpointStr, nil)
 	if err != nil {
 		return nil, false, err
 	}

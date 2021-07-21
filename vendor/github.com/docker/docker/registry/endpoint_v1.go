@@ -1,4 +1,4 @@
-package registry // import "github.com/docker/docker/registry"
+package registry
 
 import (
 	"crypto/tls"
@@ -69,7 +69,7 @@ func validateEndpoint(endpoint *V1Endpoint) error {
 
 func newV1Endpoint(address url.URL, tlsConfig *tls.Config, userAgent string, metaHeaders http.Header) *V1Endpoint {
 	endpoint := &V1Endpoint{
-		IsSecure: tlsConfig == nil || !tlsConfig.InsecureSkipVerify,
+		IsSecure: (tlsConfig == nil || !tlsConfig.InsecureSkipVerify),
 		URL:      new(url.URL),
 	}
 
@@ -124,6 +124,9 @@ func newV1EndpointFromStr(address string, tlsConfig *tls.Config, userAgent strin
 	}
 
 	endpoint := newV1Endpoint(*uri, tlsConfig, userAgent, metaHeaders)
+	if err != nil {
+		return nil, err
+	}
 
 	return endpoint, nil
 }
@@ -149,7 +152,7 @@ func (e *V1Endpoint) Ping() (PingResult, error) {
 		return PingResult{Standalone: false}, nil
 	}
 
-	req, err := http.NewRequest(http.MethodGet, e.Path("_ping"), nil)
+	req, err := http.NewRequest("GET", e.Path("_ping"), nil)
 	if err != nil {
 		return PingResult{Standalone: false}, err
 	}

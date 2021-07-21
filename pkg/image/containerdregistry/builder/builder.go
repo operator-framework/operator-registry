@@ -34,26 +34,17 @@ func (i *imageBuilder) updateConfig(ctx context.Context, platformMatcher platfor
 		}
 
 		if !i.NoHistory && len(action) > 0 {
-			historyEntry := ocispec.History{
-				Created:    nil,
-				CreatedBy:  "opm generate",
-				Comment:    action,
-				EmptyLayer: true,
-			}
-			if !i.OmitTimestamp {
-				historyEntry.Created = i.WithTimestamp
-				if historyEntry.Created == nil {
-					ts := time.Now()
-					historyEntry.Created = &ts
-				}
-			}
 			if len(config.History) == 0 {
 				config.History = []ocispec.History{}
 			}
-			config.History = append(config.History, historyEntry)
+			config.History = append(config.History, i.historyEntry(action, true))
 		}
 
-		configDesc, err := i.newDescriptor(ctx, config, images.MediaTypeDockerSchema2Config)
+		platform, err := i.getPlatform(ctx, &m.Config)
+		if err != nil {
+			return false, "", err
+		}
+		configDesc, err := i.newDescriptor(ctx, config, images.MediaTypeDockerSchema2Config, platform)
 		if err != nil {
 			return false, "", fmt.Errorf("error creating config descriptor: %v", err)
 		}
@@ -98,7 +89,11 @@ func (i *imageBuilder) updateImage(ctx context.Context, platformMatcher platform
 			return desc, nil
 		}
 
-		newDesc, err := i.newDescriptor(ctx, manifest, desc.MediaType)
+		platform, err := i.getPlatform(ctx, desc)
+		if err != nil {
+			return nil, err
+		}
+		newDesc, err := i.newDescriptor(ctx, manifest, desc.MediaType, platform)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +123,7 @@ func (i *imageBuilder) updateImage(ctx context.Context, platformMatcher platform
 		}
 		if changed {
 			idx.Manifests = manifestDescs
-			newDesc, err := i.newDescriptor(ctx, idx, desc.MediaType)
+			newDesc, err := i.newDescriptor(ctx, idx, desc.MediaType, desc.Platform)
 			if err != nil {
 				return nil, err
 			}
@@ -163,21 +158,22 @@ func (i *imageBuilder) updateManifest(ctx context.Context, platformMatcher platf
 	return nil
 }
 
-func (i *imageBuilder) newDescriptor(ctx context.Context, obj interface{}, mediaType string) (ocispec.Descriptor, error) {
+func (i *imageBuilder) newDescriptor(ctx context.Context, obj interface{}, mediaType string, platform *ocispec.Platform) (ocispec.Descriptor, error) {
 	ctx = ensureNamespace(ctx)
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("error marshaling %s descriptor: %v", mediaType, err)
 	}
-	return i.descriptorFromBytes(ctx, data, mediaType)
+	return i.descriptorFromBytes(ctx, data, mediaType, platform)
 }
 
-func (i *imageBuilder) descriptorFromBytes(ctx context.Context, data []byte, mediaType string) (ocispec.Descriptor, error) {
+func (i *imageBuilder) descriptorFromBytes(ctx context.Context, data []byte, mediaType string, platform *ocispec.Platform) (ocispec.Descriptor, error) {
 	ctx = ensureNamespace(ctx)
 	desc := ocispec.Descriptor{
 		MediaType: mediaType,
 		Digest:    digest.FromBytes(data),
 		Size:      int64(len(data)),
+		Platform:  platform,
 	}
 	if _, err := i.registry.Content().Info(ctx, desc.Digest); err == nil {
 		return desc, nil
@@ -198,4 +194,70 @@ func ensureNamespace(ctx context.Context) context.Context {
 		return namespaces.WithNamespace(ctx, namespaces.Default)
 	}
 	return ctx
+}
+
+func isEmptyPlatform(p *ocispec.Platform) bool{
+	if p == nil {
+		return true
+	}
+	return p.Architecture == "" || p.OS == ""
+}
+
+func (i *imageBuilder) getPlatform(ctx context.Context, desc *ocispec.Descriptor) (*ocispec.Platform, error) {
+	switch desc.MediaType {
+	case images.MediaTypeDockerSchema2ManifestList, ocispec.MediaTypeImageIndex:
+		return nil, nil
+	case images.MediaTypeDockerSchema2Manifest, ocispec.MediaTypeImageManifest:
+		if !isEmptyPlatform(desc.Platform) {
+			return desc.Platform, nil
+		}
+
+		manifestBlob, err := content.ReadBlob(ctx, i.registry.Content(), *desc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config descriptor %v", err)
+		}
+		var manifest ocispec.Manifest
+		if err := json.Unmarshal(manifestBlob, &manifest); err != nil {
+			return nil, err
+		}
+
+		desc = &manifest.Config
+		fallthrough
+	case images.MediaTypeDockerSchema2Config, ocispec.MediaTypeImageConfig:
+		if !isEmptyPlatform(desc.Platform) {
+			return desc.Platform, nil
+		}
+
+		configBlob, err := content.ReadBlob(ctx, i.registry.Content(), *desc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config descriptor %v", err)
+		}
+		var config ocispec.Image
+		if err := json.Unmarshal(configBlob, &config); err != nil {
+			return nil, err
+		}
+
+		return &ocispec.Platform{
+			Architecture: config.Architecture,
+			OS:           config.OS,
+		}, nil
+
+	}
+	return nil, nil
+}
+
+func (i imageBuilder) historyEntry(action string, emptyLayer bool) ocispec.History {
+	historyEntry := ocispec.History{
+		CreatedBy:  "opm generate",
+		EmptyLayer: emptyLayer,
+		Comment:    action,
+	}
+	if !i.OmitTimestamp {
+		historyEntry.Created = i.WithTimestamp
+		if historyEntry.Created == nil {
+			ts := time.Now()
+			historyEntry.Created = &ts
+		}
+	}
+	return historyEntry
 }

@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 
@@ -30,46 +29,38 @@ func (i *imageBuilder) Add(ctx context.Context, platformMatcher platforms.MatchC
 	ctx = ensureNamespace(ctx)
 	action := fmt.Sprintf("ADD %s %s", srcPath, dstPath)
 	return i.updateManifest(ctx, platformMatcher, func(m *ocispec.Manifest) (bool, string, error) {
-		data, diffID, err := layerFromPath(srcPath, dstPath)
-		if err != nil {
-			return false, "", fmt.Errorf("error creating layer for %s:%s : %v", srcPath, dstPath, err)
-		}
-		layerDesc, err := i.descriptorFromBytes(ctx, data, images.MediaTypeDockerSchema2LayerGzip)
-		if err != nil {
-			return false, "", fmt.Errorf("error creating layer descriptor for %s:%s : %v", srcPath, dstPath, err)
-		}
-
 		confBlob, err := content.ReadBlob(ctx, i.registry.Content(), m.Config)
 		if err != nil {
 			return false, "", err
 		}
-
 		config := ocispec.Image{}
 		if err := json.Unmarshal(confBlob, &config); err != nil {
 			return false, "", fmt.Errorf("failed to get imageConfig from manifest %v", err)
 		}
+		platform, err := i.getPlatform(ctx, &m.Config)
+		if err != nil {
+			return false, "", err
+		}
+
+		data, diffID, err := layerFromPath(srcPath, dstPath)
+		if err != nil {
+			return false, "", fmt.Errorf("error creating layer for %s:%s : %v", srcPath, dstPath, err)
+		}
+		layerDesc, err := i.descriptorFromBytes(ctx, data, images.MediaTypeDockerSchema2LayerGzip, platform)
+		if err != nil {
+			return false, "", fmt.Errorf("error creating layer descriptor for %s:%s : %v", srcPath, dstPath, err)
+		}
+
 		config.RootFS.DiffIDs = append(config.RootFS.DiffIDs, *diffID)
 
 		if !i.NoHistory {
-			historyEntry := ocispec.History{
-				CreatedBy:  "opm generate",
-				EmptyLayer: false,
-				Comment:    action,
-			}
-			if !i.OmitTimestamp {
-				historyEntry.Created = i.WithTimestamp
-				if historyEntry.Created == nil {
-					ts := time.Now()
-					historyEntry.Created = &ts
-				}
-			}
 			if len(config.History) == 0 {
 				config.History = []ocispec.History{}
 			}
-			config.History = append(config.History, historyEntry)
+			config.History = append(config.History, i.historyEntry(action, false))
 		}
 
-		configDesc, err := i.newDescriptor(ctx, config, images.MediaTypeDockerSchema2Config)
+		configDesc, err := i.newDescriptor(ctx, config, images.MediaTypeDockerSchema2Config, platform)
 		if err != nil {
 			return false, "", err
 		}
