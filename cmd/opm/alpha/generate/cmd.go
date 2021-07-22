@@ -15,7 +15,10 @@ import (
 )
 
 func NewCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "generate"}
+	cmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate various artifacts for declarative config indexes",
+	}
 	cmd.AddCommand(
 		newDockerfileCmd(),
 	)
