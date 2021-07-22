@@ -31,6 +31,7 @@ require (
 	github.com/joelanford/ignore v0.0.0-20210607151042-0d25dc18b62d
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
+	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/opencontainers/go-digest v1.0.0
@@ -41,6 +42,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0
+	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect

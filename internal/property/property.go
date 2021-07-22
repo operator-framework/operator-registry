@@ -121,16 +121,16 @@ func (f File) GetData(root fs.FS, cwd string) ([]byte, error) {
 }
 
 type Properties struct {
-	Packages         []Package
-	PackagesRequired []PackageRequired
-	Channels         []Channel
-	GVKs             []GVK
-	GVKsRequired     []GVKRequired
-	Skips            []Skips
-	SkipRanges       []SkipRange
-	BundleObjects    []BundleObject
+	Packages         []Package         `hash:"set"`
+	PackagesRequired []PackageRequired `hash:"set"`
+	Channels         []Channel         `hash:"set"`
+	GVKs             []GVK             `hash:"set"`
+	GVKsRequired     []GVKRequired     `hash:"set"`
+	Skips            []Skips           `hash:"set"`
+	SkipRanges       []SkipRange       `hash:"set"`
+	BundleObjects    []BundleObject    `hash:"set"`
 
-	Others []Property
+	Others []Property `hash:"set"`
 }
 
 const (
