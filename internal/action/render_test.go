@@ -82,6 +82,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildChannel("beta", ""),
 							property.MustBuildChannel("stable", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -89,8 +91,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "v0.1.0"),
 							property.MustBuildSkipRange("<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -102,7 +102,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
+						Objects: []string{string(foov1crd), string(foov1csv)},
 					},
 					{
 						Schema:  "olm.bundle",
@@ -110,6 +110,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildChannel("beta", "foo.v0.1.0"),
 							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -119,8 +121,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildSkipRange("<0.2.0"),
 							property.MustBuildSkips("foo.v0.1.1"),
 							property.MustBuildSkips("foo.v0.1.2"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -132,7 +132,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
+						Objects: []string{string(foov2crd), string(foov2csv)},
 					},
 				},
 			},
@@ -159,6 +159,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildChannel("beta", ""),
 							property.MustBuildChannel("stable", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -166,8 +168,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "v0.1.0"),
 							property.MustBuildSkipRange("<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -179,7 +179,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
+						Objects: []string{string(foov1crd), string(foov1csv)},
 					},
 					{
 						Schema:  "olm.bundle",
@@ -187,6 +187,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildChannel("beta", "foo.v0.1.0"),
 							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -196,8 +198,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildSkipRange("<0.2.0"),
 							property.MustBuildSkips("foo.v0.1.1"),
 							property.MustBuildSkips("foo.v0.1.2"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -209,7 +209,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
+						Objects: []string{string(foov2crd), string(foov2csv)},
 					},
 				},
 			},
@@ -236,14 +236,14 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildChannel("beta", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "v0.1.0"),
 							property.MustBuildSkipRange("<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -255,7 +255,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
+						Objects: []string{string(foov1crd), string(foov1csv)},
 					},
 					{
 						Schema:  "olm.bundle",
@@ -263,6 +263,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildChannel("beta", "foo.v0.1.0"),
 							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -272,8 +274,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildSkipRange("<0.2.0"),
 							property.MustBuildSkips("foo.v0.1.1"),
 							property.MustBuildSkips("foo.v0.1.2"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -285,7 +285,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
+						Objects: []string{string(foov2crd), string(foov2csv)},
 					},
 				},
 			},
@@ -312,14 +312,14 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildChannel("beta", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "v0.1.0"),
 							property.MustBuildSkipRange("<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -331,7 +331,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
+						Objects: []string{string(foov1crd), string(foov1csv)},
 					},
 					{
 						Schema:  "olm.bundle",
@@ -339,6 +339,8 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
+							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildChannel("beta", "foo.v0.1.0"),
 							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
@@ -348,8 +350,6 @@ func TestRender(t *testing.T) {
 							property.MustBuildSkipRange("<0.2.0"),
 							property.MustBuildSkips("foo.v0.1.1"),
 							property.MustBuildSkips("foo.v0.1.2"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -361,7 +361,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
+						Objects: []string{string(foov2crd), string(foov2csv)},
 					},
 				},
 			},

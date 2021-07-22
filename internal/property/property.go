@@ -9,11 +9,26 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"sort"
 )
 
 type Property struct {
 	Type  string          `json:"type"`
 	Value json.RawMessage `json:"value"`
+}
+
+var _ sort.Interface = PropertyList{}
+
+// PropertyList is a sortable list of Property.
+type PropertyList []Property
+
+func (l PropertyList) Len() int      { return len(l) }
+func (l PropertyList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
+func (l PropertyList) Less(i, j int) bool {
+	if l[i].Type != l[j].Type {
+		return l[i].Type < l[j].Type
+	}
+	return string(l[i].Value) < string(l[j].Value)
 }
 
 func (p Property) Validate() error {

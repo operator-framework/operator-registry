@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/h2non/filetype"
@@ -343,7 +344,11 @@ func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig
 	out := &declcfg.DeclarativeConfig{}
 	for _, in := range cfgs {
 		out.Packages = append(out.Packages, in.Packages...)
-		out.Bundles = append(out.Bundles, in.Bundles...)
+		for _, b := range in.Bundles {
+			sort.Sort(property.PropertyList(b.Properties))
+			sort.Strings(b.Objects)
+			out.Bundles = append(out.Bundles, b)
+		}
 		out.Others = append(out.Others, in.Others...)
 	}
 	return out

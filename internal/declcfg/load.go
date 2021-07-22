@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/joelanford/ignore"
@@ -116,6 +117,7 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 			if err := json.Unmarshal(doc, &b); err != nil {
 				return nil, fmt.Errorf("parse bundle: %v", err)
 			}
+			sort.Sort(property.PropertyList(b.Properties))
 			cfg.Bundles = append(cfg.Bundles, b)
 		case "":
 			return nil, fmt.Errorf("object '%s' is missing root schema field", string(doc))
