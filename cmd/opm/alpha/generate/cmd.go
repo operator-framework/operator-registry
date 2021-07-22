@@ -35,7 +35,11 @@ func newDockerfileCmd() *cobra.Command {
 
 This command creates a Dockerfile in the same directory as the <dcRootDir>
 (named <dcDirName>.Dockerfile) that can be used to build the index. If a
-Dockerfile with the same name already exists, this command will fail.`,
+Dockerfile with the same name already exists, this command will fail.
+
+When specifying extra labels, note that if duplicate keys exist, only the last
+value of each duplicate key will be added to the generated Dockerfile.
+`,
 		RunE: func(_ *cobra.Command, args []string) error {
 			fromDir := args[0]
 
@@ -65,7 +69,7 @@ Dockerfile with the same name already exists, this command will fail.`,
 
 			gen := action.GenerateDockerfile{
 				BaseImage:   baseImage,
-				FromDir:     indexName,
+				IndexDir:    indexName,
 				ExtraLabels: extraLabels,
 				Writer:      f,
 			}
