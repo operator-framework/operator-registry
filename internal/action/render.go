@@ -153,8 +153,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		if err != nil {
 			return nil, err
 		}
-	} else if configsDir, ok := labels["operators.operatorframework.io.index.configs.v1"]; ok {
-		// TODO(joelanford): Make a constant for above configs location label
+	} else if configsDir, ok := labels[containertools.ConfigsLocationLabel]; ok {
 		if !r.AllowedRefMask.Allowed(RefDCImage) {
 			return nil, fmt.Errorf("cannot render DC image: %w", &ErrNotAllowed{})
 		}
