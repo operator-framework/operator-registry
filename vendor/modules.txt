@@ -62,7 +62,7 @@ github.com/bugsnag/panicwrap
 github.com/cespare/xxhash/v2
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.3.2 => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
+# github.com/containerd/containerd v1.3.9 => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
 ## explicit
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
