@@ -10,7 +10,7 @@ import (
 
 type GenerateDockerfile struct {
 	BaseImage   string
-	FromDir     string
+	IndexDir    string
 	ExtraLabels map[string]string
 	Writer      io.Writer
 }
@@ -33,8 +33,8 @@ func (i GenerateDockerfile) validate() error {
 	if i.BaseImage == "" {
 		return fmt.Errorf("base image is unset")
 	}
-	if i.FromDir == "" {
-		return fmt.Errorf("index path is unset")
+	if i.IndexDir == "" {
+		return fmt.Errorf("index directory is unset")
 	}
 	return nil
 }
@@ -48,7 +48,7 @@ ENTRYPOINT ["/bin/opm"]
 CMD ["serve", "/configs"]
 
 # Copy declarative config root into image at /configs
-ADD {{.FromDir}} /configs
+ADD {{.IndexDir}} /configs
 
 # Set DC-specific label for the location of the DC root directory
 # in the image

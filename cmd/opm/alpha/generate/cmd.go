@@ -54,7 +54,7 @@ Dockerfile with the same name already exists, this command will fail.`,
 			if s, err := os.Stat(fromDir); err != nil {
 				return err
 			} else if !s.IsDir() {
-				return fmt.Errorf("provided root path %q is not a directory")
+				return fmt.Errorf("provided root path %q is not a directory", fromDir)
 			}
 
 			f, err := os.OpenFile(dockerfilePath, os.O_CREATE|os.O_WRONLY, 0666)
