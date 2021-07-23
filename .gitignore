@@ -472,3 +472,5 @@ test/e2e/index_tmp*
 
 # don't check in the certs directory
 certs/*
+
+index_tmp_*

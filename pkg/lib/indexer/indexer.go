@@ -293,6 +293,64 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 	return nil
 }
 
+// PruneFromIndexRequest defines the parameters to send to the PruneFromIndex API
+type PruneVersionFromIndexRequest struct {
+	Generate          bool
+	Permissive        bool
+	BinarySourceImage string
+	FromIndex         string
+	OutDockerfile     string
+	Tag               string
+	PackageVersions   []string
+	CaFile            string
+	SkipTLS           bool
+}
+
+func (i ImageIndexer) PruneVersionFromIndex(request PruneVersionFromIndexRequest) error {
+	buildDir, outDockerfile, cleanup, err := buildContext(request.Generate, request.OutDockerfile)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	if err != nil {
+		return err
+	}
+
+	// Run opm registry prune on the database
+	pruneFromRegistryReq := registry.PruneVersionFromRegistryRequest{
+		PackageVersions: request.PackageVersions,
+		InputDatabase:   databasePath,
+		Permissive:      request.Permissive,
+	}
+
+	// Prune the bundles from the registry
+	err = i.RegistryPruner.PruneVersionFromRegistry(pruneFromRegistryReq)
+	if err != nil {
+		return err
+	}
+
+	// generate the dockerfile
+	dockerfile := i.DockerfileGenerator.GenerateIndexDockerfile(request.BinarySourceImage, databasePath)
+	err = write(dockerfile, outDockerfile, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	if request.Generate {
+		return nil
+	}
+
+	// build the dockerfile
+	err = build(outDockerfile, request.Tag, i.CommandRunner, i.Logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ExtractDatabase sets a temp directory for unpacking an image
 func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTLS bool) (string, error) {
 	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)

@@ -84,6 +84,7 @@ func NewIndexStrandedPruner(containerTool containertools.ContainerTool, logger *
 // IndexPruner prunes operators out of an index
 type IndexPruner interface {
 	PruneFromIndex(PruneFromIndexRequest) error
+	PruneVersionFromIndex(PruneVersionFromIndexRequest) error
 }
 
 func NewIndexPruner(containerTool containertools.ContainerTool, logger *logrus.Entry) IndexPruner {

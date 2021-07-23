@@ -924,6 +924,35 @@ func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
+func (s *sqlLoader) getCSVName(tx *sql.Tx, packageName string, version string) (string, error) {
+	getID, err := tx.Prepare(`SELECT DISTINCT operatorbundle.name FROM operatorbundle
+	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
+	WHERE channel_entry.package_name=? AND operatorbundle.version=?`)
+	// getID, err := tx.Prepare(`
+	//   SELECT DISTINCT channel_entry.operatorbundle_name
+	//   FROM channel_entry
+	//   WHERE channel_entry.package_name=?`)
+
+	if err != nil {
+		return "", err
+	}
+	defer getID.Close()
+	rows, err := getID.Query(packageName)
+
+	var csvName sql.NullString
+	if rows.Next() {
+		if err := rows.Scan(&csvName); err != nil {
+			return "", err
+		}
+	}
+
+	if err := rows.Close(); err != nil {
+		return "", err
+	}
+
+	return csvName.String, nil
+}
+
 func (s *sqlLoader) RemovePackage(packageName string) error {
 	if err := func() error {
 		tx, err := s.db.Begin()
@@ -969,6 +998,32 @@ func (s *sqlLoader) RemovePackage(packageName string) error {
 	}
 
 	// separate transaction so that we remove stranded bundles after the package has been cleared
+	return s.RemoveStrandedBundles()
+}
+
+func (s *sqlLoader) RemoveBundleByVersion(operatorName string, operatorVersion string) error {
+	if err := func() error {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			tx.Rollback()
+		}()
+		csvName, err := s.getCSVName(tx, operatorName, operatorVersion)
+		if err != nil {
+			return err
+		}
+
+		if err := s.rmBundle(tx, csvName); err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}(); err != nil {
+		return err
+	}
+
 	return s.RemoveStrandedBundles()
 }
 

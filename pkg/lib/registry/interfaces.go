@@ -39,6 +39,7 @@ func NewRegistryStrandedPruner(logger *logrus.Entry) RegistryStrandedPruner {
 
 type RegistryPruner interface {
 	PruneFromRegistry(PruneFromRegistryRequest) error
+	PruneVersionFromRegistry(PruneVersionFromRegistryRequest) error
 }
 
 func NewRegistryPruner(logger *logrus.Entry) RegistryPruner {

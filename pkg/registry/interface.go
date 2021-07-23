@@ -12,6 +12,7 @@ type Load interface {
 	AddPackageChannels(manifest PackageManifest) error
 	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
 	RemovePackage(packageName string) error
+	RemoveBundleByVersion(packageName string, operatorVersion string) error
 	RemoveStrandedBundles() error
 	DeprecateBundle(path string) error
 	ClearNonHeadBundles() error

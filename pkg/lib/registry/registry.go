@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -314,6 +315,91 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 					return err
 				}
 				logrus.WithError(err).Warn("permissive mode enabled")
+			}
+		}
+	}
+
+	return nil
+}
+
+type PruneVersionFromRegistryRequest struct {
+	Permissive      bool
+	InputDatabase   string
+	PackageVersions []string
+}
+
+func (r RegistryUpdater) PruneVersionFromRegistry(request PruneVersionFromRegistryRequest) error {
+	// First we'll prune the packages
+	operatorVerMap := make(map[string][]string)
+	for _, pkgVersion := range request.PackageVersions {
+		split := strings.Split(pkgVersion, ":")
+		operatorVerMap[split[0]] = append(operatorVerMap[split[0]], split[1])
+	}
+	packageList := make([]string, 0, len(operatorVerMap))
+	for operatorName := range operatorVerMap {
+		packageList = append(packageList, operatorName)
+	}
+
+	logrus.Info(fmt.Sprintf("Keeping %s", packageList))
+
+	prunePackageReq := PruneFromRegistryRequest{
+		Permissive:    request.Permissive,
+		InputDatabase: request.InputDatabase,
+		Packages:      packageList,
+	}
+	r.PruneFromRegistry(prunePackageReq)
+
+	// Now we go delete the versions we don't want
+	db, err := sqlite.Open(request.InputDatabase)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	if err != nil {
+		return err
+	}
+	if err := dbLoader.Migrate(context.TODO()); err != nil {
+		return err
+	}
+
+	// get all the packages
+	lister := sqlite.NewSQLLiteQuerierFromDb(db)
+	if err != nil {
+		return err
+	}
+
+	// make it inexpensive to find packages
+	pkgMap := make(map[string]string)
+	for _, pkgVersion := range request.PackageVersions {
+		split := strings.Split(pkgVersion, ":")
+		pkgMap[split[0]] = split[1]
+	}
+
+	// prune packages from registry
+	for operatorName, versionList := range operatorVerMap {
+		operatorBundleVersions := make(map[string]bool)
+		for _, version := range versionList {
+			operatorBundleVersions[version] = true
+		}
+		bundlesForPackage, err := lister.GetBundlesForPackage(context.TODO(), operatorName)
+		if err != nil {
+			return err
+		}
+		for bundleForPackage, _ := range bundlesForPackage {
+			// Check our map to see if the bundle we found is in the list of bundles we want to keep
+			if _, found := operatorBundleVersions[bundleForPackage.Version]; !found {
+				// if not, then we delete that bundle
+				remover := sqlite.NewSQLRemoverForOperatorCsvNames(dbLoader, operatorName, bundleForPackage.Version)
+				if err := remover.Remove(); err != nil {
+					err = fmt.Errorf("error deleting bundles by operator csv name from database: %s", err)
+					if !request.Permissive {
+						logrus.WithError(err).Fatal("permissive mode disabled")
+						return err
+					}
+					logrus.WithError(err).Warn("permissive mode enabled")
+				}
 			}
 		}
 	}
