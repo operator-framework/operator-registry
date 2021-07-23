@@ -24,9 +24,10 @@ const (
 )
 
 type diff struct {
-	oldRefs  []string
-	newRefs  []string
-	skipDeps bool
+	oldRefs     []string
+	newRefs     []string
+	skipDeps    bool
+	includeFile string
 
 	output string
 	caFile string
@@ -62,11 +63,6 @@ case they are included. Dependencies provided by some catalog unknown to
 if that catalog is not serving these dependencies at runtime.
 Dependency inclusion can be turned off with --no-deps, although this is not recommended
 unless you are certain some in-cluster catalog satisfies all dependencies.
-
-NOTE: for now, if any dependency exists, the entire dependency's package is added to the diff.
-In the future, these packages will be pruned such that only the latest dependencies
-satisfying a package version range or GVK, and their upgrade graph(s) to their latest
-channel head(s), are included in the diff.
 `),
 		Example: templates.Examples(`
 # Create a directory for your declarative config diff.
@@ -80,6 +76,23 @@ opm alpha diff registry.org/my-catalog:abc123 registry.org/my-catalog:def456 -o 
 # OR:
 # Create a new catalog from the heads of an existing catalog.
 opm alpha diff registry.org/my-catalog:def456 -o yaml > my-catalog-index/index.yaml
+
+# OR:
+# Create a heads-only catalog, but include all of package "foo", package "bar" channel "stable",
+# and package "baz" channel "alpha" version "0.2.0-alpha.0" (and its upgrade graph) in the diff.
+cat <<EOF > include.yaml
+packages:
+- name: foo
+- name: bar
+  channels:
+  - name: stable
+- name: baz
+  channels:
+  - name: alpha
+    versions:
+    - 0.2.0-alpha.0
+EOF
+opm alpha diff registry.org/my-catalog:def456 -i include.yaml -o yaml > my-catalog-index/index.yaml
 
 # FINALLY:
 # Build an index image containing the diff-ed declarative config,
@@ -102,7 +115,10 @@ docker push registry.org/my-catalog:diff-latest
 	cmd.Flags().BoolVar(&a.skipDeps, "skip-deps", false, "do not include bundle dependencies in the output catalog")
 
 	cmd.Flags().StringVarP(&a.output, "output", "o", "yaml", "Output format (json|yaml)")
-	cmd.Flags().StringVarP(&a.caFile, "ca-file", "", "", "the root Certificates to use with this command")
+	cmd.Flags().StringVar(&a.caFile, "ca-file", "", "the root Certificates to use with this command")
+	cmd.Flags().StringVarP(&a.includeFile, "include-file", "i", "", "YAML defining packages, "+
+		"channels, and/or versions to include in the diff from the new refs. Upgrade graphs "+
+		"from individual versions to their channel's head are added to the diff")
 
 	cmd.Flags().BoolVar(&a.debug, "debug", false, "enable debug logging")
 	return cmd
@@ -140,6 +156,20 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	f, err := os.Open(a.includeFile)
+	if err != nil {
+		a.logger.Fatalf("error opening include file: %v", err)
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			a.logger.Error(cerr)
+		}
+	}()
+	includeConfig, err := action.LoadDiffIncludeConfig(f)
+	if err != nil {
+		a.logger.Fatalf("error loading include file: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 
@@ -148,6 +178,7 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		OldRefs:          a.oldRefs,
 		NewRefs:          a.newRefs,
 		SkipDependencies: a.skipDeps,
+		IncludeConfig:    includeConfig,
 		Logger:           a.logger,
 	}
 	cfg, err := diff.Run(ctx)

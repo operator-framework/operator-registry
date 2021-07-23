@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
+	"github.com/blang/semver"
 	"github.com/sirupsen/logrus"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
@@ -20,6 +24,8 @@ type Diff struct {
 	// SkipDependencies directs Run() to not include dependencies
 	// of bundles included in the diff if true.
 	SkipDependencies bool
+
+	IncludeConfig DiffIncludeConfig
 
 	Logger *logrus.Entry
 }
@@ -65,6 +71,7 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	g := &declcfg.DiffGenerator{
 		Logger:           a.Logger,
 		SkipDependencies: a.SkipDependencies,
+		Includer:         convertIncludeConfigToIncluder(a.IncludeConfig),
 	}
 	diffModel, err := g.Run(oldModel, newModel)
 	if err != nil {
@@ -80,4 +87,82 @@ func (p Diff) validate() error {
 		return fmt.Errorf("no new refs to diff")
 	}
 	return nil
+}
+
+// DiffIncludeConfig configures Diff.Run() to include a set of packages,
+// channels, and/or bundle versions in the output DeclarativeConfig.
+// These override other diff mechanisms. For example, if running in
+// heads-only mode but package "foo" channel "stable" is specified,
+// the entire "stable" channel (all channel bundles) is added to the output.
+type DiffIncludeConfig struct {
+	// Packages to include.
+	Packages []DiffIncludePackage `json:"packages" yaml:"packages"`
+}
+
+// DiffIncludePackage contains a name (required) and channels and/or versions
+// (optional) to include in the diff. The full package is only included if no channels
+// or versions are specified.
+type DiffIncludePackage struct {
+	// Name of package.
+	Name string `json:"name" yaml:"name"`
+	// Channels to include.
+	Channels []DiffIncludeChannel `json:"channels,omitempty" yaml:"channels,omitempty"`
+	// Versions to include. All channels containing these versions
+	// are parsed for an upgrade graph.
+	Versions []semver.Version `json:"versions,omitempty" yaml:"versions,omitempty"`
+}
+
+// DiffIncludeChannel contains a name (required) and versions (optional)
+// to include in the diff. The full channel is only included if no versions are specified.
+type DiffIncludeChannel struct {
+	// Name of channel.
+	Name string `json:"name" yaml:"name"`
+	// Versions to include.
+	Versions []semver.Version `json:"versions,omitempty" yaml:"versions,omitempty"`
+}
+
+// LoadDiffIncludeConfig loads a (YAML or JSON) DiffIncludeConfig from r.
+func LoadDiffIncludeConfig(r io.Reader) (c DiffIncludeConfig, err error) {
+	dec := yaml.NewYAMLOrJSONDecoder(r, 8)
+	if err := dec.Decode(&c); err != nil {
+		return DiffIncludeConfig{}, err
+	}
+
+	if len(c.Packages) == 0 {
+		return c, fmt.Errorf("must specify at least one package in include config")
+	}
+
+	var errs []error
+	for pkgI, pkg := range c.Packages {
+		if pkg.Name == "" {
+			errs = append(errs, fmt.Errorf("package at index %v requires a name", pkgI))
+			continue
+		}
+		for chI, ch := range pkg.Channels {
+			if ch.Name == "" {
+				errs = append(errs, fmt.Errorf("package %s: channel at index %v requires a name", pkg.Name, chI))
+				continue
+			}
+		}
+	}
+	return c, utilerrors.NewAggregate(errs)
+}
+
+func convertIncludeConfigToIncluder(c DiffIncludeConfig) (includer declcfg.DiffIncluder) {
+	includer.Packages = make([]declcfg.DiffIncludePackage, len(c.Packages))
+	for pkgI, cpkg := range c.Packages {
+		pkg := &includer.Packages[pkgI]
+		pkg.Name = cpkg.Name
+		pkg.AllChannels.Versions = cpkg.Versions
+
+		if len(cpkg.Channels) != 0 {
+			pkg.Channels = make([]declcfg.DiffIncludeChannel, len(cpkg.Channels))
+			for chI, cch := range cpkg.Channels {
+				ch := &pkg.Channels[chI]
+				ch.Name = cch.Name
+				ch.Versions = cch.Versions
+			}
+		}
+	}
+	return includer
 }
