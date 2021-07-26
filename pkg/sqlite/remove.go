@@ -26,8 +26,8 @@ type PackageRemover struct {
 
 type OperatorPackageVersionRemover struct {
 	store       registry.Load
-	packageName string
-	version     string
+	CsvToRemove string
+	CsvToSave   *string
 }
 
 var _ SQLRemover = &PackageRemover{}
@@ -40,11 +40,11 @@ func NewSQLRemoverForPackages(store registry.Load, packages string) *PackageRemo
 	}
 }
 
-func NewSQLRemoverForOperatorCsvNames(store registry.Load, packageName string, version string) *OperatorPackageVersionRemover {
+func NewSQLRemoverForOperatorCsvNames(store registry.Load, csvToRemove string, csvToSave *string) *OperatorPackageVersionRemover {
 	return &OperatorPackageVersionRemover{
 		store:       store,
-		packageName: packageName,
-		version:     version,
+		CsvToRemove: csvToRemove,
+		CsvToSave:   csvToSave,
 	}
 }
 
@@ -68,19 +68,19 @@ func (d *PackageRemover) Remove() error {
 
 func (d *OperatorPackageVersionRemover) Remove() error {
 	fields := logrus.Fields{
-		"package": d.packageName,
-		"version": d.version,
+		"csv": d.CsvToRemove,
 	}
 	log := logrus.WithFields(fields)
 
-	log.Info("deleting packages")
+	log.Infof("deleting package version %s", d.CsvToRemove)
+	if d.CsvToSave != nil {
+		log.Infof("replacing with %s as head in channel", *d.CsvToSave)
+	}
 
 	var errs []error
-	// packages := sanitizePackageList(strings.Split(d.operatorVersions, ","))
-	log.Infof("operator package and version: %s %s", d.packageName, d.version)
 
-	if err := d.store.RemoveBundleByVersion(d.packageName, d.version); err != nil {
-		errs = append(errs, fmt.Errorf("error removing operator bundle %s %s: %s", d.packageName, d.version, err))
+	if err := d.store.RemoveBundle(d.CsvToRemove, d.CsvToSave); err != nil {
+		errs = append(errs, fmt.Errorf("error removing operator bundle %s: %s", d.CsvToRemove, err))
 	}
 
 	return utilerrors.NewAggregate(errs)

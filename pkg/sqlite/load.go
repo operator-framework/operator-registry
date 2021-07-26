@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -924,10 +925,23 @@ func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
+type CSVNameError struct {
+	Err            error
+	PackageName    string
+	PackageVersion string
+}
+
+var CSVNameNotFound CSVNameError
+
+func (e *CSVNameError) Error() string {
+	return fmt.Sprintf("%s: %s %s", e.Err, e.PackageName, e.PackageVersion)
+}
+
 func (s *sqlLoader) getCSVName(tx *sql.Tx, packageName string, version string) (string, error) {
-	getID, err := tx.Prepare(`SELECT DISTINCT operatorbundle.name FROM operatorbundle
+	query := `SELECT DISTINCT operatorbundle.name FROM operatorbundle
 	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
-	WHERE channel_entry.package_name=? AND operatorbundle.version=?`)
+	WHERE channel_entry.package_name=? AND operatorbundle.version=?`
+	getID, err := tx.Prepare(query)
 	// getID, err := tx.Prepare(`
 	//   SELECT DISTINCT channel_entry.operatorbundle_name
 	//   FROM channel_entry
@@ -937,13 +951,21 @@ func (s *sqlLoader) getCSVName(tx *sql.Tx, packageName string, version string) (
 		return "", err
 	}
 	defer getID.Close()
-	rows, err := getID.Query(packageName)
+	rows, err := getID.Query(packageName, version)
+
+	var errs []error
+	if err != nil {
+		errs = append(errs, fmt.Errorf("failed query: %s \nerror: %s", query, err))
+		return "", utilerrors.NewAggregate(errs)
+	}
 
 	var csvName sql.NullString
 	if rows.Next() {
 		if err := rows.Scan(&csvName); err != nil {
 			return "", err
 		}
+	} else {
+		return "", &CSVNameError{errors.New("no CSV name found"), packageName, version}
 	}
 
 	if err := rows.Close(); err != nil {
@@ -1001,7 +1023,7 @@ func (s *sqlLoader) RemovePackage(packageName string) error {
 	return s.RemoveStrandedBundles()
 }
 
-func (s *sqlLoader) RemoveBundleByVersion(operatorName string, operatorVersion string) error {
+func (s *sqlLoader) RemoveBundle(csvToRemove string, csvToSave *string) error {
 	if err := func() error {
 		tx, err := s.db.Begin()
 		if err != nil {
@@ -1010,12 +1032,15 @@ func (s *sqlLoader) RemoveBundleByVersion(operatorName string, operatorVersion s
 		defer func() {
 			tx.Rollback()
 		}()
-		csvName, err := s.getCSVName(tx, operatorName, operatorVersion)
-		if err != nil {
-			return err
+
+		if csvToSave != nil {
+			s.replaceChannelHead(tx, *csvToSave, csvToRemove)
 		}
 
-		if err := s.rmBundle(tx, csvName); err != nil {
+		if err := s.rmChannelEntry(tx, csvToRemove); err != nil {
+			return err
+		}
+		if err := s.rmBundle(tx, csvToRemove); err != nil {
 			return err
 		}
 
@@ -1025,6 +1050,19 @@ func (s *sqlLoader) RemoveBundleByVersion(operatorName string, operatorVersion s
 	}
 
 	return s.RemoveStrandedBundles()
+}
+
+func (s *sqlLoader) replaceChannelHead(tx *sql.Tx, newCsvName string, oldCsvName string) error {
+	replaceChannelHead, err := tx.Prepare("UPDATE channel set head_operatorbundle_name=? WHERE head_operatorbundle_name=?")
+	if err != nil {
+		return err
+	}
+	defer replaceChannelHead.Close()
+	if _, err := replaceChannelHead.Exec(newCsvName, oldCsvName); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *sqlLoader) rmBundle(tx *sql.Tx, csvName string) error {

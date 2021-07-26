@@ -12,9 +12,10 @@ import (
 
 func newIndexPruneVersionCmd() *cobra.Command {
 	indexCmd := &cobra.Command{
-		Use:   "prune-version",
-		Short: "prune an index of all but specified package versions",
-		Long:  `prune an index of all but specified package versions`,
+		Hidden: true,
+		Use:    "prune-version",
+		Short:  "prune an index of all but specified package versions",
+		Long:   `prune an index of all but specified package versions`,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

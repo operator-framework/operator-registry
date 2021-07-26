@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 
+	// "github.com/blang/semver"
+	// "github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/mod/semver"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
@@ -330,10 +334,18 @@ type PruneVersionFromRegistryRequest struct {
 
 func (r RegistryUpdater) PruneVersionFromRegistry(request PruneVersionFromRegistryRequest) error {
 	// First we'll prune the packages
+	// Create a map of the operator and versions we want to keep
 	operatorVerMap := make(map[string][]string)
 	for _, pkgVersion := range request.PackageVersions {
 		split := strings.Split(pkgVersion, ":")
 		operatorVerMap[split[0]] = append(operatorVerMap[split[0]], split[1])
+	}
+
+	// now we sort those lists of versions for later (might only contain one version each)
+	for _, versionList := range operatorVerMap {
+		sort.Slice(versionList, func(i, j int) bool {
+			return semver.Compare(versionList[i], versionList[j]) < 0
+		})
 	}
 	packageList := make([]string, 0, len(operatorVerMap))
 	for operatorName := range operatorVerMap {
@@ -370,28 +382,31 @@ func (r RegistryUpdater) PruneVersionFromRegistry(request PruneVersionFromRegist
 		return err
 	}
 
-	// make it inexpensive to find packages
-	pkgMap := make(map[string]string)
-	for _, pkgVersion := range request.PackageVersions {
-		split := strings.Split(pkgVersion, ":")
-		pkgMap[split[0]] = split[1]
-	}
-
 	// prune packages from registry
 	for operatorName, versionList := range operatorVerMap {
 		operatorBundleVersions := make(map[string]bool)
 		for _, version := range versionList {
 			operatorBundleVersions[version] = true
 		}
-		bundlesForPackage, err := lister.GetBundlesForPackage(context.TODO(), operatorName)
+		// bundlesForPackage, err := lister.GetBundlesForPackage(context.TODO(), operatorName)
+		channelEntriesForPackage, err := lister.GetChannelEntriesFromPackage(context.TODO(), operatorName)
 		if err != nil {
 			return err
 		}
-		for bundleForPackage, _ := range bundlesForPackage {
+
+		for _, channelEntryForPackage := range channelEntriesForPackage {
+			// Find the newest of the package version for this channel (otherwise we lose everything if we delete)
+			// the head bundle
+			channel := channelEntryForPackage.ChannelName
+			bundleToSave := findNewestVersionToSave(channelEntriesForPackage, operatorVerMap[channelEntryForPackage.PackageName], channel)
+			if err != nil {
+				return err
+			}
+
 			// Check our map to see if the bundle we found is in the list of bundles we want to keep
-			if _, found := operatorBundleVersions[bundleForPackage.Version]; !found {
+			if _, found := operatorBundleVersions[channelEntryForPackage.Version]; !found {
 				// if not, then we delete that bundle
-				remover := sqlite.NewSQLRemoverForOperatorCsvNames(dbLoader, operatorName, bundleForPackage.Version)
+				remover := sqlite.NewSQLRemoverForOperatorCsvNames(dbLoader, channelEntryForPackage.BundleName, bundleToSave)
 				if err := remover.Remove(); err != nil {
 					err = fmt.Errorf("error deleting bundles by operator csv name from database: %s", err)
 					if !request.Permissive {
@@ -411,6 +426,52 @@ type DeprecateFromRegistryRequest struct {
 	Permissive    bool
 	InputDatabase string
 	Bundles       []string
+}
+
+func findNewestVersionToSave(channelEntries []registry.ChannelEntryAnnotated, operatorVerList []string, channelName string) *string {
+	// filter the channel entries for the specific channel name
+	filteredChannelEntries := []registry.ChannelEntryAnnotated{}
+	for _, channelEntryForPackage := range channelEntries {
+		if channelEntryForPackage.ChannelName == channelName {
+			filteredChannelEntries = append(filteredChannelEntries, channelEntryForPackage)
+		}
+	}
+
+	sort.Slice(filteredChannelEntries, func(i, j int) bool {
+		return semver.Compare(filteredChannelEntries[i].Version, filteredChannelEntries[j].Version) < 0
+	})
+
+	// Find all the versions that the user requested that are also in this channel
+	filteredOperatorVerList := []string{}
+	// this probably could be improved
+	for _, operatorVer := range operatorVerList {
+		for _, channelEntry := range filteredChannelEntries {
+			if semver.Compare(operatorVer, channelEntry.Version) == 0 {
+				filteredOperatorVerList = append(filteredOperatorVerList, operatorVer)
+			}
+		}
+	}
+
+	// if the list is empty, then we didn't find any that matched this channel
+	if len(filteredOperatorVerList) == 0 {
+		return nil
+	}
+
+	// now sort it to get the highest version we want to save for this channel
+	sort.Slice(filteredOperatorVerList, func(i, j int) bool {
+		return semver.Compare(filteredOperatorVerList[i], filteredOperatorVerList[j]) < 0
+	})
+
+	highestVersion := filteredOperatorVerList[len(filteredOperatorVerList)-1]
+
+	for _, i := range filteredChannelEntries {
+		if i.Version == highestVersion {
+			return &i.BundleName
+		}
+	}
+
+	// If we get here, there's no version we could find in this channel that we'd want to save
+	return nil
 }
 
 func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequest) error {
