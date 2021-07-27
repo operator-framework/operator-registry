@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -929,50 +928,6 @@ type CSVNameError struct {
 	Err            error
 	PackageName    string
 	PackageVersion string
-}
-
-var CSVNameNotFound CSVNameError
-
-func (e *CSVNameError) Error() string {
-	return fmt.Sprintf("%s: %s %s", e.Err, e.PackageName, e.PackageVersion)
-}
-
-func (s *sqlLoader) getCSVName(tx *sql.Tx, packageName string, version string) (string, error) {
-	query := `SELECT DISTINCT operatorbundle.name FROM operatorbundle
-	INNER JOIN channel_entry ON operatorbundle.name=channel_entry.operatorbundle_name
-	WHERE channel_entry.package_name=? AND operatorbundle.version=?`
-	getID, err := tx.Prepare(query)
-	// getID, err := tx.Prepare(`
-	//   SELECT DISTINCT channel_entry.operatorbundle_name
-	//   FROM channel_entry
-	//   WHERE channel_entry.package_name=?`)
-
-	if err != nil {
-		return "", err
-	}
-	defer getID.Close()
-	rows, err := getID.Query(packageName, version)
-
-	var errs []error
-	if err != nil {
-		errs = append(errs, fmt.Errorf("failed query: %s \nerror: %s", query, err))
-		return "", utilerrors.NewAggregate(errs)
-	}
-
-	var csvName sql.NullString
-	if rows.Next() {
-		if err := rows.Scan(&csvName); err != nil {
-			return "", err
-		}
-	} else {
-		return "", &CSVNameError{errors.New("no CSV name found"), packageName, version}
-	}
-
-	if err := rows.Close(); err != nil {
-		return "", err
-	}
-
-	return csvName.String, nil
 }
 
 func (s *sqlLoader) RemovePackage(packageName string) error {

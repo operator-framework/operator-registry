@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	// "github.com/blang/semver"
-	// "github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/mod/semver"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
