@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -574,6 +575,119 @@ func TestAddBundlePropertiesFromAnnotations(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestReplaceChannelHead(t *testing.T) {
+	type fields struct {
+		bundles []*registry.Bundle
+		pkgs    []registry.PackageManifest
+	}
+	type args struct {
+		bundle string
+	}
+	type expected struct {
+		err           error
+		alphaChannel  string
+		stableChannel string
+	}
+	tests := []struct {
+		description string
+		fields      fields
+		args        args
+		expected    expected
+	}{
+		{
+			description: "ContainsDefaultChannel",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"alpha"}, newUnstructuredCSV(t, "csv-a", "csv-b")),
+					newBundle(t, "csv-b", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-b", "csv-c")),
+					newBundle(t, "csv-c", "pkg-0", []string{"alpha", "stable"}, newUnstructuredCSV(t, "csv-c", "")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "alpha",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-b",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-a",
+			},
+			expected: expected{
+				err:           nil,
+				alphaChannel:  "csv-b",
+				stableChannel: "csv-b",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			err = store.Migrate(context.TODO())
+			require.NoError(t, err)
+
+			for _, bundle := range tt.fields.bundles {
+				// Throw away any errors loading bundles (not testing this)
+				store.AddOperatorBundle(bundle)
+			}
+
+			for _, pkg := range tt.fields.pkgs {
+				// Throw away any errors loading packages (not testing this)
+				store.AddPackageChannels(pkg)
+			}
+			tx, err := db.Begin()
+			require.NoError(t, err)
+			loader := store.(*sqlLoader)
+			err = loader.replaceChannelHead(tx, "csv-b", "csv-a")
+			require.NoError(t, err)
+			var (
+				alphaChannel  sql.NullString
+				stableChannel sql.NullString
+			)
+			newChannelHeadRows, err := tx.Query("SELECT head_operatorbundle_name FROM channel WHERE name = ?", "alpha")
+			require.NoError(t, err)
+			if newChannelHeadRows.Next() {
+				if err := newChannelHeadRows.Scan(&alphaChannel); err != nil {
+					if nerr := newChannelHeadRows.Close(); nerr != nil {
+						require.NoError(t, nerr)
+					}
+					require.NoError(t, err)
+				}
+			}
+			newChannelHeadRows, err = tx.Query("SELECT head_operatorbundle_name FROM channel WHERE name = ?", "stable")
+			require.NoError(t, err)
+			if newChannelHeadRows.Next() {
+				if err := newChannelHeadRows.Scan(&stableChannel); err != nil {
+					if nerr := newChannelHeadRows.Close(); nerr != nil {
+						require.NoError(t, nerr)
+					}
+					require.NoError(t, err)
+				}
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expected.err, err)
+			t.Logf("tt.expected.alphaChannel %#v", tt.expected.alphaChannel)
+			t.Logf("tt.expected.stableChannel %#v", tt.expected.stableChannel)
+			t.Logf("actual alphaChannel %#v", alphaChannel.String)
+			t.Logf("actual stableChannel %#v", stableChannel.String)
+			require.Equal(t, tt.expected.alphaChannel, alphaChannel.String)
+			require.Equal(t, tt.expected.stableChannel, stableChannel.String)
 		})
 	}
 }

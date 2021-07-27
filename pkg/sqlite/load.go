@@ -924,12 +924,6 @@ func (s *sqlLoader) getCSVNames(tx *sql.Tx, packageName string) ([]string, error
 	return csvNames, nil
 }
 
-type CSVNameError struct {
-	Err            error
-	PackageName    string
-	PackageVersion string
-}
-
 func (s *sqlLoader) RemovePackage(packageName string) error {
 	if err := func() error {
 		tx, err := s.db.Begin()
