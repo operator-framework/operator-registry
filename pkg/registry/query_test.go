@@ -164,7 +164,11 @@ func TestQuerier_ListBundles(t *testing.T) {
 	bundles, err := testModelQuerier.ListBundles(context.TODO())
 	require.NoError(t, err)
 	require.NotNil(t, bundles)
-	require.Equal(t, 12, len(bundles))
+	require.Len(t, bundles, 12)
+	for _, b := range bundles {
+		require.Zero(t, b.CsvJson)
+		require.Zero(t, b.Object)
+	}
 }
 
 func TestQuerier_ListPackages(t *testing.T) {

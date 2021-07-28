@@ -96,7 +96,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		logger.WithError(err).Warnf("couldn't migrate db")
 	}
 
-	store := sqlite.NewSQLLiteQuerierFromDb(db)
+	store := sqlite.NewSQLLiteQuerierFromDb(db, sqlite.OmitManifests(true))
 
 	// sanity check that the db is available
 	tables, err := store.ListTables(context.TODO())
