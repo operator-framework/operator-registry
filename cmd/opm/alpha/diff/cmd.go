@@ -93,7 +93,7 @@ docker push registry.org/my-catalog:headsonly-def456
 func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 	a.parseArgs(args)
 
-	skipTLS, err := cmd.PersistentFlags().GetBool("skip-tls")
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
 	if err != nil {
 		panic(err)
 	}
