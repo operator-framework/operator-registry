@@ -17,9 +17,16 @@ type Load interface {
 	ClearNonHeadBundles() error
 }
 
+type BundleSender interface {
+	Send(*api.Bundle) error
+}
+
 type GRPCQuery interface {
 	// List all available package names in the index
 	ListPackages(ctx context.Context) ([]string, error)
+
+	// Sends all available bundles in the index
+	SendBundles(ctx context.Context, stream BundleSender) error
 
 	// List all available bundles in the index
 	ListBundles(ctx context.Context) (bundles []*api.Bundle, err error)
