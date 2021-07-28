@@ -42,7 +42,7 @@ func TestListBundlesQuery(t *testing.T) {
 						c            interface{}
 						name, actual sql.NullString
 					)
-					if err := rows.Scan(&c, &c, &c, &name, &c, &c, &actual, &c, &c, &c, &c, &c, &c, &c); err != nil {
+					if err := rows.Scan(&c, &c, &c, &name, &c, &c, &actual, &c, &c, &c, &c, &c); err != nil {
 						t.Fatalf("unexpected error during row scan: %v", err)
 					}
 					expected, ok := replacements[name]
@@ -107,7 +107,7 @@ func TestListBundlesQuery(t *testing.T) {
 						c      interface{}
 						actual result
 					)
-					if err := rows.Scan(&c, &c, &c, &actual.Name, &c, &c, &actual.Replaces, &actual.Skips, &c, &c, &c, &c, &c, &c); err != nil {
+					if err := rows.Scan(&c, &c, &c, &actual.Name, &c, &c, &actual.Replaces, &actual.Skips, &c, &c, &c, &c); err != nil {
 						t.Fatalf("unexpected error during row scan: %v", err)
 					}
 					r, ok := expected[actual.Name]
