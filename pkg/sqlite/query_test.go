@@ -15,20 +15,18 @@ import (
 
 func TestListBundles(t *testing.T) {
 	type Columns struct {
-		EntryID         sql.NullInt64
-		Bundle          sql.NullString
-		BundlePath      sql.NullString
-		BundleName      sql.NullString
-		PackageName     sql.NullString
-		ChannelName     sql.NullString
-		Replaces        sql.NullString
-		Skips           sql.NullString
-		Version         sql.NullString
-		SkipRange       sql.NullString
-		DependencyType  sql.NullString
-		DependencyValue sql.NullString
-		PropertyType    sql.NullString
-		PropertyValue   sql.NullString
+		EntryID      sql.NullInt64
+		Bundle       sql.NullString
+		BundlePath   sql.NullString
+		BundleName   sql.NullString
+		PackageName  sql.NullString
+		ChannelName  sql.NullString
+		Replaces     sql.NullString
+		Skips        sql.NullString
+		Version      sql.NullString
+		SkipRange    sql.NullString
+		Dependencies sql.NullString
+		Properties   sql.NullString
 	}
 
 	var NoRows sqlitefakes.FakeRowScanner
@@ -195,27 +193,14 @@ func TestListBundles(t *testing.T) {
 				q.QueryContextReturns(&NoRows, nil)
 				q.QueryContextReturnsOnCall(0, &r, nil)
 				r.NextReturnsOnCall(0, true)
-				r.NextReturnsOnCall(1, true)
 				cols := []Columns{
 					{
-						BundleName:      sql.NullString{Valid: true, String: "BundleName"},
-						Version:         sql.NullString{Valid: true, String: "Version"},
-						ChannelName:     sql.NullString{Valid: true, String: "ChannelName"},
-						BundlePath:      sql.NullString{Valid: true, String: "BundlePath"},
-						DependencyType:  sql.NullString{Valid: true, String: "Dependency1Type"},
-						DependencyValue: sql.NullString{Valid: true, String: "Dependency1Value"},
-						PropertyType:    sql.NullString{Valid: true, String: "Property1Type"},
-						PropertyValue:   sql.NullString{Valid: true, String: "Property1Value"},
-					},
-					{
-						BundleName:      sql.NullString{Valid: true, String: "BundleName"},
-						Version:         sql.NullString{Valid: true, String: "Version"},
-						ChannelName:     sql.NullString{Valid: true, String: "ChannelName"},
-						BundlePath:      sql.NullString{Valid: true, String: "BundlePath"},
-						DependencyType:  sql.NullString{Valid: true, String: "Dependency2Type"},
-						DependencyValue: sql.NullString{Valid: true, String: "Dependency2Value"},
-						PropertyType:    sql.NullString{Valid: true, String: "Property2Type"},
-						PropertyValue:   sql.NullString{Valid: true, String: "Property2Value"},
+						BundleName:   sql.NullString{Valid: true, String: "BundleName"},
+						Version:      sql.NullString{Valid: true, String: "Version"},
+						ChannelName:  sql.NullString{Valid: true, String: "ChannelName"},
+						BundlePath:   sql.NullString{Valid: true, String: "BundlePath"},
+						Dependencies: sql.NullString{Valid: true, String: `[{"type":"Dependency1Type","value":"Dependency1Value"},{"type":"Dependency2Type","value":"Dependency2Value"}]`},
+						Properties:   sql.NullString{Valid: true, String: `[{"type":"Property1Type","value":"Property1Value"},{"type":"Property2Type","value":"Property2Value"}]`},
 					},
 				}
 				var i int
