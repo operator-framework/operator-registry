@@ -62,7 +62,7 @@ github.com/bugsnag/panicwrap
 github.com/cespare/xxhash/v2
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.3.2 => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
+# github.com/containerd/containerd v1.4.8
 ## explicit
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
@@ -391,9 +391,6 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v0.1.1
-## explicit
-github.com/opencontainers/runc/libcontainer/system
 # github.com/operator-framework/api v0.7.1
 ## explicit
 github.com/operator-framework/api/pkg/lib/version
@@ -972,5 +969,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/containerd/containerd => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
 # github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
