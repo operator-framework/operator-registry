@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect
-	github.com/containerd/containerd v1.3.2
+	github.com/containerd/containerd v1.4.8
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/containerd/ttrpc v1.0.1 // indirect
 	github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
@@ -36,7 +36,6 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
-	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/operator-framework/api v0.7.1
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
@@ -66,13 +65,5 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace (
-	// Currently on a fork for two issues:
-	// 1. stage registry proxy didn't like requests with no scopes, see https://github.com/containerd/containerd/pull/4223
-	// 2. prod registry proxy returns a 403 on post, see https://github.com/containerd/containerd/pull/3913
-	// The fork can be removed when both issues are resolved in a release, which should be 1.4.0
-	github.com/containerd/containerd => github.com/ecordell/containerd v1.3.1-0.20200629153125-0ff1a1be2fa5
-
-	// latest tag resolves to a very old version. this is only used for spinning up local test registries
-	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
-)
+// latest tag resolves to a very old version. this is only used for spinning up local test registries
+replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
