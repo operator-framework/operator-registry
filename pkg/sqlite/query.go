@@ -1056,22 +1056,12 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 			out.Skips = strings.Split(skips.String, ",")
 		}
 
-		provided, required, err := s.GetApisForEntry(ctx, entryID.Int64)
-		if err != nil {
-			return nil, err
-		}
-		if len(provided) > 0 {
-			out.ProvidedApis = provided
-		}
-		if len(required) > 0 {
-			out.RequiredApis = required
-		}
-
 		if deps.Valid {
 			if err := json.Unmarshal([]byte(deps.String), &out.Dependencies); err != nil {
 				return nil, err
 			}
 		}
+		buildLegacyRequiredAPIs(out.Dependencies, &out.RequiredApis)
 		out.Dependencies = uniqueDeps(out.Dependencies)
 
 		if props.Valid {
@@ -1079,12 +1069,49 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 				return nil, err
 			}
 		}
+		buildLegacyProvidedAPIs(out.Properties, &out.ProvidedApis)
 		out.Properties = uniqueProps(out.Properties)
 
 		bundles = append(bundles, out)
 	}
 
 	return bundles, nil
+}
+
+func buildLegacyRequiredAPIs(src []*api.Dependency, dst *[]*api.GroupVersionKind) error {
+	for _, p := range src {
+		if p.GetType() != registry.GVKType {
+			continue
+		}
+		var value registry.GVKDependency
+		if err := json.Unmarshal([]byte(p.GetValue()), &value); err != nil {
+			return err
+		}
+		*dst = append(*dst, &api.GroupVersionKind{
+			Group:   value.Group,
+			Version: value.Version,
+			Kind:    value.Kind,
+		})
+	}
+	return nil
+}
+
+func buildLegacyProvidedAPIs(src []*api.Property, dst *[]*api.GroupVersionKind) error {
+	for _, p := range src {
+		if p.GetType() != registry.GVKType {
+			continue
+		}
+		var value registry.GVKProperty
+		if err := json.Unmarshal([]byte(p.GetValue()), &value); err != nil {
+			return err
+		}
+		*dst = append(*dst, &api.GroupVersionKind{
+			Group:   value.Group,
+			Version: value.Version,
+			Kind:    value.Kind,
+		})
+	}
+	return nil
 }
 
 func uniqueDeps(deps []*api.Dependency) []*api.Dependency {
