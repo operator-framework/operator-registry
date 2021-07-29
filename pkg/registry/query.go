@@ -56,6 +56,14 @@ func (q Querier) SendBundles(_ context.Context, s BundleSender) error {
 				if err != nil {
 					return fmt.Errorf("convert bundle %q: %v", b.Name, err)
 				}
+				if apiBundle.BundlePath != "" {
+					// The SQLite-based server
+					// configures its querier to
+					// omit these fields when
+					// bundle path is set.
+					apiBundle.CsvJson = ""
+					apiBundle.Object = nil
+				}
 				if err := s.Send(apiBundle); err != nil {
 					return err
 				}

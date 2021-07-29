@@ -35,25 +35,44 @@ func (a dbQuerierAdapter) QueryContext(ctx context.Context, query string, args .
 
 type SQLQuerier struct {
 	db Querier
+	querierConfig
 }
 
 var _ registry.Query = &SQLQuerier{}
 
-func NewSQLLiteQuerier(dbFilename string) (*SQLQuerier, error) {
+type querierConfig struct {
+	omitManifests bool
+}
+
+type SQLiteQuerierOption func(*querierConfig)
+
+// If true, ListBundles will omit inline manifests (the object and
+// csvJson fields) from response elements that contain a bundle image
+// reference.
+func OmitManifests(b bool) SQLiteQuerierOption {
+	return func(c *querierConfig) {
+		c.omitManifests = b
+	}
+}
+
+func NewSQLLiteQuerier(dbFilename string, opts ...SQLiteQuerierOption) (*SQLQuerier, error) {
 	db, err := OpenReadOnly(dbFilename)
 	if err != nil {
 		return nil, err
 	}
-
-	return &SQLQuerier{dbQuerierAdapter{db}}, nil
+	return NewSQLLiteQuerierFromDb(db, opts...), nil
 }
 
-func NewSQLLiteQuerierFromDb(db *sql.DB) *SQLQuerier {
-	return &SQLQuerier{dbQuerierAdapter{db}}
+func NewSQLLiteQuerierFromDb(db *sql.DB, opts ...SQLiteQuerierOption) *SQLQuerier {
+	return NewSQLLiteQuerierFromDBQuerier(dbQuerierAdapter{db}, opts...)
 }
 
-func NewSQLLiteQuerierFromDBQuerier(q Querier) *SQLQuerier {
-	return &SQLQuerier{q}
+func NewSQLLiteQuerierFromDBQuerier(q Querier, opts ...SQLiteQuerierOption) *SQLQuerier {
+	sq := SQLQuerier{db: q}
+	for _, opt := range opts {
+		opt(&sq.querierConfig)
+	}
+	return &sq
 }
 
 func (s *SQLQuerier) ListTables(ctx context.Context) ([]string, error) {
@@ -983,7 +1002,7 @@ merged_dependencies (bundle_name, merged) AS (
 )
 SELECT
     replaces_bundle.entry_id,
-    operatorbundle.bundle,
+    CASE WHEN :omit_manifests AND length(coalesce(operatorbundle.bundlepath, "")) > 0 THEN NULL ELSE operatorbundle.bundle END,
     operatorbundle.bundlepath,
     operatorbundle.name,
     replaces_bundle.package_name,
@@ -1007,7 +1026,7 @@ SELECT
       ON operatorbundle.name = merged_properties.bundle_name`
 
 func (s *SQLQuerier) SendBundles(ctx context.Context, stream registry.BundleSender) error {
-	rows, err := s.db.QueryContext(ctx, listBundlesQuery)
+	rows, err := s.db.QueryContext(ctx, listBundlesQuery, sql.Named("omit_manifests", s.omitManifests))
 	if err != nil {
 		return err
 	}
