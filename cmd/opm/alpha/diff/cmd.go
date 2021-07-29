@@ -153,6 +153,8 @@ func (a *diff) parseArgs(args []string) {
 	default:
 		panic("should never be here, CLI must enforce arg size")
 	}
-	a.oldRefs = strings.Split(old, ",")
+	if old != "" {
+		a.oldRefs = strings.Split(old, ",")
+	}
 	a.newRefs = strings.Split(new, ",")
 }
