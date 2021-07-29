@@ -13,6 +13,14 @@ type Querier struct {
 	pkgs model.Model
 }
 
+type SliceBundleSender []*api.Bundle
+
+func (s *SliceBundleSender) Send(b *api.Bundle) error {
+
+	*s = append(*s, b)
+	return nil
+}
+
 var _ GRPCQuery = &Querier{}
 
 func NewQuerier(packages model.Model) *Querier {
@@ -29,21 +37,32 @@ func (q Querier) ListPackages(_ context.Context) ([]string, error) {
 	return packages, nil
 }
 
-func (q Querier) ListBundles(_ context.Context) ([]*api.Bundle, error) {
-	var bundles []*api.Bundle
+func (q Querier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	var bundleSender SliceBundleSender
 
+	err := q.SendBundles(ctx, &bundleSender)
+	if err != nil {
+		return nil, err
+	}
+
+	return bundleSender, nil
+}
+
+func (q Querier) SendBundles(_ context.Context, s BundleSender) error {
 	for _, pkg := range q.pkgs {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
 				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
 				if err != nil {
-					return nil, fmt.Errorf("convert bundle %q: %v", b.Name, err)
+					return fmt.Errorf("convert bundle %q: %v", b.Name, err)
 				}
-				bundles = append(bundles, apiBundle)
+				if err := s.Send(apiBundle); err != nil {
+					return err
+				}
 			}
 		}
 	}
-	return bundles, nil
+	return nil
 }
 
 func (q Querier) GetPackage(_ context.Context, name string) (*PackageManifest, error) {

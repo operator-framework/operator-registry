@@ -1006,14 +1006,13 @@ SELECT
     LEFT OUTER JOIN merged_properties
       ON operatorbundle.name = merged_properties.bundle_name`
 
-func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+func (s *SQLQuerier) SendBundles(ctx context.Context, stream registry.BundleSender) error {
 	rows, err := s.db.QueryContext(ctx, listBundlesQuery)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
-	var bundles []*api.Bundle
 	for rows.Next() {
 		var (
 			entryID     sql.NullInt64
@@ -1030,7 +1029,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 			props       sql.NullString
 		)
 		if err := rows.Scan(&entryID, &bundle, &bundlePath, &bundleName, &pkgName, &channelName, &replaces, &skips, &version, &skipRange, &deps, &props); err != nil {
-			return nil, err
+			return err
 		}
 
 		if !bundleName.Valid || !version.Valid || !bundlePath.Valid || !channelName.Valid {
@@ -1041,7 +1040,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 		if bundle.Valid && bundle.String != "" {
 			out, err = registry.BundleStringToAPIBundle(bundle.String)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		out.CsvName = bundleName.String
@@ -1058,7 +1057,7 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 
 		if deps.Valid {
 			if err := json.Unmarshal([]byte(deps.String), &out.Dependencies); err != nil {
-				return nil, err
+				return err
 			}
 		}
 		buildLegacyRequiredAPIs(out.Dependencies, &out.RequiredApis)
@@ -1066,16 +1065,27 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 
 		if props.Valid {
 			if err := json.Unmarshal([]byte(props.String), &out.Properties); err != nil {
-				return nil, err
+				return err
 			}
 		}
 		buildLegacyProvidedAPIs(out.Properties, &out.ProvidedApis)
 		out.Properties = uniqueProps(out.Properties)
-
-		bundles = append(bundles, out)
+		if err := stream.Send(out); err != nil {
+			return err
+		}
 	}
 
-	return bundles, nil
+	return nil
+}
+
+func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	var bundleSender registry.SliceBundleSender
+	err := s.SendBundles(ctx, &bundleSender)
+	if err != nil {
+		return nil, err
+	}
+	return bundleSender, nil
+
 }
 
 func buildLegacyRequiredAPIs(src []*api.Dependency, dst *[]*api.GroupVersionKind) error {
