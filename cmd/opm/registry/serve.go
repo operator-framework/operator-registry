@@ -90,6 +90,10 @@ func serveFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if _, err := db.ExecContext(context.TODO(), `PRAGMA soft_heap_limit=1`); err != nil {
+		logger.WithError(err).Warnf("error setting soft heap limit for sqlite")
+	}
+
 	// migrate to the latest version
 	if err := migrate(cmd, db); err != nil {
 		logger.WithError(err).Warnf("couldn't migrate db")
