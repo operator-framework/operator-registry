@@ -25,17 +25,18 @@ func newBundleValidateCmd() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate bundle image",
 		Long: `The "opm alpha bundle validate" command will validate a bundle image
-from a remote source to determine if its format and content information are accurate. 
-Required validators. These validators will run by default on every invocation of the command. 
+from a remote source to determine if its format and content information are accurate.
+Required validators. These validators will run by default on every invocation of the command.
  * CSV validator - validates the CSV name and replaces fields.
- * CRD validator - validates the CRDs OpenAPI V3 schema. 
- * Bundle validator - validates the bundle format and annotations.yaml file as well as the optional dependencies.yaml file. 
+ * CRD validator - validates the CRDs OpenAPI V3 schema.
+ * Bundle validator - validates the bundle format and annotations.yaml file as well as the optional dependencies.yaml file.
 
-Optional validators. These validators are disabled by default and can be enabled via the --optional-validators flag. 
- * Operatorhub validator - performs operatorhub.io validation. To validate a bundle using custom categories use with the OPERATOR_BUNDLE_CATEGORIES environmental variable to point to a json-encoded categories file.
- * Bundle objects validator - performs validation on resources like PodDisruptionBudgets and PriorityClasses. 
+Optional validators. These validators are disabled by default and can be enabled via the --optional-validators flag.
+ * Operatorhub validator - performs operatorhub.io validation. To validate a bundle using custom categories use with the $OPERATOR_BUNDLE_CATEGORIES environmental variable to point to a json-encoded categories file.
+ * Bundle objects validator - performs validation on resources like PodDisruptionBudgets and PriorityClasses.
 
-See https://olm.operatorframework.io/docs/tasks/validate-package/#validation for more info.`,
+See https://olm.operatorframework.io/docs/tasks/creating-operator-bundle/#validating-your-bundle for more info.
+`,
 		Example: `$ opm alpha bundle validate --tag quay.io/test/test-operator:latest --image-builder docker`,
 		RunE:    validateFunc,
 	}
