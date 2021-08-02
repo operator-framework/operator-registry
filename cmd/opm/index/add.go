@@ -18,7 +18,13 @@ var (
 
 		This command will add the given set of bundle images (specified by the --bundles option) to an index image (provided by the --from-index option).
 
-		If multiple bundles are given with '--mode=replaces' (the default), bundles are added to the index by order of ascending (semver) version unless the update graph specified by replaces requires a different input order; e.g. 1.0.0 replaces 1.0.1 would result in [1.0.1, 1.0.0] instead of the [1.0.0, 1.0.1] normally expected of semver. However, for most cases (e.g. 1.0.1 replaces 1.0.0) the bundle with the highest version is used to set the default channel of the related package.
+		If multiple bundles are given with '--mode=replaces' (the default), bundles are added to the index by order of ascending (semver) version unless the update graph specified by replaces requires a different input order; e.g. 1.0.0 replaces 1.0.1 would result in [1.0.1, 1.0.0] instead of the [1.0.0, 1.0.1] normally expected of semver. However, for most cases (e.g. 1.0.1 replaces 1.0.0) the bundle with the highest version is used to set the default channel of the related package.  
+
+		Caveat: in replaces mode, the head of a channel is always the bundle with the highest semver. Any bundles upgrading from this channel-head will be pruned.  
+		An upgrade graph that looks like:  
+		0.1.1 -> 0.1.2 -> 0.1.2-1  
+		will be pruned on add to:  
+		0.1.1 -> 0.1.2
 	`)
 
 	addExample = templates.Examples(`

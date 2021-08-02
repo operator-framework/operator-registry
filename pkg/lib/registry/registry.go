@@ -196,7 +196,16 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 	}
 
 	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwriteImageMap, overwrite)
-	return populator.Populate(mode)
+	if err := populator.Populate(mode); err != nil {
+		return err
+	}
+
+	for _, imgMap := range overwriteImageMap {
+		for to, from := range imgMap {
+			unpackedImageMap[to] = from
+		}
+	}
+	return checkForBundles(ctx, querier.(*sqlite.SQLQuerier), graphLoader, unpackedImageMap)
 }
 
 type DeleteFromRegistryRequest struct {
@@ -401,4 +410,81 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 		return found, missing, fmt.Errorf("target bundlepaths for deprecation missing from registry: %v", missing)
 	}
 	return found, missing, nil
+}
+
+// replaces mode selects highest version as channel head and
+// prunes any bundles in the upgrade chain after the channel head.
+// check for the presence of all bundles after a replaces-mode add.
+func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.GraphLoader, bundles map[image.Reference]string) error {
+	if len(bundles) == 0 {
+		return nil
+	}
+
+	foundEntries := map[string]map[string]map[registry.BundleKey]bool{}
+	var errs []error
+	for to, from := range bundles {
+		b, err := registry.NewImageInput(to, from)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse unpacked bundle image %s", to))
+			continue
+		}
+
+		if _, ok := foundEntries[b.Bundle.Package]; !ok {
+			foundEntries[b.Bundle.Package] = map[string]map[registry.BundleKey]bool{}
+		}
+		v, err := b.Bundle.Version()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse version for %s (%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err))
+		}
+		key := registry.BundleKey{
+			CsvName:    b.Bundle.Name,
+			Version:    v,
+			BundlePath: b.Bundle.BundleImage,
+		}
+		for _, c := range b.Bundle.Channels {
+			if _, ok := foundEntries[b.Bundle.Package][c]; !ok {
+				foundEntries[b.Bundle.Package][c] = map[registry.BundleKey]bool{}
+			}
+			foundEntries[b.Bundle.Package][c][key] = false
+		}
+	}
+
+	for pkg, channels := range foundEntries {
+		graph, err := g.Generate(pkg)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unable to verify added bundles for package %s: %v", pkg, err))
+			continue
+		}
+		for channel, bundles := range channels {
+			for next := []registry.BundleKey{graph.Channels[channel].Head}; len(next) > 0; next = next[1:] {
+				if foundEntries[pkg][channel][next[0]] {
+					continue
+				}
+				foundEntries[pkg][channel][next[0]] = true
+				for edge := range graph.Channels[channel].Nodes[next[0]] {
+					next = append(next, edge)
+				}
+			}
+			for bundle, present := range bundles {
+				if !present {
+					// check if bundle is deprecated. Bundles readded after deprecation should not be present in index.
+					props, err := q.GetPropertiesForBundle(ctx, bundle.CsvName, bundle.Version, bundle.BundlePath)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("could not validate pruned bundle %s (%s) as deprecated: %v", bundle.CsvName, bundle.BundlePath, err))
+					}
+					var deprecated bool
+					for _, prop := range props {
+						if prop.Type == registry.DeprecatedType {
+							deprecated = true
+							break
+						}
+					}
+					if !deprecated {
+						errs = append(errs, fmt.Errorf("added bundle %s pruned from package %s, channel %s: this may be due to incorrect channel head (%s)", bundle.BundlePath, pkg, channel, graph.Channels[channel].Head.CsvName))
+					}
+				}
+			}
+		}
+	}
+	return utilerrors.NewAggregate(errs)
 }

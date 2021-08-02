@@ -2,11 +2,15 @@ package registry
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
+	"os"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -14,6 +18,7 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func fakeBundlePathFromName(name string) string {
@@ -238,6 +243,159 @@ func TestUnpackImage(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.EqualValues(t, ref, tt.expected.dstImage)
+		})
+	}
+}
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+func CreateTestDb(t *testing.T) (*sql.DB, func()) {
+	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+
+	db, err := sqlite.Open(dbName)
+	require.NoError(t, err)
+
+	return db, func() {
+		defer func() {
+			if err := os.Remove(dbName); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCheckForBundles(t *testing.T) {
+	type step struct {
+		bundles []string
+		action  int
+	}
+	const (
+		actionAdd = iota
+		actionDeprecate
+		actionOverwrite
+	)
+	tests := []struct {
+		description string
+		steps       []step
+		wantErr     error
+		init        func() (*sql.DB, func())
+	}{
+		{
+			// 1.1.0 -> 1.0.0         pruned    channel 1
+			//        		\-> 1.2.0 ok        channel 2
+			description: "partialPruning",
+			steps: []step{
+				{
+					bundles: []string{
+						"unorderedReplaces/1.0.0",
+						"unorderedReplaces/1.1.0",
+						"unorderedReplaces/1.2.0",
+					},
+					action: actionAdd,
+				},
+			},
+			wantErr: fmt.Errorf("added bundle unorderedReplaces/1.0.0 pruned from package testpkg, channel stable: this may be due to incorrect channel head (unorderedReplaces.1.1.0)"),
+		},
+		{
+			description: "ignoreDeprecated",
+			steps: []step{
+				{
+					bundles: []string{
+						"ignoreDeprecated/1.0.0",
+						"ignoreDeprecated/1.1.0",
+						"ignoreDeprecated/1.2.0",
+					},
+					action: actionAdd,
+				},
+				{
+					bundles: []string{
+						"ignoreDeprecated/1.1.0",
+					},
+					action: actionDeprecate,
+				},
+				{
+					bundles: []string{
+						"ignoreDeprecated/1.0.0",
+						"ignoreDeprecated/1.1.0",
+					},
+					action: actionOverwrite,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			load, err := sqlite.NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			require.NoError(t, load.Migrate(context.TODO()))
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			for _, step := range tt.steps {
+				switch step.action {
+				case actionDeprecate:
+					for _, deprecate := range step.bundles {
+						require.NoError(t, load.DeprecateBundle(deprecate))
+					}
+				case actionAdd:
+					refs := map[image.Reference]string{}
+					for _, b := range step.bundles {
+						refs[image.SimpleReference(b)] = fmt.Sprintf("testdata/%s", b)
+					}
+					require.NoError(t, registry.NewDirectoryPopulator(
+						load,
+						graphLoader,
+						query,
+						refs,
+						nil,
+						false).Populate(registry.ReplacesMode))
+
+					err = checkForBundles(context.TODO(), query, graphLoader, refs)
+					if tt.wantErr == nil {
+						require.NoError(t, err)
+						return
+					}
+					require.EqualError(t, err, tt.wantErr.Error())
+
+				case actionOverwrite:
+					overwriteRefs := map[string]map[image.Reference]string{}
+					refs := map[image.Reference]string{}
+					for _, b := range step.bundles {
+						to := image.SimpleReference(b)
+						from := fmt.Sprintf("testdata/%s", b)
+						refs[to] = from
+						img, err := registry.NewImageInput(to, from)
+						require.NoError(t, err)
+						if _, ok := overwriteRefs[img.Bundle.Package]; ok {
+							overwriteRefs[img.Bundle.Package] = map[image.Reference]string{}
+						}
+						overwriteRefs[img.Bundle.Package][to] = from
+					}
+					require.NoError(t, registry.NewDirectoryPopulator(
+						load,
+						graphLoader,
+						query,
+						nil,
+						overwriteRefs,
+						true).Populate(registry.ReplacesMode))
+
+					err = checkForBundles(context.TODO(), query, graphLoader, refs)
+					if tt.wantErr == nil {
+						require.NoError(t, err)
+						return
+					}
+					require.EqualError(t, err, tt.wantErr.Error())
+				}
+			}
 		})
 	}
 }
