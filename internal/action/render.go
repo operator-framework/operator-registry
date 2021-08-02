@@ -111,17 +111,16 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 				return nil, fmt.Errorf("cannot render DC directory: %w", &ErrNotAllowed{})
 			}
 			return declcfg.LoadFS(os.DirFS(ref))
-		} else {
-			// The only supported file type is an sqlite DB file,
-			// since declarative configs will be in a directory.
-			if err := checkDBFile(ref); err != nil {
-				return nil, err
-			}
-			if !r.AllowedRefMask.Allowed(RefSqliteFile) {
-				return nil, fmt.Errorf("cannot render sqlite file: %w", &ErrNotAllowed{})
-			}
-			return sqliteToDeclcfg(ctx, ref)
 		}
+		// The only supported file type is an sqlite DB file,
+		// since declarative configs will be in a directory.
+		if err := checkDBFile(ref); err != nil {
+			return nil, err
+		}
+		if !r.AllowedRefMask.Allowed(RefSqliteFile) {
+			return nil, fmt.Errorf("cannot render sqlite file: %w", &ErrNotAllowed{})
+		}
+		return sqliteToDeclcfg(ctx, ref)
 	}
 	return r.imageToDeclcfg(ctx, ref)
 }
@@ -272,7 +271,7 @@ func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig
 			}
 		}
 		for ri := range ris {
-			cfg.Bundles[i].RelatedImages = append(cfg.Bundles[i].RelatedImages, declcfg.RelatedImage{Image: ri})
+			cfg.Bundles[i].RelatedImages = append(cfg.Bundles[i].RelatedImages, declcfg.RelatedImage{Name: b.Name, Image: ri})
 		}
 	}
 	return nil
