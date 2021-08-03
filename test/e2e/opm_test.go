@@ -332,7 +332,6 @@ var _ = Describe("opm", func() {
 			By("loading manifests from a directory")
 			err = initialize()
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 
 		It("build bundles and index via inference", func() {

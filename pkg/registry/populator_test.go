@@ -939,6 +939,179 @@ func TestDeprecateBundle(t *testing.T) {
 	}
 }
 
+func TestDeprecatePackage(t *testing.T) {
+	type args struct {
+		bundles []string
+	}
+	type pkgChannel map[string][]string
+	type expected struct {
+		err                  error
+		remainingBundles     []string
+		deprecatedBundles    []string
+		remainingPkgChannels pkgChannel
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "RemoveEntirePackage/BundlesAreAllHeadsOfChannels",
+			args: args{
+				bundles: []string{
+					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/etcd.0.9.0",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
+				},
+				deprecatedBundles: []string{},
+				remainingPkgChannels: pkgChannel{
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+		{
+			description: "RemoveHeadOfDefaultChannelWithoutAllChannelHeads/Error",
+			args: args{
+				bundles: []string{
+					"quay.io/test/etcd.0.9.2",
+				},
+			},
+			expected: expected{
+				err: utilerrors.NewAggregate([]error{fmt.Errorf("cannot deprecate default channel head from package without removing all other channel heads in package %s: must deprecate %s, head of channel %s", "etcd", "quay.io/test/etcd.0.9.0", "beta")}),
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.0/alpha",
+					"quay.io/test/etcd.0.9.0/beta",
+					"quay.io/test/etcd.0.9.0/stable",
+					"quay.io/test/etcd.0.9.2/stable",
+					"quay.io/test/etcd.0.9.2/alpha",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.22.2/preview",
+				},
+				deprecatedBundles: []string{},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"alpha",
+						"beta",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+		{
+			description: "RemoveEntirePackage/AndDeprecateAdditionalBundle",
+			args: args{
+				bundles: []string{
+					"quay.io/test/etcd.0.9.2",
+					"quay.io/test/etcd.0.9.0",
+					"quay.io/test/prometheus.0.14.0",
+				},
+			},
+			expected: expected{
+				err: nil,
+				remainingBundles: []string{
+					"quay.io/test/prometheus.0.22.2/preview",
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
+				},
+				deprecatedBundles: []string{
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
+				},
+				remainingPkgChannels: pkgChannel{
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			querier, err := createAndPopulateDB(db)
+			require.NoError(t, err)
+
+			store, err := sqlite.NewSQLLiteLoader(db)
+			require.NoError(t, err)
+
+			deprecator := sqlite.NewSQLDeprecatorForBundles(store, tt.args.bundles)
+			packageDeprecator := sqlite.NewSQLDeprecatorForBundlesAndPackages(deprecator, querier)
+			require.Equal(t, tt.expected.err, packageDeprecator.MaybeRemovePackages())
+			if len(tt.expected.deprecatedBundles) > 0 {
+				require.Equal(t, tt.expected.err, deprecator.Deprecate())
+			}
+
+			// Ensure remaining bundlePaths in db match
+			bundles, err := querier.ListBundles(context.Background())
+			require.NoError(t, err)
+			var bundlePaths []string
+			for _, bundle := range bundles {
+				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+			}
+			require.ElementsMatch(t, tt.expected.remainingBundles, bundlePaths)
+
+			// Ensure deprecated bundles match
+			var deprecatedBundles []string
+			deprecatedProperty, err := json.Marshal(registry.DeprecatedProperty{})
+			require.NoError(t, err)
+			for _, bundle := range bundles {
+				for _, prop := range bundle.Properties {
+					if prop.Type == registry.DeprecatedType && prop.Value == string(deprecatedProperty) {
+						deprecatedBundles = append(deprecatedBundles, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
+					}
+				}
+			}
+
+			require.ElementsMatch(t, tt.expected.deprecatedBundles, deprecatedBundles)
+
+			// Ensure remaining channels match
+			packages, err := querier.ListPackages(context.Background())
+			require.NoError(t, err)
+
+			for _, pkg := range packages {
+				channelEntries, err := querier.GetChannelEntriesFromPackage(context.Background(), pkg)
+				require.NoError(t, err)
+
+				uniqueChannels := make(map[string]struct{})
+				var channels []string
+				for _, ch := range channelEntries {
+					uniqueChannels[ch.ChannelName] = struct{}{}
+				}
+				for k := range uniqueChannels {
+					channels = append(channels, k)
+				}
+				require.ElementsMatch(t, tt.expected.remainingPkgChannels[pkg], channels)
+			}
+		})
+	}
+}
+
 func TestAddAfterDeprecate(t *testing.T) {
 	type args struct {
 		existing  []string

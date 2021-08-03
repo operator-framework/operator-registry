@@ -25,7 +25,9 @@ var deprecateLong = templates.LongDesc(`
 		Produces the following update graph in quay.io/my/index:v2
 		1.4.0 -- replaces -> 1.3.0 [deprecated]
 		
-	Deprecating a bundle that removes the default channel is not allowed. Changing the default channel prior to deprecation is possible by publishing a new bundle to the index.
+	Deprecating a bundle that removes the default channel is not allowed unless the head(s) of all channels are being deprecated (the package is subsequently removed from the index). 
+    This behavior can be enabled via the allow-package-removal flag. 
+    Changing the default channel prior to deprecation is possible by publishing a new bundle to the index.
 	`)
 
 func newIndexDeprecateTruncateCmd() *cobra.Command {
@@ -60,6 +62,7 @@ func newIndexDeprecateTruncateCmd() *cobra.Command {
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
 	}
+	indexCmd.Flags().Bool("allow-package-removal", false, "removes the entire package if the heads of all channels in the package are deprecated")
 
 	return indexCmd
 }
@@ -110,6 +113,11 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	allowPackageRemoval, err := cmd.Flags().GetBool("allow-package-removal")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
 
 	logger.Info("deprecating bundles from the index")
@@ -120,14 +128,15 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
 		logger)
 
 	request := indexer.DeprecateFromIndexRequest{
-		Generate:          generate,
-		FromIndex:         fromIndex,
-		BinarySourceImage: binaryImage,
-		OutDockerfile:     outDockerfile,
-		Tag:               tag,
-		Bundles:           bundles,
-		Permissive:        permissive,
-		SkipTLS:           skipTLS,
+		Generate:            generate,
+		FromIndex:           fromIndex,
+		BinarySourceImage:   binaryImage,
+		OutDockerfile:       outDockerfile,
+		Tag:                 tag,
+		Bundles:             bundles,
+		Permissive:          permissive,
+		SkipTLS:             skipTLS,
+		AllowPackageRemoval: allowPackageRemoval,
 	}
 
 	err = indexDeprecator.DeprecateFromIndex(request)
