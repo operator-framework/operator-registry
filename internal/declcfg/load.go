@@ -17,6 +17,10 @@ import (
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
+const (
+	indexIgnoreFilename = ".indexignore"
+)
+
 type WalkFunc func(path string, cfg *DeclarativeConfig, err error) error
 
 // WalkFS walks root using a gitignore-style filename matcher to skip files
@@ -27,7 +31,7 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 	if root == nil {
 		return fmt.Errorf("no declarative config filesystem provided")
 	}
-	matcher, err := ignore.NewMatcher(root, ".indexignore")
+	matcher, err := ignore.NewMatcher(root, indexIgnoreFilename)
 	if err != nil {
 		return err
 	}
@@ -36,7 +40,9 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 		if err != nil {
 			return walkFn(path, nil, err)
 		}
-		if info.IsDir() || matcher.Match(path, false) {
+		// avoid validating a directory, an .indexignore file, or any file that matches
+		// an ignore pattern outlined in a .indexignore file.
+		if info.IsDir() || info.Name() == indexIgnoreFilename || matcher.Match(path, false) {
 			return nil
 		}
 		file, err := root.Open(path)
