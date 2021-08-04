@@ -76,34 +76,6 @@ builds:
     asmflags: *build-asmflags
     gcflags: *build-gcflags
     ldflags: *build-ldflags
-  - id: darwin-amd64
-    main: ./cmd/opm
-    binary: opm
-    goos:
-      - darwin
-    goarch:
-      - amd64
-    env:
-      - CC=o64-clang
-    mod_timestamp: "{{ .CommitTimestamp }}"
-    flags: *build-flags
-    asmflags: *build-asmflags
-    gcflags: *build-gcflags
-    ldflags: *build-ldflags
-  - id: darwin-arm64
-    main: ./cmd/opm
-    binary: opm
-    goos:
-      - darwin
-    goarch:
-      - arm64
-    env:
-      - CC=oa64e-clang
-    mod_timestamp: "{{ .CommitTimestamp }}"
-    flags: *build-flags
-    asmflags: *build-asmflags
-    gcflags: *build-gcflags
-    ldflags: *build-ldflags
 archives:
   - id: opm
     builds:
@@ -112,8 +84,6 @@ archives:
       - linux-ppc64le
       - linux-s390x
       - windows-amd64
-      - darwin-amd64
-      - darwin-arm64
     name_template: "{{ .Binary }}_{{ .Env.OPM_VERSION }}_{{ .Os }}_{{ .Arch }}"
     format: binary
 dockers:
@@ -171,3 +141,6 @@ snapshot:
 release:
   name_template: "{{ .Env.OPM_VERSION }}"
   draft: true
+  ## Disable release steps, since a separate GitHub Action job
+  ## handles binary builds and release uploads
+  disable: true
