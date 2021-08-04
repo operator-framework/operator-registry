@@ -44,7 +44,7 @@ func NewCmd() *cobra.Command {
 		Long: templates.LongDesc(`
 Diff a set of old and new catalog references ("refs") to produce a
 declarative config containing only packages channels, and versions not present
-in the old set. This is known as "latest" mode.
+in the old set, and versions that differ between the old and new sets. This is known as "latest" mode.
 These references are passed through 'opm render' to produce a single declarative config.
 
 This command has special behavior when old-refs are omitted, called "heads-only" mode:
