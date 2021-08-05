@@ -991,12 +991,12 @@ tip (depth) AS (
     GROUP BY all_entry.operatorbundle_name, all_entry.package_name, all_entry.channel_name
 ),
 merged_properties (bundle_name, merged) AS (
-  SELECT operatorbundle_name, json_group_array(json_object('type', properties.type, 'value', properties.value))
+  SELECT operatorbundle_name, json_group_array(json_object('type', CAST(properties.type AS TEXT), 'value', CAST(properties.value AS TEXT)))
     FROM properties
     GROUP BY operatorbundle_name
 ),
 merged_dependencies (bundle_name, merged) AS (
-  SELECT operatorbundle_name, json_group_array(json_object('type', dependencies.type, 'value', CAST(dependencies.value AS TEXT)))
+  SELECT operatorbundle_name, json_group_array(json_object('type', CAST(dependencies.type AS TEXT), 'value', CAST(dependencies.value AS TEXT)))
     FROM dependencies
     GROUP BY operatorbundle_name
 )
