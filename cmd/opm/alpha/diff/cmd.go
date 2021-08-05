@@ -56,6 +56,11 @@ in which case they are not included in the diff, or a new ref, in which
 case they are included. Dependencies provided by some catalog unknown to
 'opm alpha diff' will not cause the command to error, but an error will occur
 if that catalog is not serving these dependencies at runtime.
+
+NOTE: for now, if any dependency exists, the entire dependency's package is added to the diff.
+In the future, these packages will be pruned such that only the latest dependencies
+satisfying a package version range or GVK, and their upgrade graph(s) to their latest
+channel head(s), are included in the diff.
 `),
 		Example: templates.Examples(`
 # Diff a catalog at some old state and latest state into a declarative config index.
