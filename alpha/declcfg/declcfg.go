@@ -65,6 +65,7 @@ type RelatedImage struct {
 
 type Meta struct {
 	Schema  string
+	Name    string
 	Package string
 
 	Blob json.RawMessage
@@ -77,6 +78,7 @@ func (m Meta) MarshalJSON() ([]byte, error) {
 func (m *Meta) UnmarshalJSON(blob []byte) error {
 	type tmp struct {
 		Schema     string              `json:"schema"`
+		Name       string              `json:"name,omitempty"`
 		Package    string              `json:"package,omitempty"`
 		Properties []property.Property `json:"properties,omitempty"`
 	}
@@ -86,6 +88,7 @@ func (m *Meta) UnmarshalJSON(blob []byte) error {
 	}
 	m.Schema = t.Schema
 	m.Package = t.Package
+	m.Name = t.Name
 	m.Blob = blob
 	return nil
 }

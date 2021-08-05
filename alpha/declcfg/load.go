@@ -12,6 +12,7 @@ import (
 	"github.com/joelanford/ignore"
 	"github.com/operator-framework/api/pkg/operators"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -70,7 +71,7 @@ func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 	if err := WalkFS(root, func(path string, fcfg *DeclarativeConfig, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("load file %q: %v", path, err)
 		}
 		cfg.Packages = append(cfg.Packages, fcfg.Packages...)
 		cfg.Bundles = append(cfg.Bundles, fcfg.Bundles...)
@@ -116,6 +117,7 @@ func extractCSV(objs []string) string {
 func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
+	errs := []error{}
 	for {
 		doc := json.RawMessage{}
 		if err := dec.Decode(&doc); err != nil {
@@ -135,20 +137,28 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 		case schemaPackage:
 			var p Package
 			if err := json.Unmarshal(doc, &p); err != nil {
-				return nil, fmt.Errorf("parse package: %v", err)
+				errs = append(errs, newParseError(in, err))
+				continue
 			}
 			cfg.Packages = append(cfg.Packages, p)
 		case schemaBundle:
 			var b Bundle
 			if err := json.Unmarshal(doc, &b); err != nil {
-				return nil, fmt.Errorf("parse bundle: %v", err)
+				errs = append(errs, newParseError(in, err))
+				continue
 			}
 			cfg.Bundles = append(cfg.Bundles, b)
 		case "":
-			return nil, fmt.Errorf("object '%s' is missing root schema field", string(doc))
+			errs = append(errs, fmt.Errorf("object '%s' is missing root schema field", string(doc)))
+			continue
 		default:
 			cfg.Others = append(cfg.Others, in)
 		}
 	}
-	return cfg, nil
+
+	return cfg, utilerrors.NewAggregate(errs)
+}
+
+func newParseError(m Meta, err error) error {
+	return fmt.Errorf("parse %s name=%q: %v", m.Schema, m.Name, err)
 }
