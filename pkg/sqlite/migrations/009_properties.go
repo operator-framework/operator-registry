@@ -18,7 +18,7 @@ func init() {
 var propertiesMigration = &Migration{
 	Id: PropertiesMigrationKey,
 	Up: func(ctx context.Context, tx *sql.Tx) error {
-		sql := `
+		_, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS properties (
 			type TEXT,
 			value TEXT,
@@ -27,8 +27,18 @@ var propertiesMigration = &Migration{
 			operatorbundle_path TEXT,
 			FOREIGN KEY(operatorbundle_name, operatorbundle_version, operatorbundle_path) REFERENCES operatorbundle(name, version, bundlepath) ON DELETE CASCADE
 		);
-		`
-		_, err := tx.ExecContext(ctx, sql)
+		`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO properties(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path)
+  SELECT DISTINCT :property_type, json_object('packageName', channel_entry.package_name, 'version', operatorbundle.version), operatorbundle.name, operatorbundle.version, operatorbundle.bundlepath
+  FROM channel_entry INNER JOIN operatorbundle
+    ON operatorbundle.name = channel_entry.operatorbundle_name`,
+			sql.Named("property_type", registry.PackageType),
+		)
 		if err != nil {
 			return err
 		}
@@ -40,23 +50,6 @@ var propertiesMigration = &Migration{
 			return err
 		}
 		for bundle, apis := range bundleApis {
-			pkg, err := getPackageForBundle(ctx, bundle.CsvName.String, tx)
-			if err != nil {
-				return err
-			}
-			valueMap := map[string]string{
-				"packageName": pkg,
-				"version":     bundle.Version.String,
-			}
-			value, err := json.Marshal(valueMap)
-			if err != nil {
-				return err
-			}
-			_, err = tx.ExecContext(ctx, insertProperty, registry.PackageType, value, bundle.CsvName, bundle.Version, bundle.BundlePath)
-			if err != nil {
-				return err
-			}
-
 			for provided := range apis.provided {
 				valueMap := map[string]string{
 					"group":   provided.Group,
@@ -95,25 +88,6 @@ var propertiesMigration = &Migration{
 
 		return err
 	},
-}
-
-func getPackageForBundle(ctx context.Context, name string, tx *sql.Tx) (string, error) {
-	packageQuery := `SELECT DISTINCT package_name FROM channel_entry WHERE channel_entry.operatorbundle_name=?`
-	packageRows, err := tx.QueryContext(ctx, packageQuery, name)
-	if err != nil {
-		return "", err
-	}
-	for packageRows.Next() {
-		var pkg sql.NullString
-		if err = packageRows.Scan(&pkg); err != nil {
-			return "", err
-		}
-		if !pkg.Valid {
-			return "", err
-		}
-		return pkg.String, nil
-	}
-	return "", err
 }
 
 func getProvidedAPIs(ctx context.Context, tx *sql.Tx) (map[bundleKey]apis, error) {
