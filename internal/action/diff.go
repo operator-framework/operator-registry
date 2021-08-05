@@ -2,6 +2,7 @@ package action
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -25,12 +26,18 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		return nil, err
 	}
 
+	// Disallow bundle refs.
+	mask := RefDCDir | RefDCImage | RefSqliteFile | RefSqliteImage
+
 	// Heads-only mode does not require an old ref, so there may be nothing to render.
 	var oldModel model.Model
 	if len(a.OldRefs) != 0 {
-		oldRender := Render{Refs: a.OldRefs, Registry: a.Registry}
+		oldRender := Render{Refs: a.OldRefs, Registry: a.Registry, AllowedRefMask: mask}
 		oldCfg, err := oldRender.Run(ctx)
 		if err != nil {
+			if isNotAllowedError(err) {
+				return nil, fmt.Errorf("%v (diff does not permit direct bundle references)", err)
+			}
 			return nil, fmt.Errorf("error rendering old refs: %v", err)
 		}
 		oldModel, err = declcfg.ConvertToModel(*oldCfg)
@@ -39,9 +46,12 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		}
 	}
 
-	newRender := Render{Refs: a.NewRefs, Registry: a.Registry}
+	newRender := Render{Refs: a.NewRefs, Registry: a.Registry, AllowedRefMask: mask}
 	newCfg, err := newRender.Run(ctx)
 	if err != nil {
+		if isNotAllowedError(err) {
+			return nil, fmt.Errorf("%v (diff does not permit direct bundle references)", err)
+		}
 		return nil, fmt.Errorf("error rendering new refs: %v", err)
 	}
 	newModel, err := declcfg.ConvertToModel(*newCfg)
@@ -63,4 +73,9 @@ func (p Diff) validate() error {
 		return fmt.Errorf("no new refs to diff")
 	}
 	return nil
+}
+
+func isNotAllowedError(err error) bool {
+	errNotAllowed := &ErrNotAllowed{}
+	return errors.As(err, &errNotAllowed)
 }
