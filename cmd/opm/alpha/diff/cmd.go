@@ -47,8 +47,8 @@ declarative config containing only packages channels, and versions not present
 in the old set, and versions that differ between the old and new sets. This is known as "latest" mode.
 
 These references are passed through 'opm render' to produce a single declarative config.
-Bundle image refs are not supported directly;
-a valid "olm.package" declarative config object referring to the bundle's package must exist in all input refs.
+Bundle image refs are not supported directly; a valid "olm.package" declarative config object
+referring to the bundle's package must exist in all input refs.
 
 This command has special behavior when old-refs are omitted, called "heads-only" mode:
 instead of the output being that of 'opm render refs...'

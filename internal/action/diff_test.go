@@ -3,12 +3,14 @@ package action_test
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/internal/action"
@@ -48,6 +50,37 @@ func TestDiff(t *testing.T) {
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-headsonly")),
 			assertion:   require.NoError,
+		},
+		{
+			name: "Fail/NewBundleImage",
+			diff: action.Diff{
+				Registry: registry,
+				NewRefs:  []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
+			},
+			assertion: func(t require.TestingT, err error, _ ...interface{}) {
+				if !assert.Error(t, err) {
+					require.Fail(t, "expected an error")
+				}
+				if !errors.Is(err, action.ErrNotAllowed) {
+					require.Fail(t, "err is not action.ErrNotAllowed", err)
+				}
+			},
+		},
+		{
+			name: "Fail/OldBundleImage",
+			diff: action.Diff{
+				Registry: registry,
+				OldRefs:  []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+			},
+			assertion: func(t require.TestingT, err error, _ ...interface{}) {
+				if !assert.Error(t, err) {
+					require.Fail(t, "expected an error")
+				}
+				if !errors.Is(err, action.ErrNotAllowed) {
+					require.Fail(t, "err is not action.ErrNotAllowed", err)
+				}
+			},
 		},
 	}
 

@@ -35,8 +35,8 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		oldRender := Render{Refs: a.OldRefs, Registry: a.Registry, AllowedRefMask: mask}
 		oldCfg, err := oldRender.Run(ctx)
 		if err != nil {
-			if isNotAllowedError(err) {
-				return nil, fmt.Errorf("%v (diff does not permit direct bundle references)", err)
+			if errors.Is(err, ErrNotAllowed) {
+				return nil, fmt.Errorf("%w (diff does not permit direct bundle references)", err)
 			}
 			return nil, fmt.Errorf("error rendering old refs: %v", err)
 		}
@@ -49,8 +49,8 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	newRender := Render{Refs: a.NewRefs, Registry: a.Registry, AllowedRefMask: mask}
 	newCfg, err := newRender.Run(ctx)
 	if err != nil {
-		if isNotAllowedError(err) {
-			return nil, fmt.Errorf("%v (diff does not permit direct bundle references)", err)
+		if errors.Is(err, ErrNotAllowed) {
+			return nil, fmt.Errorf("%w (diff does not permit direct bundle references)", err)
 		}
 		return nil, fmt.Errorf("error rendering new refs: %v", err)
 	}
@@ -73,9 +73,4 @@ func (p Diff) validate() error {
 		return fmt.Errorf("no new refs to diff")
 	}
 	return nil
-}
-
-func isNotAllowedError(err error) bool {
-	errNotAllowed := &ErrNotAllowed{}
-	return errors.As(err, &errNotAllowed)
 }
