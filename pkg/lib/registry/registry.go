@@ -412,6 +412,42 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 	return found, missing, nil
 }
 
+// packagesFromUnpackedRefs creates packages from a set of unpacked ref dirs without their upgrade edges.
+func packagesFromUnpackedRefs(bundles map[image.Reference]string) (map[string]registry.Package, error) {
+	graph := map[string]registry.Package{}
+	for to, from := range bundles {
+		b, err := registry.NewImageInput(to, from)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse unpacked bundle image %s: %v", to, err)
+		}
+		v, err := b.Bundle.Version()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse version for %s (%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err)
+		}
+		key := registry.BundleKey{
+			CsvName:    b.Bundle.Name,
+			Version:    v,
+			BundlePath: b.Bundle.BundleImage,
+		}
+		if _, ok := graph[b.Bundle.Package]; !ok {
+			graph[b.Bundle.Package] = registry.Package{
+				Name:     b.Bundle.Package,
+				Channels: map[string]registry.Channel{},
+			}
+		}
+		for _, c := range b.Bundle.Channels {
+			if _, ok := graph[b.Bundle.Package].Channels[c]; !ok {
+				graph[b.Bundle.Package].Channels[c] = registry.Channel{
+					Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{},
+				}
+			}
+			graph[b.Bundle.Package].Channels[c].Nodes[key] = nil
+		}
+	}
+
+	return graph, nil
+}
+
 // replaces mode selects highest version as channel head and
 // prunes any bundles in the upgrade chain after the channel head.
 // check for the presence of all bundles after a replaces-mode add.
@@ -420,71 +456,52 @@ func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.Graph
 		return nil
 	}
 
-	foundEntries := map[string]map[string]map[registry.BundleKey]bool{}
-	var errs []error
-	for to, from := range bundles {
-		b, err := registry.NewImageInput(to, from)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse unpacked bundle image %s", to))
-			continue
-		}
-
-		if _, ok := foundEntries[b.Bundle.Package]; !ok {
-			foundEntries[b.Bundle.Package] = map[string]map[registry.BundleKey]bool{}
-		}
-		v, err := b.Bundle.Version()
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse version for %s (%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err))
-		}
-		key := registry.BundleKey{
-			CsvName:    b.Bundle.Name,
-			Version:    v,
-			BundlePath: b.Bundle.BundleImage,
-		}
-		for _, c := range b.Bundle.Channels {
-			if _, ok := foundEntries[b.Bundle.Package][c]; !ok {
-				foundEntries[b.Bundle.Package][c] = map[registry.BundleKey]bool{}
-			}
-			foundEntries[b.Bundle.Package][c][key] = false
-		}
+	required, err := packagesFromUnpackedRefs(bundles)
+	if err != nil {
+		return err
 	}
 
-	for pkg, channels := range foundEntries {
-		graph, err := g.Generate(pkg)
+	var errs []error
+	for _, pkg := range required {
+		graph, err := g.Generate(pkg.Name)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to verify added bundles for package %s: %v", pkg, err))
+			errs = append(errs, fmt.Errorf("unable to verify added bundles for package %s: %v", pkg.Name, err))
 			continue
 		}
-		for channel, bundles := range channels {
+
+		for channel, missing := range pkg.Channels {
+			// trace replaces chain for reachable bundles
 			for next := []registry.BundleKey{graph.Channels[channel].Head}; len(next) > 0; next = next[1:] {
-				if foundEntries[pkg][channel][next[0]] {
-					continue
-				}
-				foundEntries[pkg][channel][next[0]] = true
+				delete(missing.Nodes, next[0])
 				for edge := range graph.Channels[channel].Nodes[next[0]] {
 					next = append(next, edge)
 				}
 			}
-			for bundle, present := range bundles {
-				if !present {
-					// check if bundle is deprecated. Bundles readded after deprecation should not be present in index.
-					props, err := q.GetPropertiesForBundle(ctx, bundle.CsvName, bundle.Version, bundle.BundlePath)
-					if err != nil {
-						errs = append(errs, fmt.Errorf("could not validate pruned bundle %s (%s) as deprecated: %v", bundle.CsvName, bundle.BundlePath, err))
-					}
-					var deprecated bool
-					for _, prop := range props {
-						if prop.Type == registry.DeprecatedType {
-							deprecated = true
-							break
-						}
-					}
-					if !deprecated {
-						errs = append(errs, fmt.Errorf("added bundle %s pruned from package %s, channel %s: this may be due to incorrect channel head (%s)", bundle.BundlePath, pkg, channel, graph.Channels[channel].Head.CsvName))
-					}
+
+			for bundle := range missing.Nodes {
+				// check if bundle is deprecated. Bundles readded after deprecation should not be present in index and can be ignored.
+				deprecated, err := isDeprecated(ctx, q, bundle)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("could not validate pruned bundle %s (%s) as deprecated: %v", bundle.CsvName, bundle.BundlePath, err))
+				}
+				if !deprecated {
+					errs = append(errs, fmt.Errorf("added bundle %s pruned from package %s, channel %s: this may be due to incorrect channel head (%s)", bundle.BundlePath, pkg.Name, channel, graph.Channels[channel].Head.CsvName))
 				}
 			}
 		}
 	}
 	return utilerrors.NewAggregate(errs)
+}
+
+func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.BundleKey) (bool, error) {
+	props, err := q.GetPropertiesForBundle(ctx, bundle.CsvName, bundle.Version, bundle.BundlePath)
+	if err != nil {
+		return false, err
+	}
+	for _, prop := range props {
+		if prop.Type == registry.DeprecatedType {
+			return true, nil
+		}
+	}
+	return false, nil
 }
