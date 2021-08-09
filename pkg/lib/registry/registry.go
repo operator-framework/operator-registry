@@ -212,7 +212,7 @@ func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) e
 	}
 	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	dbLoader, err := sqlite.NewDeprecationAwareLoader(db)
 	if err != nil {
 		return err
 	}
