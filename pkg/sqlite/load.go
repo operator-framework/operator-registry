@@ -28,7 +28,7 @@ type MigratableLoader interface {
 
 var _ MigratableLoader = &sqlLoader{}
 
-func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (MigratableLoader, error) {
+func newSQLLoader(db *sql.DB, opts ...DbOption) (*sqlLoader, error) {
 	options := defaultDBOptions()
 	for _, o := range opts {
 		o(options)
@@ -44,6 +44,10 @@ func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (MigratableLoader, error) {
 	}
 
 	return &sqlLoader{db: db, migrator: migrator, enableAlpha: options.EnableAlpha}, nil
+}
+
+func NewSQLLiteLoader(db *sql.DB, opts ...DbOption) (MigratableLoader, error) {
+	return newSQLLoader(db, opts...)
 }
 
 func (s *sqlLoader) Migrate(ctx context.Context) error {
@@ -1462,6 +1466,13 @@ func (s *sqlLoader) DeprecateBundle(path string) error {
 		return err
 	}
 
+	// Clean up the deprecated table by dropping all truncated bundles
+	// (see pkg/sqlite/migrations/013_rm_truncated_deprecations.go for more details)
+	_, err = tx.Exec(`DELETE FROM deprecated WHERE deprecated.operatorbundle_name NOT IN (SELECT DISTINCT deprecated.operatorbundle_name FROM (deprecated INNER JOIN channel_entry ON deprecated.operatorbundle_name = channel_entry.operatorbundle_name))`)
+	if err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -1535,4 +1546,47 @@ func (s *sqlLoader) deprecated(tx *sql.Tx, name string) (bool, error) {
 
 	// Ignore any deprecated bundles
 	return err == nil, err
+}
+
+// DeprecationAwareLoader understands how bundle deprecations are handled in SQLite and decorates
+// the sqlLoader with proxy methods that handle deprecation related table housekeeping.
+type DeprecationAwareLoader struct {
+	*sqlLoader
+}
+
+// NewDeprecationAwareLoader returns a new DeprecationAwareLoader.
+func NewDeprecationAwareLoader(db *sql.DB, opts ...DbOption) (*DeprecationAwareLoader, error) {
+	loader, err := newSQLLoader(db, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DeprecationAwareLoader{sqlLoader: loader}, nil
+}
+
+func (d *DeprecationAwareLoader) clearLastDeprecatedInPackage(pkg string) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+
+	// The last deprecated bundles for a package will still have "tombstone" records in channel_entry (among other tables).
+	// Use that info to relate the package to a set of rows in the deprecated table.
+	_, err = tx.Exec(`DELETE FROM deprecated WHERE deprecated.operatorbundle_name IN (SELECT DISTINCT deprecated.operatorbundle_name FROM (deprecated INNER JOIN channel_entry ON deprecated.operatorbundle_name = channel_entry.operatorbundle_name) WHERE channel_entry.package_name = ?)`, pkg)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (d *DeprecationAwareLoader) RemovePackage(pkg string) error {
+	if err := d.clearLastDeprecatedInPackage(pkg); err != nil {
+		return err
+	}
+
+	return d.sqlLoader.RemovePackage(pkg)
 }

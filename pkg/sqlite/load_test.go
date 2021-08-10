@@ -264,6 +264,218 @@ func TestRMBundle(t *testing.T) {
 	require.NoError(t, loader.rmBundle(tx, "non-existent"))
 }
 
+func TestDeprecationAwareLoader(t *testing.T) {
+	withBundleImage := func(image string, bundle *registry.Bundle) *registry.Bundle {
+		bundle.BundleImage = image
+		return bundle
+	}
+	type fields struct {
+		bundles         []*registry.Bundle
+		pkgs            []registry.PackageManifest
+		deprecatedPaths []string
+	}
+	type args struct {
+		pkg string
+	}
+	type expected struct {
+		err        error
+		deprecated map[string]struct{}
+	}
+	tests := []struct {
+		description string
+		fields      fields
+		args        args
+		expected    expected
+	}{
+		{
+			description: "NoDeprecation",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", ""))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+				deprecatedPaths: []string{},
+			},
+			args: args{
+				pkg: "pkg-0",
+			},
+			expected: expected{
+				err:        nil,
+				deprecated: map[string]struct{}{},
+			},
+		},
+		{
+			description: "RemovePackage/DropsDeprecated",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", ""))),
+					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-aa",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+				deprecatedPaths: []string{
+					"quay.io/my/bundle-a",
+				},
+			},
+			args: args{
+				pkg: "pkg-0",
+			},
+			expected: expected{
+				err:        nil,
+				deprecated: map[string]struct{}{},
+			},
+		},
+		{
+			description: "RemovePackage/IgnoresOtherPackages",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", ""))),
+					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-b", newBundle(t, "csv-b", "pkg-1", []string{"stable"}, newUnstructuredCSV(t, "csv-b", ""))),
+					withBundleImage("quay.io/my/bundle-bb", newBundle(t, "csv-bb", "pkg-1", []string{"stable"}, newUnstructuredCSV(t, "csv-bb", "csv-b"))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-aa",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+					{
+						PackageName: "pkg-1",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-bb",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+				deprecatedPaths: []string{
+					"quay.io/my/bundle-a",
+					"quay.io/my/bundle-b",
+				},
+			},
+			args: args{
+				pkg: "pkg-0", // Should result in a alone being dropped from the deprecated table
+			},
+			expected: expected{
+				err: nil,
+				deprecated: map[string]struct{}{
+					"csv-b": struct{}{},
+				},
+			},
+		},
+		{
+			description: "DeprecateTruncate/DropsTruncated",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-a", ""))),
+					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-aaa", newBundle(t, "csv-aaa", "pkg-0", []string{"stable"}, newUnstructuredCSV(t, "csv-aaa", "csv-aa"))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "stable",
+								CurrentCSVName: "csv-aaa",
+							},
+						},
+						DefaultChannelName: "stable",
+					},
+				},
+				deprecatedPaths: []string{
+					"quay.io/my/bundle-a",
+					"quay.io/my/bundle-aa", // Should truncate a, dropping it from the deprecated table
+				},
+			},
+			expected: expected{
+				err: nil,
+				deprecated: map[string]struct{}{
+					"csv-aa": struct{}{}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewDeprecationAwareLoader(db)
+			require.NoError(t, err)
+			err = store.Migrate(context.TODO())
+			require.NoError(t, err)
+
+			for _, bundle := range tt.fields.bundles {
+				require.NoError(t, store.AddOperatorBundle(bundle))
+			}
+
+			for _, pkg := range tt.fields.pkgs {
+				require.NoError(t, store.AddPackageChannels(pkg))
+			}
+
+			for _, deprecatedPath := range tt.fields.deprecatedPaths {
+				require.NoError(t, store.DeprecateBundle(deprecatedPath))
+			}
+
+			if tt.args.pkg != "" {
+				err = store.RemovePackage(tt.args.pkg)
+				if tt.expected.err != nil {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+
+			tx, err := db.Begin()
+			require.NoError(t, err)
+
+			rows, err := tx.Query(`SELECT operatorbundle_name FROM deprecated`)
+			require.NoError(t, err)
+			require.NotNil(t, rows)
+
+			var bundleName string
+			for rows.Next() {
+				require.NoError(t, rows.Scan(&bundleName))
+				_, ok := tt.expected.deprecated[bundleName]
+				require.True(t, ok, "bundle shouldn't be in the deprecated table: %s", bundleName)
+				delete(tt.expected.deprecated, bundleName)
+			}
+
+			require.Len(t, tt.expected.deprecated, 0, "not all expected bundles exist in deprecated table: %v", tt.expected.deprecated)
+		})
+	}
+}
+
 func TestGetTailFromBundle(t *testing.T) {
 	type fields struct {
 		bundles []*registry.Bundle
