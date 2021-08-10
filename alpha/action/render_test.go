@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 	"testing/fstest"
+	"text/template"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -736,6 +737,99 @@ func TestRender(t *testing.T) {
 			},
 			assertion: require.NoError,
 		},
+		{
+			name: "Success/BundleDirectoryWithImageRefTemplate",
+			render: action.Render{
+				Refs:             []string{"testdata/foo-bundle-v0.2.0"},
+				ImageRefTemplate: template.Must(template.New("imageRef").Parse("test.registry/{{.Package}}-operator/{{.Package}}:v{{.Version}}")),
+				Registry:         reg,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+						},
+						Objects: []string{string(foov2csv), string(foov2crd)},
+						CsvJSON: string(foov2csv),
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/BundleDirectory",
+			render: action.Render{
+				Refs:     []string{"testdata/foo-bundle-v0.2.0"},
+				Registry: reg,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+						},
+						Objects: []string{string(foov2csv), string(foov2crd)},
+						CsvJSON: string(foov2csv),
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
 	}
 
 	for _, s := range specs {
@@ -790,7 +884,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteFile | action.RefBundleImage,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -808,7 +902,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{dbFile},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefBundleImage,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -826,7 +920,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
+				AllowedRefMask: action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -844,7 +938,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"testdata/foo-index-v0.2.0-declcfg"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
+				AllowedRefMask: action.RefDCImage | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -862,7 +956,25 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleDir,
+			},
+			expectErr: action.ErrNotAllowed,
+		},
+		{
+			name: "BundleDir/Allowed",
+			render: action.Render{
+				Refs:           []string{"testdata/foo-bundle-v0.2.0"},
+				Registry:       reg,
+				AllowedRefMask: action.RefBundleDir,
+			},
+			expectErr: nil,
+		},
+		{
+			name: "BundleDir/NotAllowed",
+			render: action.Render{
+				Refs:           []string{"testdata/foo-bundle-v0.2.0"},
+				Registry:       reg,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -875,6 +987,7 @@ func TestAllowRefMask(t *testing.T) {
 					"test.registry/foo-operator/foo-index-declcfg:v0.2.0",
 					"testdata/foo-index-v0.2.0-declcfg",
 					"test.registry/foo-operator/foo-bundle:v0.2.0",
+					"testdata/foo-bundle-v0.2.0",
 				},
 				Registry: reg,
 			},
@@ -908,6 +1021,7 @@ func TestAllowRefMaskAllowed(t *testing.T) {
 				action.RefSqliteImage,
 				action.RefSqliteFile,
 				action.RefBundleImage,
+				action.RefBundleDir,
 			},
 			fail: []action.RefType{},
 		},

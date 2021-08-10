@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"text/template"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -16,15 +17,25 @@ import (
 
 func NewCmd() *cobra.Command {
 	var (
-		render action.Render
-		output string
+		render           action.Render
+		output           string
+		imageRefTemplate string
 	)
 	cmd := &cobra.Command{
-		Use:   "render [index-image | bundle-image | sqlite-file]...",
+		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory | sqlite-file]...",
 		Short: "Generate a stream of file-based catalog objects from catalogs and bundles",
 		Long: `Generate a stream of file-based catalog objects to stdout from the provided
 catalog images, file-based catalog directories, bundle images, and sqlite
 database files.
+
+If rendering sources that do not carry bundle image reference information
+(e.g. bundle directories), the --image-ref-template flag can be used to
+generate image references for the rendered file-based catalog objects.
+This is useful when generating a catalog with image references prior to
+those images actually existing. Available template variables are:
+  - {{.Package}} : the package name the bundle belongs to
+  - {{.Name}}    : the name of the bundle (for registry+v1 bundles, this is the CSV name)
+  - {{.Version}} : the version of the bundle
 
 ` + sqlite.DeprecationMessage,
 		Args: cobra.MinimumNArgs(1),
@@ -54,6 +65,14 @@ database files.
 
 			render.Registry = reg
 
+			if imageRefTemplate != "" {
+				tmpl, err := template.New("image-ref-template").Parse(imageRefTemplate)
+				if err != nil {
+					log.Fatalf("invalid image reference template: %v", err)
+				}
+				render.ImageRefTemplate = tmpl
+			}
+
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {
 				log.Fatal(err)
@@ -66,6 +85,7 @@ database files.
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
 	cmd.Flags().BoolVar(&render.Migrate, "migrate", false, "Perform migrations on the rendered FBC")
+	cmd.Flags().StringVar(&imageRefTemplate, "image-ref-template", "", "When bundle image reference information is unavailable, populate it with this template")
 	return cmd
 }
 
