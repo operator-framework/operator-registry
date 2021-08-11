@@ -206,7 +206,7 @@ func indexRefToModel(ctx context.Context, ref string) (model.Model, error) {
 	}
 	cfg, err := render.Run(ctx)
 	if err != nil {
-		if errors.Is(err, &ErrNotAllowed{}) {
+		if errors.Is(err, ErrNotAllowed) {
 			return nil, fmt.Errorf("cannot list non-index %q", ref)
 		}
 		return nil, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -41,13 +42,7 @@ func (r RefType) Allowed(refType RefType) bool {
 	return r == RefAll || r&refType == refType
 }
 
-var _ error = &ErrNotAllowed{}
-
-type ErrNotAllowed struct{}
-
-func (_ *ErrNotAllowed) Error() string {
-	return "not allowed"
-}
+var ErrNotAllowed = errors.New("not allowed")
 
 type Render struct {
 	Refs           []string
@@ -108,7 +103,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 	if stat, serr := os.Stat(ref); serr == nil {
 		if stat.IsDir() {
 			if !r.AllowedRefMask.Allowed(RefDCDir) {
-				return nil, fmt.Errorf("cannot render DC directory: %w", &ErrNotAllowed{})
+				return nil, fmt.Errorf("cannot render declarative config directory: %w", ErrNotAllowed)
 			}
 			return declcfg.LoadFS(os.DirFS(ref))
 		} else {
@@ -118,7 +113,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 				return nil, err
 			}
 			if !r.AllowedRefMask.Allowed(RefSqliteFile) {
-				return nil, fmt.Errorf("cannot render sqlite file: %w", &ErrNotAllowed{})
+				return nil, fmt.Errorf("cannot render sqlite file: %w", ErrNotAllowed)
 			}
 			return sqliteToDeclcfg(ctx, ref)
 		}
@@ -147,7 +142,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 	var cfg *declcfg.DeclarativeConfig
 	if dbFile, ok := labels[containertools.DbLocationLabel]; ok {
 		if !r.AllowedRefMask.Allowed(RefSqliteImage) {
-			return nil, fmt.Errorf("cannot render sqlite image: %w", &ErrNotAllowed{})
+			return nil, fmt.Errorf("cannot render sqlite image: %w", ErrNotAllowed)
 		}
 		cfg, err = sqliteToDeclcfg(ctx, filepath.Join(tmpDir, dbFile))
 		if err != nil {
@@ -155,7 +150,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		}
 	} else if configsDir, ok := labels[containertools.ConfigsLocationLabel]; ok {
 		if !r.AllowedRefMask.Allowed(RefDCImage) {
-			return nil, fmt.Errorf("cannot render DC image: %w", &ErrNotAllowed{})
+			return nil, fmt.Errorf("cannot render declarative config image: %w", ErrNotAllowed)
 		}
 		cfg, err = declcfg.LoadFS(os.DirFS(filepath.Join(tmpDir, configsDir)))
 		if err != nil {
@@ -163,7 +158,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		}
 	} else if _, ok := labels[bundle.PackageLabel]; ok {
 		if !r.AllowedRefMask.Allowed(RefBundleImage) {
-			return nil, fmt.Errorf("cannot render bundle image: %w", &ErrNotAllowed{})
+			return nil, fmt.Errorf("cannot render bundle image: %w", ErrNotAllowed)
 		}
 		img, err := registry.NewImageInput(ref, tmpDir)
 		if err != nil {

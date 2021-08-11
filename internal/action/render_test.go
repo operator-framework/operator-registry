@@ -448,7 +448,7 @@ func TestAllowRefMask(t *testing.T) {
 				Registry:       reg,
 				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteFile | action.RefBundleImage,
 			},
-			expectErr: &action.ErrNotAllowed{},
+			expectErr: action.ErrNotAllowed,
 		},
 		{
 			name: "SqliteFile/Allowed",
@@ -466,7 +466,7 @@ func TestAllowRefMask(t *testing.T) {
 				Registry:       reg,
 				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefBundleImage,
 			},
-			expectErr: &action.ErrNotAllowed{},
+			expectErr: action.ErrNotAllowed,
 		},
 		{
 			name: "DeclcfgImage/Allowed",
@@ -484,7 +484,7 @@ func TestAllowRefMask(t *testing.T) {
 				Registry:       reg,
 				AllowedRefMask: action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
 			},
-			expectErr: &action.ErrNotAllowed{},
+			expectErr: action.ErrNotAllowed,
 		},
 		{
 			name: "DeclcfgDir/Allowed",
@@ -502,7 +502,7 @@ func TestAllowRefMask(t *testing.T) {
 				Registry:       reg,
 				AllowedRefMask: action.RefDCImage | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
 			},
-			expectErr: &action.ErrNotAllowed{},
+			expectErr: action.ErrNotAllowed,
 		},
 		{
 			name: "BundleImage/Allowed",
@@ -520,7 +520,7 @@ func TestAllowRefMask(t *testing.T) {
 				Registry:       reg,
 				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile,
 			},
-			expectErr: &action.ErrNotAllowed{},
+			expectErr: action.ErrNotAllowed,
 		},
 		{
 			name: "All/Allowed",
