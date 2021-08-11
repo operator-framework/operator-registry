@@ -128,7 +128,29 @@ dockers:
     build_flag_templates:
       - --platform=linux/s390x
 docker_manifests:
+  # IMAGE_TAG is either set by the Makefile or the goreleaser action workflow,
+  # This image is intended to be tagged/pushed on all trunk (master, release branch) commits and tags.
   - name_template: "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}"
+    image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+  # Release image builds will be skipped if *_IMAGE_OR_EMPTY variables are empty.
+  # https://github.com/goreleaser/goreleaser/blob/9ed3c0c/internal/pipe/docker/manifest.go#L105
+  - name_template: "{{ .Env.MAJ_MIN_IMAGE_OR_EMPTY }}"
+    image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+  - name_template: "{{ .Env.MAJ_IMAGE_OR_EMPTY }}"
+    image_templates:
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
+      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+  - name_template: "{{ .Env.LATEST_IMAGE_OR_EMPTY }}"
     image_templates:
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
