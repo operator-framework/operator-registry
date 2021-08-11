@@ -331,9 +331,10 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 }
 
 type DeprecateFromRegistryRequest struct {
-	Permissive    bool
-	InputDatabase string
-	Bundles       []string
+	Permissive          bool
+	InputDatabase       string
+	Bundles             []string
+	AllowPackageRemoval bool
 }
 
 func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequest) error {
@@ -366,6 +367,23 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 	}
 
 	deprecator := sqlite.NewSQLDeprecatorForBundles(dbLoader, toDeprecate)
+
+	// Check for deprecation of head of default channel. If deprecation request includes heads of all other channels,
+	// then remove the package entirely. Otherwise, deprecate provided bundles. This enables deprecating an entire package.
+	// By default deprecating the head of default channel is not permitted.
+	if request.AllowPackageRemoval {
+		packageDeprecator := sqlite.NewSQLDeprecatorForBundlesAndPackages(deprecator, dbQuerier)
+		if err := packageDeprecator.MaybeRemovePackages(); err != nil {
+			r.Logger.Debugf("unable to deprecate package from database: %s", err)
+			if !request.Permissive {
+				r.Logger.WithError(err).Error("permissive mode disabled")
+				return err
+			}
+			r.Logger.WithError(err).Warn("permissive mode enabled")
+		}
+	}
+
+	// Any bundles associated with removed packages are now removed from the list of bundles to deprecate.
 	if err := deprecator.Deprecate(); err != nil {
 		r.Logger.Debugf("unable to deprecate bundles from database: %s", err)
 		if !request.Permissive {

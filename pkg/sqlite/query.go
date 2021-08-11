@@ -1370,3 +1370,57 @@ func (s *SQLQuerier) listBundleChannels(ctx context.Context, bundleName string) 
 
 	return channels, nil
 }
+
+// PackageFromDefaultChannelHeadBundle returns the package name if the provided bundle is the head of its default channel.
+func (s *SQLQuerier) PackageFromDefaultChannelHeadBundle(ctx context.Context, bundle string) (string, error) {
+	packageFromDefaultChannelHeadBundle := `
+	SELECT package_name FROM package 
+	INNER JOIN channel ON channel.name = package.default_channel
+	WHERE channel.head_operatorbundle_name = (SELECT name FROM operatorbundle WHERE bundlepath=? LIMIT 1) `
+
+	rows, err := s.db.QueryContext(ctx, packageFromDefaultChannelHeadBundle, bundle)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var packageName sql.NullString
+	for rows.Next() {
+		if err := rows.Scan(&packageName); err != nil {
+			return "", err
+		}
+
+		if !packageName.Valid {
+			return "", fmt.Errorf("package name column corrupt for bundle %s", bundle)
+		}
+	}
+
+	return packageName.String, nil
+}
+
+// BundlePathForChannelHead returns the bundlepath for the given package and channel
+func (s *SQLQuerier) BundlePathForChannelHead(ctx context.Context, pkg string, channel string) (string, error) {
+	bundlePathForChannelHeadQuery := `
+	SELECT bundlepath FROM operatorbundle
+	INNER JOIN channel ON channel.head_operatorbundle_name = operatorbundle.name 
+	WHERE channel.package_name = ? AND channel.name = ?
+`
+
+	rows, err := s.db.QueryContext(ctx, bundlePathForChannelHeadQuery, pkg, channel)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var bundlePath sql.NullString
+	for rows.Next() {
+		if err := rows.Scan(&bundlePath); err != nil {
+			return "", err
+		}
+		if !bundlePath.Valid {
+			return "", fmt.Errorf("bundlepath column corrupt for package %s, channel %s", pkg, channel)
+		}
+	}
+
+	return bundlePath.String, nil
+}
