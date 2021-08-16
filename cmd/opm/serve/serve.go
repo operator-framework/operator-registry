@@ -39,8 +39,13 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve <source_path>",
 		Short: "serve declarative configs",
-		Long:  `serve declarative configs via grpc`,
-		Args:  cobra.ExactArgs(1),
+		Long: `This command serves declarative configs via a GRPC server.
+
+NOTE: The declarative config directory is loaded by the serve command at
+startup. Changes made to the declarative config after the this command starts
+will not be reflected in the served content.
+`,
+		Args: cobra.ExactArgs(1),
 		PreRunE: func(_ *cobra.Command, args []string) error {
 			s.configDir = args[0]
 			if s.debug {
