@@ -10,10 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
-	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
 	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
@@ -118,7 +119,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	s := grpc.NewServer()
 
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
-	health.RegisterHealthServer(s, server.NewHealthServer())
+	healthServer := health.NewServer()
+	healthv1.RegisterHealthServer(s, healthServer)
+	healthServer.SetServingStatus(
+		"api.Registry",
+		healthv1.HealthCheckResponse_SERVING,
+	)
 	reflection.Register(s)
 	logger.Info("serving registry")
 

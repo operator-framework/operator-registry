@@ -7,9 +7,9 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 )
 
 type Interface interface {
@@ -25,7 +25,7 @@ type Interface interface {
 
 type Client struct {
 	Registry api.RegistryClient
-	Health   grpc_health_v1.HealthClient
+	Health   healthv1.HealthClient
 	Conn     *grpc.ClientConn
 }
 
@@ -98,7 +98,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) HealthCheck(ctx context.Context, reconnectTimeout time.Duration) (bool, error) {
-	res, err := c.Health.Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "Registry"})
+	res, err := c.Health.Check(ctx, &healthv1.HealthCheckRequest{Service: "Registry"})
 	if err != nil {
 		if c.Conn.GetState() == connectivity.TransientFailure {
 			ctx, cancel := context.WithTimeout(ctx, reconnectTimeout)
@@ -109,7 +109,7 @@ func (c *Client) HealthCheck(ctx context.Context, reconnectTimeout time.Duration
 		}
 		return false, NewHealthError(c.Conn, HealthErrReasonConnection, err.Error())
 	}
-	if res.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+	if res.Status != healthv1.HealthCheckResponse_SERVING {
 		return false, nil
 	}
 	return true, nil
@@ -126,7 +126,7 @@ func NewClient(address string) (*Client, error) {
 func NewClientFromConn(conn *grpc.ClientConn) *Client {
 	return &Client{
 		Registry: api.NewRegistryClient(conn),
-		Health:   grpc_health_v1.NewHealthClient(conn),
+		Health:   healthv1.NewHealthClient(conn),
 		Conn:     conn,
 	}
 }
