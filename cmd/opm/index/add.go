@@ -1,13 +1,21 @@
 package index
 
 import (
+	"context"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -68,6 +76,8 @@ func addIndexAddCmd(parent *cobra.Command) {
 	indexCmd.Flags().StringP("pull-tool", "p", "", "tool to pull container images. One of: [none, docker, podman]. Defaults to none. Overrides part of container-tool.")
 	indexCmd.Flags().StringP("tag", "t", "", "custom tag for container image being built")
 	indexCmd.Flags().Bool("permissive", false, "allow registry load errors")
+	indexCmd.Flags().BoolP("skip-validation", "v", false, "disable bundle validation")
+	indexCmd.Flags().StringP("root-ca", "", "", "file path of a root CA to use when communicating with image registries")
 	indexCmd.Flags().StringP("mode", "", "replaces", "graph update mode that defines how channel graphs are updated. One of: [replaces, semver, semver-skippatch]")
 
 	indexCmd.Flags().Bool("overwrite-latest", false, "overwrite the latest bundles (channel heads) with those of the same csv name given by --bundles")
@@ -154,7 +164,26 @@ func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipValidation, err := cmd.Flags().GetBool("skip-validation")
+	if err != nil {
+		return err
+	}
+
+	rootCA, err := cmd.Flags().GetString("root-ca")
+	if err != nil {
+		return err
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
+
+	if skipValidation {
+		logger.Info("skipping bundle validation")
+	} else {
+		logger.Info("validating bundles")
+		if err := validateBundles(bundles, skipTLS, rootCA); err != nil {
+			return err
+		}
+	}
 
 	logger.Info("building the index")
 
@@ -225,4 +254,62 @@ func getContainerTools(cmd *cobra.Command) (string, string, error) {
 	}
 
 	return pullTool, buildTool, nil
+}
+
+func validateBundles(bundles []string, skipTLS bool, rootCA string) error {
+	logger := logrus.WithFields(logrus.Fields{"bundles": bundles})
+	ctx := context.Background()
+	registryOpts := []containerdregistry.RegistryOption{containerdregistry.SkipTLS(skipTLS)}
+	if !skipTLS && rootCA != "" {
+		rootCAs := x509.NewCertPool()
+		certs, err := ioutil.ReadFile(rootCA)
+		if err != nil {
+			return err
+		}
+		if !rootCAs.AppendCertsFromPEM(certs) {
+			return fmt.Errorf("failed to fetch root CA from %s", rootCA)
+		}
+		registryOpts = append(registryOpts, containerdregistry.WithRootCAs(rootCAs))
+	}
+	registry, err := containerdregistry.NewRegistry(registryOpts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := registry.Destroy(); err != nil {
+			logger.Error(err)
+		}
+	}()
+	var errors []error
+	for _, b := range bundles {
+		bundleRef := image.SimpleReference(b)
+		if err := registry.Pull(ctx, bundleRef); err != nil {
+			return err
+		}
+		dir, err := ioutil.TempDir("", "bundle-")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = os.RemoveAll(dir)
+		}()
+		if err := registry.Unpack(ctx, bundleRef, dir); err != nil {
+			return err
+		}
+		validator := bundle.NewImageValidator(registry, logger)
+		if err := validator.ValidateBundleFormat(dir); err != nil {
+			errors = append(errors, fmt.Errorf("%s: %s", b, err))
+		}
+		if err := validator.ValidateBundleContent(filepath.Join(dir, bundle.ManifestsDir)); err != nil {
+			errors = append(errors, fmt.Errorf("%s: %s", b, err))
+		}
+
+		if err := os.RemoveAll(dir); err != nil {
+			logger.Error(err.Error())
+		}
+	}
+	if len(errors) > 0 {
+		return bundle.NewValidationError(errors)
+	}
+	return nil
 }

@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -311,6 +312,11 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 			continue
 		}
 
+		if errors := validateGVK(gvk, item.Name()); len(errors) != 0 {
+			validationErrors = append(validationErrors, errors...)
+			continue
+		}
+
 		if gvk.Kind == CSVKind {
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(k8sFile.Object, csv)
 			if err != nil {
@@ -441,6 +447,18 @@ func validateKubectlable(fileBytes []byte) error {
 	}
 
 	return nil
+}
+
+// validateGVK checks presense of GroupVersionKind.Kind and GroupVersionKind.Verion
+func validateGVK(gvk schema.GroupVersionKind, fileName string) (errors []error) {
+	version, kind := gvk.ToAPIVersionAndKind()
+	if version == "" {
+		errors = append(errors, fmt.Errorf("%s is missing 'apiVersion'", fileName))
+	}
+	if kind == "" {
+		errors = append(errors, fmt.Errorf("%s missing 'kind'", fileName))
+	}
+	return
 }
 
 // parseOptions looks at the provided optional validators provided via a command line flag and returns an map
