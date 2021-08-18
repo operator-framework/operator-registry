@@ -118,6 +118,50 @@ func TestChannelHead(t *testing.T) {
 	}
 }
 
+func TestValidReplacesChain(t *testing.T) {
+	type spec struct {
+		name      string
+		ch        Channel
+		assertion require.ErrorAssertionFunc
+	}
+	specs := []spec{
+		{
+			name: "Success/Valid",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Skips: []string{"anakin.v0.0.1"}},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
+			}},
+			assertion: require.NoError,
+		},
+		{
+			name: "Error/CycleNoHops",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.4"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Replaces: "anakin.v0.0.4"},
+			}},
+			assertion: hasError(`detected cycle in replaces chain of upgrade graph: "anakin.v0.0.4 -> anakin.v0.0.4"`),
+		},
+		{
+			name: "Error/CycleMultipleHops",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
+			}},
+			assertion: hasError(`detected cycle in replaces chain of upgrade graph: "anakin.v0.0.3 -> anakin.v0.0.2 -> anakin.v0.0.1 -> anakin.v0.0.3"`),
+		},
+	}
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			err := s.ch.validateReplacesChain()
+			s.assertion(t, err)
+		})
+	}
+}
+
 func hasError(expectedError string) require.ErrorAssertionFunc {
 	return func(t require.TestingT, actualError error, args ...interface{}) {
 		if stdt, ok := t.(*testing.T); ok {
