@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/internal/action"
+	"github.com/operator-framework/operator-registry/alpha/action"
 )
 
 const humanReadabilityOnlyNote = `NOTE: This is meant to be used for convenience and human-readability only. The

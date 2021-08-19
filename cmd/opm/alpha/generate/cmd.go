@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/internal/action"
+	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 )
 

@@ -9,8 +9,8 @@ import (
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/internal/model"
-	"github.com/operator-framework/operator-registry/internal/property"
+	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 // DiffGenerator configures how diffs are created via Run().

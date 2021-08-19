@@ -12,7 +12,7 @@ import (
 	"github.com/h2non/filetype/types"
 	svg "github.com/h2non/go-is-svg"
 
-	"github.com/operator-framework/operator-registry/internal/property"
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 func init() {
