@@ -3,6 +3,8 @@ package index
 import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 // AddCommand adds the index subcommand to the given parent command.
@@ -19,6 +21,7 @@ func AddCommand(parent *cobra.Command) {
 			return nil
 		},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			sqlite.LogSqliteDeprecation()
 			if skipTLS, err := cmd.Flags().GetBool("skip-tls"); err == nil && skipTLS {
 				logrus.Warn("--skip-tls flag is set: this mode is insecure and meant for development purposes only.")
 			}
