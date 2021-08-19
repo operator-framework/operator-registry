@@ -209,13 +209,19 @@ func (c *Channel) Validate() error {
 // 1. There must be exactly 1 channel head.
 // 2. Beginning at the head, the replaces chain must reach all non-skipped entries.
 //    Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
-//    This is basically a re-statement of 1. There must not be two channel heads.
 // 3. There must be no cycles in the replaces chain.
 // 4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
 func (c *Channel) validateReplacesChain() error {
 	head, err := c.Head()
 	if err != nil {
 		return err
+	}
+
+	allBundles := sets.NewString()
+	skippedBundles := sets.NewString()
+	for _, b := range c.Bundles {
+		allBundles = allBundles.Insert(b.Name)
+		skippedBundles = skippedBundles.Insert(b.Skips...)
 	}
 
 	chainFrom := map[string][]string{}
@@ -229,10 +235,15 @@ func (c *Channel) validateReplacesChain() error {
 			chainFrom[k] = append(chainFrom[k], cur.Replaces)
 		}
 		if replacesChainFromHead.Has(cur.Replaces) {
-			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %q", strings.Join(chainFrom[cur.Replaces], " -> "))
+			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
 		}
 		replacesChainFromHead = replacesChainFromHead.Insert(cur.Replaces)
 		cur = c.Bundles[cur.Replaces]
+	}
+
+	strandedBundles := allBundles.Difference(replacesChainFromHead).Difference(skippedBundles).List()
+	if len(strandedBundles) > 0 {
+		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
 	}
 
 	return nil

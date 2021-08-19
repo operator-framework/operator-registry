@@ -141,7 +141,7 @@ func TestValidReplacesChain(t *testing.T) {
 				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.4"},
 				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Replaces: "anakin.v0.0.4"},
 			}},
-			assertion: hasError(`detected cycle in replaces chain of upgrade graph: "anakin.v0.0.4 -> anakin.v0.0.4"`),
+			assertion: hasError(`detected cycle in replaces chain of upgrade graph: anakin.v0.0.4 -> anakin.v0.0.4`),
 		},
 		{
 			name: "Error/CycleMultipleHops",
@@ -151,7 +151,16 @@ func TestValidReplacesChain(t *testing.T) {
 				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2"},
 				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
 			}},
-			assertion: hasError(`detected cycle in replaces chain of upgrade graph: "anakin.v0.0.3 -> anakin.v0.0.2 -> anakin.v0.0.1 -> anakin.v0.0.3"`),
+			assertion: hasError(`detected cycle in replaces chain of upgrade graph: anakin.v0.0.3 -> anakin.v0.0.2 -> anakin.v0.0.1 -> anakin.v0.0.3`),
+		},
+		{
+			name: "Error/Stranded",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1`),
 		},
 	}
 	for _, s := range specs {
