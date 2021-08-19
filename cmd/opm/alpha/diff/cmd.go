@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
-	"github.com/operator-framework/operator-registry/internal/action"
-	"github.com/operator-framework/operator-registry/internal/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 )

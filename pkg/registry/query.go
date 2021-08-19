@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/operator-framework/operator-registry/internal/model"
+	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/pkg/api"
 )
 
