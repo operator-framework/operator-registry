@@ -17,6 +17,9 @@ type Diff struct {
 
 	OldRefs []string
 	NewRefs []string
+	// SkipDependencies directs Run() to not include dependencies
+	// of bundles included in the diff if true.
+	SkipDependencies bool
 
 	Logger *logrus.Entry
 }
@@ -59,7 +62,11 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		return nil, fmt.Errorf("error converting new declarative config to model: %v", err)
 	}
 
-	diffModel, err := declcfg.Diff(oldModel, newModel)
+	g := &declcfg.DiffGenerator{
+		Logger:           a.Logger,
+		SkipDependencies: a.SkipDependencies,
+	}
+	diffModel, err := g.Run(oldModel, newModel)
 	if err != nil {
 		return nil, fmt.Errorf("error generating diff: %v", err)
 	}

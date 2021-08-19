@@ -3,19 +3,41 @@ package declcfg
 import (
 	"reflect"
 	"sort"
+	"sync"
 
 	"github.com/blang/semver"
 	"github.com/mitchellh/hashstructure/v2"
+	"github.com/sirupsen/logrus"
 
 	"github.com/operator-framework/operator-registry/internal/model"
 	"github.com/operator-framework/operator-registry/internal/property"
 )
 
-// Diff returns a Model containing everything in newModel not in oldModel,
+// DiffGenerator configures how diffs are created via Run().
+type DiffGenerator struct {
+	Logger *logrus.Entry
+
+	// SkipDependencies directs Run() to not include dependencies
+	// of bundles included in the diff if true.
+	SkipDependencies bool
+
+	initOnce sync.Once
+}
+
+func (g *DiffGenerator) init() {
+	g.initOnce.Do(func() {
+		if g.Logger == nil {
+			g.Logger = &logrus.Entry{}
+		}
+	})
+}
+
+// Run returns a Model containing everything in newModel not in oldModel,
 // and all bundles that exist in oldModel but are different in newModel.
 // If oldModel is empty, only channel heads in newModel's packages are
 // added to the output Model. All dependencies not in oldModel are also added.
-func Diff(oldModel, newModel model.Model) (model.Model, error) {
+func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error) {
+	g.init()
 
 	// TODO(estroz): loading both oldModel and newModel into memory may
 	// exceed process/hardware limits. Instead, store models on-disk then
@@ -71,9 +93,11 @@ func Diff(oldModel, newModel model.Model) (model.Model, error) {
 		}
 	}
 
-	// Add dependencies to outputModel not already present in oldModel.
-	if err := addAllDependencies(newModel, oldModel, outputModel); err != nil {
-		return nil, err
+	if !g.SkipDependencies {
+		// Add dependencies to outputModel not already present in oldModel.
+		if err := addAllDependencies(newModel, oldModel, outputModel); err != nil {
+			return nil, err
+		}
 	}
 
 	// Default channel may not have been copied, so set it to the new default channel here.

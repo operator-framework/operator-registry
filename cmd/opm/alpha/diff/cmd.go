@@ -24,8 +24,9 @@ const (
 )
 
 type diff struct {
-	oldRefs []string
-	newRefs []string
+	oldRefs  []string
+	newRefs  []string
+	skipDeps bool
 
 	output string
 	caFile string
@@ -59,6 +60,8 @@ in which case they are not included in the diff, or a new ref, in which
 case they are included. Dependencies provided by some catalog unknown to
 'opm alpha diff' will not cause the command to error, but an error will occur
 if that catalog is not serving these dependencies at runtime.
+Dependency inclusion can be turned off with --no-deps, although this is not recommended
+unless you are certain some in-cluster catalog satisfies all dependencies.
 
 NOTE: for now, if any dependency exists, the entire dependency's package is added to the diff.
 In the future, these packages will be pruned such that only the latest dependencies
@@ -66,19 +69,24 @@ satisfying a package version range or GVK, and their upgrade graph(s) to their l
 channel head(s), are included in the diff.
 `),
 		Example: templates.Examples(`
-# Diff a catalog at some old state and latest state into a declarative config index.
-mkdir -p catalog-index
+# Create a directory for your declarative config diff.
+mkdir -p my-catalog-index
+
+# THEN:
+# Create a new catalog from a diff between an old and the latest
+# state of a catalog as a declarative config index.
 opm alpha diff registry.org/my-catalog:abc123 registry.org/my-catalog:def456 -o yaml > ./my-catalog-index/index.yaml
 
-# Build and push this index into an index image.
-opm alpha generate dockerfile ./my-catalog-index
-docker build -t registry.org/my-catalog:latest-abc123-def456 -f index.Dockerfile .
-docker push registry.org/my-catalog:latest-abc123-def456
-
-# Create a new catalog from the heads of an existing catalog, then build and push the image like above.
+# OR:
+# Create a new catalog from the heads of an existing catalog.
 opm alpha diff registry.org/my-catalog:def456 -o yaml > my-catalog-index/index.yaml
-docker build -t registry.org/my-catalog:headsonly-def456 -f index.Dockerfile .
-docker push registry.org/my-catalog:headsonly-def456
+
+# FINALLY:
+# Build an index image containing the diff-ed declarative config,
+# then tag and push it.
+opm alpha generate dockerfile ./my-catalog-index
+docker build -t registry.org/my-catalog:diff-latest -f index.Dockerfile .
+docker push registry.org/my-catalog:diff-latest
 `),
 		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -90,6 +98,8 @@ docker push registry.org/my-catalog:headsonly-def456
 		},
 		RunE: a.addFunc,
 	}
+
+	cmd.Flags().BoolVar(&a.skipDeps, "skip-deps", false, "do not include bundle dependencies in the output catalog")
 
 	cmd.Flags().StringVarP(&a.output, "output", "o", "yaml", "Output format (json|yaml)")
 	cmd.Flags().StringVarP(&a.caFile, "ca-file", "", "", "the root Certificates to use with this command")
@@ -103,7 +113,7 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 
 	skipTLS, err := cmd.Flags().GetBool("skip-tls")
 	if err != nil {
-		panic(err)
+		logrus.Panic(err)
 	}
 
 	var write func(declcfg.DeclarativeConfig, io.Writer) error
@@ -134,10 +144,11 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	diff := action.Diff{
-		Registry: reg,
-		OldRefs:  a.oldRefs,
-		NewRefs:  a.newRefs,
-		Logger:   a.logger,
+		Registry:         reg,
+		OldRefs:          a.oldRefs,
+		NewRefs:          a.newRefs,
+		SkipDependencies: a.skipDeps,
+		Logger:           a.logger,
 	}
 	cfg, err := diff.Run(ctx)
 	if err != nil {
@@ -159,7 +170,7 @@ func (a *diff) parseArgs(args []string) {
 	case 2:
 		old, new = args[0], args[1]
 	default:
-		panic("should never be here, CLI must enforce arg size")
+		logrus.Panic("should never be here, CLI must enforce arg size")
 	}
 	if old != "" {
 		a.oldRefs = strings.Split(old, ",")
