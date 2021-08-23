@@ -11,6 +11,7 @@ import (
 	"github.com/h2non/filetype/matchers"
 	"github.com/h2non/filetype/types"
 	svg "github.com/h2non/go-is-svg"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -184,7 +185,7 @@ func (c *Channel) Validate() error {
 	}
 
 	if len(c.Bundles) > 0 {
-		if _, err := c.Head(); err != nil {
+		if err := c.validateReplacesChain(); err != nil {
 			result.subErrors = append(result.subErrors, err)
 		}
 	}
@@ -201,6 +202,51 @@ func (c *Channel) Validate() error {
 		}
 	}
 	return result.orNil()
+}
+
+// validateReplacesChain checks the replaces chain of a channel.
+// Specifically the following rules must be followed:
+// 1. There must be exactly 1 channel head.
+// 2. Beginning at the head, the replaces chain must reach all non-skipped entries.
+//    Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
+// 3. There must be no cycles in the replaces chain.
+// 4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
+func (c *Channel) validateReplacesChain() error {
+	head, err := c.Head()
+	if err != nil {
+		return err
+	}
+
+	allBundles := sets.NewString()
+	skippedBundles := sets.NewString()
+	for _, b := range c.Bundles {
+		allBundles = allBundles.Insert(b.Name)
+		skippedBundles = skippedBundles.Insert(b.Skips...)
+	}
+
+	chainFrom := map[string][]string{}
+	replacesChainFromHead := sets.NewString(head.Name)
+	cur := head
+	for cur != nil {
+		if _, ok := chainFrom[cur.Name]; !ok {
+			chainFrom[cur.Name] = []string{cur.Name}
+		}
+		for k := range chainFrom {
+			chainFrom[k] = append(chainFrom[k], cur.Replaces)
+		}
+		if replacesChainFromHead.Has(cur.Replaces) {
+			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
+		}
+		replacesChainFromHead = replacesChainFromHead.Insert(cur.Replaces)
+		cur = c.Bundles[cur.Replaces]
+	}
+
+	strandedBundles := allBundles.Difference(replacesChainFromHead).Difference(skippedBundles).List()
+	if len(strandedBundles) > 0 {
+		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
+	}
+
+	return nil
 }
 
 type Bundle struct {
