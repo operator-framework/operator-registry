@@ -11,6 +11,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func NewCmd() *cobra.Command {
@@ -20,8 +21,11 @@ func NewCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "render [index-image | bundle-image | sqlite-file]...",
-		Short: "Generate a declarative config blob from the provided index images, bundle images, and sqlite database files",
-		Args:  cobra.MinimumNArgs(1),
+		Short: "Generate a declarative config blob from catalogs and bundles",
+		Long: `Generate a declarative config blob from the provided index images, bundle images, and sqlite database files
+
+` + sqlite.DeprecationMessage,
+		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			render.Refs = args
 

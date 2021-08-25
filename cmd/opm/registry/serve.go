@@ -28,7 +28,9 @@ func newRegistryServeCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "serve",
 		Short: "serve an operator-registry database",
-		Long:  `serve an operator-registry database that is queriable using grpc`,
+		Long: `serve an operator-registry database that is queriable using grpc
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

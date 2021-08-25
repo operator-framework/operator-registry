@@ -12,7 +12,9 @@ func NewOpmRegistryCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "registry",
 		Short: "interact with operator-registry database",
-		Long:  `interact with operator-registry database building, modifying and/or serving the operator-registry database`,
+		Long: `interact with operator-registry database building, modifying and/or serving the operator-registry database
+
+` + sqlite.DeprecationMessage,
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			sqlite.LogSqliteDeprecation()
 		},

@@ -12,7 +12,9 @@ func AddCommand(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "index",
 		Short: "generate operator index container images",
-		Long:  `generate operator index container images from preexisting operator bundles`,
+		Long: `generate operator index container images from preexisting operator bundles
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

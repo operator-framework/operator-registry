@@ -24,7 +24,9 @@ import (
 
 var rootCmd = &cobra.Command{
 	Short: "registry-server",
-	Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+	Long: `registry loads a sqlite database containing operator manifests and serves a grpc API to query it
+
+` + sqlite.DeprecationMessage,
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		sqlite.LogSqliteDeprecation()
 	},

@@ -10,6 +10,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 		0.1.1 -> 0.1.2 -> 0.1.2-1  
 		will be pruned on add to:  
 		0.1.1 -> 0.1.2
-	`)
+`) + "\n\n" + sqlite.DeprecationMessage
 
 	addExample = templates.Examples(`
 		# Create an index image from scratch with a single bundle image
