@@ -6,13 +6,16 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newIndexDeleteCmd() *cobra.Command {
 	indexCmd := &cobra.Command{
 		Use:   "rm",
 		Short: "delete an entire operator from an index",
-		Long:  `delete an entire operator from an index`,
+		Long: `delete an entire operator from an index
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

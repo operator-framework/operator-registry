@@ -9,6 +9,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 var exportLong = templates.LongDesc(`
@@ -18,7 +19,7 @@ var exportLong = templates.LongDesc(`
 	the --package option) and export the operator metadata into an appregistry compliant format (a package.yaml file). 
 
 	Note: the appregistry format is being deprecated in favor of the new index image and image bundle format. 
-	`)
+	`) + "\n\n" + sqlite.DeprecationMessage
 
 func newIndexExportCmd() *cobra.Command {
 	indexCmd := &cobra.Command{

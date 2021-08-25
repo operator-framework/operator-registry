@@ -7,6 +7,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 var deprecateLong = templates.LongDesc(`
@@ -28,7 +29,7 @@ var deprecateLong = templates.LongDesc(`
 	Deprecating a bundle that removes the default channel is not allowed unless the head(s) of all channels are being deprecated (the package is subsequently removed from the index). 
     This behavior can be enabled via the allow-package-removal flag. 
     Changing the default channel prior to deprecation is possible by publishing a new bundle to the index.
-	`)
+	`) + "\n\n" + sqlite.DeprecationMessage
 
 func newIndexDeprecateTruncateCmd() *cobra.Command {
 	indexCmd := &cobra.Command{

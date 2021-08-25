@@ -8,13 +8,16 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newIndexPruneCmd() *cobra.Command {
 	indexCmd := &cobra.Command{
 		Use:   "prune",
 		Short: "prune an index of all but specified packages",
-		Long:  `prune an index of all but specified packages`,
+		Long: `prune an index of all but specified packages
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

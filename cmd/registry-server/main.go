@@ -24,8 +24,12 @@ import (
 
 var rootCmd = &cobra.Command{
 	Short: "registry-server",
-	Long:  `registry loads a sqlite database containing operator manifests and serves a grpc API to query it`,
+	Long: `registry loads a sqlite database containing operator manifests and serves a grpc API to query it
 
+` + sqlite.DeprecationMessage,
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		sqlite.LogSqliteDeprecation()
+	},
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if debug, _ := cmd.Flags().GetBool("debug"); debug {
 			logrus.SetLevel(logrus.DebugLevel)

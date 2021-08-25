@@ -1,17 +1,20 @@
 package registry
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/registry"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newRegistryRmCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "rm",
 		Short: "remove operator from operator registry DB",
-		Long:  `Remove operator from operator registry DB`,
+		Long: `Remove operator from operator registry DB
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

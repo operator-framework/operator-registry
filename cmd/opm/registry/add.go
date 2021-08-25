@@ -10,13 +10,16 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 	reg "github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func newRegistryAddCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "add",
 		Short: "add operator bundle to operator registry DB",
-		Long:  `add operator bundle to operator registry DB`,
+		Long: `add operator bundle to operator registry DB
+
+` + sqlite.DeprecationMessage,
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {

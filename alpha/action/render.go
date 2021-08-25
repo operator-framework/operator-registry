@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
@@ -25,6 +26,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
+
+var logDeprecationMessage sync.Once
 
 type RefType uint
 
@@ -197,6 +200,10 @@ func checkDBFile(ref string) error {
 }
 
 func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeConfig, error) {
+	logDeprecationMessage.Do(func() {
+		sqlite.LogSqliteDeprecation()
+	})
+
 	db, err := sqlite.Open(dbFile)
 	if err != nil {
 		return nil, err
