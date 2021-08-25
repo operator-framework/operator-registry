@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultBinarySourceImage = "quay.io/operator-framework/upstream-opm-builder"
+	DefaultBinarySourceImage = "quay.io/operator-framework/opm:latest"
 	DefaultDbLocation        = "/database/index.db"
 	DbLocationLabel          = "operators.operatorframework.io.index.database.v1"
 	ConfigsLocationLabel     = "operators.operatorframework.io.index.configs.v1"

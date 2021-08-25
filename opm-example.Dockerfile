@@ -1,11 +1,14 @@
-FROM quay.io/operator-framework/upstream-opm-builder AS builder
+# The base image is expected to contain
+# /bin/opm (with a serve subcommand) and /bin/grpc_health_probe
+FROM quay.io/operator-framework/opm:latest
 
-FROM scratch
-LABEL operators.operatorframework.io.index.database.v1=./index.db
-COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
-COPY database ./
-COPY --from=builder /bin/opm /opm
-COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
-EXPOSE 50051
-ENTRYPOINT ["/opm"]
-CMD ["registry", "serve", "--database", "index.db"]
+# Configure the entrypoint and command
+ENTRYPOINT ["/bin/opm"]
+CMD ["serve", "/configs"]
+
+# Copy declarative config root into image at /configs
+ADD index /configs
+
+# Set DC-specific label for the location of the DC root directory
+# in the image
+LABEL operators.operatorframework.io.index.configs.v1=/configs
