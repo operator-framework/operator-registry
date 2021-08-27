@@ -43,13 +43,16 @@ func (g *IndexDockerfileGenerator) GenerateIndexDockerfile(binarySourceImage, da
 	g.Logger.Info("Generating dockerfile")
 
 	// From
-	dockerfile += fmt.Sprintf("FROM %s\n", binarySourceImage)
+	dockerfile += fmt.Sprintf("FROM %s AS builder\n\n", binarySourceImage)
+	dockerfile += fmt.Sprintf("FROM scratch\n")
 
 	// Labels
 	dockerfile += fmt.Sprintf("LABEL %s=%s\n", DbLocationLabel, DefaultDbLocation)
 
 	// Content
-	dockerfile += fmt.Sprintf("ADD %s %s\n", databasePath, DefaultDbLocation)
+	dockerfile += fmt.Sprintf("COPY %s %s\n", databasePath, DefaultDbLocation)
+	dockerfile += fmt.Sprintf("COPY --from=builder /bin/opm /bin/opm\n")
+	dockerfile += fmt.Sprintf("COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe\n")
 	dockerfile += fmt.Sprintf("EXPOSE 50051\n")
 	dockerfile += fmt.Sprintf("ENTRYPOINT [\"/bin/opm\"]\n")
 	dockerfile += fmt.Sprintf("CMD [\"registry\", \"serve\", \"--database\", \"%s\"]\n", DefaultDbLocation)
