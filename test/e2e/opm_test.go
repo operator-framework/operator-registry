@@ -68,12 +68,12 @@ func (bl bundleLocations) images() []string {
 	return images
 }
 
-func inTemporaryBuildContext(f func() error) (rerr error) {
+func inTemporaryBuildContext(f func() error, source string) (rerr error) {
 	td, err := ioutil.TempDir(".", "opm-")
 	if err != nil {
 		return err
 	}
-	err = copy.Copy("../../manifests", filepath.Join(td, "manifests"))
+	err = copy.Copy(source, filepath.Join(td, "manifests"))
 	if err != nil {
 		return err
 	}
@@ -218,43 +218,70 @@ func initialize() error {
 
 var _ = Describe("opm", func() {
 	IncludeSharedSpecs := func(containerTool string) {
-		It("builds and validates a bundle image", func() {
-			By("building bundle")
-			img := bundleImage + ":" + bundleTag3
-			err := inTemporaryBuildContext(func() error {
-				return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false)
+		Describe("builds and validates a bundle image", func() {
+			var (
+				img       string
+				unpackDir string
+				sourceDir string
+				validator bundle.BundleImageValidator
+			)
+
+			JustBeforeEach(func() {
+				By("building bundle")
+				err := inTemporaryBuildContext(func() error {
+					return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false)
+				}, sourceDir)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("pushing bundle")
+				Expect(pushWith(containerTool, img)).To(Succeed())
+
+				By("pulling bundle")
+				logger := logrus.WithFields(logrus.Fields{"image": img})
+				tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
+				var registry image.Registry
+				switch tool {
+				case containertools.PodmanTool, containertools.DockerTool:
+					registry, err = execregistry.NewRegistry(tool, logger)
+				case containertools.NoneTool:
+					registry, err = containerdregistry.NewRegistry(containerdregistry.WithLog(logger))
+				default:
+					err = fmt.Errorf("unrecognized container-tool option: %s", containerTool)
+				}
+				Expect(err).NotTo(HaveOccurred())
+
+				unpackDir, err = ioutil.TempDir(".", bundleTag3)
+				Expect(err).NotTo(HaveOccurred())
+				validator = bundle.NewImageValidator(registry, logger)
+				Expect(validator.PullBundleImage(img, unpackDir)).To(Succeed())
 			})
-			Expect(err).NotTo(HaveOccurred())
 
-			By("pushing bundle")
-			Expect(pushWith(containerTool, img)).To(Succeed())
+			When("the image is valid", func() {
+				BeforeEach(func() {
+					img = bundleImage + ":" + bundleTag3
+					sourceDir = "../../manifests"
+				})
+				It("should succeed", func() {
+					Expect(validator.ValidateBundleFormat(unpackDir)).To(Succeed())
+					manifestsDir := filepath.Join(unpackDir, bundle.ManifestsDir)
+					Expect(validator.ValidateBundleContent(manifestsDir)).To(Succeed())
+					Expect(os.RemoveAll(unpackDir)).To(Succeed())
+				})
+			})
 
-			By("pulling bundle")
-			logger := logrus.WithFields(logrus.Fields{"image": img})
-			tool := containertools.NewContainerTool(containerTool, containertools.NoneTool)
-			var registry image.Registry
-			switch tool {
-			case containertools.PodmanTool, containertools.DockerTool:
-				registry, err = execregistry.NewRegistry(tool, logger)
-			case containertools.NoneTool:
-				registry, err = containerdregistry.NewRegistry(containerdregistry.WithLog(logger))
-			default:
-				err = fmt.Errorf("unrecognized container-tool option: %s", containerTool)
-			}
-			Expect(err).NotTo(HaveOccurred())
+			When("the image is NOT valid", func() {
+				BeforeEach(func() {
+					img = bundleImage + ":" + rand.String(6)
+					sourceDir = "../../test/e2e/testdata/invalid-manifests"
+				})
+				It("should fail", func() {
+					Expect(validator.ValidateBundleFormat(unpackDir)).To(Succeed())
+					manifestsDir := filepath.Join(unpackDir, bundle.ManifestsDir)
+					Expect(validator.ValidateBundleContent(manifestsDir)).Should(HaveOccurred())
+					Expect(os.RemoveAll(unpackDir)).To(Succeed())
+				})
 
-			unpackDir, err := ioutil.TempDir(".", bundleTag3)
-			Expect(err).NotTo(HaveOccurred())
-			validator := bundle.NewImageValidator(registry, logger)
-			Expect(validator.PullBundleImage(img, unpackDir)).To(Succeed())
-
-			By("validating bundle format")
-			Expect(validator.ValidateBundleFormat(unpackDir)).To(Succeed())
-
-			By("validating bundle content")
-			manifestsDir := filepath.Join(unpackDir, bundle.ManifestsDir)
-			Expect(validator.ValidateBundleContent(manifestsDir)).To(Succeed())
-			Expect(os.RemoveAll(unpackDir)).To(Succeed())
+			})
 		})
 
 		It("builds and manipulates bundle and index images", func() {
@@ -268,7 +295,7 @@ var _ = Describe("opm", func() {
 			for _, b := range bundles {
 				err = inTemporaryBuildContext(func() error {
 					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false)
-				})
+				}, "../../manifests")
 				Expect(err).NotTo(HaveOccurred())
 			}
 
