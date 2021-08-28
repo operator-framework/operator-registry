@@ -15,24 +15,11 @@ import (
 )
 
 func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
-	a001 := newTestBundle("anakin", "0.0.1",
-		withChannel("light", ""),
-		withChannel("dark", ""),
-	)
-	a010 := newTestBundle("anakin", "0.1.0",
-		withChannel("light", testBundleName("anakin", "0.0.1")),
-		withChannel("dark", testBundleName("anakin", "0.0.1")),
-	)
-	a011 := newTestBundle("anakin", "0.1.1",
-		withChannel("dark", testBundleName("anakin", "0.0.1")),
-		withSkips(testBundleName("anakin", "0.1.0")),
-	)
-	b1 := newTestBundle("boba-fett", "1.0.0",
-		withChannel("mando", ""),
-	)
-	b2 := newTestBundle("boba-fett", "2.0.0",
-		withChannel("mando", testBundleName("boba-fett", "1.0.0")),
-	)
+	a001 := newTestBundle("anakin", "0.0.1")
+	a010 := newTestBundle("anakin", "0.1.0")
+	a011 := newTestBundle("anakin", "0.1.1")
+	b1 := newTestBundle("boba-fett", "1.0.0")
+	b2 := newTestBundle("boba-fett", "2.0.0")
 
 	var others []Meta
 	if includeUnrecognized {
@@ -57,6 +44,40 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 			newTestPackage("anakin", "dark", svgSmallCircle),
 			newTestPackage("boba-fett", "mando", svgBigCircle),
 		},
+		Channels: []Channel{
+			newTestChannel("anakin", "dark",
+				LegacyChannelEntry{
+					Name: testBundleName("anakin", "0.0.1"),
+				},
+				LegacyChannelEntry{
+					Name:     testBundleName("anakin", "0.1.0"),
+					Replaces: testBundleName("anakin", "0.0.1"),
+				},
+				LegacyChannelEntry{
+					Name:     testBundleName("anakin", "0.1.1"),
+					Replaces: testBundleName("anakin", "0.0.1"),
+					Skips:    []string{testBundleName("anakin", "0.1.0")},
+				},
+			),
+			newTestChannel("anakin", "light",
+				LegacyChannelEntry{
+					Name: testBundleName("anakin", "0.0.1"),
+				},
+				LegacyChannelEntry{
+					Name:     testBundleName("anakin", "0.1.0"),
+					Replaces: testBundleName("anakin", "0.0.1"),
+				},
+			),
+			newTestChannel("boba-fett", "mando",
+				LegacyChannelEntry{
+					Name: testBundleName("boba-fett", "1.0.0"),
+				},
+				LegacyChannelEntry{
+					Name:     testBundleName("boba-fett", "2.0.0"),
+					Replaces: testBundleName("boba-fett", "1.0.0"),
+				},
+			),
+		},
 		Bundles: []Bundle{
 			a001, a010, a011,
 			b1, b2,
@@ -70,12 +91,6 @@ type bundleOpt func(*Bundle)
 func withChannel(name, replaces string) func(*Bundle) {
 	return func(b *Bundle) {
 		b.Properties = append(b.Properties, property.MustBuildChannel(name, replaces))
-	}
-}
-
-func withSkips(name string) func(*Bundle) {
-	return func(b *Bundle) {
-		b.Properties = append(b.Properties, property.MustBuildSkips(name))
 	}
 }
 
@@ -150,6 +165,15 @@ func newTestPackage(packageName, defaultChannel, svgData string) Package {
 	return p
 }
 
+func newTestChannel(packageName, channelName string, entries ...LegacyChannelEntry) Channel {
+	return Channel{
+		Schema:   schemaChannel,
+		Name:     channelName,
+		Package:  packageName,
+		Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: entries}},
+	}
+}
+
 func buildTestModel() model.Model {
 	return model.Model{
 		"anakin":    buildAnakinPkgModel(),
@@ -196,15 +220,13 @@ func buildAnakinPkgModel() *model.Package {
 			property.MustBuildBundleObjectData([]byte(crdJson)),
 		}
 		for _, channel := range channels {
-			props = append(props, property.MustBuild(&channel))
 			ch := pkg.Channels[channel.Name]
 			bName := testBundleName(pkgName, version)
 			bImage := testBundleImage(pkgName, version)
-			skips := []string{}
+			var skips []string
 			if version == "0.1.1" {
 				skip := testBundleName(pkgName, "0.1.0")
 				skips = append(skips, skip)
-				props = append(props, property.MustBuildSkips(skip))
 			}
 
 			props = append(props)
@@ -265,7 +287,6 @@ func buildBobaFettPkgModel() *model.Package {
 			property.MustBuildBundleObjectData([]byte(crdJson)),
 		}
 		for _, channel := range channels {
-			props = append(props, property.MustBuild(&channel))
 			ch := pkg.Channels[channel.Name]
 			bName := testBundleName(pkgName, version)
 			bImage := testBundleImage(pkgName, version)

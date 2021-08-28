@@ -192,7 +192,7 @@ func hasError(expectedError string) require.ErrorAssertionFunc {
 				return
 			}
 		}
-		t.Errorf("expected error to be or contain suberror %q, got %v", expectedError, actualError)
+		t.Errorf("expected error to be or contain suberror `%s`, got `%s`", expectedError, actualError)
 		t.FailNow()
 	}
 }

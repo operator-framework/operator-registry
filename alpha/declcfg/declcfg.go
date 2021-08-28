@@ -8,11 +8,13 @@ import (
 
 const (
 	schemaPackage = "olm.package"
+	schemaChannel = "olm.channel"
 	schemaBundle  = "olm.bundle"
 )
 
 type DeclarativeConfig struct {
 	Packages []Package
+	Channels []Channel
 	Bundles  []Bundle
 	Others   []Meta
 }
@@ -28,6 +30,28 @@ type Package struct {
 type Icon struct {
 	Data      []byte `json:"base64data"`
 	MediaType string `json:"mediatype"`
+}
+
+type Channel struct {
+	Schema   string          `json:"schema"`
+	Name     string          `json:"name"`
+	Package  string          `json:"package"`
+	Strategy ChannelStrategy `json:"strategy"`
+}
+
+type ChannelStrategy struct {
+	Legacy *LegacyChannelStrategy `json:"legacy,omitempty"`
+}
+
+type LegacyChannelStrategy struct {
+	Entries []LegacyChannelEntry `json:"entries"`
+}
+
+type LegacyChannelEntry struct {
+	Name      string   `json:"name"`
+	Replaces  string   `json:"replaces,omitempty"`
+	Skips     []string `json:"skips,omitempty"`
+	SkipRange string   `json:"skipRange,omitempty"`
 }
 
 // Bundle specifies all metadata and data of a bundle object.

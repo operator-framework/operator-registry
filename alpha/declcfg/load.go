@@ -73,6 +73,7 @@ func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
 			return err
 		}
 		cfg.Packages = append(cfg.Packages, fcfg.Packages...)
+		cfg.Channels = append(cfg.Channels, fcfg.Channels...)
 		cfg.Bundles = append(cfg.Bundles, fcfg.Bundles...)
 		cfg.Others = append(cfg.Others, fcfg.Others...)
 		return nil
@@ -138,6 +139,12 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 				return nil, fmt.Errorf("parse package: %v", err)
 			}
 			cfg.Packages = append(cfg.Packages, p)
+		case schemaChannel:
+			var c Channel
+			if err := json.Unmarshal(doc, &c); err != nil {
+				return nil, fmt.Errorf("parse channel: %v", err)
+			}
+			cfg.Channels = append(cfg.Channels, c)
 		case schemaBundle:
 			var b Bundle
 			if err := json.Unmarshal(doc, &b); err != nil {

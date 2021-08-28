@@ -13,10 +13,6 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse properties: %v", err)
 	}
-	skipRange := ""
-	if len(props.SkipRanges) > 0 {
-		skipRange = string(props.SkipRanges[0])
-	}
 
 	apiDeps, err := convertModelPropertiesToAPIDependencies(b.Properties)
 	if err != nil {
@@ -30,7 +26,7 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 		ProvidedApis: gvksProvidedtoAPIGVKs(props.GVKs),
 		RequiredApis: gvksRequirestoAPIGVKs(props.GVKsRequired),
 		Version:      props.Packages[0].Version,
-		SkipRange:    skipRange,
+		SkipRange:    b.SkipRange,
 		Dependencies: apiDeps,
 		Properties:   convertModelPropertiesToAPIProperties(b.Properties),
 		Replaces:     b.Replaces,
@@ -48,10 +44,6 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 
 	if len(props.Packages) != 1 {
 		return nil, fmt.Errorf("expected exactly 1 property of type %q, found %d", property.TypePackage, len(props.Packages))
-	}
-
-	if len(props.SkipRanges) > 1 {
-		return nil, fmt.Errorf("multiple properties of type %q not allowed", property.TypeSkipRange)
 	}
 
 	return props, nil

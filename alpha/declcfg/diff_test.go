@@ -155,6 +155,11 @@ func TestDiffLatest(t *testing.T) {
 				Packages: []Package{
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -162,7 +167,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", ">=1.0.0"),
 						},
@@ -273,6 +277,15 @@ func TestDiffLatest(t *testing.T) {
 				Packages: []Package{
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0-clusterwide"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+						{Name: "foo.v0.2.0", Skips: []string{"foo.v0.1.0"}},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -280,7 +293,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuild(&deprecated{}),
 							property.MustBuildPackage("foo", "0.1.0"),
 						},
@@ -291,7 +303,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("clusterwide", ""),
 							property.MustBuildPackage("foo", "0.1.0-clusterwide"),
 						},
 					},
@@ -301,9 +312,7 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.2.0"),
-							property.MustBuildSkips("foo.v0.1.0"),
 						},
 					},
 				},
@@ -373,6 +382,11 @@ func TestDiffLatest(t *testing.T) {
 				Packages: []Package{
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -380,7 +394,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("etcd", ">=0.9.0"),
 						},
@@ -442,6 +455,14 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -449,7 +470,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("etcd", "0.9.1"),
 						},
 					},
@@ -459,7 +479,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("etcd", ">=0.9.0"),
 						},
@@ -531,6 +550,14 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0-clusterwide"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -538,7 +565,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("etcd", "0.9.1"),
 						},
 					},
@@ -548,7 +574,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("clusterwide", ""),
 							property.MustBuildPackage("foo", "0.1.0-clusterwide"),
 							property.MustBuildPackageRequired("etcd", ">=0.9.0"),
 						},
@@ -631,6 +656,11 @@ func TestDiffLatest(t *testing.T) {
 				Packages: []Package{
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -638,7 +668,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", "etcd.v0.9.1"),
 							property.MustBuildPackage("etcd", "0.9.2"),
 						},
 					},
@@ -720,6 +749,16 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1"},
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -727,7 +766,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("etcd", "0.9.1"),
 						},
 					},
@@ -737,7 +775,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", "etcd.v0.9.1"),
 							property.MustBuildPackage("etcd", "0.9.2"),
 						},
 					},
@@ -747,7 +784,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("etcd", ">=0.9.0 <0.9.2"),
 						},
@@ -758,7 +794,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("etcd", ">=0.9.2"),
 						},
@@ -821,6 +856,14 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -828,7 +871,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 							property.MustBuildPackage("etcd", "0.9.1"),
 						},
@@ -839,7 +881,6 @@ func TestDiffLatest(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 							property.MustBuildPackage("foo", "0.1.0"),
 						},
@@ -910,6 +951,11 @@ func TestDiffHeadsOnly(t *testing.T) {
 				Packages: []Package{
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -917,7 +963,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 						},
 					},
@@ -1011,6 +1056,20 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1-clusterwide"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+					}}}},
+					{Schema: schemaChannel, Name: "alpha", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.2.0-alpha.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -1018,7 +1077,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", "etcd.v0.9.0"),
 							property.MustBuildPackage("etcd", "0.9.1"),
 						},
 					},
@@ -1028,7 +1086,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("clusterwide", ""),
 							property.MustBuildPackage("etcd", "0.9.1-clusterwide"),
 						},
 					},
@@ -1038,8 +1095,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("alpha", "foo.v0.2.0-alpha.1"),
-							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildPackage("foo", "0.2.0"),
 						},
 					},
@@ -1099,6 +1154,14 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+					}}}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}}}},
+				},
 				Bundles: []Bundle{
 					{
 						Schema:  schemaBundle,
@@ -1106,7 +1169,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "etcd",
 						Image:   "reg/etcd:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", "etcd.v0.9.1"),
 							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 							property.MustBuildPackage("etcd", "0.9.2"),
 						},
@@ -1117,7 +1179,6 @@ func TestDiffHeadsOnly(t *testing.T) {
 						Package: "foo",
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
-							property.MustBuildChannel("stable", ""),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("etcd", "<=0.9.1"),
 						},
