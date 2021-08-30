@@ -88,34 +88,6 @@ func registryBundleToModelBundle(b *Bundle) (*model.Bundle, error) {
 }
 
 func PropertiesFromBundle(b *Bundle) ([]property.Property, error) {
-	csv, err := b.ClusterServiceVersion()
-	if err != nil {
-		return nil, fmt.Errorf("get csv: %v", err)
-	}
-
-	skips, err := csv.GetSkips()
-	if err != nil {
-		return nil, fmt.Errorf("get csv skips: %v", err)
-	}
-
-	var graphProps []property.Property
-	replaces, err := csv.GetReplaces()
-	if err != nil {
-		return nil, fmt.Errorf("get csv replaces: %v", err)
-	}
-	for _, ch := range b.Channels {
-		graphProps = append(graphProps, property.MustBuildChannel(ch, replaces))
-	}
-
-	for _, skip := range skips {
-		graphProps = append(graphProps, property.MustBuildSkips(skip))
-	}
-
-	skipRange := csv.GetSkipRange()
-	if skipRange != "" {
-		graphProps = append(graphProps, property.MustBuildSkipRange(skipRange))
-	}
-
 	providedGVKs := map[property.GVK]struct{}{}
 	requiredGVKs := map[property.GVKRequired]struct{}{}
 
@@ -198,7 +170,6 @@ func PropertiesFromBundle(b *Bundle) ([]property.Property, error) {
 		packageProvidedProperty = &p
 	}
 	out = append(out, *packageProvidedProperty)
-	out = append(out, graphProps...)
 
 	for p := range providedGVKs {
 		out = append(out, property.MustBuildGVK(p.Group, p.Version, p.Kind))
