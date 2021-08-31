@@ -3,11 +3,11 @@ package containertools_test
 import (
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 )
 
 func TestGenerateDockerfile(t *testing.T) {
@@ -39,7 +39,7 @@ func TestGenerateDockerfile_EmptyBaseImage(t *testing.T) {
 	defer controller.Finish()
 
 	databasePath := "database/index.db"
-	expectedDockerfile := `FROM quay.io/operator-framework/upstream-opm-builder
+	expectedDockerfile := `FROM quay.io/operator-framework/opm:latest
 LABEL operators.operatorframework.io.index.database.v1=/database/index.db
 ADD database/index.db /database/index.db
 EXPOSE 50051
