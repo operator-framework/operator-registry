@@ -171,7 +171,11 @@ func TestQuerierForImage(t *testing.T) {
 			{Group: "testapi.coreos.com", Version: "v1", Kind: "testapi"},
 		},
 	}
-	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
+	bareGetBundleForChannelResult := &api.Bundle{
+		CsvName: expectedBundle.CsvName,
+		CsvJson: expectedBundle.CsvJson + "\n",
+	}
+	EqualBundles(t, *bareGetBundleForChannelResult, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)

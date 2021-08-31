@@ -287,64 +287,32 @@ func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvNam
 	return out, nil
 }
 
-func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error) {
-	query := `SELECT DISTINCT channel_entry.entry_id, operatorbundle.name, operatorbundle.bundle, operatorbundle.bundlepath, operatorbundle.version, operatorbundle.skiprange FROM channel
-              INNER JOIN operatorbundle ON channel.head_operatorbundle_name=operatorbundle.name
-              INNER JOIN channel_entry ON (channel_entry.channel_name = channel.name and channel_entry.package_name=channel.package_name and channel_entry.operatorbundle_name=operatorbundle.name)
-              WHERE channel.package_name=? AND channel.name=? LIMIT 1`
-	rows, err := s.db.QueryContext(ctx, query, pkgName, channelName)
+func (s *SQLQuerier) GetBundleForChannel(ctx context.Context, pkg string, channel string) (*api.Bundle, error) {
+	query := `
+SELECT operatorbundle.name, operatorbundle.csv FROM operatorbundle INNER JOIN channel
+ON channel.head_operatorbundle_name = operatorbundle.name
+WHERE channel.name = :channel AND channel.package_name = :package`
+	rows, err := s.db.QueryContext(ctx, query, sql.Named("channel", channel), sql.Named("package", pkg))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("no entry found for %s %s", pkgName, channelName)
+		return nil, fmt.Errorf("no entry found for %s %s", pkg, channel)
 	}
-	var entryId sql.NullInt64
-	var name sql.NullString
-	var bundle sql.NullString
-	var bundlePath sql.NullString
-	var version sql.NullString
-	var skipRange sql.NullString
-	if err := rows.Scan(&entryId, &name, &bundle, &bundlePath, &version, &skipRange); err != nil {
+	var (
+		name sql.NullString
+		csv  sql.NullString
+	)
+	if err := rows.Scan(&name, &csv); err != nil {
 		return nil, err
 	}
 
-	out := &api.Bundle{}
-	if bundle.Valid && bundle.String != "" {
-		out, err = registry.BundleStringToAPIBundle(bundle.String)
-		if err != nil {
-			return nil, err
-		}
-	}
-	out.CsvName = name.String
-	out.PackageName = pkgName
-	out.ChannelName = channelName
-	out.BundlePath = bundlePath.String
-	out.Version = version.String
-	out.SkipRange = skipRange.String
-
-	provided, required, err := s.GetApisForEntry(ctx, entryId.Int64)
-	if err != nil {
-		return nil, err
-	}
-	out.ProvidedApis = provided
-	out.RequiredApis = required
-
-	dependencies, err := s.GetDependenciesForBundle(ctx, name.String, version.String, bundlePath.String)
-	if err != nil {
-		return nil, err
-	}
-	out.Dependencies = dependencies
-
-	properties, err := s.GetPropertiesForBundle(ctx, name.String, version.String, bundlePath.String)
-	if err != nil {
-		return nil, err
-	}
-	out.Properties = properties
-
-	return out, nil
+	return &api.Bundle{
+		CsvName: name.String,
+		CsvJson: csv.String,
+	}, nil
 }
 
 func (s *SQLQuerier) GetChannelEntriesThatReplace(ctx context.Context, name string) (entries []*registry.ChannelEntry, err error) {

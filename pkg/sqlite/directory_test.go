@@ -180,7 +180,11 @@ func TestQuerierForDirectory(t *testing.T) {
 			{Group: "etcd.database.coreos.com", Version: "v1beta2", Kind: "EtcdCluster", Plural: "etcdclusters"},
 		},
 	}
-	EqualBundles(t, *expectedBundle, *etcdBundleByChannel)
+	bareGetBundleForChannelResult := &api.Bundle{
+		CsvName: expectedBundle.CsvName,
+		CsvJson: expectedBundle.CsvJson + "\n",
+	}
+	EqualBundles(t, *bareGetBundleForChannelResult, *etcdBundleByChannel)
 
 	etcdBundle, err := store.GetBundle(context.TODO(), "etcd", "alpha", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
