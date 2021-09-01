@@ -450,9 +450,6 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
-					property.MustBuildSkips("anakin.v0.0.2"),
-					property.MustBuildChannel("light", "anakin.v0.0.1"),
-					property.MustBuildChannel("dark", "anakin.v0.0.1"),
 				},
 			},
 			assertion: require.NoError,
@@ -481,7 +478,6 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
-					property.MustBuildChannel("light", "anakin.v0.0.1"),
 					property.MustBuildBundleObjectRef("path/to/data"),
 				},
 				Objects: []string{"testdata"},
@@ -499,7 +495,6 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
-					property.MustBuildChannel("light", "anakin.v0.0.1"),
 				},
 			},
 			assertion: hasError(`bundle image must be set`),
@@ -559,17 +554,13 @@ func TestValidators(t *testing.T) {
 		{
 			name: "Bundle/Error/MissingPackage",
 			v: &Bundle{
-				Package:  pkg,
-				Channel:  ch,
-				Name:     "anakin.v0.1.0",
-				Image:    "",
-				Replaces: "anakin.v0.0.1",
-				Skips:    []string{"anakin.v0.0.2"},
-				Properties: []property.Property{
-					property.MustBuildSkips("anakin.v0.0.2"),
-					property.MustBuildChannel("light", "anakin.v0.0.1"),
-					property.MustBuildChannel("dark", "anakin.v0.0.1"),
-				},
+				Package:    pkg,
+				Channel:    ch,
+				Name:       "anakin.v0.1.0",
+				Image:      "",
+				Replaces:   "anakin.v0.0.1",
+				Skips:      []string{"anakin.v0.0.2"},
+				Properties: []property.Property{},
 			},
 			assertion: hasError(`must be exactly one property with type "olm.package"`),
 		},
@@ -585,9 +576,6 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 					property.MustBuildPackage("anakin", "0.2.0"),
-					property.MustBuildSkips("anakin.v0.0.2"),
-					property.MustBuildChannel("light", "anakin.v0.0.1"),
-					property.MustBuildChannel("dark", "anakin.v0.0.1"),
 				},
 			},
 			assertion: hasError(`must be exactly one property with type "olm.package"`),

@@ -31,10 +31,7 @@ func testModelBundle() model.Bundle {
 		Replaces: "etcdoperator.v0.9.0",
 		Skips:    []string{"etcdoperator.v0.9.1"},
 		Properties: []property.Property{
-			property.MustBuildChannel("alpha", "etcdoperator.v0.9.0"),
-			property.MustBuildChannel("stable", "etcdoperator.v0.9.0"),
 			property.MustBuildPackage("etcd", "0.9.2"),
-			property.MustBuildSkips("etcdoperator.v0.9.1"),
 			property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "testapi"),
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),

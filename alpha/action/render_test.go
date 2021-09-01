@@ -259,6 +259,15 @@ func TestRender(t *testing.T) {
 						DefaultChannel: "beta",
 					},
 				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}}}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}}}},
+				},
 				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
@@ -266,12 +275,10 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
-							property.MustBuildChannel("beta", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildSkipRange("<0.1.0"),
 							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildBundleObjectData(foov1crd),
 						},
@@ -293,15 +300,10 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
-							property.MustBuildChannel("beta", "foo.v0.1.0"),
-							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildSkipRange("<0.2.0"),
-							property.MustBuildSkips("foo.v0.1.1"),
-							property.MustBuildSkips("foo.v0.1.2"),
 							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildBundleObjectData(foov2crd),
 						},
@@ -348,6 +350,15 @@ func TestRender(t *testing.T) {
 						DefaultChannel: "beta",
 					},
 				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}}}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}}}},
+				},
 				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
@@ -355,12 +366,10 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
-							property.MustBuildChannel("beta", ""),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildSkipRange("<0.1.0"),
 							property.MustBuildBundleObjectData(foov1csv),
 							property.MustBuildBundleObjectData(foov1crd),
 						},
@@ -382,15 +391,10 @@ func TestRender(t *testing.T) {
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
-							property.MustBuildChannel("beta", "foo.v0.1.0"),
-							property.MustBuildChannel("stable", "foo.v0.1.0"),
 							property.MustBuildGVK("test.foo", "v1", "Foo"),
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildSkipRange("<0.2.0"),
-							property.MustBuildSkips("foo.v0.1.1"),
-							property.MustBuildSkips("foo.v0.1.2"),
 							property.MustBuildBundleObjectData(foov2csv),
 							property.MustBuildBundleObjectData(foov2crd),
 						},

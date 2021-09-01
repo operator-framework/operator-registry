@@ -90,15 +90,9 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 					RelatedImages: modelRelatedImagesToRelatedImages(chb.RelatedImages),
 					CsvJSON:       chb.CsvJSON,
 					Objects:       chb.Objects,
+					Properties:    chb.Properties,
 				}
 				bundleMap[b.Name] = b
-			}
-			for _, p := range chb.Properties {
-				// drop olm.channel, olm.skips, and olm.skipRange properties from the declarative config
-				// representation because we've already created an `olm.channel` blob containing this information.
-				if p.Type != property.TypeChannel && p.Type != property.TypeSkips && p.Type != property.TypeSkipRange {
-					b.Properties = append(b.Properties, p)
-				}
 			}
 		}
 

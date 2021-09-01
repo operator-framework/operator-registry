@@ -3,6 +3,28 @@ defaultChannel: stable
 name: bar
 schema: olm.package
 ---
+name: alpha
+package: bar
+schema: olm.channel
+strategy:
+  legacy:
+    entries:
+      - name: bar.v0.1.0
+      - name: bar.v0.2.0
+        skipRange: <0.2.0
+        skips:
+          - bar.v0.1.0
+      - name: bar.v1.0.0
+        replaces: bar.v0.2.0
+---
+name: stable
+package: bar
+schema: olm.channel
+strategy:
+  legacy:
+    entries:
+      - name: bar.v1.0.0
+---
 image: test.registry/bar-operator/bar-bundle:v0.1.0
 name: bar.v0.1.0
 package: bar
@@ -13,9 +35,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhci52MC4xLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuYmFyIiwia2luZCI6IkJhciIsIm5hbWUiOiJiYXJzLnRlc3QuYmFyIiwidmVyc2lvbiI6InYxYWxwaGExIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhci1vcGVyYXRvci9iYXI6djAuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMC4xLjAifX0=
-- type: olm.channel
-  value:
-    name: alpha
 - type: olm.gvk
   value:
     group: test.bar
@@ -40,9 +59,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJiYXIudjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmJhciIsImtpbmQiOiJCYXIiLCJuYW1lIjoiYmFycy50ZXN0LmJhciIsInZlcnNpb24iOiJ2MWFscGhhMSJ9XX0sInJlbGF0ZWRJbWFnZXMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9iYXItb3BlcmF0b3IvYmFyOnYwLjIuMCIsIm5hbWUiOiJvcGVyYXRvciJ9XSwic2tpcHMiOlsiYmFyLnYwLjEuMCJdLCJ2ZXJzaW9uIjoiMC4yLjAifX0=
-- type: olm.channel
-  value:
-    name: alpha
 - type: olm.gvk
   value:
     group: test.bar
@@ -52,10 +68,6 @@ properties:
   value:
     packageName: bar
     version: 0.2.0
-- type: olm.skipRange
-  value: <0.2.0
-- type: olm.skips
-  value: bar.v0.1.0
 relatedImages:
 - image: test.registry/bar-operator/bar:v0.2.0
   name: operator
@@ -71,13 +83,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhci52MS4wLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuYmFyIiwia2luZCI6IkJhciIsIm5hbWUiOiJiYXJzLnRlc3QuYmFyIiwidmVyc2lvbiI6InYxYWxwaGExIn0seyJncm91cCI6InRlc3QuYmFyIiwia2luZCI6IkJhciIsIm5hbWUiOiJiYXJzLnRlc3QuYmFyIiwidmVyc2lvbiI6InYxIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhci1vcGVyYXRvci9iYXI6djEuMC4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJyZXBsYWNlcyI6ImJhci52MC4yLjAiLCJ2ZXJzaW9uIjoiMS4wLjAifX0=
-- type: olm.channel
-  value:
-    name: alpha
-    replaces: bar.v0.2.0
-- type: olm.channel
-  value:
-    name: stable
 - type: olm.gvk
   value:
     group: test.bar
@@ -101,6 +106,24 @@ defaultChannel: stable
 name: baz
 schema: olm.package
 ---
+schema: olm.channel
+package: baz
+name: stable
+strategy:
+  legacy:
+    entries:
+      - name: baz.v1.0.0
+        skipRange: <1.0.0
+      - name: baz.v1.0.1
+        replaces: baz.v1.0.0
+        skipRange: <1.0.0
+        skips:
+          - baz.v1.0.0
+      - name: baz.v1.1.0
+        replaces: baz.v1.0.0
+        skips:
+          - baz.v1.0.1
+---
 image: test.registry/baz-operator/baz-bundle:v1.0.0
 name: baz.v1.0.0
 package: baz
@@ -111,9 +134,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhei52MS4wLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuYmF6Iiwia2luZCI6IkJheiIsIm5hbWUiOiJiYXpzLnRlc3QuYmF6IiwidmVyc2lvbiI6InYxIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhei1vcGVyYXRvci9iYXo6djEuMC4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMS4wLjAifX0=
-- type: olm.channel
-  value:
-    name: stable
 - type: olm.gvk
   value:
     group: test.baz
@@ -123,8 +143,6 @@ properties:
   value:
     packageName: baz
     version: 1.0.0
-- type: olm.skipRange
-  value: <1.0.0
 relatedImages:
 - image: test.registry/baz-operator/baz:v1.0.0
   name: operator
@@ -140,10 +158,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzEuMC4xIn0sIm5hbWUiOiJiYXoudjEuMC4xIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmJheiIsImtpbmQiOiJCYXoiLCJuYW1lIjoiYmF6cy50ZXN0LmJheiIsInZlcnNpb24iOiJ2MSJ9XX0sInJlbGF0ZWRJbWFnZXMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9iYXotb3BlcmF0b3IvYmF6OnYxLjAuMSIsIm5hbWUiOiJvcGVyYXRvciJ9XSwic2tpcHMiOlsiYmF6LnYxLjAuMCJdLCJ2ZXJzaW9uIjoiMS4wLjEifX0=
-- type: olm.channel
-  value:
-    name: stable
-    replaces: baz.v1.0.0
 - type: olm.gvk
   value:
     group: test.baz
@@ -153,8 +167,6 @@ properties:
   value:
     packageName: baz
     version: 1.0.1
-- type: olm.skipRange
-  value: <1.0.0
 relatedImages:
 - image: test.registry/baz-operator/baz:v1.0.1
   name: operator
@@ -170,10 +182,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhei52MS4xLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuYmF6Iiwia2luZCI6IkJheiIsIm5hbWUiOiJiYXpzLnRlc3QuYmF6IiwidmVyc2lvbiI6InYxIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhei1vcGVyYXRvci9iYXo6djEuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJyZXBsYWNlcyI6ImJhei52MS4wLjAiLCJ2ZXJzaW9uIjoiMS4xLjAifX0=
-- type: olm.channel
-  value:
-    name: stable
-    replaces: baz.v1.0.0
 - type: olm.gvk
   value:
     group: test.baz
@@ -183,8 +191,6 @@ properties:
   value:
     packageName: baz
     version: 1.1.0
-- type: olm.skips
-  value: baz.v1.0.1
 relatedImages:
 - image: test.registry/baz-operator/baz:v1.1.0
   name: operator
@@ -193,6 +199,27 @@ schema: olm.bundle
 defaultChannel: beta
 name: foo
 schema: olm.package
+---
+schema: olm.channel
+package: foo
+name: beta
+strategy:
+  legacy:
+    entries:
+      - name: foo.v0.1.0
+        skipRange: <0.1.0
+      - name: foo.v0.2.0
+        replaces: foo.v0.1.0
+        skipRange: <0.2.0
+        skips:
+          - foo.v0.1.1
+          - foo.v0.1.2
+      - name: foo.v0.3.0
+        replaces: foo.v0.2.0
+      - name: foo.v0.3.1
+        replaces: foo.v0.2.0
+        skips:
+          - foo.v0.3.0
 ---
 image: test.registry/foo-operator/foo-bundle:v0.1.0
 name: foo.v0.1.0
@@ -204,9 +231,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMS4wIn0sIm5hbWUiOiJmb28udjAuMS4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sInJlbGF0ZWRJbWFnZXMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vOnYwLjEuMCIsIm5hbWUiOiJvcGVyYXRvciJ9XSwidmVyc2lvbiI6IjAuMS4wIn19
-- type: olm.channel
-  value:
-    name: beta
 - type: olm.gvk
   value:
     group: test.foo
@@ -225,8 +249,6 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.skipRange
-  value: <0.1.0
 relatedImages:
 - image: test.registry/foo-operator/foo:v0.1.0
   name: operator
@@ -242,10 +264,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJmb28udjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sInJlbGF0ZWRJbWFnZXMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vOnYwLjIuMCIsIm5hbWUiOiJvcGVyYXRvciJ9XSwicmVwbGFjZXMiOiJmb28udjAuMS4wIiwic2tpcHMiOlsiZm9vLnYwLjEuMSIsImZvby52MC4xLjIiXSwidmVyc2lvbiI6IjAuMi4wIn19
-- type: olm.channel
-  value:
-    name: beta
-    replaces: foo.v0.1.0
 - type: olm.gvk
   value:
     group: test.foo
@@ -264,12 +282,6 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.skipRange
-  value: <0.2.0
-- type: olm.skips
-  value: foo.v0.1.1
-- type: olm.skips
-  value: foo.v0.1.2
 relatedImages:
 - image: test.registry/foo-operator/foo:v0.2.0
   name: operator
@@ -285,10 +297,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvby52MC4zLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuZm9vIiwia2luZCI6IkZvbyIsIm5hbWUiOiJmb29zLnRlc3QuZm9vIiwidmVyc2lvbiI6InYxIn0seyJncm91cCI6InRlc3QuZm9vIiwia2luZCI6IkZvbyIsIm5hbWUiOiJmb29zLnRlc3QuZm9vIiwidmVyc2lvbiI6InYyIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Zvby1vcGVyYXRvci9mb286djAuMy4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJyZXBsYWNlcyI6ImZvby52MC4yLjAiLCJ2ZXJzaW9uIjoiMC4zLjAifX0=
-- type: olm.channel
-  value:
-    name: beta
-    replaces: foo.v0.2.0
 - type: olm.gvk
   value:
     group: test.foo
@@ -327,10 +335,6 @@ properties:
 - type: olm.bundle.object
   value:
     data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvby52MC4zLjEifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuZm9vIiwia2luZCI6IkZvbyIsIm5hbWUiOiJmb29zLnRlc3QuZm9vIiwidmVyc2lvbiI6InYxIn0seyJncm91cCI6InRlc3QuZm9vIiwia2luZCI6IkZvbyIsIm5hbWUiOiJmb29zLnRlc3QuZm9vIiwidmVyc2lvbiI6InYyIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Zvby1vcGVyYXRvci9mb286djAuMy4xIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJyZXBsYWNlcyI6ImZvby52MC4yLjAiLCJza2lwcyI6WyJmb28udjAuMy4wIl0sInZlcnNpb24iOiIwLjMuMSJ9fQ==
-- type: olm.channel
-  value:
-    name: beta
-    replaces: foo.v0.2.0
 - type: olm.gvk
   value:
     group: test.foo
@@ -354,8 +358,6 @@ properties:
   value:
     packageName: bar
     versionRange: <0.2.0
-- type: olm.skips
-  value: foo.v0.3.0
 relatedImages:
 - image: test.registry/foo-operator/foo:v0.3.1
   name: operator

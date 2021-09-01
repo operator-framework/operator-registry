@@ -88,12 +88,6 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 
 type bundleOpt func(*Bundle)
 
-func withChannel(name, replaces string) func(*Bundle) {
-	return func(b *Bundle) {
-		b.Properties = append(b.Properties, property.MustBuildChannel(name, replaces))
-	}
-}
-
 func withNoProperties() func(*Bundle) {
 	return func(b *Bundle) {
 		b.Properties = []property.Property{}
@@ -181,8 +175,42 @@ func buildTestModel() model.Model {
 	}
 }
 
+func getBundle(pkg *model.Package, ch *model.Channel, version, replaces string, skips ...string) *model.Bundle {
+	return &model.Bundle{
+		Package: pkg,
+		Channel: ch,
+		Name:    testBundleName(pkg.Name, version),
+		Image:   testBundleImage(pkg.Name, version),
+		Properties: []property.Property{
+			property.MustBuildPackage(pkg.Name, version),
+			property.MustBuildBundleObjectRef(filepath.Join("objects", testBundleName(pkg.Name, version)+".csv.yaml")),
+			property.MustBuildBundleObjectData([]byte(getCRDJSON())),
+		},
+		Replaces: replaces,
+		Skips:    skips,
+		RelatedImages: []model.RelatedImage{{
+			Name:  "bundle",
+			Image: testBundleImage(pkg.Name, version),
+		}},
+		CsvJSON: getCSVJson(pkg.Name, version),
+		Objects: []string{
+			getCSVJson(pkg.Name, version),
+			getCRDJSON(),
+		},
+	}
+}
+
+func getCSVJson(pkgName, version string) string {
+	return fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(pkgName, version))
+}
+
+func getCRDJSON() string {
+	return `{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`
+}
+
 func buildAnakinPkgModel() *model.Package {
 	pkgName := "anakin"
+
 	pkg := &model.Package{
 		Name:        pkgName,
 		Description: testPackageDescription(pkgName),
@@ -193,65 +221,27 @@ func buildAnakinPkgModel() *model.Package {
 		Channels: map[string]*model.Channel{},
 	}
 
-	for _, chName := range []string{"light", "dark"} {
-		ch := &model.Channel{
-			Package: pkg,
-			Name:    chName,
-			Bundles: map[string]*model.Bundle{},
-		}
-		pkg.Channels[ch.Name] = ch
+	light := &model.Channel{
+		Package: pkg,
+		Name:    "light",
+		Bundles: map[string]*model.Bundle{},
 	}
+
+	dark := &model.Channel{
+		Package: pkg,
+		Name:    "dark",
+		Bundles: map[string]*model.Bundle{},
+	}
+	light.Bundles[testBundleName(pkgName, "0.0.1")] = getBundle(pkg, light, "0.0.1", "")
+	light.Bundles[testBundleName(pkgName, "0.1.0")] = getBundle(pkg, light, "0.1.0", testBundleName(pkgName, "0.0.1"))
+
+	dark.Bundles[testBundleName(pkgName, "0.0.1")] = getBundle(pkg, dark, "0.0.1", "")
+	dark.Bundles[testBundleName(pkgName, "0.1.0")] = getBundle(pkg, dark, "0.1.0", testBundleName(pkgName, "0.0.1"))
+	dark.Bundles[testBundleName(pkgName, "0.1.1")] = getBundle(pkg, dark, "0.1.1", testBundleName(pkgName, "0.0.1"), testBundleName(pkgName, "0.1.0"))
+
+	pkg.Channels["light"] = light
+	pkg.Channels["dark"] = dark
 	pkg.DefaultChannel = pkg.Channels["dark"]
-
-	versions := map[string][]property.Channel{
-		"0.0.1": {{Name: "light"}, {Name: "dark"}},
-		"0.1.0": {
-			{Name: "light", Replaces: testBundleName(pkgName, "0.0.1")},
-			{Name: "dark", Replaces: testBundleName(pkgName, "0.0.1")},
-		},
-		"0.1.1": {{Name: "dark", Replaces: testBundleName(pkgName, "0.0.1")}},
-	}
-	for version, channels := range versions {
-		csvJson := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(pkgName, version))
-		crdJson := `{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`
-		props := []property.Property{
-			property.MustBuildPackage(pkgName, version),
-			property.MustBuildBundleObjectRef(filepath.Join("objects", testBundleName(pkgName, version)+".csv.yaml")),
-			property.MustBuildBundleObjectData([]byte(crdJson)),
-		}
-		for _, channel := range channels {
-			ch := pkg.Channels[channel.Name]
-			bName := testBundleName(pkgName, version)
-			bImage := testBundleImage(pkgName, version)
-			var skips []string
-			if version == "0.1.1" {
-				skip := testBundleName(pkgName, "0.1.0")
-				skips = append(skips, skip)
-			}
-
-			props = append(props)
-
-			bundle := &model.Bundle{
-				Package:    pkg,
-				Channel:    ch,
-				Name:       bName,
-				Image:      bImage,
-				Replaces:   channel.Replaces,
-				Skips:      skips,
-				Properties: props,
-				RelatedImages: []model.RelatedImage{{
-					Name:  "bundle",
-					Image: testBundleImage(pkgName, version),
-				}},
-				CsvJSON: csvJson,
-				Objects: []string{
-					csvJson,
-					crdJson,
-				},
-			}
-			ch.Bundles[bName] = bundle
-		}
-	}
 	return pkg
 }
 
@@ -266,50 +256,15 @@ func buildBobaFettPkgModel() *model.Package {
 		},
 		Channels: map[string]*model.Channel{},
 	}
-	ch := &model.Channel{
+	mando := &model.Channel{
 		Package: pkg,
 		Name:    "mando",
 		Bundles: map[string]*model.Bundle{},
 	}
-	pkg.Channels[ch.Name] = ch
-	pkg.DefaultChannel = ch
-
-	versions := map[string][]property.Channel{
-		"1.0.0": {{Name: "mando"}},
-		"2.0.0": {{Name: "mando", Replaces: testBundleName(pkgName, "1.0.0")}},
-	}
-	for version, channels := range versions {
-		csvJson := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(pkgName, version))
-		crdJson := `{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`
-		props := []property.Property{
-			property.MustBuildPackage(pkgName, version),
-			property.MustBuildBundleObjectRef(filepath.Join("objects", testBundleName(pkgName, version)+".csv.yaml")),
-			property.MustBuildBundleObjectData([]byte(crdJson)),
-		}
-		for _, channel := range channels {
-			ch := pkg.Channels[channel.Name]
-			bName := testBundleName(pkgName, version)
-			bImage := testBundleImage(pkgName, version)
-			bundle := &model.Bundle{
-				Package:    pkg,
-				Channel:    ch,
-				Name:       bName,
-				Image:      bImage,
-				Replaces:   channel.Replaces,
-				Properties: props,
-				RelatedImages: []model.RelatedImage{{
-					Name:  "bundle",
-					Image: testBundleImage(pkgName, version),
-				}},
-				CsvJSON: csvJson,
-				Objects: []string{
-					csvJson,
-					crdJson,
-				},
-			}
-			ch.Bundles[bName] = bundle
-		}
-	}
+	mando.Bundles[testBundleName(pkgName, "1.0.0")] = getBundle(pkg, mando, "1.0.0", "")
+	mando.Bundles[testBundleName(pkgName, "2.0.0")] = getBundle(pkg, mando, "2.0.0", testBundleName(pkgName, "1.0.0"))
+	pkg.Channels["mando"] = mando
+	pkg.DefaultChannel = mando
 	return pkg
 }
 

@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,12 +39,12 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`unknown package "bar" for bundle "bar.v0.1.0"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("bar", "0.1.0", withChannel("alpha", ""))},
+				Bundles:  []Bundle{newTestBundle("bar", "0.1.0")},
 			},
 		},
 		{
 			name:      "Error/BundleMissingChannel",
-			assertion: hasError(`package "foo" bundle "foo.v0.1.0" is missing channel information`),
+			assertion: hasError(`package "foo", bundle "foo.v0.1.0" not found in any channel entries`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
@@ -51,22 +52,14 @@ func TestConvertToModel(t *testing.T) {
 		},
 		{
 			name:      "Error/BundleInvalidProperties",
-			assertion: hasError(`parse properties for bundle "foo.v0.1.0": duplicate property of type "olm.channel" found with key "alpha"`),
+			assertion: hasError(`parse properties for bundle "foo.v0.1.0": parse property[2] of type "olm.foo": unexpected end of JSON input`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", "1"), withChannel("alpha", "2"))},
-			},
-		},
-		{
-			name:      "Error/BundleMultipleSkipRanges",
-			assertion: hasError(`package "foo" bundle "foo.v0.1.0" is invalid: multiple properties of type "olm.skipRange" not allowed`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles: []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), func(b *Bundle) {
-					b.Properties = append(b.Properties,
-						property.MustBuildSkipRange("<0.1.0"),
-						property.MustBuildSkipRange("<=0.1.0"),
-					)
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Properties = append(b.Properties, property.Property{
+						Type:  "olm.foo",
+						Value: json.RawMessage("{"),
+					})
 				})},
 			},
 		},
@@ -101,7 +94,8 @@ func TestConvertToModel(t *testing.T) {
     └── default channel must be set`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""))},
+				Channels: []Channel{newTestChannel("foo", "bar", LegacyChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},
 		{
@@ -112,7 +106,7 @@ func TestConvertToModel(t *testing.T) {
         └── channel must contain at least one bundle`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "bar", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""))},
+				Channels: []Channel{newTestChannel("foo", "bar")},
 			},
 		},
 		{
@@ -141,38 +135,8 @@ func TestConvertToModel(t *testing.T) {
 			assertion: require.NoError,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), withNoBundleImage())},
-			},
-		},
-		{
-			name:      "Error/ChannelAndBundleChannel",
-			assertion: hasError(`invalid package "foo", bundle "foo.v0.1.0": cannot use "olm.channel" properties with "olm.channel" blobs`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""))},
-			},
-		},
-		{
-			name:      "Error/ChannelAndBundleSkips",
-			assertion: hasError(`invalid package "foo", bundle "foo.v0.1.0": cannot use "olm.skips" properties with "olm.channel" blobs`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
-				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
-					b.Properties = append(b.Properties, property.MustBuildSkips("foo.v0.0.1"))
-				})},
-			},
-		},
-		{
-			name:      "Error/ChannelAndBundleSkipRange",
-			assertion: hasError(`invalid package "foo", bundle "foo.v0.1.0": cannot use "olm.skipRange" properties with "olm.channel" blobs`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
-				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
-					b.Properties = append(b.Properties, property.MustBuildSkipRange("<0.1.0"))
-				})},
+				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withNoBundleImage())},
 			},
 		},
 		{
@@ -241,24 +205,12 @@ func TestConvertToModel(t *testing.T) {
 			},
 		},
 		{
-			name:      "Success/WithChannel/ValidModel",
+			name:      "Success/ValidModel",
 			assertion: require.NoError,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
-			},
-		},
-		{
-			name:      "Success/WithoutChannel/ValidModel",
-			assertion: require.NoError,
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Bundles: []Bundle{newTestBundle("foo", "0.1.0", withChannel("alpha", ""), func(b *Bundle) {
-					b.Properties = append(b.Properties,
-						property.MustBuildSkipRange("<0.1.0"),
-					)
-				})},
 			},
 		},
 	}
