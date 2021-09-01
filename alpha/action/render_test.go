@@ -704,7 +704,7 @@ func newRegistry() (image.Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	subBundleImageV1, err := fs.Sub(bundleImageV2, "testdata/foo-bundle-v0.1.0")
+	subBundleImageV1, err := fs.Sub(bundleImageV1, "testdata/foo-bundle-v0.1.0")
 	if err != nil {
 		return nil, err
 	}
