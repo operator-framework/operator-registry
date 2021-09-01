@@ -94,11 +94,11 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
 							},
 							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
 						},
 						CsvJSON: string(foov1csv),
@@ -124,11 +124,24 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
 							},
 							{
 								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
@@ -171,11 +184,11 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
 							},
 							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
 						},
 						CsvJSON: string(foov1csv),
@@ -201,11 +214,24 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
 							},
 							{
 								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
@@ -247,11 +273,11 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
 							},
 							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
 						},
 						CsvJSON: string(foov1csv),
@@ -277,11 +303,24 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
 							},
 							{
 								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
@@ -323,11 +362,11 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
 							},
 							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
 							},
 						},
 						CsvJSON: string(foov1csv),
@@ -353,11 +392,24 @@ func TestRender(t *testing.T) {
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
 							},
 							{
 								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
 							},
 						},
 						CsvJSON: string(foov2csv),
@@ -392,6 +444,22 @@ func TestRender(t *testing.T) {
 							property.MustBuildSkips("foo.v0.1.2"),
 						},
 						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
 							{
 								Name:  "operator",
 								Image: "test.registry/foo-operator/foo:v0.2.0",

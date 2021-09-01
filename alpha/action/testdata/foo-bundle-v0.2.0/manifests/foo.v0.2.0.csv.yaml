@@ -18,6 +18,28 @@ spec:
   skips:
     - foo.v0.1.1
     - foo.v0.1.2
+  install:
+    strategy: deployment
+    spec:
+      deployments:
+        - name: foo-operator
+          spec:
+            template:
+              spec:
+                initContainers:
+                  - image: test.registry/foo-operator/foo-init:v0.2.0
+                containers:
+                  - image: test.registry/foo-operator/foo:v0.2.0
+        - name: foo-operator-2
+          spec:
+            template:
+              spec:
+                initContainers:
+                  - image: test.registry/foo-operator/foo-init-2:v0.2.0
+                containers:
+                  - image: test.registry/foo-operator/foo-2:v0.2.0
   relatedImages:
     - name: operator
       image: test.registry/foo-operator/foo:v0.2.0
+    - name: other
+      image: test.registry/foo-operator/foo-other:v0.2.0
