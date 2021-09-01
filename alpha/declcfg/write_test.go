@@ -32,44 +32,36 @@ func TestWriteJSON(t *testing.T) {
     "schema": "olm.channel",
     "name": "dark",
     "package": "anakin",
-    "strategy": {
-        "legacy": {
-            "entries": [
-                {
-                    "name": "anakin.v0.0.1"
-                },
-                {
-                    "name": "anakin.v0.1.0",
-                    "replaces": "anakin.v0.0.1"
-                },
-                {
-                    "name": "anakin.v0.1.1",
-                    "replaces": "anakin.v0.0.1",
-                    "skips": [
-                        "anakin.v0.1.0"
-                    ]
-                }
+    "entries": [
+        {
+            "name": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.0",
+            "replaces": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.1",
+            "replaces": "anakin.v0.0.1",
+            "skips": [
+                "anakin.v0.1.0"
             ]
         }
-    }
+    ]
 }
 {
     "schema": "olm.channel",
     "name": "light",
     "package": "anakin",
-    "strategy": {
-        "legacy": {
-            "entries": [
-                {
-                    "name": "anakin.v0.0.1"
-                },
-                {
-                    "name": "anakin.v0.1.0",
-                    "replaces": "anakin.v0.0.1"
-                }
-            ]
+    "entries": [
+        {
+            "name": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.0",
+            "replaces": "anakin.v0.0.1"
         }
-    }
+    ]
 }
 {
     "schema": "olm.bundle",
@@ -189,19 +181,15 @@ func TestWriteJSON(t *testing.T) {
     "schema": "olm.channel",
     "name": "mando",
     "package": "boba-fett",
-    "strategy": {
-        "legacy": {
-            "entries": [
-                {
-                    "name": "boba-fett.v1.0.0"
-                },
-                {
-                    "name": "boba-fett.v2.0.0",
-                    "replaces": "boba-fett.v1.0.0"
-                }
-            ]
+    "entries": [
+        {
+            "name": "boba-fett.v1.0.0"
+        },
+        {
+            "name": "boba-fett.v2.0.0",
+            "replaces": "boba-fett.v1.0.0"
         }
-    }
+    ]
 }
 {
     "schema": "olm.bundle",
@@ -312,29 +300,25 @@ icon:
 name: anakin
 schema: olm.package
 ---
+entries:
+- name: anakin.v0.0.1
+- name: anakin.v0.1.0
+  replaces: anakin.v0.0.1
+- name: anakin.v0.1.1
+  replaces: anakin.v0.0.1
+  skips:
+  - anakin.v0.1.0
 name: dark
 package: anakin
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-    - name: anakin.v0.0.1
-    - name: anakin.v0.1.0
-      replaces: anakin.v0.0.1
-    - name: anakin.v0.1.1
-      replaces: anakin.v0.0.1
-      skips:
-      - anakin.v0.1.0
 ---
+entries:
+- name: anakin.v0.0.1
+- name: anakin.v0.1.0
+  replaces: anakin.v0.0.1
 name: light
 package: anakin
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-    - name: anakin.v0.0.1
-    - name: anakin.v0.1.0
-      replaces: anakin.v0.0.1
 ---
 image: anakin-bundle:v0.0.1
 name: anakin.v0.0.1
@@ -405,15 +389,13 @@ icon:
 name: boba-fett
 schema: olm.package
 ---
+entries:
+- name: boba-fett.v1.0.0
+- name: boba-fett.v2.0.0
+  replaces: boba-fett.v1.0.0
 name: mando
 package: boba-fett
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-    - name: boba-fett.v1.0.0
-    - name: boba-fett.v2.0.0
-      replaces: boba-fett.v1.0.0
 ---
 image: boba-fett-bundle:v1.0.0
 name: boba-fett.v1.0.0

@@ -42,9 +42,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -63,9 +63,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -89,9 +89,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -110,9 +110,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -136,9 +136,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -157,9 +157,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -180,9 +180,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -205,13 +205,13 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "fast", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "fast", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.2.0-alpha.0"},
 						{Name: "foo.v0.2.0-alpha.1", Replaces: "foo.v0.2.0-alpha.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -248,17 +248,17 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.2.0", Skips: []string{"foo.v0.1.0"}},
-					}}}},
-					{Schema: schemaChannel, Name: "fast", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "fast", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.2.0-alpha.0"},
 						{Name: "foo.v0.2.0-alpha.1", Replaces: "foo.v0.2.0-alpha.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0-clusterwide"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -315,13 +315,13 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0-clusterwide"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.2.0", Skips: []string{"foo.v0.1.0"}},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -363,12 +363,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -397,12 +397,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -432,9 +432,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -457,9 +457,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -479,12 +479,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -515,12 +515,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -552,9 +552,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -574,15 +574,15 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0-clusterwide"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -622,12 +622,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0-clusterwide"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -660,12 +660,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -695,13 +695,13 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -740,9 +740,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -764,9 +764,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -786,14 +786,14 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -843,14 +843,14 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -901,9 +901,9 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -923,12 +923,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -960,12 +960,12 @@ func TestDiffLatest(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1037,9 +1037,9 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1059,9 +1059,9 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1084,22 +1084,22 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.0"},
 						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1-clusterwide"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "alpha", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "alpha", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.2.0-alpha.0"},
 						{Name: "foo.v0.2.0-alpha.1", Replaces: "foo.v0.2.0-alpha.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.2.0-alpha.1"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1174,18 +1174,18 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1-clusterwide"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
-					}}}},
-					{Schema: schemaChannel, Name: "alpha", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "alpha", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.2.0-alpha.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1228,13 +1228,13 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.1"},
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{
@@ -1278,12 +1278,12 @@ func TestDiffHeadsOnly(t *testing.T) {
 					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
 				},
 				Channels: []Channel{
-					{Schema: schemaChannel, Name: "stable", Package: "etcd", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
 						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
-					}}}},
-					{Schema: schemaChannel, Name: "stable", Package: "foo", Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: []LegacyChannelEntry{
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
-					}}}},
+					}},
 				},
 				Bundles: []Bundle{
 					{

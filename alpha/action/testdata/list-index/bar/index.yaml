@@ -6,30 +6,26 @@ defaultChannel: beta
 schema: olm.channel
 package: bar
 name: beta
-strategy:
-  legacy:
-    entries:
-      - name: bar.v0.1.0
-        skipRange: <0.1.0
-      - name: bar.v0.2.0
-        replaces: bar.v0.1.0
-        skipRange: <0.2.0
-        skips:
-          - bar.v0.1.1
-          - bar.v0.1.2
+entries:
+  - name: bar.v0.1.0
+    skipRange: <0.1.0
+  - name: bar.v0.2.0
+    replaces: bar.v0.1.0
+    skipRange: <0.2.0
+    skips:
+      - bar.v0.1.1
+      - bar.v0.1.2
 ---
 schema: olm.channel
 package: bar
 name: stable
-strategy:
-  legacy:
-    entries:
-      - name: bar.v0.2.0
-        replaces: bar.v0.1.0
-        skipRange: <0.2.0
-        skips:
-          - bar.v0.1.1
-          - bar.v0.1.2
+entries:
+  - name: bar.v0.2.0
+    replaces: bar.v0.1.0
+    skipRange: <0.2.0
+    skips:
+      - bar.v0.1.1
+      - bar.v0.1.2
 ---
 schema: olm.bundle
 package: bar

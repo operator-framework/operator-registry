@@ -6,19 +6,15 @@ schema: olm.package
 name: alpha
 package: bar
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: bar.v1.0.0
-        replaces: bar.v0.2.0
+entries:
+  - name: bar.v1.0.0
+    replaces: bar.v0.2.0
 ---
 name: stable
 package: bar
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: bar.v1.0.0
+entries:
+  - name: bar.v1.0.0
 ---
 image: test.registry/bar-operator/bar-bundle:v1.0.0
 name: bar.v1.0.0
@@ -56,13 +52,11 @@ schema: olm.package
 name: stable
 package: baz
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: baz.v1.1.0
-        replaces: baz.v1.0.0
-        skips:
-          - baz.v1.0.1
+entries:
+  - name: baz.v1.1.0
+    replaces: baz.v1.0.0
+    skips:
+      - baz.v1.0.1
 ---
 image: test.registry/baz-operator/baz-bundle:v1.1.0
 name: baz.v1.1.0
@@ -95,13 +89,11 @@ schema: olm.package
 name: beta
 package: foo
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: foo.v0.3.1
-        replaces: foo.v0.2.0
-        skips:
-          - foo.v0.3.0
+entries:
+  - name: foo.v0.3.1
+    replaces: foo.v0.2.0
+    skips:
+      - foo.v0.3.0
 ---
 image: test.registry/foo-operator/foo-bundle:v0.3.1
 name: foo.v0.3.1

@@ -6,24 +6,20 @@ schema: olm.package
 name: alpha
 package: bar
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: bar.v0.1.0
-      - name: bar.v0.2.0
-        skipRange: <0.2.0
-        skips:
-          - bar.v0.1.0
-      - name: bar.v1.0.0
-        replaces: bar.v0.2.0
+entries:
+  - name: bar.v0.1.0
+  - name: bar.v0.2.0
+    skipRange: <0.2.0
+    skips:
+      - bar.v0.1.0
+  - name: bar.v1.0.0
+    replaces: bar.v0.2.0
 ---
 name: stable
 package: bar
 schema: olm.channel
-strategy:
-  legacy:
-    entries:
-      - name: bar.v1.0.0
+entries:
+  - name: bar.v1.0.0
 ---
 image: test.registry/bar-operator/bar-bundle:v0.1.0
 name: bar.v0.1.0
@@ -109,20 +105,18 @@ schema: olm.package
 schema: olm.channel
 package: baz
 name: stable
-strategy:
-  legacy:
-    entries:
-      - name: baz.v1.0.0
-        skipRange: <1.0.0
-      - name: baz.v1.0.1
-        replaces: baz.v1.0.0
-        skipRange: <1.0.0
-        skips:
-          - baz.v1.0.0
-      - name: baz.v1.1.0
-        replaces: baz.v1.0.0
-        skips:
-          - baz.v1.0.1
+entries:
+  - name: baz.v1.0.0
+    skipRange: <1.0.0
+  - name: baz.v1.0.1
+    replaces: baz.v1.0.0
+    skipRange: <1.0.0
+    skips:
+      - baz.v1.0.0
+  - name: baz.v1.1.0
+    replaces: baz.v1.0.0
+    skips:
+      - baz.v1.0.1
 ---
 image: test.registry/baz-operator/baz-bundle:v1.0.0
 name: baz.v1.0.0
@@ -203,23 +197,21 @@ schema: olm.package
 schema: olm.channel
 package: foo
 name: beta
-strategy:
-  legacy:
-    entries:
-      - name: foo.v0.1.0
-        skipRange: <0.1.0
-      - name: foo.v0.2.0
-        replaces: foo.v0.1.0
-        skipRange: <0.2.0
-        skips:
-          - foo.v0.1.1
-          - foo.v0.1.2
-      - name: foo.v0.3.0
-        replaces: foo.v0.2.0
-      - name: foo.v0.3.1
-        replaces: foo.v0.2.0
-        skips:
-          - foo.v0.3.0
+entries:
+  - name: foo.v0.1.0
+    skipRange: <0.1.0
+  - name: foo.v0.2.0
+    replaces: foo.v0.1.0
+    skipRange: <0.2.0
+    skips:
+      - foo.v0.1.1
+      - foo.v0.1.2
+  - name: foo.v0.3.0
+    replaces: foo.v0.2.0
+  - name: foo.v0.3.1
+    replaces: foo.v0.2.0
+    skips:
+      - foo.v0.3.0
 ---
 image: test.registry/foo-operator/foo-bundle:v0.1.0
 name: foo.v0.1.0

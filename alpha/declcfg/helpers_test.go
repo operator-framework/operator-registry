@@ -46,33 +46,33 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 		},
 		Channels: []Channel{
 			newTestChannel("anakin", "dark",
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name: testBundleName("anakin", "0.0.1"),
 				},
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name:     testBundleName("anakin", "0.1.0"),
 					Replaces: testBundleName("anakin", "0.0.1"),
 				},
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name:     testBundleName("anakin", "0.1.1"),
 					Replaces: testBundleName("anakin", "0.0.1"),
 					Skips:    []string{testBundleName("anakin", "0.1.0")},
 				},
 			),
 			newTestChannel("anakin", "light",
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name: testBundleName("anakin", "0.0.1"),
 				},
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name:     testBundleName("anakin", "0.1.0"),
 					Replaces: testBundleName("anakin", "0.0.1"),
 				},
 			),
 			newTestChannel("boba-fett", "mando",
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name: testBundleName("boba-fett", "1.0.0"),
 				},
-				LegacyChannelEntry{
+				ChannelEntry{
 					Name:     testBundleName("boba-fett", "2.0.0"),
 					Replaces: testBundleName("boba-fett", "1.0.0"),
 				},
@@ -159,12 +159,12 @@ func newTestPackage(packageName, defaultChannel, svgData string) Package {
 	return p
 }
 
-func newTestChannel(packageName, channelName string, entries ...LegacyChannelEntry) Channel {
+func newTestChannel(packageName, channelName string, entries ...ChannelEntry) Channel {
 	return Channel{
-		Schema:   schemaChannel,
-		Name:     channelName,
-		Package:  packageName,
-		Strategy: ChannelStrategy{Legacy: &LegacyChannelStrategy{Entries: entries}},
+		Schema:  schemaChannel,
+		Name:    channelName,
+		Package: packageName,
+		Entries: entries,
 	}
 }
 

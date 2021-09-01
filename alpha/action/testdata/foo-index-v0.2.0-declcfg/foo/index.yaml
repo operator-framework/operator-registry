@@ -6,31 +6,26 @@ defaultChannel: beta
 schema: olm.channel
 package: foo
 name: beta
-strategy:
-  legacy:
-    entries:
-      - name: foo.v0.1.0
-        skipRange: <0.1.0
-      - name: foo.v0.2.0
-        replaces: foo.v0.1.0
-        skipRange: <0.2.0
-        skips:
-          - foo.v0.1.1
-          - foo.v0.1.2
+entries:
+  - name: foo.v0.1.0
+    skipRange: <0.1.0
+  - name: foo.v0.2.0
+    replaces: foo.v0.1.0
+    skipRange: <0.2.0
+    skips:
+      - foo.v0.1.1
+      - foo.v0.1.2
 ---
 schema: olm.channel
 package: foo
 name: stable
-strategy:
-  legacy:
-    entries:
-      - name: foo.v0.2.0
-        replaces: foo.v0.1.0
-        skipRange: <0.2.0
-        skips:
-          - foo.v0.1.1
-          - foo.v0.1.2
-
+entries:
+  - name: foo.v0.2.0
+    replaces: foo.v0.1.0
+    skipRange: <0.2.0
+    skips:
+      - foo.v0.1.1
+      - foo.v0.1.2
 ---
 schema: olm.bundle
 package: foo

@@ -63,16 +63,12 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 			Schema:  schemaChannel,
 			Name:    ch.Name,
 			Package: ch.Package.Name,
-			Strategy: ChannelStrategy{
-				Legacy: &LegacyChannelStrategy{
-					Entries: []LegacyChannelEntry{},
-				},
-			},
+			Entries: []ChannelEntry{},
 		}
 
 		for _, chb := range ch.Bundles {
 			// populate channel entry
-			c.Strategy.Legacy.Entries = append(c.Strategy.Legacy.Entries, LegacyChannelEntry{
+			c.Entries = append(c.Entries, ChannelEntry{
 				Name:      chb.Name,
 				Replaces:  chb.Replaces,
 				Skips:     chb.Skips,
@@ -97,8 +93,8 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 		}
 
 		// sort channel entries by name
-		sort.Slice(c.Strategy.Legacy.Entries, func(i, j int) bool {
-			return c.Strategy.Legacy.Entries[i].Name < c.Strategy.Legacy.Entries[j].Name
+		sort.Slice(c.Entries, func(i, j int) bool {
+			return c.Entries[i].Name < c.Entries[j].Name
 		})
 		channels = append(channels, c)
 	}

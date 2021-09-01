@@ -94,7 +94,7 @@ func TestConvertToModel(t *testing.T) {
     └── default channel must be set`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "bar", LegacyChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Channels: []Channel{newTestChannel("foo", "bar", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},
@@ -135,7 +135,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: require.NoError,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withNoBundleImage())},
 			},
 		},
@@ -144,7 +144,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`no olm.bundle blobs found in package "foo" for olm.channel entries [foo.v0.1.0]`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
 			},
 		},
 		{
@@ -152,7 +152,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`package "foo", bundle "foo.v0.2.0" not found in any channel entries`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.2.0")},
 			},
 		},
@@ -161,7 +161,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`package "foo" contains channel with no name`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "", LegacyChannelEntry{Name: "foo.v0.1.0"})},
+				Channels: []Channel{newTestChannel("foo", "", ChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.2.0")},
 			},
 		},
@@ -170,16 +170,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`unknown package "" for channel "alpha"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
-				Bundles:  []Bundle{newTestBundle("foo", "0.2.0")},
-			},
-		},
-		{
-			name:      "Error/ChannelMissingStrategy",
-			assertion: hasError(`package "foo", channel "alpha" has no defined strategy`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{{Schema: schemaChannel, Package: "foo", Name: "alpha"}},
+				Channels: []Channel{newTestChannel("", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.2.0")},
 			},
 		},
@@ -188,7 +179,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: hasError(`unknown package "non-existent" for channel "alpha"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("non-existent", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
+				Channels: []Channel{newTestChannel("non-existent", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},
@@ -198,8 +189,8 @@ func TestConvertToModel(t *testing.T) {
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Channels: []Channel{newTestChannel("foo", "alpha",
-					LegacyChannelEntry{Name: "foo.v0.1.0"},
-					LegacyChannelEntry{Name: "foo.v0.1.0"},
+					ChannelEntry{Name: "foo.v0.1.0"},
+					ChannelEntry{Name: "foo.v0.1.0"},
 				)},
 				Bundles: []Bundle{newTestBundle("foo", "0.1.0")},
 			},
@@ -209,7 +200,7 @@ func TestConvertToModel(t *testing.T) {
 			assertion: require.NoError,
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
-				Channels: []Channel{newTestChannel("foo", "alpha", LegacyChannelEntry{Name: "foo.v0.1.0"})},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},

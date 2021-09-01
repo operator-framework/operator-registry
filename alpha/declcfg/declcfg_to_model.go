@@ -52,10 +52,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		cde := sets.NewString()
-		if c.Strategy.Legacy == nil {
-			return nil, fmt.Errorf("package %q, channel %q has no defined strategy", c.Package, c.Name)
-		}
-		for _, entry := range c.Strategy.Legacy.Entries {
+		for _, entry := range c.Entries {
 			if _, ok := mch.Bundles[entry.Name]; ok {
 				return nil, fmt.Errorf("invalid package %q, channel %q: duplicate entry %q", c.Package, c.Name, entry.Name)
 			}

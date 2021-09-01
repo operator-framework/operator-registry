@@ -76,14 +76,14 @@ func TestRender(t *testing.T) {
 					},
 				},
 				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
+					}},
 				},
 				Bundles: []declcfg.Bundle{
 					{
@@ -168,14 +168,14 @@ func TestRender(t *testing.T) {
 					},
 				},
 				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
+					}},
 				},
 				Bundles: []declcfg.Bundle{
 					{
@@ -260,13 +260,13 @@ func TestRender(t *testing.T) {
 					},
 				},
 				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
+					}},
 				},
 				Bundles: []declcfg.Bundle{
 					{
@@ -351,13 +351,13 @@ func TestRender(t *testing.T) {
 					},
 				},
 				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Strategy: declcfg.ChannelStrategy{Legacy: &declcfg.LegacyChannelStrategy{Entries: []declcfg.LegacyChannelEntry{
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}}}},
+					}},
 				},
 				Bundles: []declcfg.Bundle{
 					{

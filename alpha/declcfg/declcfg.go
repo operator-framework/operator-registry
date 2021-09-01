@@ -33,21 +33,13 @@ type Icon struct {
 }
 
 type Channel struct {
-	Schema   string          `json:"schema"`
-	Name     string          `json:"name"`
-	Package  string          `json:"package"`
-	Strategy ChannelStrategy `json:"strategy"`
+	Schema  string         `json:"schema"`
+	Name    string         `json:"name"`
+	Package string         `json:"package"`
+	Entries []ChannelEntry `json:"entries"`
 }
 
-type ChannelStrategy struct {
-	Legacy *LegacyChannelStrategy `json:"legacy,omitempty"`
-}
-
-type LegacyChannelStrategy struct {
-	Entries []LegacyChannelEntry `json:"entries"`
-}
-
-type LegacyChannelEntry struct {
+type ChannelEntry struct {
 	Name      string   `json:"name"`
 	Replaces  string   `json:"replaces,omitempty"`
 	Skips     []string `json:"skips,omitempty"`
