@@ -33,7 +33,6 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		mpkgs[p.Name] = mpkg
 	}
 
-	channelDefinedEdges := sets.NewString()
 	channelDefinedEntries := map[string]sets.String{}
 	for _, c := range cfg.Channels {
 		mpkg, ok := mpkgs[c.Package]
@@ -67,7 +66,6 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			}
 		}
 		channelDefinedEntries[c.Package] = cde
-		channelDefinedEdges = channelDefinedEdges.Insert(c.Package)
 
 		mpkg.Channels[c.Name] = mch
 

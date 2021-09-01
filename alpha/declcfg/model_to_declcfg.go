@@ -86,10 +86,10 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 					RelatedImages: modelRelatedImagesToRelatedImages(chb.RelatedImages),
 					CsvJSON:       chb.CsvJSON,
 					Objects:       chb.Objects,
-					Properties:    chb.Properties,
 				}
 				bundleMap[b.Name] = b
 			}
+			b.Properties = append(b.Properties, chb.Properties...)
 		}
 
 		// sort channel entries by name
