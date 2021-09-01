@@ -216,7 +216,13 @@ func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
 }
 
 func TestGetBundleForChannel(t *testing.T) {
-	t.Run("Sqlite", testGetBundleForChannel(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
+	{
+		b := etcdoperator_v0_9_2("alpha", false, false)
+		t.Run("Sqlite", testGetBundleForChannel(dbAddress, &api.Bundle{
+			CsvName: b.CsvName,
+			CsvJson: b.CsvJson + "\n",
+		}))
+	}
 	t.Run("DeclarativeConfig", testGetBundleForChannel(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 

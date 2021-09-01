@@ -37,7 +37,10 @@ type GRPCQuery interface {
 	// Get a bundle by its package name, channel name and csv name from the index
 	GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error)
 
-	// Get the bundle in the specified package at the head of the specified channel
+	// Get the bundle in the specified package at the head of the
+	// specified channel. DEPRECATED. Returned bundles may have
+	// only the "name" and "csvJson" fields populated in order to
+	// support legacy usage.
 	GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error)
 
 	// Get all channel entries that say they replace this one
