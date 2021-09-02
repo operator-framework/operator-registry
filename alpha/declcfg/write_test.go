@@ -29,6 +29,41 @@ func TestWriteJSON(t *testing.T) {
     "description": "anakin operator"
 }
 {
+    "schema": "olm.channel",
+    "name": "dark",
+    "package": "anakin",
+    "entries": [
+        {
+            "name": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.0",
+            "replaces": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.1",
+            "replaces": "anakin.v0.0.1",
+            "skips": [
+                "anakin.v0.1.0"
+            ]
+        }
+    ]
+}
+{
+    "schema": "olm.channel",
+    "name": "light",
+    "package": "anakin",
+    "entries": [
+        {
+            "name": "anakin.v0.0.1"
+        },
+        {
+            "name": "anakin.v0.1.0",
+            "replaces": "anakin.v0.0.1"
+        }
+    ]
+}
+{
     "schema": "olm.bundle",
     "name": "anakin.v0.0.1",
     "package": "anakin",
@@ -44,18 +79,6 @@ func TestWriteJSON(t *testing.T) {
             "type": "olm.bundle.object",
             "value": {
                 "ref": "objects/anakin.v0.0.1.csv.yaml"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "dark"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "light"
             }
         },
         {
@@ -92,20 +115,6 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.channel",
-            "value": {
-                "name": "dark",
-                "replaces": "anakin.v0.0.1"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "light",
-                "replaces": "anakin.v0.0.1"
-            }
-        },
-        {
             "type": "olm.package",
             "value": {
                 "packageName": "anakin",
@@ -139,22 +148,11 @@ func TestWriteJSON(t *testing.T) {
             }
         },
         {
-            "type": "olm.channel",
-            "value": {
-                "name": "dark",
-                "replaces": "anakin.v0.0.1"
-            }
-        },
-        {
             "type": "olm.package",
             "value": {
                 "packageName": "anakin",
                 "version": "0.1.1"
             }
-        },
-        {
-            "type": "olm.skips",
-            "value": "anakin.v0.1.0"
         }
     ],
     "relatedImages": [
@@ -180,6 +178,20 @@ func TestWriteJSON(t *testing.T) {
     "description": "boba-fett operator"
 }
 {
+    "schema": "olm.channel",
+    "name": "mando",
+    "package": "boba-fett",
+    "entries": [
+        {
+            "name": "boba-fett.v1.0.0"
+        },
+        {
+            "name": "boba-fett.v2.0.0",
+            "replaces": "boba-fett.v1.0.0"
+        }
+    ]
+}
+{
     "schema": "olm.bundle",
     "name": "boba-fett.v1.0.0",
     "package": "boba-fett",
@@ -195,12 +207,6 @@ func TestWriteJSON(t *testing.T) {
             "type": "olm.bundle.object",
             "value": {
                 "ref": "objects/boba-fett.v1.0.0.csv.yaml"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "mando"
             }
         },
         {
@@ -234,13 +240,6 @@ func TestWriteJSON(t *testing.T) {
             "type": "olm.bundle.object",
             "value": {
                 "ref": "objects/boba-fett.v2.0.0.csv.yaml"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "mando",
-                "replaces": "boba-fett.v1.0.0"
             }
         },
         {
@@ -301,6 +300,26 @@ icon:
 name: anakin
 schema: olm.package
 ---
+entries:
+- name: anakin.v0.0.1
+- name: anakin.v0.1.0
+  replaces: anakin.v0.0.1
+- name: anakin.v0.1.1
+  replaces: anakin.v0.0.1
+  skips:
+  - anakin.v0.1.0
+name: dark
+package: anakin
+schema: olm.channel
+---
+entries:
+- name: anakin.v0.0.1
+- name: anakin.v0.1.0
+  replaces: anakin.v0.0.1
+name: light
+package: anakin
+schema: olm.channel
+---
 image: anakin-bundle:v0.0.1
 name: anakin.v0.0.1
 package: anakin
@@ -311,12 +330,6 @@ properties:
 - type: olm.bundle.object
   value:
     ref: objects/anakin.v0.0.1.csv.yaml
-- type: olm.channel
-  value:
-    name: dark
-- type: olm.channel
-  value:
-    name: light
 - type: olm.package
   value:
     packageName: anakin
@@ -336,14 +349,6 @@ properties:
 - type: olm.bundle.object
   value:
     ref: objects/anakin.v0.1.0.csv.yaml
-- type: olm.channel
-  value:
-    name: dark
-    replaces: anakin.v0.0.1
-- type: olm.channel
-  value:
-    name: light
-    replaces: anakin.v0.0.1
 - type: olm.package
   value:
     packageName: anakin
@@ -363,16 +368,10 @@ properties:
 - type: olm.bundle.object
   value:
     ref: objects/anakin.v0.1.1.csv.yaml
-- type: olm.channel
-  value:
-    name: dark
-    replaces: anakin.v0.0.1
 - type: olm.package
   value:
     packageName: anakin
     version: 0.1.1
-- type: olm.skips
-  value: anakin.v0.1.0
 relatedImages:
 - image: anakin-bundle:v0.1.1
   name: bundle
@@ -390,6 +389,14 @@ icon:
 name: boba-fett
 schema: olm.package
 ---
+entries:
+- name: boba-fett.v1.0.0
+- name: boba-fett.v2.0.0
+  replaces: boba-fett.v1.0.0
+name: mando
+package: boba-fett
+schema: olm.channel
+---
 image: boba-fett-bundle:v1.0.0
 name: boba-fett.v1.0.0
 package: boba-fett
@@ -400,9 +407,6 @@ properties:
 - type: olm.bundle.object
   value:
     ref: objects/boba-fett.v1.0.0.csv.yaml
-- type: olm.channel
-  value:
-    name: mando
 - type: olm.package
   value:
     packageName: boba-fett
@@ -422,10 +426,6 @@ properties:
 - type: olm.bundle.object
   value:
     ref: objects/boba-fett.v2.0.0.csv.yaml
-- type: olm.channel
-  value:
-    name: mando
-    replaces: boba-fett.v1.0.0
 - type: olm.package
   value:
     packageName: boba-fett

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -743,9 +742,6 @@ func etcdoperator_v0_9_2(channel string, addSkipsReplaces, addExtraProperties bo
 	}
 	if addExtraProperties {
 		b.Properties = append(b.Properties, []*api.Property{
-			{Type: "olm.skipRange", Value: `"< 0.6.0"`},
-			{Type: "olm.skips", Value: `"etcdoperator.v0.9.1"`},
-			{Type: "olm.channel", Value: fmt.Sprintf(`{"name":%q,"replaces":"etcdoperator.v0.9.0"}`, channel)},
 			{Type: "olm.gvk.required", Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`},
 		}...)
 	}

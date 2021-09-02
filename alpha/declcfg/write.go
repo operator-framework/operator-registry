@@ -65,6 +65,12 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgNames.Insert(pkgName)
 		packagesByName[pkgName] = append(packagesByName[pkgName], p)
 	}
+	channelsByPackage := map[string][]Channel{}
+	for _, c := range cfg.Channels {
+		pkgName := c.Package
+		pkgNames.Insert(pkgName)
+		channelsByPackage[pkgName] = append(channelsByPackage[pkgName], c)
+	}
 	bundlesByPackage := map[string][]Bundle{}
 	for _, b := range cfg.Bundles {
 		pkgName := b.Package
@@ -85,6 +91,16 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgs := packagesByName[pName]
 		for _, p := range pkgs {
 			if err := enc.Encode(p); err != nil {
+				return err
+			}
+		}
+
+		channels := channelsByPackage[pName]
+		sort.Slice(channels, func(i, j int) bool {
+			return channels[i].Name < channels[j].Name
+		})
+		for _, c := range channels {
+			if err := enc.Encode(c); err != nil {
 				return err
 			}
 		}

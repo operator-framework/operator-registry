@@ -14,7 +14,6 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 type ListPackages struct {
@@ -173,30 +172,11 @@ func (r *ListBundlesResult) WriteColumns(w io.Writer) error {
 		return err
 	}
 	for _, b := range r.Bundles {
-		skipRange, err := getSkipRange(b)
-		if err != nil {
-			return fmt.Errorf("get skipRange for bundle %q: %v", b.Name, err)
-		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", b.Package.Name, b.Channel.Name, b.Name, b.Replaces, strings.Join(b.Skips, ","), skipRange, b.Image); err != nil {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", b.Package.Name, b.Channel.Name, b.Name, b.Replaces, strings.Join(b.Skips, ","), b.SkipRange, b.Image); err != nil {
 			return err
 		}
-
 	}
 	return tw.Flush()
-}
-
-func getSkipRange(b model.Bundle) (string, error) {
-	props, err := property.Parse(b.Properties)
-	if err != nil {
-		return "", err
-	}
-	if len(props.SkipRanges) > 1 {
-		return "", fmt.Errorf("multiple skip ranges not supported")
-	}
-	if len(props.SkipRanges) == 0 {
-		return "", nil
-	}
-	return string(props.SkipRanges[0]), nil
 }
 
 func indexRefToModel(ctx context.Context, ref string) (model.Model, error) {

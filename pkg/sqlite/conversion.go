@@ -51,10 +51,10 @@ func initializeModelPackages(ctx context.Context, q *SQLQuerier) (model.Model, e
 	pkgs := model.Model{}
 	for _, rPkg := range rPkgs {
 		pkg := model.Package{
-			Name: rPkg.PackageName,
+			Name:     rPkg.PackageName,
+			Channels: map[string]*model.Channel{},
 		}
 
-		pkg.Channels = map[string]*model.Channel{}
 		for _, ch := range rPkg.Channels {
 			channel := &model.Channel{
 				Package: &pkg,

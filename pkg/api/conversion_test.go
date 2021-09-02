@@ -25,7 +25,6 @@ func TestConvertModelBundleToAPIBundle(t *testing.T) {
 	modelBundle.Channel = &model.Channel{Name: "singlenamespace-alpha"}
 	expected := testAPIBundle()
 	expected.Properties = append(expected.Properties,
-		&Property{Type: "olm.channel", Value: "{\"name\":\"singlenamespace-alpha\",\"replaces\":\"etcdoperator.v0.9.2\"}"},
 		&Property{Type: "olm.package.required", Value: "{\"packageName\":\"test\",\"versionRange\":\">=1.2.3 <2.0.0-0\"}"},
 		&Property{Type: "olm.gvk.required", Value: "{\"group\":\"testapi.coreos.com\",\"kind\":\"Testapi\",\"version\":\"v1\"}"},
 	)
@@ -49,7 +48,6 @@ func testModelBundle() model.Bundle {
 		Replaces: "etcdoperator.v0.9.2",
 		Skips:    nil,
 		Properties: []property.Property{
-			property.MustBuildChannel("singlenamespace-alpha", "etcdoperator.v0.9.2"),
 			property.MustBuildPackage("etcd", "0.9.4"),
 			property.MustBuildPackageRequired("test", ">=1.2.3 <2.0.0-0"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "Testapi"),

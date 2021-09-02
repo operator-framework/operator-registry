@@ -10,7 +10,7 @@ import (
 func ConvertFromModel(mpkgs model.Model) DeclarativeConfig {
 	cfg := DeclarativeConfig{}
 	for _, mpkg := range mpkgs {
-		bundles := traverseModelChannels(*mpkg)
+		channels, bundles := traverseModelChannels(*mpkg)
 
 		var i *Icon
 		if mpkg.Icon != nil {
@@ -30,25 +30,53 @@ func ConvertFromModel(mpkgs model.Model) DeclarativeConfig {
 			Icon:           i,
 			Description:    mpkg.Description,
 		})
+		cfg.Channels = append(cfg.Channels, channels...)
 		cfg.Bundles = append(cfg.Bundles, bundles...)
 	}
 
 	sort.Slice(cfg.Packages, func(i, j int) bool {
 		return cfg.Packages[i].Name < cfg.Packages[j].Name
 	})
+	sort.Slice(cfg.Channels, func(i, j int) bool {
+		if cfg.Channels[i].Package != cfg.Channels[j].Package {
+			return cfg.Channels[i].Package < cfg.Channels[j].Package
+		}
+		return cfg.Channels[i].Name < cfg.Channels[j].Name
+	})
 	sort.Slice(cfg.Bundles, func(i, j int) bool {
+		if cfg.Bundles[i].Package != cfg.Bundles[j].Package {
+			return cfg.Bundles[i].Package < cfg.Bundles[j].Package
+		}
 		return cfg.Bundles[i].Name < cfg.Bundles[j].Name
 	})
 
 	return cfg
 }
 
-func traverseModelChannels(mpkg model.Package) []Bundle {
-	bundles := map[string]*Bundle{}
+func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
+	channels := []Channel{}
+	bundleMap := map[string]*Bundle{}
 
 	for _, ch := range mpkg.Channels {
+		// initialize channel
+		c := Channel{
+			Schema:  schemaChannel,
+			Name:    ch.Name,
+			Package: ch.Package.Name,
+			Entries: []ChannelEntry{},
+		}
+
 		for _, chb := range ch.Bundles {
-			b, ok := bundles[chb.Name]
+			// populate channel entry
+			c.Entries = append(c.Entries, ChannelEntry{
+				Name:      chb.Name,
+				Replaces:  chb.Replaces,
+				Skips:     chb.Skips,
+				SkipRange: chb.SkipRange,
+			})
+
+			// create or update bundle
+			b, ok := bundleMap[chb.Name]
 			if !ok {
 				b = &Bundle{
 					Schema:        schemaBundle,
@@ -59,14 +87,20 @@ func traverseModelChannels(mpkg model.Package) []Bundle {
 					CsvJSON:       chb.CsvJSON,
 					Objects:       chb.Objects,
 				}
-				bundles[b.Name] = b
+				bundleMap[b.Name] = b
 			}
 			b.Properties = append(b.Properties, chb.Properties...)
 		}
+
+		// sort channel entries by name
+		sort.Slice(c.Entries, func(i, j int) bool {
+			return c.Entries[i].Name < c.Entries[j].Name
+		})
+		channels = append(channels, c)
 	}
 
-	var out []Bundle
-	for _, b := range bundles {
+	var bundles []Bundle
+	for _, b := range bundleMap {
 		b.Properties = property.Deduplicate(b.Properties)
 
 		sort.Slice(b.Properties, func(i, j int) bool {
@@ -76,9 +110,9 @@ func traverseModelChannels(mpkg model.Package) []Bundle {
 			return string(b.Properties[i].Value) < string(b.Properties[j].Value)
 		})
 
-		out = append(out, *b)
+		bundles = append(bundles, *b)
 	}
-	return out
+	return channels, bundles
 }
 
 func modelRelatedImagesToRelatedImages(relatedImages []model.RelatedImage) []RelatedImage {

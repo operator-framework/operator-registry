@@ -202,17 +202,37 @@ var validFS = fstest.MapFS{
     }
 }
 {
+	"schema": "olm.channel",
+	"package": "cockroachdb",
+	"name": "stable",
+	"entries": [
+		{"name": "cockroachdb.v2.0.9"},
+		{"name": "cockroachdb.v2.1.1", "replaces": "cockroachdb.v2.0.9"},
+		{"name": "cockroachdb.v2.1.11", "replaces": "cockroachdb.v2.1.1"}
+	]
+}
+{
+	"schema": "olm.channel",
+	"package": "cockroachdb",
+	"name": "stable-3.x",
+	"entries": [
+		{"name": "cockroachdb.v3.0.7"}
+	]
+}
+{
+	"schema": "olm.channel",
+	"package": "cockroachdb",
+	"name": "stable-5.x",
+	"entries": [
+		{"name": "cockroachdb.v5.0.3"}
+	]
+}
+{
     "schema": "olm.bundle",
     "name": "cockroachdb.v2.0.9",
     "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.0.9",
     "properties": [
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "stable"
-            }
-        },
         {
             "type": "olm.package",
             "value": {
@@ -229,13 +249,6 @@ var validFS = fstest.MapFS{
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.11",
     "properties": [
         {
-            "type": "olm.channel",
-            "value": {
-                "name": "stable",
-                "replaces": "cockroachdb.v2.1.1"
-            }
-        },
-        {
             "type": "olm.package",
             "value": {
                 "packageName": "cockroachdb",
@@ -250,13 +263,6 @@ var validFS = fstest.MapFS{
     "package": "cockroachdb",
     "image": "quay.io/openshift-community-operators/cockroachdb:v2.1.1",
     "properties": [
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "stable",
-                "replaces": "cockroachdb.v2.0.9"
-            }
-        },
         {
             "type": "olm.package",
             "value": {
@@ -321,6 +327,34 @@ var validFS = fstest.MapFS{
     "description": "A message about etcd operator, a description of channels"
 }
 {
+	"schema": "olm.channel",
+	"package": "etcd",
+	"name": "alpha",
+	"entries": [
+		{"name": "etcdoperator-community.v0.6.1"}
+	]
+}
+{
+	"schema": "olm.channel",
+	"package": "etcd",
+	"name": "singlenamespace-alpha",
+	"entries": [
+		{"name": "etcdoperator.v0.9.0"},
+		{"name": "etcdoperator.v0.9.2", "replaces": "etcdoperator.v0.9.0"},
+		{"name": "etcdoperator.v0.9.4", "replaces": "etcdoperator.v0.9.2"}
+	]
+}
+{
+	"schema": "olm.channel",
+	"package": "etcd",
+	"name": "clusterwide-alpha",
+	"entries": [
+		{"name": "etcdoperator.v0.9.0"},
+		{"name": "etcdoperator.v0.9.2-clusterwide", "replaces": "etcdoperator.v0.9.0", "skips": ["etcdoperator.v0.6.1","etcdoperator.v0.9.0"], "skipRange": ">=0.9.0 <=0.9.1"},
+		{"name": "etcdoperator.v0.9.4-clusterwide", "replaces": "etcdoperator.v0.9.2-clusterwide"}
+	]
+}
+{
     "schema": "olm.bundle",
     "name": "etcdoperator-community.v0.6.1",
     "package": "etcd",
@@ -339,12 +373,6 @@ var validFS = fstest.MapFS{
                 "group": "etcd.database.coreos.com",
                 "kind": "EtcdCluster",
                 "version": "v1beta2"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "alpha"
             }
         }
     ],
@@ -375,18 +403,6 @@ var validFS = fstest.MapFS{
                 "kind": "EtcdBackup",
                 "version": "v1beta2"
             }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "singlenamespace-alpha"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "clusterwide-alpha"
-            }
         }
     ],
     "relatedImages" : [
@@ -416,13 +432,6 @@ var validFS = fstest.MapFS{
                 "kind": "EtcdRestore",
                 "version": "v1beta2"
             }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "singlenamespace-alpha",
-                "replaces": "etcdoperator.v0.9.0"
-            }
         }
     ],
     "relatedImages":[
@@ -451,25 +460,6 @@ var validFS = fstest.MapFS{
                 "group": "etcd.database.coreos.com",
                 "kind": "EtcdBackup",
                 "version": "v1beta2"
-            }
-        },
-        {
-            "type": "olm.skipRange",
-            "value": ">=0.9.0 <=0.9.1"
-        },
-        {
-            "type": "olm.skips",
-            "value" : "etcdoperator.v0.6.1"
-        },
-        {
-            "type": "olm.skips",
-            "value" : "etcdoperator.v0.9.0"
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "clusterwide-alpha",
-                "replaces": "etcdoperator.v0.9.0"
             }
         }
     ],
@@ -515,13 +505,6 @@ var validFS = fstest.MapFS{
                 "kind": "Testapi",
                 "version": "v1"
             }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "singlenamespace-alpha",
-                "replaces": "etcdoperator.v0.9.2"
-            }
         }
     ],
     "relatedImages":[
@@ -550,13 +533,6 @@ var validFS = fstest.MapFS{
                 "group": "etcd.database.coreos.com",
                 "kind": "EtcdBackup",
                 "version": "v1beta2"
-            }
-        },
-        {
-            "type": "olm.channel",
-            "value": {
-                "name": "clusterwide-alpha",
-                "replaces": "etcdoperator.v0.9.2-clusterwide"
             }
         }
     ],

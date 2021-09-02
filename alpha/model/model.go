@@ -256,6 +256,7 @@ type Bundle struct {
 	Image         string
 	Replaces      string
 	Skips         []string
+	SkipRange     string
 	Properties    []property.Property
 	RelatedImages []RelatedImage
 
