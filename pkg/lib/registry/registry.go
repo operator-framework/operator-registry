@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -101,6 +103,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 
 func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (image.Reference, string, func(), error) {
 	var errs []error
+	logger := logrus.WithFields(logrus.Fields{"image": ref.String()})
 	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
 	if err != nil {
 		errs = append(errs, err)
@@ -111,6 +114,14 @@ func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (
 	}
 
 	if err = reg.Unpack(ctx, ref, workingDir); err != nil {
+		errs = append(errs, err)
+	}
+
+	validator := bundle.NewImageValidator(reg, logger)
+	if err := validator.ValidateBundleFormat(workingDir); err != nil {
+		errs = append(errs, err)
+	}
+	if err := validator.ValidateBundleContent(filepath.Join(workingDir, bundle.ManifestsDir)); err != nil {
 		errs = append(errs, err)
 	}
 
