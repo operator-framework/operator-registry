@@ -136,7 +136,7 @@ export LATEST_IMAGE_OR_EMPTY ?= $(shell \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 release: RELEASE_ARGS ?= release --rm-dist --snapshot
 release:
-	./scripts/fetch goreleaser 0.173.2 && ./bin/goreleaser $(RELEASE_ARGS)
+	./scripts/fetch goreleaser 0.177.0 && ./bin/goreleaser $(RELEASE_ARGS)
 
 # tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
