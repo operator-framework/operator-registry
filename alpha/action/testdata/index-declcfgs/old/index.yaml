@@ -9,6 +9,7 @@ name: alpha
 entries:
   - name: bar.v0.1.0
   - name: bar.v0.2.0
+    replaces: bar.v0.1.0
     skipRange: <0.2.0
     skips:
       - bar.v0.1.0

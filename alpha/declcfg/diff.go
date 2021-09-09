@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"sync"
@@ -167,7 +168,7 @@ func bundlesEqual(b1, b2 *model.Bundle) (bool, error) {
 
 func addAllDependencies(newModel, oldModel, outputModel model.Model) error {
 	// Get every oldModel's bundle's dependencies, and their dependencies, etc. by BFS.
-	allProvidingBundles := []*model.Bundle{}
+	providingBundlesByPackage := map[string][]*model.Bundle{}
 	for curr := getBundles(outputModel); len(curr) != 0; {
 		reqGVKs, reqPkgs, err := findDependencies(curr)
 		if err != nil {
@@ -183,36 +184,85 @@ func addAllDependencies(newModel, oldModel, outputModel model.Model) error {
 		for _, pkg := range newModel {
 			providingBundles := getBundlesThatProvide(pkg, reqGVKs, reqPkgs)
 			curr = append(curr, providingBundles...)
-			allProvidingBundles = append(allProvidingBundles, providingBundles...)
+
+			oldPkg, oldHasPkg := oldModel[pkg.Name]
+			for _, b := range providingBundles {
+				// If the bundle is not in oldModel, add it to the set.
+				// outputModel is checked below.
+				add := true
+				if oldHasPkg {
+					if oldCh, oldHasCh := oldPkg.Channels[b.Channel.Name]; oldHasCh {
+						_, oldHasBundle := oldCh.Bundles[b.Name]
+						add = !oldHasBundle
+					}
+				}
+				if add {
+					providingBundlesByPackage[b.Package.Name] = append(providingBundlesByPackage[b.Package.Name], b)
+				}
+			}
 		}
 	}
 
 	// Add the diff between an oldModel dependency package and its new counterpart
 	// or the entire package if oldModel does not have it.
-	//
-	// TODO(estroz): add bundles then fill in dependency upgrade graph
-	// by selecting latest versions, as the EP specifies.
-	dependencyPkgs := map[string]*model.Package{}
-	for _, b := range allProvidingBundles {
-		if _, copied := dependencyPkgs[b.Package.Name]; !copied {
-			dependencyPkgs[b.Package.Name] = copyPackage(b.Package)
-		}
-	}
-	for _, newDepPkg := range dependencyPkgs {
-		// newDepPkg is a copy of a newModel pkg, so running diffPackages
-		// on it and oldPkg, which may have some but not all bundles,
-		// will produce a set of all bundles that outputModel doesn't have.
-		// Otherwise, just add the whole package.
-		if oldPkg, oldHasPkg := oldModel[newDepPkg.Name]; oldHasPkg {
-			if err := diffPackages(oldPkg, newDepPkg); err != nil {
+	for pkgName, bundles := range providingBundlesByPackage {
+		newPkg := newModel[pkgName]
+		heads := make(map[string]*model.Bundle, len(newPkg.Channels))
+		for _, ch := range newPkg.Channels {
+			var err error
+			if heads[ch.Name], err = ch.Head(); err != nil {
 				return err
 			}
-			if len(newDepPkg.Channels) == 0 {
-				// Skip empty packages.
-				continue
+		}
+
+		// Sort by version then channel so bundles lower in the full graph are more likely
+		// to be included in previous loops.
+		sort.Slice(bundles, func(i, j int) bool {
+			if bundles[i].Channel.Name == bundles[j].Channel.Name {
+				return bundles[i].Version.LT(bundles[j].Version)
+			}
+			return bundles[i].Channel.Name < bundles[j].Channel.Name
+		})
+
+		for _, b := range bundles {
+			newCh := b.Channel
+
+			// Continue if b was added in a previous loop iteration.
+			// Otherwise create a new package/channel for b if they do not exist.
+			var (
+				outputPkg *model.Package
+				outputCh  *model.Channel
+
+				outHasPkg, outHasCh bool
+			)
+			if outputPkg, outHasPkg = outputModel[b.Package.Name]; outHasPkg {
+				if outputCh, outHasCh = outputPkg.Channels[b.Channel.Name]; outHasCh {
+					if _, outputHasBundle := outputCh.Bundles[b.Name]; outputHasBundle {
+						continue
+					}
+				}
+			} else {
+				outputPkg = copyPackageNoChannels(newPkg)
+				outputModel[outputPkg.Name] = outputPkg
+			}
+			if !outHasCh {
+				outputCh = copyChannelNoBundles(newCh, outputPkg)
+				outputPkg.Channels[outputCh.Name] = outputCh
+			}
+
+			head := heads[newCh.Name]
+			graph := makeUpgradeGraph(newCh)
+			intersectingBundles, intersectionFound := findIntersectingBundles(newCh, b, head, graph)
+			if !intersectionFound {
+				// This should never happen, since b and head are from the same model.
+				return fmt.Errorf("channel %s: head %q not reachable from bundle %q", newCh.Name, head.Name, b.Name)
+			}
+			for _, ib := range intersectingBundles {
+				if _, outHasBundle := outputCh.Bundles[ib.Name]; !outHasBundle {
+					outputCh.Bundles[ib.Name] = copyBundle(ib, outputCh, outputPkg)
+				}
 			}
 		}
-		outputModel[newDepPkg.Name] = newDepPkg
 	}
 
 	return nil

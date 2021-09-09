@@ -1309,6 +1309,191 @@ func TestDiffHeadsOnly(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "HasDiff/SelectDependencies",
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+						{Name: "etcd.v0.9.3", Replaces: "etcd.v0.9.2"},
+						{Name: "etcd.v1.0.0", Replaces: "etcd.v0.9.3", Skips: []string{"etcd.v0.9.1", "etcd.v0.9.2", "etcd.v0.9.3"}},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackageRequired("etcd", "<0.9.2"),
+							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v0.1.0",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildGVKRequired("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("bar", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.2",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.2"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.3",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.3"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v1.0.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "1.0.0"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{},
+			expCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v0.1.0"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+						{Name: "etcd.v0.9.3", Replaces: "etcd.v0.9.2"},
+						{Name: "etcd.v1.0.0", Replaces: "etcd.v0.9.3", Skips: []string{"etcd.v0.9.1", "etcd.v0.9.2", "etcd.v0.9.3"}},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v0.1.0",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildGVKRequired("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("bar", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.2",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.2"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.3",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.3"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v1.0.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "1.0.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.0"),
+							property.MustBuildPackageRequired("etcd", "<0.9.2"),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, s := range specs {
