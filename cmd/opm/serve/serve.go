@@ -87,7 +87,11 @@ func (s *serve) run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not build index model from declarative config: %v", err)
 	}
-	store := registry.NewQuerier(m)
+	store, err := registry.NewQuerier(m)
+	defer store.Close()
+	if err != nil {
+		return err
+	}
 
 	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {
