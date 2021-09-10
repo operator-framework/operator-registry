@@ -2,6 +2,7 @@ package containertools
 
 import (
 	"archive/tar"
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -20,46 +21,53 @@ var files = map[string]string{
 }
 
 // 1. create a tar archive in memory
-// 2. setup exporter with Writer pipe
+// 2. setup untarer
 // 4. read tar archive contents to a temporary directory on disk
 // 5. Ensure file contents are there
 // 6. Ensure permissions are set as expected
-func TestExporter_Run(t *testing.T) {
-	log := logrus.NewEntry(&logrus.Logger{})
+func TestUntarer(t *testing.T) {
+	log := logrus.NewEntry(logrus.StandardLogger())
 	temp, err := ioutil.TempDir("./", "temp-")
 	if err != nil {
 		t.Error(err)
 	}
+
 	defer os.RemoveAll(temp)
 
 	piper, pipew := io.Pipe()
-	reader := tar.NewReader(piper)
-	exporter, err := newExporter(temp, log, reader, pipew)
-	if err != nil || exporter == nil {
-		t.Error(err)
-	}
+	defer func() {
+		pipew.Close()
+		piper.Close()
+	}()
 
-	var wg sync.WaitGroup
+	var (
+		wg          sync.WaitGroup
+		ctx, cancel = context.WithCancel(context.Background())
+		untarer     = newUntarer(log)
+	)
+	defer cancel()
+
+	tr := tar.NewReader(piper)
 	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
+	go func() {
 		defer wg.Done()
-		err := exporter.Run()
-		if err != nil {
+
+		if err := untarer.Untar(ctx, tr, temp); err != nil {
 			t.Error(err)
 		}
-	}(&wg)
+	}()
 
-	tw := tar.NewWriter(exporter.Writer())
+	tw := tar.NewWriter(pipew)
 	for name, content := range files {
 		hdr := &tar.Header{
 			Name: name,
 			Mode: int64(0600),
-			Size: int64(len(content)),
+			Size: int64(len([]byte(content))),
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			t.Error(err)
 		}
-		if _, err := tw.Write([]byte(content)); err != nil {
+		if _, err = tw.Write([]byte(content)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -72,7 +80,6 @@ func TestExporter_Run(t *testing.T) {
 		t.Error(err)
 	}
 
-	// check all files are on disk
 	var found bool
 	for f := range files {
 		found = false
@@ -93,12 +100,13 @@ func TestExporter_Run(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		// the file mode is changed from 0777 to 0755 due to the default umask 022
+
+		// The file mode is changed from 0777 to 0755 due to the default umask 022
 		if info.Mode() != os.FileMode(0755) {
 			t.Errorf("unexpected file mode %s, expected %s", info.Mode(), os.FileMode(0755))
 		}
 
-		// check contents match expected
+		// Check contents match expected
 		key := entry.Name()
 		content, err := ioutil.ReadFile(filepath.Join(temp, key))
 		if !reflect.DeepEqual(content, []byte(files[key])) {

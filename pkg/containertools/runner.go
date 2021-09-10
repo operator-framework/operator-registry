@@ -3,6 +3,7 @@ package containertools
 
 import (
 	"archive/tar"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -126,65 +127,67 @@ func (r *ContainerCommandRunner) Build(dockerfile, tag string) error {
 
 // Unpack copies a file or directory from a local container image to a directory on the local filesystem.
 func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	args := r.argsForCmd("create", image, "")
-
-	command := exec.Command(r.containerTool.String(), args...)
-
+	command := exec.CommandContext(ctx, r.containerTool.String(), args...)
 	r.logger.Infof("running %s create", r.containerTool)
 	r.logger.Debugf("%s", command.Args)
 
 	out, err := command.CombinedOutput()
 	if err != nil {
 		r.logger.Errorf(string(out))
-		return fmt.Errorf("error creating container %s: %v", string(out), err)
+		return fmt.Errorf("error creating container %s: %w", string(out), err)
 	}
 
-	id := strings.TrimSuffix(string(out), "\n")
-
-	// Create a new exporter to copy and read output from stdout to a tar reader.
+	// Create a new untarer to copy and read output from stdout to a tar reader.
 	// This is done to rewrite file permissions on the fly to avoid permissions-related errors in standard docker cp.
 	piper, pipew := io.Pipe()
-	reader := tar.NewReader(piper)
-	exporter, err := newExporter(dst, r.logger, reader, pipew)
-	if err != nil {
-		return fmt.Errorf("setting unpacking destination: #%v", err)
-	}
-	// write files to stdout and then read tar stream
+	defer func() {
+		if err := piper.Close(); err != nil {
+			r.logger.Warnf("error closing command read pipe: %s", err)
+		}
+	}()
+	defer func() {
+		if err := pipew.Close(); err != nil {
+			r.logger.Warnf("error closing command write pipe: %s", err)
+		}
+	}()
+
+	// Run untarer
+	var (
+		wg       sync.WaitGroup
+		expError error
+		untarer  = newUntarer(r.logger)
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := untarer.Untar(ctx, tar.NewReader(piper), dst); err != nil {
+			expError = err
+		}
+	}()
+
+	// Execute copy command and pipe output to the untarer
+	id := strings.TrimSuffix(string(out), "\n")
 	args = r.argsForCmd("cp", id+":"+src, "-")
-	command = exec.Command(r.containerTool.String(), args...)
-	command.Stdout = exporter.Writer()
+	command = exec.CommandContext(ctx, r.containerTool.String(), args...)
+	command.Stdout = pipew
 
 	r.logger.Infof("running %s cp", r.containerTool)
 	r.logger.Debugf("%s", command.Args)
-
-	// setup exporter
-	var wg sync.WaitGroup
-	var expError error
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		err := exporter.Run()
-		if err != nil {
-			expError = fmt.Errorf("exporting container filesystem as a tar stream: %v", err)
-		}
-	}(&wg)
-
-	err = command.Run()
-	if err != nil {
-		exporter.Close()
-		return fmt.Errorf("error copying container directory %s: %v", string(out), err)
+	if err = command.Run(); err != nil {
+		return fmt.Errorf("error copying container filesystem %s: %w", string(out), err)
 	}
 
-	if expError != nil {
-		exporter.Close()
-		return expError
-	}
-
-	if err := exporter.Close(); err != nil {
-		return fmt.Errorf("closing tar stream: %v", err)
-	}
 	wg.Wait()
 
+	if expError != nil {
+		return fmt.Errorf("error untarring container filesystem: %w", err)
+	}
+
+	// Cleanup leftover containers
 	args = r.argsForCmd("rm", id)
 	command = exec.Command(r.containerTool.String(), args...)
 
@@ -193,8 +196,7 @@ func (r *ContainerCommandRunner) Unpack(image, src, dst string) error {
 
 	out, err = command.CombinedOutput()
 	if err != nil {
-		r.logger.Errorf(string(out))
-		return fmt.Errorf("error removing container %s: %v", string(out), err)
+		return fmt.Errorf("error removing container %s: %w", string(out), err)
 	}
 
 	return nil

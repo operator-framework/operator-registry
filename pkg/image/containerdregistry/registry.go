@@ -201,17 +201,16 @@ func (r *Registry) unpackLayer(ctx context.Context, layer ocispec.Descriptor, fr
 	}
 	defer ra.Close()
 
-	// TODO(njhale): Chunk layer reading
 	decompressed, err := compression.DecompressStream(io.NewSectionReader(ra, 0, ra.Size()))
 	if err != nil {
 		return err
 	}
 
-	// create file filter when unpacking, if the from argument is not root
-	// return a noOp if unpacking the entire filesystem
-	fileFilter := fromFilter(from)
-
-	filters := filterList{adjustPerms, dropXattrs, fileFilter}
+	filters := filterList{
+		adjustPerms,      // Prevent file write issues by tweaking copied file permissions (chmod 777)
+		dropXattrs,       // Prevent file attribute permission issues by eliding all xattributes
+		fromFilter(from), // Copy only the given file or directory tree
+	}
 	_, err = archive.Apply(ctx, to, decompressed, archive.WithFilter(filters.and))
 
 	return err
@@ -266,31 +265,17 @@ func dropXattrs(h *tar.Header) (bool, error) {
 	return true, nil
 }
 
-// only unpack specified files (if not root)
+// fromFilter returns an archive.Filter that only unpack specified files (if not root).
 func fromFilter(from string) archive.Filter {
 	if from == image.Root {
-		// no-op, unpacks everything
+		// No-op, unpacks everything
 		return func(h *tar.Header) (bool, error) {
 			return true, nil
 		}
 	}
 
 	return func(h *tar.Header) (bool, error) {
-		// check if from is a dir or a file
-		if !h.FileInfo().IsDir() {
-			// we have a file
-			// only unpack this file
-			if from != h.FileInfo().Name() {
-				return false, nil
-			}
-			return true, nil
-		}
-		// we have a directory
-		// unpack the directory and all files under this directory
-		// TODO ensure directory is an exact match and only files under the heirarchy are pulled
-		if from == h.FileInfo().Name() || strings.Contains(from, h.FileInfo().Name()) {
-			return true, nil
-		}
-		return false, nil
+		// Unpack the directory and all files under this directory
+		return strings.HasPrefix(h.Name, from), nil
 	}
 }

@@ -5,37 +5,57 @@ import (
 	"testing"
 )
 
-func Test_fromFilter(t *testing.T) {
-	type destination struct {
-		dest   string
-		match  bool
+func TestFromFilter(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		from   string
 		header *tar.Header
-	}
-	var destinations = []destination{
+		match  bool
+	}{
 		{
-			dest:   "/",
-			header: &tar.Header{Name: "root"},
+			name:   "Match/Root",
+			from:   "/",
+			header: &tar.Header{Name: "my.db"},
 			match:  true,
 		},
 		{
-			dest:   "my-db.db",
-			header: &tar.Header{Name: "my-db.db"},
+			name:   "Match/File",
+			from:   "my.db",
+			header: &tar.Header{Name: "my.db"},
 			match:  true,
 		},
 		{
-			dest:   "my-db.db",
-			header: &tar.Header{Name: "rocks-db.db"},
+			name:   "Match/Directory",
+			from:   "mine",
+			header: &tar.Header{Name: "mine/my.db"},
+			match:  true,
+		},
+		{
+			name:   "NoMatch/File",
+			from:   "my.db",
+			header: &tar.Header{Name: "your.db"},
 			match:  false,
 		},
-		// TODO directory test cases
+		{
+			name:   "NoMatch/Directory",
+			from:   "mine",
+			header: &tar.Header{Name: "yours/your.db"},
+			match:  false,
+		},
+		{
+			name:   "NoMatch/PartialPath",
+			from:   "database/my.db",
+			header: &tar.Header{Name: "yours/database/my.db"},
+			match:  false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := fromFilter(tt.from)(tt.header)
+			if result == tt.match && err == nil {
+				return
+			}
+			t.Fatalf("error for %s, expected match to be %t, got %t", tt.from, tt.match, result)
+		})
 	}
 
-	for _, d := range destinations {
-		filter := fromFilter(d.dest)
-		result, err := filter(d.header)
-		if result == d.match && err == nil {
-			continue
-		}
-		t.Fatalf("error for %s, expected match to be %t, got %t", d.dest, d.match, result)
-	}
 }
