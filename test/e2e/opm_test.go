@@ -487,7 +487,7 @@ var _ = Describe("opm", func() {
 	}
 
 	Context("using docker", func() {
-		cmd := exec.Command("docker")
+		cmd := exec.Command("docker", "--version")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			GinkgoT().Logf("container tool docker not found - skipping docker-based opm e2e tests: %v", err)
@@ -497,7 +497,7 @@ var _ = Describe("opm", func() {
 	})
 
 	Context("using podman", func() {
-		cmd := exec.Command("podman", "info")
+		cmd := exec.Command("podman", "--version")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			GinkgoT().Logf("container tool podman not found - skipping podman-based opm e2e tests: %v", err)
