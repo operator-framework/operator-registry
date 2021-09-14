@@ -942,6 +942,9 @@ func (s *sqlLoader) RemovePackage(packageName string) error {
 		if err != nil {
 			return err
 		}
+		if len(csvNames) == 0 {
+			return fmt.Errorf("no package found for packagename %s", packageName)
+		}
 		for _, csvName := range csvNames {
 			if err := s.rmBundle(tx, csvName); err != nil {
 				return err

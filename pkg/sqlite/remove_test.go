@@ -76,6 +76,10 @@ func TestRemover(t *testing.T) {
 	_, err = query.GetPackage(context.TODO(), "prometheus")
 	require.EqualError(t, err, "package prometheus not found")
 
+	// delete prometheus again
+	err = store.RemovePackage("prometheus")
+	require.EqualError(t, err, "no package found for packagename prometheus")
+
 	// no apis after all packages are removed
 	rows, err = db.QueryContext(context.TODO(), "select * from api")
 	require.NoError(t, err)
