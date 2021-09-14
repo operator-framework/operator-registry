@@ -17,6 +17,7 @@ builds:
       - all=-trimpath={{ .Env.PWD }}
     ldflags: &build-ldflags
       - -s -w
+      - -extldflags=-static
       - -X {{ .Env.PKG }}/cmd/opm/version.gitCommit={{ .Env.GIT_COMMIT }}
       - -X {{ .Env.PKG }}/cmd/opm/version.opmVersion={{ .Env.OPM_VERSION }}
       - -X {{ .Env.PKG }}/cmd/opm/version.buildDate={{ .Env.BUILD_DATE }}
