@@ -1342,9 +1342,10 @@ func (s *SQLQuerier) listBundleChannels(ctx context.Context, bundleName string) 
 // PackageFromDefaultChannelHeadBundle returns the package name if the provided bundle is the head of its default channel.
 func (s *SQLQuerier) PackageFromDefaultChannelHeadBundle(ctx context.Context, bundle string) (string, error) {
 	packageFromDefaultChannelHeadBundle := `
-	SELECT package_name FROM package 
-	INNER JOIN channel ON channel.name = package.default_channel
-	WHERE channel.head_operatorbundle_name = (SELECT name FROM operatorbundle WHERE bundlepath=? LIMIT 1) `
+	SELECT package_name FROM package, channel 
+	WHERE channel.package_name == package.name
+	AND package.default_channel == channel.name
+	AND channel.head_operatorbundle_name = (SELECT name FROM operatorbundle WHERE bundlepath=? LIMIT 1) `
 
 	rows, err := s.db.QueryContext(ctx, packageFromDefaultChannelHeadBundle, bundle)
 	if err != nil {
