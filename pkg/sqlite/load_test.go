@@ -424,6 +424,42 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				},
 			},
 		},
+		{
+			description: "DeprecateTruncateRemoveDeprecatedChannelHeadOnPackageRemoval",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-a", ""))),
+					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-aaa", newBundle(t, "csv-b", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-b", "csv-a"))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-aa",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-b",
+							},
+						},
+						DefaultChannelName: "b",
+					},
+				},
+				deprecatedPaths: []string{
+					"quay.io/my/bundle-aa",
+				},
+			},
+			args: args{
+				pkg: "pkg0",
+			},
+			expected: expected{
+				err: nil,
+				deprecated: map[string]struct{}{},
+			},
+		},
 	}
 
 	for _, tt := range tests {
