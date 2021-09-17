@@ -21,6 +21,8 @@ type DiffGenerator struct {
 	// SkipDependencies directs Run() to not include dependencies
 	// of bundles included in the diff if true.
 	SkipDependencies bool
+	// Includer for adding catalog objects to Run() output.
+	Includer DiffIncluder
 
 	initOnce sync.Once
 }
@@ -45,15 +47,31 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 	// load by package.
 
 	outputModel := model.Model{}
+
+	// Add included packages/channels/bundles from newModel to outputModel.
+	// Code further down handles packages and channels included in outputModel.
+	g.Includer.Logger = g.Logger
+	if err := g.Includer.Run(newModel, outputModel); err != nil {
+		return nil, err
+	}
+
 	if len(oldModel) == 0 {
 		// Heads-only mode.
 
 		// Make shallow copies of packages and channels that are only
 		// filled with channel heads.
 		for _, newPkg := range newModel {
-			outputPkg := copyPackageNoChannels(newPkg)
-			outputModel[outputPkg.Name] = outputPkg
+			// This package may have been created in the include step.
+			outputPkg, pkgIncluded := outputModel[newPkg.Name]
+			if !pkgIncluded {
+				outputPkg = copyPackageNoChannels(newPkg)
+				outputModel[outputPkg.Name] = outputPkg
+			}
 			for _, newCh := range newPkg.Channels {
+				if _, chIncluded := outputPkg.Channels[newCh.Name]; chIncluded {
+					// Head (and other bundles) were added in the include step.
+					continue
+				}
 				outputCh := copyChannelNoBundles(newCh, outputPkg)
 				outputPkg.Channels[outputCh.Name] = outputCh
 				head, err := newCh.Head()
@@ -71,6 +89,11 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 		// which is more succinct than by addition and potentially
 		// more memory efficient.
 		for _, newPkg := range newModel {
+			if _, pkgIncluded := outputModel[newPkg.Name]; pkgIncluded {
+				// The user has specified the state they want this package to have in the diff
+				// via an inclusion entry, so the package created above should not be changed.
+				continue
+			}
 			outputModel[newPkg.Name] = copyPackage(newPkg)
 		}
 
@@ -274,7 +297,6 @@ func getBundles(m model.Model) (bundles []*model.Bundle) {
 	for _, pkg := range m {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
-				b := b
 				bundles = append(bundles, b)
 			}
 		}
@@ -332,7 +354,6 @@ func getBundlesThatProvide(pkg *model.Package, reqGVKs map[property.GVK]struct{}
 	bundlesProvidingGVK := make(map[property.GVK][]*model.Bundle)
 	for _, ch := range pkg.Channels {
 		for _, b := range ch.Bundles {
-			b := b
 			for _, gvk := range b.PropertiesP.GVKs {
 				if _, hasGVK := reqGVKs[gvk]; hasGVK {
 					bundlesProvidingGVK[gvk] = append(bundlesProvidingGVK[gvk], b)

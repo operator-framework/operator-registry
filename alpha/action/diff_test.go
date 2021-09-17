@@ -1,6 +1,7 @@
-package action_test
+package action
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"errors"
@@ -10,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blang/semver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -23,7 +24,7 @@ import (
 func TestDiff(t *testing.T) {
 	type spec struct {
 		name        string
-		diff        action.Diff
+		diff        Diff
 		expectedCfg *declcfg.DeclarativeConfig
 		assertion   require.ErrorAssertionFunc
 	}
@@ -34,7 +35,7 @@ func TestDiff(t *testing.T) {
 	specs := []spec{
 		{
 			name: "Success/Latest",
-			diff: action.Diff{
+			diff: Diff{
 				Registry: registry,
 				OldRefs:  []string{filepath.Join("testdata", "index-declcfgs", "old")},
 				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
@@ -44,7 +45,7 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "Success/HeadsOnly",
-			diff: action.Diff{
+			diff: Diff{
 				Registry: registry,
 				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
 			},
@@ -53,7 +54,7 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "Fail/NewBundleImage",
-			diff: action.Diff{
+			diff: Diff{
 				Registry: registry,
 				NewRefs:  []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
 			},
@@ -61,14 +62,14 @@ func TestDiff(t *testing.T) {
 				if !assert.Error(t, err) {
 					require.Fail(t, "expected an error")
 				}
-				if !errors.Is(err, action.ErrNotAllowed) {
-					require.Fail(t, "err is not action.ErrNotAllowed", err)
+				if !errors.Is(err, ErrNotAllowed) {
+					require.Fail(t, "err is not ErrNotAllowed", err)
 				}
 			},
 		},
 		{
 			name: "Fail/OldBundleImage",
-			diff: action.Diff{
+			diff: Diff{
 				Registry: registry,
 				OldRefs:  []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
 				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
@@ -77,8 +78,8 @@ func TestDiff(t *testing.T) {
 				if !assert.Error(t, err) {
 					require.Fail(t, "expected an error")
 				}
-				if !errors.Is(err, action.ErrNotAllowed) {
-					require.Fail(t, "err is not action.ErrNotAllowed", err)
+				if !errors.Is(err, ErrNotAllowed) {
+					require.Fail(t, "err is not ErrNotAllowed", err)
 				}
 			},
 		},
@@ -89,6 +90,143 @@ func TestDiff(t *testing.T) {
 			actualCfg, actualErr := s.diff.Run(context.Background())
 			s.assertion(t, actualErr)
 			require.Equal(t, s.expectedCfg, actualCfg)
+		})
+	}
+}
+
+func TestLoadDiffIncludeConfig(t *testing.T) {
+	type spec struct {
+		name             string
+		input            string
+		expectedCfg      DiffIncludeConfig
+		expectedIncluder declcfg.DiffIncluder
+		assertion        require.ErrorAssertionFunc
+	}
+
+	specs := []spec{
+		{
+			name: "Success/Basic",
+			input: `
+packages:
+- name: foo
+`,
+			expectedCfg: DiffIncludeConfig{
+				Packages: []DiffIncludePackage{{Name: "foo"}},
+			},
+			expectedIncluder: declcfg.DiffIncluder{
+				Packages: []declcfg.DiffIncludePackage{{Name: "foo"}},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/MultiPackage",
+			input: `
+packages:
+- name: foo
+  channels:
+  - name: stable
+    versions:
+    - 0.1.0
+    - 0.2.0
+  versions:
+  - 1.0.0
+- name: bar
+  channels:
+  - name: stable
+    versions:
+    - 0.1.0
+  versions:
+  - 1.0.0
+`,
+			expectedCfg: DiffIncludeConfig{
+				Packages: []DiffIncludePackage{
+					{
+						Name: "foo",
+						Channels: []DiffIncludeChannel{
+							{Name: "stable", Versions: []semver.Version{
+								semver.MustParse("0.1.0"),
+								semver.MustParse("0.2.0"),
+							}},
+						},
+						Versions: []semver.Version{semver.MustParse("1.0.0")},
+					},
+					{
+						Name: "bar",
+						Channels: []DiffIncludeChannel{
+							{Name: "stable", Versions: []semver.Version{
+								semver.MustParse("0.1.0"),
+							}},
+						},
+						Versions: []semver.Version{semver.MustParse("1.0.0")},
+					},
+				},
+			},
+			expectedIncluder: declcfg.DiffIncluder{
+				Packages: []declcfg.DiffIncludePackage{
+					{
+						Name: "foo",
+						Channels: []declcfg.DiffIncludeChannel{
+							{Name: "stable", Versions: []semver.Version{
+								semver.MustParse("0.1.0"),
+								semver.MustParse("0.2.0"),
+							}},
+						},
+						AllChannels: declcfg.DiffIncludeChannel{
+							Versions: []semver.Version{semver.MustParse("1.0.0")},
+						},
+					},
+					{
+						Name: "bar",
+						Channels: []declcfg.DiffIncludeChannel{
+							{Name: "stable", Versions: []semver.Version{
+								semver.MustParse("0.1.0"),
+							}},
+						},
+						AllChannels: declcfg.DiffIncludeChannel{
+							Versions: []semver.Version{semver.MustParse("1.0.0")},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name:      "Fail/Empty",
+			input:     ``,
+			assertion: require.Error,
+		},
+		{
+			name: "Fail/NoPackageName",
+			input: `
+packages:
+- channels:
+  - name: stable
+    versions:
+    - 0.1.0
+`,
+			assertion: require.Error,
+		},
+		{
+			name: "Fail/NoChannelName",
+			input: `
+packages:
+- name: foo
+  channels:
+  - versions:
+    - 0.1.0
+`,
+			assertion: require.Error,
+		},
+	}
+
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			actualCfg, err := LoadDiffIncludeConfig(bytes.NewBufferString(s.input))
+			s.assertion(t, err)
+			if err == nil {
+				require.Equal(t, s.expectedCfg, actualCfg)
+				require.Equal(t, s.expectedIncluder, convertIncludeConfigToIncluder(actualCfg))
+			}
 		})
 	}
 }
