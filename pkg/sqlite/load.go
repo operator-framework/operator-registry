@@ -644,6 +644,16 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 				break
 			}
 
+			deprecated, err := s.deprecated(tx, channelEntryCSVName)
+			if err != nil {
+				errs = append(errs, err)
+				break
+			}
+			if deprecated {
+				// The package is truncated below this point, we're done!
+				break
+			}
+
 			for _, skip := range skips {
 				// add dummy channel entry for the skipped version
 				skippedChannelEntry, err := addChannelEntry.Exec(c.Name, manifest.PackageName, skip, depth)
@@ -705,15 +715,6 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 			}
 			if _, err = addReplaces.Exec(replacedID, currentID); err != nil {
 				errs = append(errs, err)
-				break
-			}
-			deprecated, err := s.deprecated(tx, channelEntryCSVName)
-			if err != nil {
-				errs = append(errs, err)
-				break
-			}
-			if deprecated {
-				// The package is truncated below this point, we're done!
 				break
 			}
 			if _, _, _, err := s.getBundleSkipsReplacesVersion(tx, replaces); err != nil {
