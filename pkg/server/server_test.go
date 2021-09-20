@@ -60,10 +60,10 @@ func dbStore(dbPath string) *sqlite.SQLQuerier {
 	return store
 }
 
-func cfgStore() *registry.Querier {
+func cfgStore() (*registry.Querier, error) {
 	tmpDir, err := ioutil.TempDir("", "server_test-")
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -72,10 +72,13 @@ func cfgStore() *registry.Querier {
 	dbStore := dbStore(dbFile)
 	m, err := sqlite.ToModel(context.TODO(), dbStore)
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
-	store := registry.NewQuerier(m)
-	return store
+	store, err := registry.NewQuerier(m)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func server(store registry.GRPCQuery) *grpc.Server {
@@ -86,7 +89,13 @@ func server(store registry.GRPCQuery) *grpc.Server {
 
 func TestMain(m *testing.M) {
 	s1 := server(dbStore(dbName))
-	s2 := server(cfgStore())
+
+	cfgQuerier, err := cfgStore()
+	defer cfgQuerier.Close()
+	if err != nil {
+		logrus.Fatalf("failed to create fbc querier: %v", err)
+	}
+	s2 := server(cfgQuerier)
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
 		if err != nil {

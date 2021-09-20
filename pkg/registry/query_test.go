@@ -10,9 +10,9 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
-var testModelQuerier = genTestModelQuerier()
-
 func TestQuerier_GetBundle(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	b, err := testModelQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
 	require.NoError(t, err)
 	require.Equal(t, b.PackageName, "etcd")
@@ -21,6 +21,8 @@ func TestQuerier_GetBundle(t *testing.T) {
 }
 
 func TestQuerier_GetBundleForChannel(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	b, err := testModelQuerier.GetBundleForChannel(context.TODO(), "etcd", "singlenamespace-alpha")
 	require.NoError(t, err)
 	require.NotNil(t, b)
@@ -30,6 +32,8 @@ func TestQuerier_GetBundleForChannel(t *testing.T) {
 }
 
 func TestQuerier_GetBundleThatProvides(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	b, err := testModelQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
 	require.NoError(t, err)
 	require.NotNil(t, b)
@@ -39,6 +43,8 @@ func TestQuerier_GetBundleThatProvides(t *testing.T) {
 }
 
 func TestQuerier_GetBundleThatReplaces(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	b, err := testModelQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
 	require.NoError(t, err)
 	require.NotNil(t, b)
@@ -48,6 +54,8 @@ func TestQuerier_GetBundleThatReplaces(t *testing.T) {
 }
 
 func TestQuerier_GetChannelEntriesThatProvide(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	entries, err := testModelQuerier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
 	require.NoError(t, err)
 	require.NotNil(t, entries)
@@ -92,6 +100,8 @@ func TestQuerier_GetChannelEntriesThatProvide(t *testing.T) {
 }
 
 func TestQuerier_GetChannelEntriesThatReplace(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	entries, err := testModelQuerier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
 	require.NotNil(t, entries)
@@ -112,6 +122,8 @@ func TestQuerier_GetChannelEntriesThatReplace(t *testing.T) {
 }
 
 func TestQuerier_GetLatestChannelEntriesThatProvide(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	entries, err := testModelQuerier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
 	require.NoError(t, err)
 	require.NotNil(t, entries)
@@ -132,6 +144,8 @@ func TestQuerier_GetLatestChannelEntriesThatProvide(t *testing.T) {
 }
 
 func TestQuerier_GetPackage(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	p, err := testModelQuerier.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
 	require.NotNil(t, p)
@@ -161,6 +175,8 @@ func TestQuerier_GetPackage(t *testing.T) {
 }
 
 func TestQuerier_ListBundles(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	bundles, err := testModelQuerier.ListBundles(context.TODO())
 	require.NoError(t, err)
 	require.NotNil(t, bundles)
@@ -172,22 +188,27 @@ func TestQuerier_ListBundles(t *testing.T) {
 }
 
 func TestQuerier_ListPackages(t *testing.T) {
+	testModelQuerier := genTestModelQuerier(t)
+	defer testModelQuerier.Close()
 	packages, err := testModelQuerier.ListPackages(context.TODO())
 	require.NoError(t, err)
 	require.NotNil(t, packages)
 	require.Equal(t, 2, len(packages))
 }
 
-func genTestModelQuerier() *Querier {
+func genTestModelQuerier(t *testing.T) *Querier {
+	t.Helper()
+
 	cfg, err := declcfg.LoadFS(validFS)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+
 	m, err := declcfg.ConvertToModel(*cfg)
-	if err != nil {
-		panic(err)
-	}
-	return NewQuerier(m)
+	require.NoError(t, err)
+
+	reg, err := NewQuerier(m)
+	require.NoError(t, err)
+
+	return reg
 }
 
 var validFS = fstest.MapFS{

@@ -70,6 +70,7 @@ func NewQuerier(packages model.Model) (*Querier, error) {
 					Channel:  ch,
 					Name:     b.Name,
 					Replaces: b.Replaces,
+					Skips:    b.Skips,
 				}
 			}
 		}

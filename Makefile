@@ -57,7 +57,7 @@ static: build
 
 .PHONY: unit
 unit:
-	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 -v ./pkg/... ./alpha/...
+	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
 
 .PHONY: sanity-check
 sanity-check:

@@ -32,7 +32,8 @@ func fakeBundlePathFromName(name string) string {
 	return fmt.Sprintf("%s-path", name)
 }
 
-func newQuerier(bundles []*model.Bundle) *registry.Querier {
+func newQuerier(t *testing.T, bundles []*model.Bundle) *registry.Querier {
+	t.Helper()
 	pkgs := map[string]*model.Package{}
 	channels := map[string]map[string]*model.Channel{}
 
@@ -85,7 +86,9 @@ func newQuerier(bundles []*model.Bundle) *registry.Querier {
 			})
 		}
 	}
-	return registry.NewQuerier(pkgs)
+	reg, err := registry.NewQuerier(pkgs)
+	require.NoError(t, err)
+	return reg
 }
 
 func TestCheckForBundlePaths(t *testing.T) {
@@ -103,7 +106,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 	}{
 		{
 			description: "BundleListPresent",
-			querier: newQuerier([]*model.Bundle{
+			querier: newQuerier(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
@@ -126,7 +129,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "BundleListPartiallyMissing",
-			querier: newQuerier([]*model.Bundle{
+			querier: newQuerier(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
@@ -150,7 +153,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "EmptyRegistry",
-			querier:     newQuerier(nil),
+			querier:     newQuerier(t, nil),
 			checkPaths: []string{
 				fakeBundlePathFromName("missing"),
 			},
@@ -161,7 +164,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "EmptyDeprecateList",
-			querier: newQuerier([]*model.Bundle{
+			querier: newQuerier(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
@@ -189,6 +192,9 @@ func TestCheckForBundlePaths(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			found, missing, err := checkForBundlePaths(tt.querier, tt.checkPaths)
+			if qc, ok := tt.querier.(*registry.Querier); ok {
+				defer qc.Close()
+			}
 			if tt.expected.err != nil {
 				require.EqualError(t, err, tt.expected.err.Error())
 				return
