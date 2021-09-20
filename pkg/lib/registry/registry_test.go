@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/operator-framework/operator-registry/pkg/registry/registryfakes"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -339,106 +341,9 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 }
 
 type bundleDir struct {
+	version     string
 	csvSpec     json.RawMessage
 	annotations registry.Annotations
-}
-
-func TestPackagesFromUnpackedRefs(t *testing.T) {
-	tests := []struct {
-		description string
-		bundles     map[string]bundleDir
-		expected    map[string]registry.Package
-		wantErr     bool
-	}{
-		{
-			description: "InvalidBundle/Empty",
-			bundles: map[string]bundleDir{
-				"bundle-empty": {},
-			},
-			wantErr: true,
-		},
-		{
-			description: "LoadPartialGraph",
-			bundles: map[string]bundleDir{
-				"testoperator-1": {
-					csvSpec: json.RawMessage(`{"version":"1.1.0","replaces":"1.0.0"}`),
-					annotations: registry.Annotations{
-						PackageName:        "testpkg-1",
-						Channels:           "alpha",
-						DefaultChannelName: "stable",
-					},
-				},
-				"testoperator-2": {
-					csvSpec: json.RawMessage(`{"version":"2.1.0"}`),
-					annotations: registry.Annotations{
-						PackageName:        "testpkg-2",
-						Channels:           "stable,alpha",
-						DefaultChannelName: "stable",
-					},
-				},
-			},
-			expected: map[string]registry.Package{
-				"testpkg-1": {
-					Name: "testpkg-1",
-					Channels: map[string]registry.Channel{
-						"alpha": {
-							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-								registry.BundleKey{
-									BundlePath: fakeBundlePathFromName("testoperator-1"),
-									Version:    "1.1.0",
-									CsvName:    "testoperator-1",
-								}: nil,
-							},
-						},
-					},
-				},
-				"testpkg-2": {
-					Name: "testpkg-2",
-					Channels: map[string]registry.Channel{
-						"alpha": {
-							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-								registry.BundleKey{
-									BundlePath: fakeBundlePathFromName("testoperator-2"),
-									Version:    "2.1.0",
-									CsvName:    "testoperator-2",
-								}: nil,
-							},
-						},
-						"stable": {
-							Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-								registry.BundleKey{
-									BundlePath: fakeBundlePathFromName("testoperator-2"),
-									Version:    "2.1.0",
-									CsvName:    "testoperator-2",
-								}: nil,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.description, func(t *testing.T) {
-			tmpdir, err := os.MkdirTemp(".", "tmpdir-*")
-			defer os.RemoveAll(tmpdir)
-			require.NoError(t, err)
-			refs := map[image.Reference]string{}
-			for name, b := range tt.bundles {
-				dir, _, err := newUnpackedTestBundle(tmpdir, name, b.csvSpec, b.annotations)
-				require.NoError(t, err)
-				refs[image.SimpleReference(fakeBundlePathFromName(name))] = dir
-			}
-			pkg, err := packagesFromUnpackedRefs(refs)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			require.EqualValues(t, tt.expected, pkg)
-		})
-	}
 }
 
 func TestCheckForBundles(t *testing.T) {
@@ -471,6 +376,7 @@ func TestCheckForBundles(t *testing.T) {
 								Channels:           "stable,alpha",
 								DefaultChannelName: "stable",
 							},
+							version: "1.1.0",
 						},
 						"unorderedReplaces-1.0.0": {
 							csvSpec: json.RawMessage(`{"version":"1.0.0","replaces":"unorderedReplaces-1.1.0"}`),
@@ -479,6 +385,7 @@ func TestCheckForBundles(t *testing.T) {
 								Channels:           "stable,alpha",
 								DefaultChannelName: "stable",
 							},
+							version: "1.0.0",
 						},
 						"unorderedReplaces-1.2.0": {
 							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":"unorderedReplaces-1.0.0"}`),
@@ -487,6 +394,7 @@ func TestCheckForBundles(t *testing.T) {
 								Channels:           "alpha",
 								DefaultChannelName: "stable",
 							},
+							version: "1.2.0",
 						},
 					},
 					action: actionAdd,
@@ -505,6 +413,7 @@ func TestCheckForBundles(t *testing.T) {
 								PackageName: "testpkg",
 								Channels:    "stable",
 							},
+							version: "1.0.0",
 						},
 						"ignoreDeprecated-1.1.0": {
 							csvSpec: json.RawMessage(`{"version":"1.1.0","replaces":"ignoreDeprecated-1.0.0"}`),
@@ -512,6 +421,7 @@ func TestCheckForBundles(t *testing.T) {
 								PackageName: "testpkg",
 								Channels:    "stable",
 							},
+							version: "1.1.0",
 						},
 						"ignoreDeprecated-1.2.0": {
 							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":"ignoreDeprecated-1.1.0"}`),
@@ -519,6 +429,7 @@ func TestCheckForBundles(t *testing.T) {
 								PackageName: "testpkg",
 								Channels:    "stable",
 							},
+							version: "1.2.0",
 						},
 					},
 					action: actionAdd,
@@ -537,6 +448,7 @@ func TestCheckForBundles(t *testing.T) {
 								PackageName: "testpkg",
 								Channels:    "stable",
 							},
+							version: "1.0.0",
 						},
 						"ignoreDeprecated-1.1.0": {
 							csvSpec: json.RawMessage(`{"version":"1.1.0","replaces":"ignoreDeprecated-1.0.0"}`),
@@ -544,6 +456,7 @@ func TestCheckForBundles(t *testing.T) {
 								PackageName: "testpkg",
 								Channels:    "stable",
 							},
+							version: "1.1.0",
 						},
 					},
 					action: actionOverwrite,
@@ -571,53 +484,63 @@ func TestCheckForBundles(t *testing.T) {
 					for deprecate := range step.bundles {
 						require.NoError(t, load.DeprecateBundle(deprecate))
 					}
-				case actionAdd:
+				case actionAdd, actionOverwrite:
+					overwriteRefs := map[string][]string{}
+					expectedBundles := map[string]*registry.Package{}
 					refs := map[image.Reference]string{}
 					for name, b := range step.bundles {
 						dir, _, err := newUnpackedTestBundle(tmpdir, name, b.csvSpec, b.annotations)
 						require.NoError(t, err)
+						// List of package-channel-bundle tuples expected to be in the graph.
+						// Does not check for replaces/skips between the nodes.
+						var pkg *registry.Package
+						var ok bool
+						if pkg, ok = expectedBundles[b.annotations.PackageName]; !ok {
+							if pkg, err = graphLoader.Generate(b.annotations.PackageName); err != nil {
+								require.EqualError(t, err, registry.ErrPackageNotInDatabase.Error())
+								pkg = &registry.Package{
+									Name:     b.annotations.PackageName,
+									Channels: map[string]registry.Channel{},
+								}
+							}
+						}
+						bundleKey := registry.BundleKey{
+							BundlePath: name,
+							Version:    b.version,
+							CsvName:    name,
+						}
+						for _, c := range strings.Split(b.annotations.Channels, ",") {
+							if _, ok := pkg.Channels[c]; !ok {
+								pkg.Channels[c] = registry.Channel{
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{},
+								}
+							}
+							pkg.Channels[c].Nodes[bundleKey] = nil
+						}
+						expectedBundles[b.annotations.PackageName] = pkg
+
+						// refs to be added
 						refs[image.SimpleReference(name)] = dir
+
+						// bundles to remove for overwrite. Only one per package is permitted.
+						if step.action == actionOverwrite {
+							img, err := registry.NewImageInput(image.SimpleReference(name), dir)
+							require.NoError(t, err)
+							if _, ok := overwriteRefs[img.Bundle.Package]; ok {
+								overwriteRefs[img.Bundle.Package] = make([]string, 0)
+							}
+							overwriteRefs[img.Bundle.Package] = append(overwriteRefs[img.Bundle.Package], name)
+						}
 					}
 					require.NoError(t, registry.NewDirectoryPopulator(
 						load,
 						graphLoader,
 						query,
 						refs,
-						nil,
-						false).Populate(registry.ReplacesMode))
-
-					err = checkForBundles(context.TODO(), query, graphLoader, refs)
-					if tt.wantErr == nil {
-						require.NoError(t, err)
-						return
-					}
-					require.EqualError(t, err, tt.wantErr.Error())
-
-				case actionOverwrite:
-					overwriteRefs := map[string]map[image.Reference]string{}
-					refs := map[image.Reference]string{}
-					for name, b := range step.bundles {
-						dir, _, err := newUnpackedTestBundle(tmpdir, name, b.csvSpec, b.annotations)
-						require.NoError(t, err)
-						to := image.SimpleReference(name)
-						refs[image.SimpleReference(name)] = dir
-						refs[to] = dir
-						img, err := registry.NewImageInput(to, dir)
-						require.NoError(t, err)
-						if _, ok := overwriteRefs[img.Bundle.Package]; ok {
-							overwriteRefs[img.Bundle.Package] = map[image.Reference]string{}
-						}
-						overwriteRefs[img.Bundle.Package][to] = dir
-					}
-					require.NoError(t, registry.NewDirectoryPopulator(
-						load,
-						graphLoader,
-						query,
-						nil,
 						overwriteRefs,
 						true).Populate(registry.ReplacesMode))
 
-					err = checkForBundles(context.TODO(), query, graphLoader, refs)
+					err = checkForBundles(context.TODO(), query, graphLoader, expectedBundles)
 					if tt.wantErr == nil {
 						require.NoError(t, err)
 						return
@@ -673,5 +596,89 @@ func TestDeprecated(t *testing.T) {
 		isDeprecated, err := isDeprecated(context.TODO(), querier, registry.BundleKey{BundlePath: b})
 		require.NoError(t, err)
 		require.Equal(t, deprecated[b], isDeprecated)
+	}
+}
+
+func TestExpectedGraphBundles(t *testing.T) {
+	testBundle, err := registry.NewBundleFromStrings("testBundle", "0.0.1", "testPkg", "default", "default", "")
+	require.NoError(t, err)
+	testBundle.BundleImage = "testImage"
+	testBundlePkg := &registry.Package{
+		Name: "testPkg",
+		Channels: map[string]registry.Channel{
+			"default": {
+				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+					registry.BundleKey{
+						BundlePath: "testImage",
+						Version:    "0.0.1",
+						CsvName:    "testBundle",
+					}: nil,
+				},
+			},
+		},
+	}
+	testBundleDifferentChannelPkg := &registry.Package{
+		Name: "testPkg",
+		Channels: map[string]registry.Channel{
+			"alpha": {
+				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+					registry.BundleKey{
+						BundlePath: "testImage",
+						Version:    "0.0.1",
+						CsvName:    "testBundle",
+					}: nil,
+				},
+			},
+		},
+	}
+	tests := []struct {
+		description      string
+		graphLoader      registry.GraphLoader
+		bundles          []*registry.Bundle
+		overwrite        bool
+		wantErr          error
+		wantGraphBundles map[string]*registry.Package
+	}{
+		{
+			description: "GraphLoaderError",
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return nil, fmt.Errorf("graphLoader error") }},
+			bundles:     []*registry.Bundle{testBundle},
+			wantErr:     fmt.Errorf("graphLoader error"),
+		},
+		{
+			description: "newBundle",
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return nil, registry.ErrPackageNotInDatabase }},
+			bundles:     []*registry.Bundle{testBundle},
+			wantGraphBundles: map[string]*registry.Package{
+				"testPkg": testBundlePkg,
+			},
+		},
+		{
+			description: "OverwriteWithoutFlag",
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return testBundleDifferentChannelPkg, nil }},
+			bundles:     []*registry.Bundle{testBundle},
+			wantErr:     registry.BundleImageAlreadyAddedErr{ErrorString: fmt.Sprintf("Bundle %s already exists", testBundle.BundleImage)},
+		},
+		{
+			description: "OverwriteWithFlag",
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return testBundleDifferentChannelPkg, nil }},
+			bundles:     []*registry.Bundle{testBundle},
+			overwrite:   true,
+			wantGraphBundles: map[string]*registry.Package{
+				"testPkg": testBundlePkg,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			graphBundles, err := expectedGraphBundles(tt.bundles, tt.graphLoader, tt.overwrite)
+			if tt.wantErr != nil {
+				require.EqualError(t, err, tt.wantErr.Error())
+				return
+			}
+			require.NoError(t, err)
+
+			require.EqualValues(t, graphBundles, tt.wantGraphBundles)
+		})
 	}
 }

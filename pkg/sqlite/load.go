@@ -1592,3 +1592,95 @@ func (d *DeprecationAwareLoader) RemovePackage(pkg string) error {
 
 	return d.sqlLoader.RemovePackage(pkg)
 }
+
+// RemoveOverwrittenChannelHead removes a bundle if it is the channel head and has nothing replacing it
+func (s sqlLoader) RemoveOverwrittenChannelHead(pkg, bundle string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tx.Rollback()
+	}()
+	// check if bundle has anything that replaces it
+	getBundlesThatReplaceHeadQuery := `SELECT DISTINCT operatorbundle.name AS replaces, channel_entry.channel_name
+		FROM channel_entry
+		LEFT OUTER JOIN channel_entry replaces 
+			ON replaces.replaces = channel_entry.entry_id
+		INNER JOIN operatorbundle 
+			ON replaces.operatorbundle_name = operatorbundle.name
+		WHERE channel_entry.package_name = ?
+		AND channel_entry.operatorbundle_name = ?
+		LIMIT 1`
+
+	rows, err := s.db.QueryContext(context.TODO(), getBundlesThatReplaceHeadQuery, pkg, bundle)
+	if err != nil {
+		return err
+	}
+	if rows != nil {
+		for rows.Next() {
+			var replaces, channel sql.NullString
+			if err := rows.Scan(&replaces, &channel); err != nil {
+				return err
+			}
+			// This is not a head bundle for all channels it is a member of. Cannot remove
+			return fmt.Errorf("cannot overwrite bundle %s from package %s: replaced by %s on channel %s", bundle, pkg, replaces.String, channel.String)
+		}
+	}
+
+	getReplacingBundlesQuery := `
+	SELECT replaces.name as replaces, channel_entry.channel_name, min(depth) 
+		from channel_entry 
+		LEFT JOIN (
+			SELECT entry_id, name FROM channel_entry 
+				INNER JOIN operatorbundle 
+				ON channel_entry.operatorbundle_name = operatorbundle.name
+		) AS replaces 
+		ON channel_entry.replaces = replaces.entry_id 
+		WHERE channel_entry.package_name = ?
+			AND channel_entry.operatorbundle_name = ?
+		GROUP BY channel_name
+	`
+
+	rows, err = s.db.QueryContext(context.TODO(), getReplacingBundlesQuery, pkg, bundle)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	channelHeadUpdateQuery := `UPDATE channel SET head_operatorbundle_name = ? WHERE package_name = ? AND name = ? AND head_operatorbundle_name = ?`
+	for rows.Next() {
+		var replaces, channel sql.NullString
+		var depth sql.NullInt64
+		if err := rows.Scan(&replaces, &channel, &depth); err != nil {
+			return err
+		}
+
+		if !channel.Valid {
+			return fmt.Errorf("channel name column corrupt for bundle %s", bundle)
+		}
+		if replaces.Valid && len(replaces.String) != 0 {
+			// replace any valid entries as channel heads to avoid rmBundle from truncating the entire channel
+			if _, err = tx.Exec(channelHeadUpdateQuery, replaces, pkg, channel, bundle); err != nil {
+				return err
+			}
+		} else {
+			if _, err := tx.Exec(`DELETE FROM channel WHERE name = ? AND package_name = ?`, channel, pkg); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := s.rmBundle(tx, bundle); err != nil {
+		return err
+	}
+	// remove from deprecated
+	if _, err = tx.Exec(`DELETE FROM deprecated WHERE deprecated.operatorbundle_name = ?`, bundle); err != nil {
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
