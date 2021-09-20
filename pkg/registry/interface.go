@@ -15,6 +15,7 @@ type Load interface {
 	RemoveStrandedBundles() error
 	DeprecateBundle(path string) error
 	ClearNonHeadBundles() error
+	RemoveOverwrittenChannelHead(pkg, bundle string) error
 }
 
 type BundleSender interface {

@@ -128,6 +128,8 @@ func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (
 
 func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode, overwrite bool) error {
 	unpackedImageMap := make(map[image.Reference]string, 0)
+	overwrittenBundles := map[string][]string{}
+	var imagesToAdd []*registry.Bundle
 	for _, ref := range refs {
 		to, from, cleanup, err := unpackImage(ctx, reg, ref)
 		if err != nil {
@@ -135,16 +137,14 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 		}
 		unpackedImageMap[to] = from
 		defer cleanup()
-	}
 
-	overwriteImageMap := make(map[string]map[image.Reference]string, 0)
-	if overwrite {
-		// find all bundles that are attempting to overwrite
-		for to, from := range unpackedImageMap {
-			img, err := registry.NewImageInput(to, from)
-			if err != nil {
-				return err
-			}
+		img, err := registry.NewImageInput(to, from)
+		if err != nil {
+			return err
+		}
+		imagesToAdd = append(imagesToAdd, img.Bundle)
+
+		if overwrite {
 			overwritten, err := querier.GetBundlePathIfExists(ctx, img.Bundle.Name)
 			if err != nil {
 				if err == registry.ErrBundleImageNotInDatabase {
@@ -155,57 +155,28 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 			if overwritten == "" {
 				return fmt.Errorf("index add --overwrite-latest is only supported when using bundle images")
 			}
-			// get all bundle paths for that package - we will re-add these to regenerate the graph
-			bundles, err := querier.GetBundlesForPackage(ctx, img.Bundle.Package)
-			if err != nil {
-				return err
+			if len(overwrittenBundles[img.Bundle.Package]) == 0 {
+				overwrittenBundles[img.Bundle.Package] = []string{}
 			}
-			type unpackedImage struct {
-				to      image.Reference
-				from    string
-				cleanup func()
-				err     error
-			}
-			unpacked := make(chan unpackedImage)
-			for bundle := range bundles {
-				// parallelize image pulls
-				go func(bundle registry.BundleKey, img *registry.ImageInput) {
-					if bundle.CsvName != img.Bundle.Name {
-						to, from, cleanup, err := unpackImage(ctx, reg, image.SimpleReference(bundle.BundlePath))
-						unpacked <- unpackedImage{to: to, from: from, cleanup: cleanup, err: err}
-					} else {
-						unpacked <- unpackedImage{to: to, from: from, cleanup: func() { return }, err: nil}
-					}
-				}(bundle, img)
-			}
-			if _, ok := overwriteImageMap[img.Bundle.Package]; !ok {
-				overwriteImageMap[img.Bundle.Package] = make(map[image.Reference]string, 0)
-			}
-			for i := 0; i < len(bundles); i++ {
-				unpack := <-unpacked
-				if unpack.err != nil {
-					return unpack.err
-				}
-				overwriteImageMap[img.Bundle.Package][unpack.to] = unpack.from
-				if _, ok := unpackedImageMap[unpack.to]; ok {
-					delete(unpackedImageMap, unpack.to)
-				}
-				defer unpack.cleanup()
-			}
+			overwrittenBundles[img.Bundle.Package] = append(overwrittenBundles[img.Bundle.Package], img.Bundle.Name)
 		}
 	}
 
-	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwriteImageMap, overwrite)
-	if err := populator.Populate(mode); err != nil {
+	expectedBundles, err := expectedGraphBundles(imagesToAdd, graphLoader, overwrite)
+	if err != nil {
+
 		return err
-	}
 
-	for _, imgMap := range overwriteImageMap {
-		for to, from := range imgMap {
-			unpackedImageMap[to] = from
-		}
 	}
-	return checkForBundles(ctx, querier.(*sqlite.SQLQuerier), graphLoader, unpackedImageMap)
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwrittenBundles, overwrite)
+
+	if err := populator.Populate(mode); err != nil {
+
+		return err
+
+	}
+	return checkForBundles(ctx, querier.(*sqlite.SQLQuerier), graphLoader, expectedBundles)
+
 }
 
 type DeleteFromRegistryRequest struct {
@@ -430,55 +401,10 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 	return found, missing, nil
 }
 
-// packagesFromUnpackedRefs creates packages from a set of unpacked ref dirs without their upgrade edges.
-func packagesFromUnpackedRefs(bundles map[image.Reference]string) (map[string]registry.Package, error) {
-	graph := map[string]registry.Package{}
-	for to, from := range bundles {
-		b, err := registry.NewImageInput(to, from)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse unpacked bundle image %s: %v", to, err)
-		}
-		v, err := b.Bundle.Version()
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse version for %s (%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err)
-		}
-		key := registry.BundleKey{
-			CsvName:    b.Bundle.Name,
-			Version:    v,
-			BundlePath: b.Bundle.BundleImage,
-		}
-		if _, ok := graph[b.Bundle.Package]; !ok {
-			graph[b.Bundle.Package] = registry.Package{
-				Name:     b.Bundle.Package,
-				Channels: map[string]registry.Channel{},
-			}
-		}
-		for _, c := range b.Bundle.Channels {
-			if _, ok := graph[b.Bundle.Package].Channels[c]; !ok {
-				graph[b.Bundle.Package].Channels[c] = registry.Channel{
-					Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{},
-				}
-			}
-			graph[b.Bundle.Package].Channels[c].Nodes[key] = nil
-		}
-	}
-
-	return graph, nil
-}
-
 // replaces mode selects highest version as channel head and
 // prunes any bundles in the upgrade chain after the channel head.
 // check for the presence of all bundles after a replaces-mode add.
-func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.GraphLoader, bundles map[image.Reference]string) error {
-	if len(bundles) == 0 {
-		return nil
-	}
-
-	required, err := packagesFromUnpackedRefs(bundles)
-	if err != nil {
-		return err
-	}
-
+func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.GraphLoader, required map[string]*registry.Package) error {
 	var errs []error
 	for _, pkg := range required {
 		graph, err := g.Generate(pkg.Name)
@@ -522,4 +448,60 @@ func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.Bun
 		}
 	}
 	return false, nil
+}
+
+func expectedGraphBundles(imagesToAdd []*registry.Bundle, graphLoader registry.GraphLoader, overwrite bool) (map[string]*registry.Package, error) {
+	expectedBundles := map[string]*registry.Package{}
+	for _, bundle := range imagesToAdd {
+		version, err := bundle.Version()
+		if err != nil {
+			return nil, err
+		}
+		newBundleKey := registry.BundleKey{
+			BundlePath: bundle.BundleImage,
+			Version:    version,
+			CsvName:    bundle.Name,
+		}
+		var pkg *registry.Package
+		var ok bool
+		if pkg, ok = expectedBundles[bundle.Package]; !ok {
+			var err error
+			if pkg, err = graphLoader.Generate(bundle.Package); err != nil {
+				if err != registry.ErrPackageNotInDatabase {
+					return nil, err
+				}
+				pkg = &registry.Package{
+					Name:     bundle.Package,
+					Channels: map[string]registry.Channel{},
+				}
+			}
+		}
+		for c, channelEntries := range pkg.Channels {
+			for oldBundle := range channelEntries.Nodes {
+				if oldBundle.CsvName == bundle.Name {
+					if overwrite {
+						delete(pkg.Channels[c].Nodes, oldBundle)
+						if len(pkg.Channels[c].Nodes) == 0 {
+							delete(pkg.Channels, c)
+						}
+					} else {
+						return nil, registry.BundleImageAlreadyAddedErr{ErrorString: fmt.Sprintf("Bundle %s already exists", bundle.BundleImage)}
+					}
+				}
+			}
+		}
+		for _, c := range bundle.Channels {
+			if _, ok := pkg.Channels[c]; !ok {
+				pkg.Channels[c] = registry.Channel{
+					Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{},
+				}
+			}
+			// This can miss out on some channels, when a new bundle has channels that the one it replaces does not.
+			// eg: When bundle A in channel A replaces bundle B in channel B is added, bundle B is also added to channel A
+			// but it is only expected to be in channel B, presence in channel A will be ignored
+			pkg.Channels[c].Nodes[newBundleKey] = nil
+		}
+		expectedBundles[bundle.Package] = pkg
+	}
+	return expectedBundles, nil
 }

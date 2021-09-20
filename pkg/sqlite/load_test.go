@@ -148,8 +148,6 @@ func TestAddPackageChannels(t *testing.T) {
 			querier := NewSQLLiteQuerierFromDb(db)
 			pkgs, err := querier.ListPackages(context.Background())
 			require.NoError(t, err)
-			t.Logf("%#v", tt.expected.pkgs)
-			t.Logf("%#v", pkgs)
 			require.ElementsMatch(t, tt.expected.pkgs, pkgs)
 		})
 	}
@@ -231,7 +229,6 @@ func newUnstructuredCSVWithSkips(t *testing.T, name, replaces string, skips ...s
 	allSkips, err := json.Marshal(skips)
 	require.NoError(t, err)
 	replacesSkips := fmt.Sprintf(`{"replaces": "%s", "skips": %s}`, replaces, string(allSkips))
-	t.Logf("%v", replacesSkips)
 	csv.Spec = json.RawMessage(replacesSkips)
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
@@ -456,7 +453,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				pkg: "pkg0",
 			},
 			expected: expected{
-				err: nil,
+				err:        nil,
 				deprecated: map[string]struct{}{},
 			},
 		},
@@ -696,8 +693,6 @@ func TestGetTailFromBundle(t *testing.T) {
 			tail, err := getTailFromBundle(tx, tt.args.bundle)
 
 			require.Equal(t, tt.expected.err, err)
-			t.Logf("tt.expected.tail %#v", tt.expected.tail)
-			t.Logf("tail %#v", tail)
 			require.ElementsMatch(t, tt.expected.tail, tail)
 		})
 	}
@@ -822,6 +817,214 @@ func TestAddBundlePropertiesFromAnnotations(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestRemoveOverwrittenChannelHead(t *testing.T) {
+	type fields struct {
+		bundles []*registry.Bundle
+		pkgs    []registry.PackageManifest
+	}
+	type args struct {
+		bundle string
+		pkg    string
+	}
+	type expected struct {
+		err     error
+		bundles map[string]struct{}
+	}
+	tests := []struct {
+		description string
+		fields      fields
+		args        args
+		expected    expected
+	}{
+		{
+			description: "ChannelHead/SingleBundlePackage",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"a", "b"}, newUnstructuredCSV(t, "csv-a", "")),
+					newBundle(t, "csv-b", "pkg-1", []string{"a", "b"}, newUnstructuredCSV(t, "csv-b", "")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-a",
+							},
+						},
+						DefaultChannelName: "a",
+					},
+					{
+						PackageName: "pkg-1",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-b",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-b",
+							},
+						},
+						DefaultChannelName: "a",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-a",
+				pkg:    "pkg-0",
+			},
+			expected: expected{
+				bundles: map[string]struct{}{
+					"pkg-1/a/csv-b": {},
+					"pkg-1/b/csv-b": {},
+				},
+			},
+		},
+		{
+			description: "ChannelHead/WithReplacement",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"a", "b"}, newUnstructuredCSV(t, "csv-a", "")),
+					newBundle(t, "csv-aa", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-aa", "csv-a")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-aa",
+							},
+						},
+						DefaultChannelName: "b",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-a",
+				pkg:    "pkg-0",
+			},
+			expected: expected{
+				err: fmt.Errorf("cannot overwrite bundle csv-a from package pkg-0: replaced by csv-aa on channel b"),
+				bundles: map[string]struct{}{
+					"pkg-0/a/csv-a":  {},
+					"pkg-0/b/csv-a":  {},
+					"pkg-0/b/csv-aa": {},
+				},
+			},
+		},
+		{
+			description: "ChannelHead",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"a", "b"}, newUnstructuredCSVWithSkips(t, "csv-a", "csv-b", "csv-c")),
+					newBundle(t, "csv-b", "pkg-0", []string{"b", "d"}, newUnstructuredCSV(t, "csv-b", "")),
+					newBundle(t, "csv-d", "pkg-0", []string{"d"}, newUnstructuredCSV(t, "csv-d", "csv-b")),
+					newBundle(t, "csv-c", "pkg-0", []string{"c"}, newUnstructuredCSV(t, "csv-c", "")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "c",
+								CurrentCSVName: "csv-c",
+							},
+							{
+								Name:           "d",
+								CurrentCSVName: "csv-d",
+							},
+						},
+						DefaultChannelName: "a",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-a",
+				pkg:    "pkg-0",
+			},
+			expected: expected{
+				err: nil,
+				bundles: map[string]struct{}{
+					"pkg-0/a/csv-b": {},
+					"pkg-0/b/csv-b": {},
+					"pkg-0/a/csv-c": {},
+					"pkg-0/b/csv-c": {},
+					"pkg-0/c/csv-c": {},
+					"pkg-0/d/csv-d": {},
+					"pkg-0/d/csv-b": {},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			store, err := NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			err = store.Migrate(context.TODO())
+			require.NoError(t, err)
+
+			for _, bundle := range tt.fields.bundles {
+				// Throw away any errors loading bundles (not testing this)
+				store.AddOperatorBundle(bundle)
+			}
+
+			for _, pkg := range tt.fields.pkgs {
+				// Throw away any errors loading packages (not testing this)
+				store.AddPackageChannels(pkg)
+			}
+			err = store.RemoveOverwrittenChannelHead(tt.args.pkg, tt.args.bundle)
+			if tt.expected.err != nil {
+				require.EqualError(t, err, tt.expected.err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			querier := NewSQLLiteQuerierFromDb(db)
+
+			bundles, err := querier.ListBundles(context.TODO())
+			require.NoError(t, err)
+
+			var extra []string
+			for _, b := range bundles {
+				key := fmt.Sprintf("%s/%s/%s", b.PackageName, b.ChannelName, b.CsvName)
+				if _, ok := tt.expected.bundles[key]; ok {
+					delete(tt.expected.bundles, key)
+				} else {
+					extra = append(extra, key)
+				}
+			}
+
+			if len(tt.expected.bundles) > 0 {
+				t.Errorf("not all expected bundles were found: missing %v", tt.expected.bundles)
+			}
+			if len(extra) > 0 {
+				t.Errorf("unexpected bundles found: %v", extra)
+			}
+
 		})
 	}
 }

@@ -71,7 +71,7 @@ func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
 			graphLoader,
 			query,
 			refMap,
-			make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+			map[string][]string{}, false).Populate(registry.ReplacesMode)
 	}
 	names := []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.22.2", "prometheus.0.14.0", "prometheus.0.15.0"}
 	if err := populate(names); err != nil {
@@ -497,7 +497,7 @@ func TestImageLoading(t *testing.T) {
 					graphLoader,
 					query,
 					map[image.Reference]string{i.ref: i.dir},
-					make(map[string]map[image.Reference]string, 0), false)
+					map[string][]string{}, false)
 				require.NoError(t, p.Populate(registry.ReplacesMode))
 			}
 			add := registry.NewDirectoryPopulator(
@@ -505,7 +505,7 @@ func TestImageLoading(t *testing.T) {
 				graphLoader,
 				query,
 				map[image.Reference]string{tt.addImage.ref: tt.addImage.dir},
-				make(map[string]map[image.Reference]string, 0), false)
+				map[string][]string{}, false)
 			err = add.Populate(registry.ReplacesMode)
 			if tt.wantErr {
 				require.True(t, checkAggErr(err, tt.err))
@@ -714,7 +714,7 @@ func TestDirectoryPopulator(t *testing.T) {
 			graphLoader,
 			query,
 			bundles,
-			make(map[string]map[image.Reference]string),
+			map[string][]string{},
 			false).Populate(registry.ReplacesMode)
 	}
 	add := map[image.Reference]string{
@@ -1227,21 +1227,13 @@ func TestAddAfterDeprecate(t *testing.T) {
 					addRefs[image.SimpleReference("quay.io/test/"+a)] = "../../bundles/" + a
 				}
 
-				overwriteRefs := map[string]map[image.Reference]string{}
-				for pkg, pkgOverwrite := range overwrite {
-					overwriteRefs[pkg] = map[image.Reference]string{}
-					for _, o := range pkgOverwrite {
-						overwriteRefs[pkg][image.SimpleReference("quay.io/test/"+o)] = "../../bundles/" + o
-					}
-				}
-
 				return registry.NewDirectoryPopulator(
 					load,
 					graphLoader,
 					query,
 					addRefs,
-					overwriteRefs,
-					len(overwriteRefs) > 0,
+					overwrite,
+					len(overwrite) > 0,
 				).Populate(registry.ReplacesMode)
 
 			}
@@ -1302,7 +1294,7 @@ func TestOverwrite(t *testing.T) {
 	type args struct {
 		firstAdd   map[image.Reference]string
 		secondAdd  map[image.Reference]string
-		overwrites map[string]map[image.Reference]string
+		overwrites map[string][]string
 	}
 	type pkgChannel map[string][]string
 	type expected struct {
@@ -1360,7 +1352,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/new-etcd.0.9.0"):    "testdata/overwrite/etcd.0.9.0",
 					image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
 				},
-				overwrites: map[string]map[image.Reference]string{"etcd": {}},
+				overwrites: map[string][]string{"etcd": {"etcdoperator.v0.9.0"}},
 			},
 			expected: expected{
 				errs: nil,
@@ -1399,7 +1391,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/new-etcd.0.9.2"):    "testdata/overwrite/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/prometheus.0.22.2"): "../../bundles/prometheus.0.22.2",
 				},
-				overwrites: map[string]map[image.Reference]string{"etcd": getBundleRefs([]string{"etcd.0.9.0"})},
+				overwrites: map[string][]string{"etcd": []string{"etcdoperator.v0.9.2"}},
 			},
 			expected: expected{
 				errs: nil,
@@ -1440,7 +1432,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/etcd.0.9.2"):            "../../bundles/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/new-prometheus.0.22.2"): "testdata/overwrite/prometheus.0.22.2",
 				},
-				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0", "prometheus.0.15.0"})},
+				overwrites: map[string][]string{"prometheus": []string{"prometheusoperator.0.22.2"}},
 			},
 			expected: expected{
 				errs: nil,
@@ -1485,7 +1477,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/etcd.0.9.2"):            "../../bundles/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/new-prometheus.0.15.0"): "testdata/overwrite/prometheus.0.15.0",
 				},
-				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
+				overwrites: map[string][]string{"prometheus": []string{"prometheusoperator.0.15.0"}},
 			},
 			expected: expected{
 				errs: nil,
@@ -1526,7 +1518,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/etcd.0.9.2"):            "../../bundles/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/new-prometheus.0.15.0"): "testdata/overwrite/prometheus.0.15.0",
 				},
-				overwrites: map[string]map[image.Reference]string{"prometheus": getBundleRefs([]string{"prometheus.0.14.0"})},
+				overwrites: map[string][]string{"prometheus": []string{"prometheus.0.14.0"}},
 			},
 			expected: expected{
 				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite a bundle that is not at the head of a channel using --overwrite-latest"}},
@@ -1556,9 +1548,9 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/new-etcd.0.9.2"):        "testdata/overwrite/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/new-prometheus.0.22.2"): "testdata/overwrite/prometheus.0.22.2",
 				},
-				overwrites: map[string]map[image.Reference]string{
-					"prometheus": getBundleRefs([]string{"prometheus.0.14.0", "prometheus.0.15.0"}),
-					"etcd":       getBundleRefs([]string{"etcd.0.9.0"}),
+				overwrites: map[string][]string{
+					"prometheus": []string{"prometheusoperator.0.22.2"},
+					"etcd":       []string{"etcdoperator.v0.9.2"},
 				},
 			},
 			expected: expected{
@@ -1602,9 +1594,7 @@ func TestOverwrite(t *testing.T) {
 					image.SimpleReference("quay.io/test/new-etcd.0.9.2"):     "testdata/overwrite/etcd.0.9.2",
 					image.SimpleReference("quay.io/test/new-new-etcd.0.9.2"): "testdata/overwrite/etcd.0.9.2",
 				},
-				overwrites: map[string]map[image.Reference]string{
-					"etcd": getBundleRefs([]string{"etcd.0.9.0"}),
-				},
+				overwrites: map[string][]string{"etcd": []string{"etcd.0.9.0"}},
 			},
 			expected: expected{
 				errs: []error{registry.OverwriteErr{ErrorString: "Cannot overwrite more than one bundle at a time for a given package using --overwrite-latest"}},
@@ -1654,7 +1644,7 @@ func TestOverwrite(t *testing.T) {
 
 			query := sqlite.NewSQLLiteQuerierFromDb(db)
 
-			populate := func(bundles map[image.Reference]string, overwrites map[string]map[image.Reference]string) error {
+			populate := func(bundles map[image.Reference]string, overwrites map[string][]string) error {
 				return registry.NewDirectoryPopulator(
 					store,
 					graphLoader,
@@ -2491,7 +2481,7 @@ func TestSubstitutesFor(t *testing.T) {
 					graphLoader,
 					query,
 					refMap,
-					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+					map[string][]string{}, false).Populate(registry.ReplacesMode)
 			}
 			// Initialize index with some bundles
 			require.NoError(t, populate(tt.args.bundles))
@@ -2615,7 +2605,7 @@ func TestEnableAlpha(t *testing.T) {
 					graphLoader,
 					query,
 					refMap,
-					make(map[string]map[image.Reference]string, 0), false).Populate(registry.ReplacesMode)
+					map[string][]string{}, false).Populate(registry.ReplacesMode)
 			}
 			require.Equal(t, tt.expected.err, populate(tt.args.bundles))
 		})

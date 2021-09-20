@@ -20,22 +20,22 @@ type Dependencies struct {
 
 // DirectoryPopulator loads an unpacked operator bundle from a directory into the database.
 type DirectoryPopulator struct {
-	loader          Load
-	graphLoader     GraphLoader
-	querier         Query
-	imageDirMap     map[image.Reference]string
-	overwriteDirMap map[string]map[image.Reference]string
-	overwrite       bool
+	loader            Load
+	graphLoader       GraphLoader
+	querier           Query
+	imageDirMap       map[image.Reference]string
+	overwrittenImages map[string][]string
+	overwrite         bool
 }
 
-func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwriteDirMap map[string]map[image.Reference]string, overwrite bool) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwrittenImages map[string][]string, overwrite bool) *DirectoryPopulator {
 	return &DirectoryPopulator{
-		loader:          loader,
-		graphLoader:     graphLoader,
-		querier:         querier,
-		imageDirMap:     imageDirMap,
-		overwriteDirMap: overwriteDirMap,
-		overwrite:       overwrite,
+		loader:            loader,
+		graphLoader:       graphLoader,
+		querier:           querier,
+		imageDirMap:       imageDirMap,
+		overwrittenImages: overwrittenImages,
+		overwrite:         overwrite,
 	}
 }
 
@@ -52,24 +52,11 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 		imagesToAdd = append(imagesToAdd, imageInput)
 	}
 
-	imagesToReAdd := make([]*ImageInput, 0)
-	for pkg := range i.overwriteDirMap {
-		for to, from := range i.overwriteDirMap[pkg] {
-			imageInput, err := NewImageInput(to, from)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-
-			imagesToReAdd = append(imagesToReAdd, imageInput)
-		}
-	}
-
 	if len(errs) > 0 {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	err := i.loadManifests(imagesToAdd, imagesToReAdd, mode)
+	err := i.loadManifests(imagesToAdd, mode)
 	if err != nil {
 		return err
 	}
@@ -145,7 +132,7 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 	return utilerrors.NewAggregate(errs)
 }
 
-func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToReAdd []*ImageInput, mode Mode) error {
+func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode) error {
 	// global sanity checks before insertion
 	if err := i.globalSanityCheck(imagesToAdd); err != nil {
 		return err
@@ -153,17 +140,26 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, imagesToRe
 
 	switch mode {
 	case ReplacesMode:
-		for pkg := range i.overwriteDirMap {
-			// TODO: If this succeeds but the add fails there will be a disconnect between
-			// the registry and the index. Loading the bundles in a single transactions as
-			// described above would allow us to do the removable in that same transaction
-			// and ensure that rollback is possible.
-			if err := i.loader.RemovePackage(pkg); err != nil {
-				return err
+		// TODO: If this succeeds but the add fails there will be a disconnect between
+		// the registry and the index. Loading the bundles in a single transactions as
+		// described above would allow us to do the removable in that same transaction
+		// and ensure that rollback is possible.
+		if i.overwrite {
+			// globalSanityCheck should have verified this to be a head without anything replacing it
+			// and that we have a single overwrite per package
+			for pkg, imgToDelete := range i.overwrittenImages {
+				if len(imgToDelete) == 0 {
+					continue
+				}
+				// delete old head bundle and swap it with the previous real bundle in its replaces chain
+				if err := i.loader.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
+
+					return err
+
+				}
 			}
 		}
-
-		return i.loadManifestsReplaces(append(imagesToAdd, imagesToReAdd...))
+		return i.loadManifestsReplaces(imagesToAdd)
 	case SemVerMode:
 		for _, image := range imagesToAdd {
 			if err := i.loadManifestsSemver(image.Bundle, false); err != nil {
