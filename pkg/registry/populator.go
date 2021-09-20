@@ -153,9 +153,7 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode)
 				}
 				// delete old head bundle and swap it with the previous real bundle in its replaces chain
 				if err := i.loader.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
-
 					return err
-
 				}
 			}
 		}
