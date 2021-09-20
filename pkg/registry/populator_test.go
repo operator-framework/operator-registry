@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,11 +16,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"sigs.k8s.io/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -1160,7 +1166,111 @@ func TestDeprecatePackage(t *testing.T) {
 }
 
 func TestAddAfterDeprecate(t *testing.T) {
+	tmpdir, err := os.MkdirTemp(".", "add-after-deprecate-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpdir)
+
+	/*
+	                     (0.1) 0.1.2 <- 0.1.1 <- 0.1.0
+	                                               |
+	                 (0.2) 0.2.2 <- 0.2.1 <- 0.2.0<|
+	                                  |
+	   (0.3) 0.3.2 <- 0.3.1 <- 0.3.0 <|
+	*/
+	testBundles := []struct {
+		suffix         string
+		channels       string
+		defaultChannel string
+		csvName        string
+		csvSpec        json.RawMessage
+	}{
+		{
+			csvName:        "testpkg.v0.1.0",
+			channels:       "0.1",
+			csvSpec:        json.RawMessage(`{"version":"0.1.0","replaces":""}`),
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.1.1",
+			csvSpec:        json.RawMessage(`{"version":"0.1.1","replaces":"testpkg.v0.1.0"}`),
+			channels:       "0.1",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.1.2",
+			csvSpec:        json.RawMessage(`{"version":"0.1.2","replaces":"testpkg.v0.1.1"}`),
+			channels:       "0.1",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.2.0",
+			csvSpec:        json.RawMessage(`{"version":"0.2.0","replaces":"testpkg.v0.1.0"}`),
+			channels:       "0.2",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.2.1",
+			csvSpec:        json.RawMessage(`{"version":"0.2.1","replaces":"testpkg.v0.2.0"}`),
+			channels:       "0.2",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.2.2",
+			csvSpec:        json.RawMessage(`{"version":"0.2.2","replaces":"testpkg.v0.2.1"}`),
+			channels:       "0.2",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.0",
+			csvSpec:        json.RawMessage(`{"version":"0.3.0","replaces":"testpkg.v0.2.1"}`),
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.0",
+			suffix:         "overwrite",
+			csvSpec:        json.RawMessage(`{"version":"0.3.0","replaces":""}`),
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.0",
+			csvSpec:        json.RawMessage(`{"version":"0.3.0","replaces":"testpkg.v0.2.0"}`),
+			suffix:         "overwrite-replaces-0.2.0",
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.1",
+			csvSpec:        json.RawMessage(`{"version":"0.3.1","replaces":"testpkg.v0.3.0"}`),
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.1",
+			suffix:         "overwrite",
+			csvSpec:        json.RawMessage(`{"version":"0.3.1","replaces":"testpkg.v0.3.0"}`),
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+		{
+			csvName:        "testpkg.v0.3.2",
+			csvSpec:        json.RawMessage(`{"version":"0.3.2","replaces":"testpkg.v0.3.1"}`),
+			channels:       "0.3",
+			defaultChannel: "0.1",
+		},
+	}
+	for _, b := range testBundles {
+		dir := b.csvName
+		if len(b.suffix) > 0 {
+			dir += "-" + b.suffix
+		}
+		_, _, err := newUnpackedTestBundle(tmpdir, dir, b.csvName, b.csvSpec, registry.Annotations{PackageName: "testpkg", Channels: b.channels, DefaultChannelName: b.defaultChannel})
+		require.NoError(t, err)
+	}
+
 	type args struct {
+		dir       string //directory to find the bundles
 		existing  []string
 		deprecate []string
 		add       []string
@@ -1181,6 +1291,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 		{
 			description: "SimpleAdd",
 			args: args{
+				dir: "../../bundles/",
 				existing: []string{
 					"prometheus.0.14.0",
 					"prometheus.0.15.0",
@@ -1216,6 +1327,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 		{
 			description: "OverwriteLatest",
 			args: args{
+				dir: "../../bundles/",
 				existing: []string{
 					"prometheus.0.14.0",
 					"prometheus.0.15.0",
@@ -1247,6 +1359,256 @@ func TestAddAfterDeprecate(t *testing.T) {
 				},
 			},
 		},
+		{
+			description: "TruncateTillBranchPoint",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+					"testpkg.v0.3.1",
+					"testpkg.v0.3.2",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.1",
+				},
+				add: []string{
+					"testpkg.v0.1.2",
+				},
+				overwrite: nil,
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.1.2/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.1/0.3",
+					"quay.io/test/testpkg.v0.3.2/0.3",
+				},
+				deprecated: []string{
+					"quay.io/test/testpkg.v0.3.1/0.3",
+				},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
+		{
+			description: "DeprecateAboveBranchPoint",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+					"testpkg.v0.3.1",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.0",
+				},
+				add: []string{
+					"testpkg.v0.1.2",
+				},
+				overwrite: nil,
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.1.2/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.0/0.3",
+					"quay.io/test/testpkg.v0.3.1/0.3",
+				},
+				deprecated: []string{
+					"quay.io/test/testpkg.v0.3.0/0.3",
+				},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
+		{
+			description: "ReplaceDeprecatedChannelHead",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.0",
+				},
+				add: []string{
+					"testpkg.v0.3.1",
+					"testpkg.v0.3.2",
+				},
+				overwrite: nil,
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.0/0.3",
+					"quay.io/test/testpkg.v0.3.1/0.3",
+					"quay.io/test/testpkg.v0.3.2/0.3",
+				},
+				deprecated: []string{
+					"quay.io/test/testpkg.v0.3.0/0.3",
+				},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
+		{
+			description: "OverwriteDeprecatedChannelHead",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.0",
+				},
+				add: []string{
+					"testpkg.v0.3.0-overwrite",
+				},
+				overwrite: map[string][]string{
+					"testpkg": []string{"testpkg.v0.3.0"},
+				},
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.0-overwrite/0.3",
+				},
+				deprecated: []string{},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
+		{
+			description: "OverwriteDeprecatedChannelHeadWithReplaces",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.0",
+				},
+				add: []string{
+					"testpkg.v0.3.0-overwrite-replaces-0.2.0",
+				},
+				overwrite: map[string][]string{
+					"testpkg": []string{"testpkg.v0.3.0"},
+				},
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.0/0.3",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.0/0.3",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.0-overwrite-replaces-0.2.0/0.3",
+				},
+				deprecated: []string{},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
+		{
+			description: "OverwriteAboveDeprecated",
+			args: args{
+				dir: tmpdir,
+				existing: []string{
+					"testpkg.v0.1.0",
+					"testpkg.v0.1.1",
+					"testpkg.v0.2.0",
+					"testpkg.v0.2.1",
+					"testpkg.v0.2.2",
+					"testpkg.v0.3.0",
+					"testpkg.v0.3.1",
+				},
+				deprecate: []string{
+					"quay.io/test/testpkg.v0.3.0",
+				},
+				add: []string{
+					"testpkg.v0.3.1-overwrite",
+				},
+				overwrite: map[string][]string{
+					"testpkg": []string{"testpkg.v0.3.1"},
+				},
+			},
+			expected: expected{
+				err: nil,
+				remaining: []string{
+					"quay.io/test/testpkg.v0.1.0/0.1",
+					"quay.io/test/testpkg.v0.1.0/0.2",
+					"quay.io/test/testpkg.v0.1.1/0.1",
+					"quay.io/test/testpkg.v0.2.0/0.2",
+					"quay.io/test/testpkg.v0.2.1/0.2",
+					"quay.io/test/testpkg.v0.2.2/0.2",
+					"quay.io/test/testpkg.v0.3.0/0.3",
+					"quay.io/test/testpkg.v0.3.1-overwrite/0.3",
+				},
+				deprecated: []string{
+					"quay.io/test/testpkg.v0.3.0/0.3",
+				},
+				pkgChannels: pkgChannel{
+					"testpkg": []string{"0.1", "0.2", "0.3"},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1267,7 +1629,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 			populate := func(add []string, overwrite map[string][]string) error {
 				addRefs := map[image.Reference]string{}
 				for _, a := range add {
-					addRefs[image.SimpleReference("quay.io/test/"+a)] = "../../bundles/" + a
+					addRefs[image.SimpleReference("quay.io/test/"+a)] = filepath.Join(tt.args.dir, a)
 				}
 
 				return registry.NewDirectoryPopulator(
@@ -2653,4 +3015,60 @@ func TestEnableAlpha(t *testing.T) {
 			require.Equal(t, tt.expected.err, populate(tt.args.bundles))
 		})
 	}
+}
+
+func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, annotations registry.Annotations) (string, func(), error) {
+	bundleDir := filepath.Join(root, dir)
+	cleanup := func() {
+		os.RemoveAll(bundleDir)
+	}
+	if err := os.Mkdir(bundleDir, 0755); err != nil {
+		return bundleDir, cleanup, err
+	}
+	if err := os.Mkdir(filepath.Join(bundleDir, bundle.ManifestsDir), 0755); err != nil {
+		return bundleDir, cleanup, err
+	}
+	if err := os.Mkdir(filepath.Join(bundleDir, bundle.MetadataDir), 0755); err != nil {
+		return bundleDir, cleanup, err
+	}
+	if len(csvSpec) == 0 {
+		csvSpec = json.RawMessage(`{}`)
+	}
+
+	rawCSV, err := json.Marshal(registry.ClusterServiceVersion{
+		TypeMeta: v1.TypeMeta{
+			Kind: sqlite.ClusterServiceVersionKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name: name,
+		},
+		Spec: csvSpec,
+	})
+	if err != nil {
+		return bundleDir, cleanup, err
+	}
+
+	rawObj := unstructured.Unstructured{}
+	if err := json.Unmarshal(rawCSV, &rawObj); err != nil {
+		return bundleDir, cleanup, err
+	}
+	rawObj.SetCreationTimestamp(v1.Time{})
+
+	jsonout, err := rawObj.MarshalJSON()
+	out, err := yaml.JSONToYAML(jsonout)
+	if err != nil {
+		return bundleDir, cleanup, err
+	}
+	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
+		return bundleDir, cleanup, err
+	}
+
+	out, err = yaml.Marshal(registry.AnnotationsFile{Annotations: annotations})
+	if err != nil {
+		return bundleDir, cleanup, err
+	}
+	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
+		return bundleDir, cleanup, err
+	}
+	return bundleDir, cleanup, nil
 }

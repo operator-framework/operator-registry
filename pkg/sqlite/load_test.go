@@ -275,8 +275,9 @@ func TestDeprecationAwareLoader(t *testing.T) {
 		pkg string
 	}
 	type expected struct {
-		err        error
-		deprecated map[string]struct{}
+		err          error
+		deprecated   map[string]struct{}
+		nontruncated map[string]struct{}
 	}
 	tests := []struct {
 		description string
@@ -308,8 +309,9 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				pkg: "pkg-0",
 			},
 			expected: expected{
-				err:        nil,
-				deprecated: map[string]struct{}{},
+				err:          nil,
+				deprecated:   map[string]struct{}{},
+				nontruncated: map[string]struct{}{},
 			},
 		},
 		{
@@ -339,8 +341,9 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				pkg: "pkg-0",
 			},
 			expected: expected{
-				err:        nil,
-				deprecated: map[string]struct{}{},
+				err:          nil,
+				deprecated:   map[string]struct{}{},
+				nontruncated: map[string]struct{}{},
 			},
 		},
 		{
@@ -385,7 +388,11 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			expected: expected{
 				err: nil,
 				deprecated: map[string]struct{}{
-					"csv-b": struct{}{},
+					"csv-b": {},
+				},
+				nontruncated: map[string]struct{}{
+					"csv-b:stable":  {},
+					"csv-bb:stable": {},
 				},
 			},
 		},
@@ -419,6 +426,10 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				deprecated: map[string]struct{}{
 					"csv-aa": struct{}{}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
 				},
+				nontruncated: map[string]struct{}{
+					"csv-aa:stable":  {},
+					"csv-aaa:stable": {},
+				},
 			},
 		},
 		{
@@ -427,7 +438,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				bundles: []*registry.Bundle{
 					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-a", ""))),
 					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
-					withBundleImage("quay.io/my/bundle-aaa", newBundle(t, "csv-b", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-b", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-b", newBundle(t, "csv-b", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-b", "csv-a"))),
 				},
 				pkgs: []registry.PackageManifest{
 					{
@@ -450,11 +461,60 @@ func TestDeprecationAwareLoader(t *testing.T) {
 				},
 			},
 			args: args{
-				pkg: "pkg0",
+				pkg: "pkg-0",
 			},
 			expected: expected{
 				err:        nil,
 				deprecated: map[string]struct{}{},
+			},
+		},
+		{
+			description: "DeprecateChannelHead",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					withBundleImage("quay.io/my/bundle-a", newBundle(t, "csv-a", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-a", ""))),
+					withBundleImage("quay.io/my/bundle-b", newBundle(t, "csv-b", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-b", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-aa", newBundle(t, "csv-aa", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-aa", "csv-a"))),
+					withBundleImage("quay.io/my/bundle-aaa", newBundle(t, "csv-aaa", "pkg-0", []string{"a"}, newUnstructuredCSVWithSkips(t, "csv-aaa", "csv-aa", "csv-cc"))),
+					withBundleImage("quay.io/my/bundle-cc", newBundle(t, "csv-cc", "pkg-0", []string{"c"}, newUnstructuredCSV(t, "csv-cc", "csv-c"))),
+					withBundleImage("quay.io/my/bundle-c", newBundle(t, "csv-c", "pkg-0", []string{"c"}, newUnstructuredCSV(t, "csv-c", ""))),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-aaa",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-b",
+							},
+							{
+								Name:           "c",
+								CurrentCSVName: "csv-cc",
+							},
+						},
+						DefaultChannelName: "b",
+					},
+				},
+				deprecatedPaths: []string{
+					"quay.io/my/bundle-aaa",
+				},
+			},
+			expected: expected{
+				err: nil,
+				deprecated: map[string]struct{}{
+					"csv-aaa": {},
+				},
+				nontruncated: map[string]struct{}{
+					"csv-a:b":  {},
+					"csv-aaa:": {},
+					"csv-b:b":  {},
+					"csv-c:c":  {},
+					"csv-cc:c": {},
+				},
 			},
 		},
 	}
@@ -475,7 +535,6 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			for _, pkg := range tt.fields.pkgs {
 				require.NoError(t, store.AddPackageChannels(pkg))
 			}
-
 			for _, deprecatedPath := range tt.fields.deprecatedPaths {
 				require.NoError(t, store.DeprecateBundle(deprecatedPath))
 			}
@@ -492,19 +551,25 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			tx, err := db.Begin()
 			require.NoError(t, err)
 
-			rows, err := tx.Query(`SELECT operatorbundle_name FROM deprecated`)
-			require.NoError(t, err)
-			require.NotNil(t, rows)
+			checkForBundles := func(query, table string, bundleMap map[string]struct{}) {
+				rows, err := tx.Query(query)
+				require.NoError(t, err)
+				require.NotNil(t, rows)
 
-			var bundleName string
-			for rows.Next() {
-				require.NoError(t, rows.Scan(&bundleName))
-				_, ok := tt.expected.deprecated[bundleName]
-				require.True(t, ok, "bundle shouldn't be in the deprecated table: %s", bundleName)
-				delete(tt.expected.deprecated, bundleName)
+				var bundleName string
+				for rows.Next() {
+					require.NoError(t, rows.Scan(&bundleName))
+					_, ok := bundleMap[bundleName]
+					require.True(t, ok, "bundle shouldn't be in the %s table: %s", table, bundleName)
+					delete(bundleMap, bundleName)
+				}
+
+				require.Len(t, bundleMap, 0, "not all expected bundles exist in %s table: %v", table, bundleMap)
 			}
+			checkForBundles(`SELECT operatorbundle_name FROM deprecated`, "deprecated", tt.expected.deprecated)
+			// operatorbundle_name:<channel list>
+			checkForBundles(`SELECT name||":"|| coalesce(group_concat(distinct channel_name), "") FROM (SELECT name, channel_name from operatorbundle left outer join channel_entry on name=operatorbundle_name order by channel_name) group by name`, "operatorbundle", tt.expected.nontruncated)
 
-			require.Len(t, tt.expected.deprecated, 0, "not all expected bundles exist in deprecated table: %v", tt.expected.deprecated)
 		})
 	}
 }
@@ -519,7 +584,7 @@ func TestGetTailFromBundle(t *testing.T) {
 	}
 	type expected struct {
 		err  error
-		tail []string
+		tail map[string]tailBundle
 	}
 	tests := []struct {
 		description string
@@ -590,8 +655,9 @@ func TestGetTailFromBundle(t *testing.T) {
 			},
 			expected: expected{
 				err: nil,
-				tail: []string{
-					"csv-c",
+				tail: map[string]tailBundle{
+					"csv-b": {name: "csv-b", channels: []string{"alpha", "stable"}, replaces: []string{"csv-c"}, replacedBy: []string{"csv-a"}},
+					"csv-c": {name: "csv-c", channels: []string{"alpha", "stable"}, replacedBy: []string{"csv-b"}},
 				},
 			},
 		},
@@ -626,11 +692,12 @@ func TestGetTailFromBundle(t *testing.T) {
 			},
 			expected: expected{
 				err: nil,
-				tail: []string{
-					"csv-c",
-					"csv-d",
-					"csv-e",
-					"csv-f",
+				tail: map[string]tailBundle{
+					"csv-b": {name: "csv-b", channels: []string{"alpha", "stable"}, replaces: []string{"csv-c", "csv-d", "csv-e", "csv-f"}, replacedBy: []string{"csv-a"}},
+					"csv-c": {name: "csv-c", channels: []string{"alpha", "stable"}, replaces: []string{"csv-d"}, replacedBy: []string{"csv-b"}},
+					"csv-d": {name: "csv-d", channels: []string{"alpha", "stable"}, replacedBy: []string{"csv-b", "csv-c"}},
+					"csv-e": {name: "csv-e", channels: []string{"alpha", "stable"}, replacedBy: []string{"csv-b"}},
+					"csv-f": {name: "csv-f", channels: []string{"alpha", "stable"}, replacedBy: []string{"csv-b"}},
 				},
 			},
 		},
@@ -668,6 +735,57 @@ func TestGetTailFromBundle(t *testing.T) {
 				tail: nil,
 			},
 		},
+		{
+			/*
+				0.1.2 <- 0.1.1 <- 0.1.0
+						   V (skips)
+				1.1.2 <- 1.1.1 <- 1.1.0
+			*/
+			description: "branchPoint",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-0.1.0", "pkg-0", []string{"0.1.x"}, newUnstructuredCSV(t, "csv-0.1.0", "")),
+					newBundle(t, "csv-0.1.1", "pkg-0", []string{"0.1.x", "lts"}, newUnstructuredCSV(t, "csv-0.1.1", "csv-0.1.0")),
+					newBundle(t, "csv-0.1.2", "pkg-0", []string{"0.1.x"}, newUnstructuredCSV(t, "csv-0.1.2", "csv-0.1.1")),
+					newBundle(t, "csv-1.1.0", "pkg-0", []string{"1.1.x"}, newUnstructuredCSV(t, "csv-1.1.0", "")),
+					newBundle(t, "csv-1.1.1", "pkg-0", []string{"1.1.x", "lts"}, newUnstructuredCSVWithSkips(t, "csv-1.1.1", "csv-1.1.0", "csv-0.1.1")),
+					newBundle(t, "csv-1.1.2", "pkg-0", []string{"1.1.x", "lts"}, newUnstructuredCSV(t, "csv-1.1.2", "csv-1.1.1")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "0.1.x",
+								CurrentCSVName: "csv-0.1.2",
+							},
+							{
+								Name:           "1.1.x",
+								CurrentCSVName: "csv-1.1.2",
+							},
+							{
+								Name:           "lts",
+								CurrentCSVName: "csv-1.1.2",
+							},
+						},
+						DefaultChannelName: "0.1.x",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-1.1.2",
+			},
+			expected: expected{
+				err: nil,
+				tail: map[string]tailBundle{
+					"csv-1.1.2": {name: "csv-1.1.2", channels: []string{"1.1.x", "lts"}, replaces: []string{"csv-1.1.1"}},
+					"csv-1.1.1": {name: "csv-1.1.1", channels: []string{"1.1.x", "lts"}, replaces: []string{"csv-0.1.1", "csv-1.1.0"}, replacedBy: []string{"csv-1.1.2"}},
+					"csv-1.1.0": {name: "csv-1.1.0", channels: []string{"1.1.x", "lts"}, replacedBy: []string{"csv-1.1.1"}},
+					"csv-0.1.1": {name: "csv-0.1.1", channels: []string{"0.1.x", "1.1.x", "lts"}, replaces: []string{"csv-0.1.0"}, replacedBy: []string{"csv-0.1.2", "csv-1.1.1"}}, // 0.1.2 present in replacedBy but not in tail
+					"csv-0.1.0": {name: "csv-0.1.0", channels: []string{"0.1.x"}, replacedBy: []string{"csv-0.1.1"}},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -693,7 +811,7 @@ func TestGetTailFromBundle(t *testing.T) {
 			tail, err := getTailFromBundle(tx, tt.args.bundle)
 
 			require.Equal(t, tt.expected.err, err)
-			require.ElementsMatch(t, tt.expected.tail, tail)
+			require.EqualValues(t, tt.expected.tail, tail)
 		})
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/operator-framework/operator-registry/pkg/registry/registryfakes"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/registry/registryfakes"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/sqlitefakes"
 )
@@ -526,9 +526,6 @@ func TestCheckForBundles(t *testing.T) {
 						if step.action == actionOverwrite {
 							img, err := registry.NewImageInput(image.SimpleReference(name), dir)
 							require.NoError(t, err)
-							if _, ok := overwriteRefs[img.Bundle.Package]; ok {
-								overwriteRefs[img.Bundle.Package] = make([]string, 0)
-							}
 							overwriteRefs[img.Bundle.Package] = append(overwriteRefs[img.Bundle.Package], name)
 						}
 					}
@@ -646,7 +643,7 @@ func TestExpectedGraphBundles(t *testing.T) {
 			wantErr:     fmt.Errorf("graphLoader error"),
 		},
 		{
-			description: "newBundle",
+			description: "NewPackage",
 			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return nil, registry.ErrPackageNotInDatabase }},
 			bundles:     []*registry.Bundle{testBundle},
 			wantGraphBundles: map[string]*registry.Package{

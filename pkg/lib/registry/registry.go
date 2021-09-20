@@ -155,9 +155,6 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 			if overwritten == "" {
 				return fmt.Errorf("index add --overwrite-latest is only supported when using bundle images")
 			}
-			if len(overwrittenBundles[img.Bundle.Package]) == 0 {
-				overwrittenBundles[img.Bundle.Package] = []string{}
-			}
 			overwrittenBundles[img.Bundle.Package] = append(overwrittenBundles[img.Bundle.Package], img.Bundle.Name)
 		}
 	}
