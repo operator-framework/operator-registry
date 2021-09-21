@@ -798,13 +798,11 @@ func TestGetTailFromBundle(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, bundle := range tt.fields.bundles {
-				// Throw away any errors loading bundles (not testing this)
-				store.AddOperatorBundle(bundle)
+				require.NoError(t, store.AddOperatorBundle(bundle))
 			}
 
 			for _, pkg := range tt.fields.pkgs {
-				// Throw away any errors loading packages (not testing this)
-				store.AddPackageChannels(pkg)
+				require.NoError(t, store.AddPackageChannels(pkg))
 			}
 			tx, err := db.Begin()
 			require.NoError(t, err)
