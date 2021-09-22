@@ -23,6 +23,7 @@ func newBundleGenerateCmd() *cobra.Command {
 		* All manifests yaml must be in the same directory.
         `,
 		RunE: generateFunc,
+		Args: cobra.NoArgs,
 	}
 
 	bundleGenerateCmd.Flags().StringVarP(&buildDir, "directory", "d", "",
@@ -48,7 +49,7 @@ func newBundleGenerateCmd() *cobra.Command {
 	return bundleGenerateCmd
 }
 
-func generateFunc(cmd *cobra.Command, args []string) error {
+func generateFunc(cmd *cobra.Command, _ []string) error {
 	return bundle.GenerateFunc(
 		buildDir,
 		outputDir,

@@ -17,7 +17,7 @@ func newIndexDeleteCmd() *cobra.Command {
 
 ` + sqlite.DeprecationMessage,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
@@ -25,6 +25,7 @@ func newIndexDeleteCmd() *cobra.Command {
 		},
 
 		RunE: runIndexDeleteCmdFunc,
+		Args: cobra.NoArgs,
 	}
 
 	indexCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -53,7 +54,7 @@ func newIndexDeleteCmd() *cobra.Command {
 
 }
 
-func runIndexDeleteCmdFunc(cmd *cobra.Command, args []string) error {
+func runIndexDeleteCmdFunc(cmd *cobra.Command, _ []string) error {
 	generate, err := cmd.Flags().GetBool("generate")
 	if err != nil {
 		return err

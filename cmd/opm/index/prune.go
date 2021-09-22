@@ -19,7 +19,7 @@ func newIndexPruneCmd() *cobra.Command {
 
 ` + sqlite.DeprecationMessage,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
@@ -27,6 +27,7 @@ func newIndexPruneCmd() *cobra.Command {
 		},
 
 		RunE: runIndexPruneCmdFunc,
+		Args: cobra.NoArgs,
 	}
 
 	indexCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -53,7 +54,7 @@ func newIndexPruneCmd() *cobra.Command {
 
 }
 
-func runIndexPruneCmdFunc(cmd *cobra.Command, args []string) error {
+func runIndexPruneCmdFunc(cmd *cobra.Command, _ []string) error {
 	generate, err := cmd.Flags().GetBool("generate")
 	if err != nil {
 		return err

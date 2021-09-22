@@ -42,6 +42,7 @@ func newBundleBuildCmd() *cobra.Command {
 		* All manifests yaml must be in the same directory. 
         `,
 		RunE: buildFunc,
+		Args: cobra.NoArgs,
 	}
 
 	bundleBuildCmd.Flags().StringVarP(&buildDir, "directory", "d", "",
@@ -79,7 +80,7 @@ func newBundleBuildCmd() *cobra.Command {
 	return bundleBuildCmd
 }
 
-func buildFunc(cmd *cobra.Command, args []string) error {
+func buildFunc(cmd *cobra.Command, _ []string) error {
 	return bundle.BuildFunc(
 		buildDir,
 		outputDir,

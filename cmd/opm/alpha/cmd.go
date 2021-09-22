@@ -14,6 +14,7 @@ func NewCmd() *cobra.Command {
 		Hidden: true,
 		Use:    "alpha",
 		Short:  "Run an alpha subcommand",
+		Args:   cobra.NoArgs,
 	}
 
 	runCmd.AddCommand(

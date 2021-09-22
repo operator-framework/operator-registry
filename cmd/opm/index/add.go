@@ -45,13 +45,14 @@ func addIndexAddCmd(parent *cobra.Command) {
 		Use:   "add",
 		Short: "Add operator bundles to an index.",
 		Long:  addLong,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
 			return nil
 		},
 		RunE: runIndexAddCmdFunc,
+		Args: cobra.NoArgs,
 	}
 
 	indexCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -89,7 +90,7 @@ func addIndexAddCmd(parent *cobra.Command) {
 
 }
 
-func runIndexAddCmdFunc(cmd *cobra.Command, args []string) error {
+func runIndexAddCmdFunc(cmd *cobra.Command, _ []string) error {
 	generate, err := cmd.Flags().GetBool("generate")
 	if err != nil {
 		return err

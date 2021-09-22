@@ -19,12 +19,13 @@ func NewCmd() *cobra.Command {
 		Use:   "opm",
 		Short: "operator package manager",
 		Long:  "CLI to interact with operator-registry and build indexes of operator content",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
 			return nil
 		},
+		Args: cobra.NoArgs,
 	}
 
 	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd())
