@@ -53,6 +53,87 @@ func TestDiff(t *testing.T) {
 			assertion:   require.NoError,
 		},
 		{
+			name: "Success/IncludePackage",
+			diff: Diff{
+				Registry: registry,
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				IncludeConfig: DiffIncludeConfig{
+					Packages: []DiffIncludePackage{{Name: "baz"}},
+				},
+			},
+			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-pkg")),
+			assertion:   require.NoError,
+		},
+		{
+			name: "Success/IncludeChannel",
+			diff: Diff{
+				Registry: registry,
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				IncludeConfig: DiffIncludeConfig{
+					Packages: []DiffIncludePackage{
+						{
+							Name:     "baz",
+							Channels: []DiffIncludeChannel{{Name: "stable"}},
+						},
+					},
+				},
+			},
+			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
+			assertion:   require.NoError,
+		},
+		{
+			name: "Success/IncludeVersion",
+			diff: Diff{
+				Registry: registry,
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				IncludeConfig: DiffIncludeConfig{
+					Packages: []DiffIncludePackage{
+						{
+							Name:     "baz",
+							Versions: []semver.Version{semver.MustParse("1.0.0")},
+						},
+					},
+				},
+			},
+			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
+			assertion:   require.NoError,
+		},
+		{
+			name: "Success/IncludeBundle",
+			diff: Diff{
+				Registry: registry,
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				IncludeConfig: DiffIncludeConfig{
+					Packages: []DiffIncludePackage{
+						{
+							Name:    "baz",
+							Bundles: []string{"baz.v1.0.0"},
+						},
+					},
+				},
+			},
+			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
+			assertion:   require.NoError,
+		},
+		{
+			name: "Success/IncludeSameVersionAndBundle",
+			diff: Diff{
+				Registry: registry,
+				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				IncludeConfig: DiffIncludeConfig{
+					Packages: []DiffIncludePackage{
+						{
+							Name:     "baz",
+							Versions: []semver.Version{semver.MustParse("1.0.0")},
+							Bundles:  []string{"baz.v1.0.0"},
+						},
+					},
+				},
+			},
+			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
+			assertion:   require.NoError,
+		},
+		{
 			name: "Fail/NewBundleImage",
 			diff: Diff{
 				Registry: registry,
@@ -125,6 +206,8 @@ packages:
 - name: foo
   channels:
   - name: stable
+    bundles:
+    - foo.v0.3.0
     versions:
     - 0.1.0
     - 0.2.0
@@ -137,16 +220,19 @@ packages:
     - 0.1.0
   versions:
   - 1.0.0
+  bundles:
+  - bar.v1.2.0
 `,
 			expectedCfg: DiffIncludeConfig{
 				Packages: []DiffIncludePackage{
 					{
 						Name: "foo",
 						Channels: []DiffIncludeChannel{
-							{Name: "stable", Versions: []semver.Version{
-								semver.MustParse("0.1.0"),
-								semver.MustParse("0.2.0"),
-							}},
+							{
+								Name:     "stable",
+								Versions: []semver.Version{semver.MustParse("0.1.0"), semver.MustParse("0.2.0")},
+								Bundles:  []string{"foo.v0.3.0"},
+							},
 						},
 						Versions: []semver.Version{semver.MustParse("1.0.0")},
 					},
@@ -158,6 +244,7 @@ packages:
 							}},
 						},
 						Versions: []semver.Version{semver.MustParse("1.0.0")},
+						Bundles:  []string{"bar.v1.2.0"},
 					},
 				},
 			},
@@ -166,10 +253,11 @@ packages:
 					{
 						Name: "foo",
 						Channels: []declcfg.DiffIncludeChannel{
-							{Name: "stable", Versions: []semver.Version{
-								semver.MustParse("0.1.0"),
-								semver.MustParse("0.2.0"),
-							}},
+							{
+								Name:     "stable",
+								Versions: []semver.Version{semver.MustParse("0.1.0"), semver.MustParse("0.2.0")},
+								Bundles:  []string{"foo.v0.3.0"},
+							},
 						},
 						AllChannels: declcfg.DiffIncludeChannel{
 							Versions: []semver.Version{semver.MustParse("1.0.0")},
@@ -184,6 +272,7 @@ packages:
 						},
 						AllChannels: declcfg.DiffIncludeChannel{
 							Versions: []semver.Version{semver.MustParse("1.0.0")},
+							Bundles:  []string{"bar.v1.2.0"},
 						},
 					},
 				},

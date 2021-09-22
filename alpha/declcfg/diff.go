@@ -459,15 +459,19 @@ func copyChannel(in *model.Channel, pkg *model.Package) *model.Channel {
 
 func copyBundle(in *model.Bundle, ch *model.Channel, pkg *model.Package) *model.Bundle {
 	cp := &model.Bundle{
-		Name:     in.Name,
-		Channel:  ch,
-		Package:  pkg,
-		Image:    in.Image,
-		Replaces: in.Replaces,
-		Version:  semver.MustParse(in.Version.String()),
-		CsvJSON:  in.CsvJSON,
+		Name:      in.Name,
+		Channel:   ch,
+		Package:   pkg,
+		Image:     in.Image,
+		Replaces:  in.Replaces,
+		Version:   semver.MustParse(in.Version.String()),
+		CsvJSON:   in.CsvJSON,
+		SkipRange: in.SkipRange,
 	}
-	cp.PropertiesP, _ = property.Parse(in.Properties)
+	if in.PropertiesP != nil {
+		cp.PropertiesP = new(property.Properties)
+		*cp.PropertiesP = *in.PropertiesP
+	}
 	if len(in.Skips) != 0 {
 		cp.Skips = make([]string, len(in.Skips))
 		copy(cp.Skips, in.Skips)

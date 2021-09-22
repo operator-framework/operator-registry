@@ -2,6 +2,7 @@ package declcfg
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/blang/semver"
 	"github.com/sirupsen/logrus"
@@ -32,12 +33,15 @@ type DiffIncludePackage struct {
 	AllChannels DiffIncludeChannel
 }
 
-// DiffIncludeChannel specifies a channel, and optionally bundle versions to include.
+// DiffIncludeChannel specifies a channel, and optionally bundles and bundle versions to include.
 type DiffIncludeChannel struct {
 	// Name of channel.
 	Name string
 	// Versions of bundles.
 	Versions []semver.Version
+	// Bundles are bundle names to include.
+	// Set this field only if the named bundle has no semantic version metadata.
+	Bundles []string
 }
 
 // Run adds all packages and channels in DiffIncluder with matching names
@@ -68,7 +72,7 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 	pkgLog := logger.WithField("package", newPkg.Name)
 
 	// No channels or versions were specified, meaning "include the full package".
-	if len(ipkg.Channels) == 0 && len(ipkg.AllChannels.Versions) == 0 {
+	if len(ipkg.Channels) == 0 && len(ipkg.AllChannels.Versions) == 0 && len(ipkg.AllChannels.Bundles) == 0 {
 		outputModel[ipkg.Name] = newPkg
 		return nil
 	}
@@ -76,17 +80,18 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 	outputPkg := copyPackageNoChannels(newPkg)
 	outputModel[outputPkg.Name] = outputPkg
 
-	// Add all channels to ipkg.Channels if versions were specified to include across all channels.
-	// skipMissingVerForChannels's value for a channel will be true IFF at least one version is specified,
+	// Add all channels to ipkg.Channels if bundles or versions were specified to include across all channels.
+	// skipMissingBundleForChannels's value for a channel will be true IFF at least one version is specified,
 	// since some other channel may contain that version.
-	skipMissingVerForChannels := map[string]bool{}
-	if len(ipkg.AllChannels.Versions) != 0 {
+	skipMissingBundleForChannels := map[string]bool{}
+	if len(ipkg.AllChannels.Versions) != 0 || len(ipkg.AllChannels.Bundles) != 0 {
 		for newChName := range newPkg.Channels {
 			ipkg.Channels = append(ipkg.Channels, DiffIncludeChannel{
 				Name:     newChName,
 				Versions: ipkg.AllChannels.Versions,
+				Bundles:  ipkg.AllChannels.Bundles,
 			})
-			skipMissingVerForChannels[newChName] = true
+			skipMissingBundleForChannels[newChName] = true
 		}
 	}
 
@@ -98,7 +103,7 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 		}
 		chLog := pkgLog.WithField("channel", newCh.Name)
 
-		bundles, err := getBundlesForVersions(newCh, ich.Versions, chLog, skipMissingVerForChannels[newCh.Name])
+		bundles, err := getBundlesForVersions(newCh, ich.Versions, ich.Bundles, chLog, skipMissingBundleForChannels[newCh.Name])
 		if err != nil {
 			ierrs = append(ierrs, fmt.Errorf("[package=%q channel=%q] %v", newPkg.Name, newCh.Name, err))
 			continue
@@ -116,9 +121,9 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 
 // getBundlesForVersions returns all bundles matching a version in vers
 // and their upgrade graph(s) to ch.Head().
-// If skipMissingVersions is true, versions not satisfied by bundles in ch
+// If skipMissingBundles is true, bundle names and versions not satisfied by bundles in ch
 // will not result in errors.
-func getBundlesForVersions(ch *model.Channel, vers []semver.Version, logger *logrus.Entry, skipMissingVersions bool) (bundles []*model.Bundle, err error) {
+func getBundlesForVersions(ch *model.Channel, vers []semver.Version, names []string, logger *logrus.Entry, skipMissingBundles bool) (bundles []*model.Bundle, err error) {
 
 	// Short circuit when no versions were specified, meaning "include the whole channel".
 	if len(vers) == 0 {
@@ -128,27 +133,44 @@ func getBundlesForVersions(ch *model.Channel, vers []semver.Version, logger *log
 		return bundles, nil
 	}
 
-	// Add every bundle directly satisfying a version to bundles.
+	// Add every bundle with a specified bundle name or directly satisfying a bundle version to bundles.
 	versionsToInclude := make(map[string]struct{}, len(vers))
 	for _, ver := range vers {
 		versionsToInclude[ver.String()] = struct{}{}
 	}
+	namesToInclude := make(map[string]struct{}, len(vers))
+	for _, name := range names {
+		namesToInclude[name] = struct{}{}
+	}
 	for _, b := range ch.Bundles {
-		if _, includeBundle := versionsToInclude[b.Version.String()]; includeBundle {
+		_, includeVersionedBundle := versionsToInclude[b.Version.String()]
+		_, includeNamedBundle := namesToInclude[b.Name]
+		if includeVersionedBundle || includeNamedBundle {
 			bundles = append(bundles, b)
 		}
 	}
 
 	// Some version was not satisfied by this channel.
-	if len(bundles) != len(versionsToInclude) && !skipMissingVersions {
+	if len(bundles) != len(versionsToInclude)+len(namesToInclude) && !skipMissingBundles {
 		for _, b := range bundles {
 			delete(versionsToInclude, b.Version.String())
+			delete(namesToInclude, b.Name)
 		}
-		verStrs := []string{}
+		var verStrs, nameStrs []string
 		for verStr := range versionsToInclude {
 			verStrs = append(verStrs, verStr)
 		}
-		return nil, fmt.Errorf("versions do not exist in channel: %+q", verStrs)
+		for nameStr := range namesToInclude {
+			nameStrs = append(nameStrs, nameStr)
+		}
+		sb := strings.Builder{}
+		if len(verStrs) != 0 {
+			sb.WriteString(fmt.Sprintf("versions=%+q ", verStrs))
+		}
+		if len(nameStrs) != 0 {
+			sb.WriteString(fmt.Sprintf("names=%+q", nameStrs))
+		}
+		return nil, fmt.Errorf("bundles do not exist in channel: %s", strings.TrimSpace(sb.String()))
 	}
 
 	// Fill in the upgrade graph between each bundle and head.
