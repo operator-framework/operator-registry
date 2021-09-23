@@ -1017,6 +1017,49 @@ func TestDeprecatePackage(t *testing.T) {
 						"preview",
 						"stable",
 					},
+					"apicurio-registry": []string{
+						"2.x",
+						"alpha",
+					},
+				},
+			},
+		},
+		{
+			description: "RemoveHeadOfDefaultChannelWithoutAllChannelHeads/Success",
+			args: args{
+				bundles: []string{
+					"quay.io/test/apicurio-registry.v0.0.1",
+					"quay.io/test/apicurio-registry.v0.0.3-v1.2.3.final",
+					"quay.io/test/apicurio-registry.v0.0.4-v1.3.2.final",
+				},
+			},
+			expected: expected{
+				remainingBundles: []string{
+					"quay.io/test/etcd.0.9.0/alpha",
+					"quay.io/test/etcd.0.9.0/beta",
+					"quay.io/test/etcd.0.9.0/stable",
+					"quay.io/test/etcd.0.9.2/stable",
+					"quay.io/test/etcd.0.9.2/alpha",
+					"quay.io/test/prometheus.0.14.0/preview",
+					"quay.io/test/prometheus.0.14.0/stable",
+					"quay.io/test/prometheus.0.15.0/preview",
+					"quay.io/test/prometheus.0.15.0/stable",
+					"quay.io/test/prometheus.0.22.2/preview",
+				},
+				deprecatedBundles: []string{},
+				remainingPkgChannels: pkgChannel{
+					"etcd": []string{
+						"alpha",
+						"beta",
+						"stable",
+					},
+					"prometheus": []string{
+						"preview",
+						"stable",
+					},
+					"apicurio-registry": []string{
+						"2.x",
+					},
 				},
 			},
 		},
