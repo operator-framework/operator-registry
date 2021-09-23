@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/operator-framework/operator-registry/alpha/property"
 	"strings"
 
 	"github.com/blang/semver"
@@ -1614,7 +1613,7 @@ func (s *sqlLoader) rmStrandedDeprecated(tx *sql.Tx) error {
 	}
 
 	packagePropertiesQuery := `select distinct operatorbundle_name, value from properties where type = ?`
-	rows, err = s.db.Query(packagePropertiesQuery, property.TypePackage)
+	rows, err = s.db.Query(packagePropertiesQuery, registry.PackageType)
 	if err != nil {
 		return err
 	}
@@ -1633,7 +1632,7 @@ func (s *sqlLoader) rmStrandedDeprecated(tx *sql.Tx) error {
 			return fmt.Errorf("invalid package property on %v: %v", bundle, value)
 		}
 
-		var prop property.Package
+		var prop registry.PackageProperty
 		if err := json.Unmarshal([]byte(value.String), &prop); err != nil {
 			return err
 		}
