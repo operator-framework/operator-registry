@@ -345,8 +345,8 @@ type bundleDir struct {
 
 func TestCheckForBundles(t *testing.T) {
 	type step struct {
-		bundles map[string]bundleDir
-		action  int
+		bundles  map[string]bundleDir
+		action   int
 		expected map[string]*registry.Package
 	}
 	const (
@@ -398,8 +398,8 @@ func TestCheckForBundles(t *testing.T) {
 					action: actionAdd,
 					expected: map[string]*registry.Package{
 						"testpkg": {
-							Name:           "testpkg",
-							Channels:       map[string]registry.Channel{
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
 								"alpha": {
 									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 										registry.BundleKey{
@@ -473,8 +473,8 @@ func TestCheckForBundles(t *testing.T) {
 					action: actionAdd,
 					expected: map[string]*registry.Package{
 						"testpkg": {
-							Name:           "testpkg",
-							Channels:       map[string]registry.Channel{
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
 								"stable": {
 									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 										registry.BundleKey{
@@ -505,8 +505,8 @@ func TestCheckForBundles(t *testing.T) {
 					action: actionDeprecate,
 					expected: map[string]*registry.Package{
 						"testpkg": {
-							Name:           "testpkg",
-							Channels:       map[string]registry.Channel{
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
 								"stable": {
 									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 										registry.BundleKey{
@@ -530,8 +530,8 @@ func TestCheckForBundles(t *testing.T) {
 						"ignoreDeprecated-1.2.0": {
 							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":""}`),
 							annotations: registry.Annotations{
-								PackageName: "testpkg",
-								Channels:    "alpha",
+								PackageName:        "testpkg",
+								Channels:           "alpha",
 								DefaultChannelName: "alpha",
 							},
 							version: "1.2.0",
@@ -540,8 +540,8 @@ func TestCheckForBundles(t *testing.T) {
 					action: actionOverwrite,
 					expected: map[string]*registry.Package{
 						"testpkg": {
-							Name:           "testpkg",
-							Channels:       map[string]registry.Channel{
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
 								"stable": {
 									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
 										registry.BundleKey{
@@ -612,8 +612,7 @@ func TestCheckForBundles(t *testing.T) {
 						graphLoader,
 						query,
 						refs,
-						overwriteRefs,
-						true).Populate(registry.ReplacesMode))
+						overwriteRefs).Populate(registry.ReplacesMode))
 
 				}
 				err = checkForBundles(context.TODO(), query, graphLoader, step.expected)

@@ -33,7 +33,7 @@ func TestStrandedBundleRemover(t *testing.T) {
 			map[image.Reference]string{
 				image.SimpleReference("quay.io/test/" + name): "./testdata/strandedbundles/" + name,
 			},
-			map[string][]string{}, false).Populate(registry.ReplacesMode)
+			nil).Populate(registry.ReplacesMode)
 	}
 	for _, name := range []string{"prometheus.0.14.0", "prometheus.0.15.0", "prometheus.0.22.2"} {
 		require.NoError(t, populate(name))
