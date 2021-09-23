@@ -25,17 +25,15 @@ type DirectoryPopulator struct {
 	querier           Query
 	imageDirMap       map[image.Reference]string
 	overwrittenImages map[string][]string
-	overwrite         bool
 }
 
-func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwrittenImages map[string][]string, overwrite bool) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwrittenImages map[string][]string) *DirectoryPopulator {
 	return &DirectoryPopulator{
 		loader:            loader,
 		graphLoader:       graphLoader,
 		querier:           querier,
 		imageDirMap:       imageDirMap,
 		overwrittenImages: overwrittenImages,
-		overwrite:         overwrite,
 	}
 }
 
@@ -65,6 +63,7 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 }
 
 func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error {
+	overwrite := len(i.overwrittenImages) > 0
 	var errs []error
 	images := make(map[string]struct{})
 	for _, image := range imagesToAdd {
@@ -98,7 +97,7 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 				continue
 			}
 			if bundle != nil {
-				if !i.overwrite {
+				if !overwrite {
 					// raise error that this package + channel + csv combo is already in the db
 					errs = append(errs, PackageVersionAlreadyAddedErr{ErrorString: "Bundle already added that provides package and csv"})
 					break
@@ -144,19 +143,19 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode)
 		// the registry and the index. Loading the bundles in a single transactions as
 		// described above would allow us to do the removable in that same transaction
 		// and ensure that rollback is possible.
-		if i.overwrite {
-			// globalSanityCheck should have verified this to be a head without anything replacing it
-			// and that we have a single overwrite per package
-			for pkg, imgToDelete := range i.overwrittenImages {
-				if len(imgToDelete) == 0 {
-					continue
-				}
-				// delete old head bundle and swap it with the previous real bundle in its replaces chain
-				if err := i.loader.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
-					return err
-				}
+
+		// globalSanityCheck should have verified this to be a head without anything replacing it
+		// and that we have a single overwrite per package
+		for pkg, imgToDelete := range i.overwrittenImages {
+			if len(imgToDelete) == 0 {
+				continue
+			}
+			// delete old head bundle and swap it with the previous real bundle in its replaces chain
+			if err := i.loader.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
+				return err
 			}
 		}
+
 		return i.loadManifestsReplaces(imagesToAdd)
 	case SemVerMode:
 		for _, image := range imagesToAdd {

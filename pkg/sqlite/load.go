@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/operator-framework/operator-registry/alpha/property"
 	"strings"
 
 	"github.com/blang/semver"
@@ -968,6 +969,7 @@ func (s *sqlLoader) RemovePackage(packageName string) error {
 		if _, err := deleteChannel.Exec(packageName); err != nil {
 			return err
 		}
+
 		return tx.Commit()
 	}(); err != nil {
 		return err
@@ -1364,7 +1366,7 @@ func getTailFromBundle(tx *sql.Tx, head string) (bundles map[string]tailBundle, 
 
 	getDefaultChannelHead := `
 		SELECT head_operatorbundle_name FROM channel
-		INNER JOIN package ON channel.name = package.default_channel
+		INNER JOIN package ON channel.name = package.default_channel AND channel.package_name = package.name
 		INNER JOIN channel_entry on channel.package_name = channel_entry.package_name
 		WHERE channel_entry.operatorbundle_name = ?
 		LIMIT 1`
@@ -1588,14 +1590,64 @@ func (s *sqlLoader) RemoveStrandedBundles() error {
 }
 
 func (s *sqlLoader) rmStrandedBundles(tx *sql.Tx) error {
-	_, err := tx.Exec("DELETE FROM operatorbundle WHERE name NOT IN(select operatorbundle_name from channel_entry)")
+	// Remove everything without a channel_entry except deprecated channel heads
+	_, err := tx.Exec("DELETE FROM operatorbundle WHERE name NOT IN(select operatorbundle_name from channel_entry) AND name NOT IN (SELECT operatorbundle_name FROM deprecated)")
 	return err
 }
 
 func (s *sqlLoader) rmStrandedDeprecated(tx *sql.Tx) error {
+	// Remove any deprecated channel heads which have no entries in the channel/channel_entry table to avoid being displayed on the console
+	rows, err := tx.Query("SELECT DISTINCT name FROM package")
+	if err != nil {
+		return err
+	}
+	knownPackages := map[string]struct{}{}
+	for rows.Next() {
+		var pkg sql.NullString
+		if err := rows.Scan(&pkg); err != nil {
+			return err
+		}
+		if !pkg.Valid || len(pkg.String) == 0 {
+			return fmt.Errorf("invalid package %v", pkg)
+		}
+		knownPackages[pkg.String] = struct{}{}
+	}
+
+	packagePropertiesQuery := `select distinct operatorbundle_name, value from properties where type = ?`
+	rows, err = s.db.Query(packagePropertiesQuery, property.TypePackage)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var bundle, value sql.NullString
+		if err := rows.Scan(&bundle, &value); err != nil {
+			return err
+		}
+
+		if !bundle.Valid || len(bundle.String) == 0 {
+			return fmt.Errorf("invalid bundle %v", bundle)
+		}
+
+		if !value.Valid || len(value.String) == 0 {
+			return fmt.Errorf("invalid package property on %v: %v", bundle, value)
+		}
+
+		var prop property.Package
+		if err := json.Unmarshal([]byte(value.String), &prop); err != nil {
+			return err
+		}
+
+		if _, ok := knownPackages[prop.PackageName]; !ok {
+			if err := s.rmBundle(tx, bundle.String); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Clean up the deprecated table by dropping all truncated bundles
 	// (see pkg/sqlite/migrations/013_rm_truncated_deprecations.go for more details)
-	_, err := tx.Exec(`DELETE FROM deprecated WHERE deprecated.operatorbundle_name NOT IN (SELECT DISTINCT deprecated.operatorbundle_name FROM (deprecated INNER JOIN operatorbundle ON deprecated.operatorbundle_name = operatorbundle.name))`)
+	_, err = tx.Exec(`DELETE FROM deprecated WHERE deprecated.operatorbundle_name NOT IN (SELECT DISTINCT name FROM operatorbundle)`)
 	return err
 }
 

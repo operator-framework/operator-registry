@@ -165,7 +165,7 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 		return err
 
 	}
-	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwrittenBundles, overwrite)
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwrittenBundles)
 
 	if err := populator.Populate(mode); err != nil {
 
@@ -258,7 +258,7 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 	}
 	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	dbLoader, err := sqlite.NewDeprecationAwareLoader(db)
 	if err != nil {
 		return err
 	}
@@ -311,7 +311,7 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 	}
 	defer db.Close()
 
-	dbLoader, err := sqlite.NewSQLLiteLoader(db)
+	dbLoader, err := sqlite.NewDeprecationAwareLoader(db)
 	if err != nil {
 		return err
 	}
@@ -460,7 +460,7 @@ func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.Bun
 * eg:  [1.0.2 (alpha, stable)] <- 1.0.1 (alpha)
 * When 1.0.2 in alpha and stable channels is added replacing 1.0.1, 1.0.1's presence will only be marked as expected on
 * the alpha channel, not on the inherited stable channel.
-*/
+ */
 // expectedGraphBundles returns a set of package-channel-bundle tuples that MUST be present following an add.
 func expectedGraphBundles(imagesToAdd []*registry.Bundle, graphLoader registry.GraphLoader, overwrite bool) (map[string]*registry.Package, error) {
 	expectedBundles := map[string]*registry.Package{}
