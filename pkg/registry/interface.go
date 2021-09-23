@@ -15,7 +15,6 @@ type Load interface {
 	RemoveStrandedBundles() error
 	DeprecateBundle(path string) error
 	ClearNonHeadBundles() error
-	RemoveOverwrittenChannelHead(pkg, bundle string) error
 }
 
 type BundleSender interface {
@@ -104,4 +103,8 @@ type GraphLoader interface {
 // RegistryPopulator populates a registry.
 type RegistryPopulator interface {
 	Populate() error
+}
+
+type HeadOverwriter interface {
+	RemoveOverwrittenChannelHead(pkg, bundle string) error
 }

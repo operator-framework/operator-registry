@@ -146,13 +146,19 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode)
 
 		// globalSanityCheck should have verified this to be a head without anything replacing it
 		// and that we have a single overwrite per package
-		for pkg, imgToDelete := range i.overwrittenImages {
-			if len(imgToDelete) == 0 {
-				continue
-			}
-			// delete old head bundle and swap it with the previous real bundle in its replaces chain
-			if err := i.loader.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
-				return err
+
+		if len(i.overwrittenImages) > 0 {
+			if overwriter, ok := i.loader.(HeadOverwriter); ok {
+				// Assume loader has some way to handle overwritten heads if HeadOverwriter isn't implemented explicitly
+				for pkg, imgToDelete := range i.overwrittenImages {
+					if len(imgToDelete) == 0 {
+						continue
+					}
+					// delete old head bundle and swap it with the previous real bundle in its replaces chain
+					if err := overwriter.RemoveOverwrittenChannelHead(pkg, imgToDelete[0]); err != nil {
+						return err
+					}
+				}
 			}
 		}
 

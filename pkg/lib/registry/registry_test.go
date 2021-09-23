@@ -677,34 +677,27 @@ func TestExpectedGraphBundles(t *testing.T) {
 	testBundle, err := registry.NewBundleFromStrings("testBundle", "0.0.1", "testPkg", "default", "default", "")
 	require.NoError(t, err)
 	testBundle.BundleImage = "testImage"
-	testBundlePkg := &registry.Package{
-		Name: "testPkg",
-		Channels: map[string]registry.Channel{
-			"default": {
-				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{
-						BundlePath: "testImage",
-						Version:    "0.0.1",
-						CsvName:    "testBundle",
-					}: nil,
-				},
-			},
-		},
+	testBundleKey := registry.BundleKey{
+		BundlePath: testBundle.BundleImage,
+		Version:    "0.0.1",
+		CsvName:    testBundle.Name,
 	}
-	testBundleDifferentChannelPkg := &registry.Package{
-		Name: "testPkg",
-		Channels: map[string]registry.Channel{
-			"alpha": {
-				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{
-						BundlePath: "testImage",
-						Version:    "0.0.1",
-						CsvName:    "testBundle",
-					}: nil,
-				},
-			},
-		},
+	newTestPackage := func(name string, channelEntries map[string]registry.BundleKey) *registry.Package {
+		channels := map[string]registry.Channel{}
+		for channelName, node := range channelEntries {
+			if _, ok := channels[channelName]; !ok {
+				channels[channelName] = registry.Channel{
+					Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{},
+				}
+			}
+			channels[channelName].Nodes[node] = nil
+		}
+		return &registry.Package{
+			Name:     name,
+			Channels: channels,
+		}
 	}
+
 	tests := []struct {
 		description      string
 		graphLoader      registry.GraphLoader
@@ -724,22 +717,26 @@ func TestExpectedGraphBundles(t *testing.T) {
 			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return nil, registry.ErrPackageNotInDatabase }},
 			bundles:     []*registry.Bundle{testBundle},
 			wantGraphBundles: map[string]*registry.Package{
-				"testPkg": testBundlePkg,
+				"testPkg": newTestPackage("testPkg", map[string]registry.BundleKey{"default": testBundleKey}),
 			},
 		},
 		{
 			description: "OverwriteWithoutFlag",
-			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return testBundleDifferentChannelPkg, nil }},
-			bundles:     []*registry.Bundle{testBundle},
-			wantErr:     registry.BundleImageAlreadyAddedErr{ErrorString: fmt.Sprintf("Bundle %s already exists", testBundle.BundleImage)},
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) {
+				return newTestPackage("testPkg", map[string]registry.BundleKey{"alpha": testBundleKey}), nil
+			}},
+			bundles: []*registry.Bundle{testBundle},
+			wantErr: registry.BundleImageAlreadyAddedErr{ErrorString: fmt.Sprintf("Bundle %s already exists", testBundle.BundleImage)},
 		},
 		{
 			description: "OverwriteWithFlag",
-			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) { return testBundleDifferentChannelPkg, nil }},
-			bundles:     []*registry.Bundle{testBundle},
-			overwrite:   true,
+			graphLoader: &registryfakes.FakeGraphLoader{GenerateStub: func(string) (*registry.Package, error) {
+				return newTestPackage("testPkg", map[string]registry.BundleKey{"alpha": testBundleKey}), nil
+			}},
+			bundles:   []*registry.Bundle{testBundle},
+			overwrite: true,
 			wantGraphBundles: map[string]*registry.Package{
-				"testPkg": testBundlePkg,
+				"testPkg": newTestPackage("testPkg", map[string]registry.BundleKey{"default": testBundleKey}),
 			},
 		},
 	}

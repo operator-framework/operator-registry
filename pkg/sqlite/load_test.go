@@ -1112,7 +1112,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 				// Throw away any errors loading packages (not testing this)
 				store.AddPackageChannels(pkg)
 			}
-			err = store.RemoveOverwrittenChannelHead(tt.args.pkg, tt.args.bundle)
+			err = store.(registry.HeadOverwriter).RemoveOverwrittenChannelHead(tt.args.pkg, tt.args.bundle)
 			if tt.expected.err != nil {
 				require.EqualError(t, err, tt.expected.err.Error())
 			} else {
