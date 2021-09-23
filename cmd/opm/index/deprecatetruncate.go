@@ -37,13 +37,14 @@ func newIndexDeprecateTruncateCmd() *cobra.Command {
 		Use:    "deprecatetruncate",
 		Short:  "Deprecate and truncate operator bundles from an index.",
 		Long:   deprecateLong,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
 			return nil
 		},
 		RunE: runIndexDeprecateTruncateCmdFunc,
+		Args: cobra.NoArgs,
 	}
 
 	indexCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -68,7 +69,7 @@ func newIndexDeprecateTruncateCmd() *cobra.Command {
 	return indexCmd
 }
 
-func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, args []string) error {
+func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, _ []string) error {
 	generate, err := cmd.Flags().GetBool("generate")
 	if err != nil {
 		return err

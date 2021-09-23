@@ -18,12 +18,13 @@ func NewOpmRegistryCmd() *cobra.Command {
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			sqlite.LogSqliteDeprecation()
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
 			return nil
 		},
+		Args: cobra.NoArgs,
 	}
 
 	rootCmd.AddCommand(newRegistryServeCmd())

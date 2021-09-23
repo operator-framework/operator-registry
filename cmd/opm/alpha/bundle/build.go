@@ -41,6 +41,7 @@ Note:
 * Bundle image is not runnable.
 * All manifests yaml must be in the same directory. `,
 		RunE: buildFunc,
+		Args: cobra.NoArgs,
 	}
 
 	bundleBuildCmd.Flags().StringVarP(&buildDir, "directory", "d", "",
@@ -78,7 +79,7 @@ Note:
 	return bundleBuildCmd
 }
 
-func buildFunc(cmd *cobra.Command, args []string) error {
+func buildFunc(cmd *cobra.Command, _ []string) error {
 	return bundle.BuildFunc(
 		buildDir,
 		outputDir,

@@ -40,6 +40,7 @@ func MirrorCmd() *cobra.Command {
 			}
 			return nil
 		},
+		Args: cobra.ExactArgs(2),
 	}
 	flags := cmd.Flags()
 

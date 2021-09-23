@@ -22,6 +22,7 @@ $ opm alpha bundle generate --directory /test/0.1.0/ --package test-operator \
 Note:
 * All manifests yaml must be in the same directory.`,
 		RunE: generateFunc,
+		Args: cobra.NoArgs,
 	}
 
 	bundleGenerateCmd.Flags().StringVarP(&buildDir, "directory", "d", "",
@@ -47,7 +48,7 @@ Note:
 	return bundleGenerateCmd
 }
 
-func generateFunc(cmd *cobra.Command, args []string) error {
+func generateFunc(cmd *cobra.Command, _ []string) error {
 	return bundle.GenerateFunc(
 		buildDir,
 		outputDir,

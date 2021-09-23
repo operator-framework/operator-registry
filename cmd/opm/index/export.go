@@ -27,7 +27,7 @@ func newIndexExportCmd() *cobra.Command {
 		Short: "Export an operator from an index into the appregistry format",
 		Long:  exportLong,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
@@ -35,6 +35,7 @@ func newIndexExportCmd() *cobra.Command {
 		},
 
 		RunE: runIndexExportCmdFunc,
+		Args: cobra.NoArgs,
 	}
 	indexCmd.Flags().Bool("debug", false, "enable debug logging")
 	indexCmd.Flags().StringP("index", "i", "", "index to get package from")
@@ -58,7 +59,7 @@ func newIndexExportCmd() *cobra.Command {
 
 }
 
-func runIndexExportCmdFunc(cmd *cobra.Command, args []string) error {
+func runIndexExportCmdFunc(cmd *cobra.Command, _ []string) error {
 	index, err := cmd.Flags().GetString("index")
 	if err != nil {
 		return err

@@ -32,7 +32,7 @@ func newRegistryServeCmd() *cobra.Command {
 
 ` + sqlite.DeprecationMessage,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
@@ -40,6 +40,7 @@ func newRegistryServeCmd() *cobra.Command {
 		},
 
 		RunE: serveFunc,
+		Args: cobra.NoArgs,
 	}
 
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -52,7 +53,7 @@ func newRegistryServeCmd() *cobra.Command {
 	return rootCmd
 }
 
-func serveFunc(cmd *cobra.Command, args []string) error {
+func serveFunc(cmd *cobra.Command, _ []string) error {
 	// Immediately set up termination log
 	terminationLogPath, err := cmd.Flags().GetString("termination-log")
 	if err != nil {

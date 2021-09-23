@@ -14,7 +14,7 @@ var extractCmd = &cobra.Command{
 	Short: "Extracts the data in a bundle directory via ConfigMap",
 	Long:  "Extract takes as input a directory containing manifests and writes the per file contents to a ConfipMap",
 
-	PreRunE: func(cmd *cobra.Command, args []string) error {
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		if debug, _ := cmd.Flags().GetBool("debug"); debug {
 			logrus.SetLevel(logrus.DebugLevel)
 		}
@@ -22,6 +22,7 @@ var extractCmd = &cobra.Command{
 	},
 
 	RunE: runExtractCmd,
+	Args: cobra.NoArgs,
 }
 
 func init() {
@@ -35,7 +36,7 @@ func init() {
 	extractCmd.MarkPersistentFlagRequired("configmapname")
 }
 
-func runExtractCmd(cmd *cobra.Command, args []string) error {
+func runExtractCmd(cmd *cobra.Command, _ []string) error {
 	manifestsDir, err := cmd.Flags().GetString("manifestsdir")
 	if err != nil {
 		return err

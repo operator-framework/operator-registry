@@ -16,7 +16,7 @@ func newRegistryPruneCmd() *cobra.Command {
 
 ` + sqlite.DeprecationMessage,
 
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
 			}
@@ -24,6 +24,7 @@ func newRegistryPruneCmd() *cobra.Command {
 		},
 
 		RunE: runRegistryPruneCmdFunc,
+		Args: cobra.NoArgs,
 	}
 
 	rootCmd.Flags().Bool("debug", false, "enable debug logging")
@@ -37,7 +38,7 @@ func newRegistryPruneCmd() *cobra.Command {
 	return rootCmd
 }
 
-func runRegistryPruneCmdFunc(cmd *cobra.Command, args []string) error {
+func runRegistryPruneCmdFunc(cmd *cobra.Command, _ []string) error {
 	fromFilename, err := cmd.Flags().GetString("database")
 	if err != nil {
 		return err
