@@ -90,7 +90,7 @@ func (p Diff) validate() error {
 }
 
 // DiffIncludeConfig configures Diff.Run() to include a set of packages,
-// channels, and/or bundle versions in the output DeclarativeConfig.
+// channels, and/or bundles/versions in the output DeclarativeConfig.
 // These override other diff mechanisms. For example, if running in
 // heads-only mode but package "foo" channel "stable" is specified,
 // the entire "stable" channel (all channel bundles) is added to the output.
@@ -110,6 +110,10 @@ type DiffIncludePackage struct {
 	// Versions to include. All channels containing these versions
 	// are parsed for an upgrade graph.
 	Versions []semver.Version `json:"versions,omitempty" yaml:"versions,omitempty"`
+	// Bundles are bundle names to include. All channels containing these bundles
+	// are parsed for an upgrade graph.
+	// Set this field only if the named bundle has no semantic version metadata.
+	Bundles []string `json:"bundles,omitempty" yaml:"bundles,omitempty"`
 }
 
 // DiffIncludeChannel contains a name (required) and versions (optional)
@@ -119,6 +123,9 @@ type DiffIncludeChannel struct {
 	Name string `json:"name" yaml:"name"`
 	// Versions to include.
 	Versions []semver.Version `json:"versions,omitempty" yaml:"versions,omitempty"`
+	// Bundles are bundle names to include.
+	// Set this field only if the named bundle has no semantic version metadata.
+	Bundles []string `json:"bundles,omitempty" yaml:"bundles,omitempty"`
 }
 
 // LoadDiffIncludeConfig loads a (YAML or JSON) DiffIncludeConfig from r.
@@ -154,6 +161,7 @@ func convertIncludeConfigToIncluder(c DiffIncludeConfig) (includer declcfg.DiffI
 		pkg := &includer.Packages[pkgI]
 		pkg.Name = cpkg.Name
 		pkg.AllChannels.Versions = cpkg.Versions
+		pkg.AllChannels.Bundles = cpkg.Bundles
 
 		if len(cpkg.Channels) != 0 {
 			pkg.Channels = make([]declcfg.DiffIncludeChannel, len(cpkg.Channels))
@@ -161,6 +169,7 @@ func convertIncludeConfigToIncluder(c DiffIncludeConfig) (includer declcfg.DiffI
 				ch := &pkg.Channels[chI]
 				ch.Name = cch.Name
 				ch.Versions = cch.Versions
+				ch.Bundles = cch.Bundles
 			}
 		}
 	}

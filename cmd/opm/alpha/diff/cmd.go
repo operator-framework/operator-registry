@@ -117,8 +117,8 @@ docker push registry.org/my-catalog:diff-latest
 	cmd.Flags().StringVarP(&a.output, "output", "o", "yaml", "Output format (json|yaml)")
 	cmd.Flags().StringVar(&a.caFile, "ca-file", "", "the root Certificates to use with this command")
 	cmd.Flags().StringVarP(&a.includeFile, "include-file", "i", "", "YAML defining packages, "+
-		"channels, and/or versions to include in the diff from the new refs. Upgrade graphs "+
-		"from individual versions to their channel's head are added to the diff")
+		"channels, and/or bundles/versions to include in the diff from the new refs. Upgrade graphs "+
+		"from individual bundles/versions to their channel's head are added to the diff")
 
 	cmd.Flags().BoolVar(&a.debug, "debug", false, "enable debug logging")
 	return cmd
