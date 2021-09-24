@@ -446,6 +446,7 @@ func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.Bun
 	return false, nil
 }
 
+// expectedGraphBundles returns a set of package-channel-bundle tuples that MUST be present following an add.
 /* opm index add drops bundles that replace a channel head, and since channel head selection heuristics
 * choose the bundle with the greatest semver as the channel head, any bundle that replaces such a bundle
 * will be dropped from the graph following an add.
@@ -457,11 +458,10 @@ func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.Bun
 *
 * Overwritten bundles will only be verified on the channels of the newly added version.
 * Any inherited channels due to addition of a new bundle on its tail bundles may not be verified
-* eg:  [1.0.2 (alpha, stable)] <- 1.0.1 (alpha)
+* eg:  1.0.1 (alpha) <-[1.0.2 (alpha, stable)]
 * When 1.0.2 in alpha and stable channels is added replacing 1.0.1, 1.0.1's presence will only be marked as expected on
 * the alpha channel, not on the inherited stable channel.
  */
-// expectedGraphBundles returns a set of package-channel-bundle tuples that MUST be present following an add.
 func expectedGraphBundles(imagesToAdd []*registry.Bundle, graphLoader registry.GraphLoader, overwrite bool) (map[string]*registry.Package, error) {
 	expectedBundles := map[string]*registry.Package{}
 	for _, bundle := range imagesToAdd {
