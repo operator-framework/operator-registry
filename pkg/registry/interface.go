@@ -104,3 +104,7 @@ type GraphLoader interface {
 type RegistryPopulator interface {
 	Populate() error
 }
+
+type HeadOverwriter interface {
+	RemoveOverwrittenChannelHead(pkg, bundle string) error
+}

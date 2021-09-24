@@ -792,7 +792,7 @@ func generateSqliteFile(path string, imageMap map[image.Reference]string) error 
 		return err
 	}
 
-	populator := registry.NewDirectoryPopulator(loader, graphLoader, dbQuerier, imageMap, nil, false)
+	populator := registry.NewDirectoryPopulator(loader, graphLoader, dbQuerier, imageMap, nil)
 	if err := populator.Populate(registry.ReplacesMode); err != nil {
 		return err
 	}
