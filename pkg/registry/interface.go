@@ -102,7 +102,7 @@ type GraphLoader interface {
 
 // RegistryPopulator populates a registry.
 type RegistryPopulator interface {
-	Populate() error
+	Populate(ctx context.Context) error
 }
 
 type HeadOverwriter interface {

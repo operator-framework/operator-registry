@@ -239,7 +239,8 @@ func (s *SQLQuerier) GetBundle(ctx context.Context, pkgName, channelName, csvNam
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("no entry found for %s %s %s", pkgName, channelName, csvName)
+		return nil, registry.BundleNotFoundErr{ErrorString: fmt.Sprintf("no entry found for %s %s %s", pkgName, channelName, csvName)}
+
 	}
 	var entryId sql.NullInt64
 	var name sql.NullString

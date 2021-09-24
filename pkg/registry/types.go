@@ -49,6 +49,15 @@ func (e OverwriteErr) Error() string {
 	return e.ErrorString
 }
 
+// BundleNotFoundErr is an error that describes a bundle not found
+type BundleNotFoundErr struct {
+	ErrorString string
+}
+
+func (e BundleNotFoundErr) Error() string {
+	return e.ErrorString
+}
+
 const (
 	GVKType        = "olm.gvk"
 	PackageType    = "olm.package"

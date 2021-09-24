@@ -651,6 +651,11 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 			}
 			if deprecated {
 				// The package is truncated below this point, we're done!
+				_, err := addChannelEntry.Exec(c.Name, manifest.PackageName, channelEntryCSVName, depth)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("failed to add channel %q for replaces %q in package %q: %s", c.Name, replaces, manifest.PackageName, err.Error()))
+					break
+				}
 				break
 			}
 

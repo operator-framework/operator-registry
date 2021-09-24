@@ -77,7 +77,7 @@ func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
 			graphLoader,
 			query,
 			refMap,
-			nil).Populate(registry.ReplacesMode)
+			nil, registry.ReplacesMode).Populate(context.TODO())
 	}
 	names := []string{"etcd.0.9.0", "etcd.0.9.2", "prometheus.0.22.2", "prometheus.0.14.0", "prometheus.0.15.0"}
 	if err := populate(names); err != nil {
@@ -503,16 +503,16 @@ func TestImageLoading(t *testing.T) {
 					graphLoader,
 					query,
 					map[image.Reference]string{i.ref: i.dir},
-					nil)
-				require.NoError(t, p.Populate(registry.ReplacesMode))
+					nil, registry.ReplacesMode)
+				require.NoError(t, p.Populate(context.TODO()))
 			}
 			add := registry.NewDirectoryPopulator(
 				load,
 				graphLoader,
 				query,
 				map[image.Reference]string{tt.addImage.ref: tt.addImage.dir},
-				nil)
-			err = add.Populate(registry.ReplacesMode)
+				nil, registry.ReplacesMode)
+			err = add.Populate(context.TODO())
 			if tt.wantErr {
 				require.True(t, checkAggErr(err, tt.err))
 				return
@@ -720,7 +720,7 @@ func TestDirectoryPopulator(t *testing.T) {
 			graphLoader,
 			query,
 			bundles,
-			nil).Populate(registry.ReplacesMode)
+			nil, registry.ReplacesMode).Populate(context.TODO())
 	}
 	add := map[image.Reference]string{
 		image.SimpleReference("quay.io/test/etcd.0.9.2"):        "../../bundles/etcd.0.9.2",
@@ -1221,7 +1221,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 		if len(b.suffix) > 0 {
 			dir += "-" + b.suffix
 		}
-		_, _, err := newUnpackedTestBundle(tmpdir, dir, b.csvName, b.csvSpec, registry.Annotations{PackageName: "testpkg", Channels: b.channels, DefaultChannelName: b.defaultChannel})
+		_, _, err := newUnpackedTestBundle(tmpdir, dir, b.csvName, b.csvSpec, registry.Annotations{PackageName: "testpkg", Channels: b.channels, DefaultChannelName: b.defaultChannel}, false)
 		require.NoError(t, err)
 	}
 
@@ -1593,8 +1593,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 					graphLoader,
 					query,
 					addRefs,
-					overwrite).Populate(registry.ReplacesMode)
-
+					overwrite, registry.ReplacesMode).Populate(context.TODO())
 			}
 			// Initialize index with some bundles
 			require.NoError(t, populate(tt.args.existing, nil))
@@ -2009,7 +2008,7 @@ func TestOverwrite(t *testing.T) {
 					graphLoader,
 					query,
 					bundles,
-					overwrites).Populate(registry.ReplacesMode)
+					overwrites, registry.ReplacesMode).Populate(context.TODO())
 			}
 			require.NoError(t, populate(tt.args.firstAdd, nil))
 
@@ -2839,7 +2838,7 @@ func TestSubstitutesFor(t *testing.T) {
 					graphLoader,
 					query,
 					refMap,
-					nil).Populate(registry.ReplacesMode)
+					nil, registry.ReplacesMode).Populate(context.TODO())
 			}
 			// Initialize index with some bundles
 			require.NoError(t, populate(tt.args.bundles))
@@ -2963,15 +2962,18 @@ func TestEnableAlpha(t *testing.T) {
 					graphLoader,
 					query,
 					refMap,
-					nil).Populate(registry.ReplacesMode)
+					nil, registry.ReplacesMode).Populate(context.TODO())
 			}
 			require.Equal(t, tt.expected.err, populate(tt.args.bundles))
 		})
 	}
 }
 
-func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, annotations registry.Annotations) (string, func(), error) {
+func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, annotations registry.Annotations, overwrite bool) (string, func(), error) {
 	bundleDir := filepath.Join(root, dir)
+	if overwrite {
+		os.RemoveAll(bundleDir)
+	}
 	cleanup := func() {
 		os.RemoveAll(bundleDir)
 	}
@@ -3024,4 +3026,290 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 		return bundleDir, cleanup, err
 	}
 	return bundleDir, cleanup, nil
+}
+
+type bundleDir struct {
+	version     string
+	csvSpec     json.RawMessage
+	annotations registry.Annotations
+}
+
+func TestCheckForBundles(t *testing.T) {
+	type step struct {
+		bundles  map[string]bundleDir
+		action   int
+		expected map[string]*registry.Package
+	}
+	const (
+		actionAdd = iota
+		actionDeprecate
+		actionOverwrite
+	)
+	tests := []struct {
+		description string
+		steps       []step
+		wantErr     error
+		init        func() (*sql.DB, func())
+	}{
+		{
+			// 1.1.0 -> 1.0.0         pruned    channel 1
+			//        		\-> 1.2.0 ok        channel 2
+			description: "partialPruning",
+			steps: []step{
+				{
+					bundles: map[string]bundleDir{
+						"unorderedReplaces-1.1.0": {
+							csvSpec: json.RawMessage(`{"version":"1.1.0"}`),
+							annotations: registry.Annotations{
+								PackageName:        "testpkg",
+								Channels:           "stable,alpha",
+								DefaultChannelName: "stable",
+							},
+							version: "1.1.0",
+						},
+						"unorderedReplaces-1.0.0": {
+							csvSpec: json.RawMessage(`{"version":"1.0.0","replaces":"unorderedReplaces-1.1.0"}`),
+							annotations: registry.Annotations{
+								PackageName:        "testpkg",
+								Channels:           "stable,alpha",
+								DefaultChannelName: "stable",
+							},
+							version: "1.0.0",
+						},
+						"unorderedReplaces-1.2.0": {
+							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":"unorderedReplaces-1.0.0"}`),
+							annotations: registry.Annotations{
+								PackageName:        "testpkg",
+								Channels:           "alpha",
+								DefaultChannelName: "stable",
+							},
+							version: "1.2.0",
+						},
+					},
+					action: actionAdd,
+					expected: map[string]*registry.Package{
+						"testpkg": {
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
+								"alpha": {
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+										registry.BundleKey{
+											BundlePath: "unorderedReplaces-1.0.0",
+											Version:    "1.0.0",
+											CsvName:    "unorderedReplaces-1.0.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "unorderedReplaces-1.1.0",
+											Version:    "1.1.0",
+											CsvName:    "unorderedReplaces-1.1.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "unorderedReplaces-1.2.0",
+											Version:    "1.2.0",
+											CsvName:    "unorderedReplaces-1.2.0",
+										}: nil,
+									},
+								},
+								"stable": {
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+										registry.BundleKey{
+											BundlePath: "unorderedReplaces-1.0.0",
+											Version:    "1.0.0",
+											CsvName:    "unorderedReplaces-1.0.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "unorderedReplaces-1.1.0",
+											Version:    "1.1.0",
+											CsvName:    "unorderedReplaces-1.1.0",
+										}: nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: fmt.Errorf("added bundle unorderedReplaces-1.0.0 pruned from package testpkg, channel stable: this may be due to incorrect channel head"),
+		},
+		{
+			description: "ignoreDeprecated",
+			steps: []step{
+				{
+					bundles: map[string]bundleDir{
+						"ignoreDeprecated-1.0.0": {
+							csvSpec: json.RawMessage(`{"version":"1.0.0"}`),
+							annotations: registry.Annotations{
+								PackageName: "testpkg",
+								Channels:    "stable",
+							},
+							version: "1.0.0",
+						},
+						"ignoreDeprecated-1.1.0": {
+							csvSpec: json.RawMessage(`{"version":"1.1.0","replaces":"ignoreDeprecated-1.0.0"}`),
+							annotations: registry.Annotations{
+								PackageName: "testpkg",
+								Channels:    "stable",
+							},
+							version: "1.1.0",
+						},
+						"ignoreDeprecated-1.2.0": {
+							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":"ignoreDeprecated-1.1.0"}`),
+							annotations: registry.Annotations{
+								PackageName: "testpkg",
+								Channels:    "stable",
+							},
+							version: "1.2.0",
+						},
+					},
+					action: actionAdd,
+					expected: map[string]*registry.Package{
+						"testpkg": {
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
+								"stable": {
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.0.0",
+											Version:    "1.0.0",
+											CsvName:    "ignoreDeprecated-1.0.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.1.0",
+											Version:    "1.1.0",
+											CsvName:    "ignoreDeprecated-1.1.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.2.0",
+											Version:    "1.2.0",
+											CsvName:    "ignoreDeprecated-1.2.0",
+										}: nil,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					bundles: map[string]bundleDir{
+						"ignoreDeprecated-1.1.0": {},
+					},
+					action: actionDeprecate,
+					expected: map[string]*registry.Package{
+						"testpkg": {
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
+								"stable": {
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.1.0",
+											Version:    "1.1.0",
+											CsvName:    "ignoreDeprecated-1.1.0",
+										}: nil,
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.2.0",
+											Version:    "1.2.0",
+											CsvName:    "ignoreDeprecated-1.2.0",
+										}: nil,
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					bundles: map[string]bundleDir{
+						"ignoreDeprecated-1.2.0": {
+							csvSpec: json.RawMessage(`{"version":"1.2.0","replaces":""}`),
+							annotations: registry.Annotations{
+								PackageName:        "testpkg",
+								Channels:           "alpha",
+								DefaultChannelName: "alpha",
+							},
+							version: "1.2.0",
+						},
+					},
+					action: actionOverwrite,
+					expected: map[string]*registry.Package{
+						"testpkg": {
+							Name: "testpkg",
+							Channels: map[string]registry.Channel{
+								"alpha": {
+									Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
+										registry.BundleKey{
+											BundlePath: "ignoreDeprecated-1.2.0-overwrite",
+											Version:    "1.2.0",
+											CsvName:    "ignoreDeprecated-1.2.0",
+										}: nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			tmpdir, err := os.MkdirTemp(".", "tmpdir-*")
+			defer os.RemoveAll(tmpdir)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+			load, err := sqlite.NewDeprecationAwareLoader(db)
+			require.NoError(t, err)
+			require.NoError(t, load.Migrate(context.TODO()))
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			for _, step := range tt.steps {
+				switch step.action {
+				case actionDeprecate:
+					for deprecate := range step.bundles {
+						require.NoError(t, load.DeprecateBundle(deprecate))
+					}
+				case actionAdd, actionOverwrite:
+					overwriteRefs := map[string][]string{}
+					refs := map[image.Reference]string{}
+					imagesToAdd := []*registry.Bundle{}
+					for name, b := range step.bundles {
+						dir, _, err := newUnpackedTestBundle(tmpdir, name, name, b.csvSpec, b.annotations, step.action == actionOverwrite)
+						require.NoError(t, err)
+
+						// refs to be added
+						bundleImage := name
+
+						// bundles to remove for overwrite. Only one per package is permitted.
+						if step.action == actionOverwrite {
+							bundleImage += "-overwrite"
+						}
+
+						img, err := registry.NewImageInput(image.SimpleReference(bundleImage), dir)
+						require.NoError(t, err)
+						imagesToAdd = append(imagesToAdd, img.Bundle)
+
+						if step.action == actionOverwrite {
+							overwriteRefs[img.Bundle.Package] = append(overwriteRefs[img.Bundle.Package], name)
+						}
+						refs[image.SimpleReference(bundleImage)] = dir
+
+					}
+					require.NoError(t, registry.NewDirectoryPopulator(
+						load,
+						graphLoader,
+						query,
+						refs,
+						overwriteRefs, registry.ReplacesMode).Populate(context.TODO()))
+
+				}
+				err = registry.CheckForBundles(context.TODO(), query, step.expected)
+				if tt.wantErr == nil {
+					require.NoError(t, err, fmt.Sprintf("%d", step.action))
+					continue
+				}
+				require.EqualError(t, err, tt.wantErr.Error())
+			}
+		})
+	}
 }

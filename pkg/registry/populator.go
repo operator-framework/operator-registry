@@ -25,19 +25,21 @@ type DirectoryPopulator struct {
 	querier           Query
 	imageDirMap       map[image.Reference]string
 	overwrittenImages map[string][]string
+	mode              Mode
 }
 
-func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwrittenImages map[string][]string) *DirectoryPopulator {
+func NewDirectoryPopulator(loader Load, graphLoader GraphLoader, querier Query, imageDirMap map[image.Reference]string, overwrittenImages map[string][]string, mode Mode) RegistryPopulator {
 	return &DirectoryPopulator{
 		loader:            loader,
 		graphLoader:       graphLoader,
 		querier:           querier,
 		imageDirMap:       imageDirMap,
 		overwrittenImages: overwrittenImages,
+		mode:              mode,
 	}
 }
 
-func (i *DirectoryPopulator) Populate(mode Mode) error {
+func (i *DirectoryPopulator) Populate(_ context.Context) error {
 	var errs []error
 	imagesToAdd := make([]*ImageInput, 0)
 	for to, from := range i.imageDirMap {
@@ -54,7 +56,7 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 		return utilerrors.NewAggregate(errs)
 	}
 
-	err := i.loadManifests(imagesToAdd, mode)
+	err := i.loadManifests(imagesToAdd, i.mode)
 	if err != nil {
 		return err
 	}
@@ -161,7 +163,6 @@ func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode)
 				}
 			}
 		}
-
 		return i.loadManifestsReplaces(imagesToAdd)
 	case SemVerMode:
 		for _, image := range imagesToAdd {
@@ -228,7 +229,6 @@ func (i *DirectoryPopulator) loadManifestsReplaces(images []*ImageInput) error {
 			errs = append(errs, err)
 			continue
 		}
-
 		if err = i.loader.AddPackageChannels(*packageManifest); err != nil {
 			errs = append(errs, err)
 		}
