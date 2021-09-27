@@ -24,6 +24,10 @@ var (
 	dockerPassword = os.Getenv("DOCKER_PASSWORD")
 	dockerHost     = os.Getenv("DOCKER_REGISTRY_HOST") // 'DOCKER_HOST' is reserved for the docker daemon
 
+	// default domain name of the test image (overwritten by "IMAGE_DOMAIN" env variable)
+	imageDomain   = "olmtest"
+	imageRegistry = dockerHost + "/" + imageDomain
+
 	// opm command under test.
 	opm *cobra.Command
 
@@ -41,6 +45,13 @@ var deprovision func() = func() {}
 var _ = BeforeSuite(func() {
 	// Configure test registry (hostnames, credentials, etc.)
 	configureRegistry()
+
+	val, ok := os.LookupEnv("IMAGE_DOMAIN")
+	if ok {
+		imageDomain = val
+		imageRegistry = dockerHost + "/" + imageDomain
+	}
+
 	deprovision = ctx.MustProvision(ctx.Ctx())
 
 	opm = opmroot.NewCmd() // Creating multiple instances would cause flag registration conflicts
@@ -59,6 +70,7 @@ func configureRegistry() {
 	case dockerHost == "" && dockerUsername != "" && dockerPassword != "":
 		// Set host to default registry
 		dockerHost = defaultRegistry
+		imageRegistry = dockerHost + "/" + imageDomain
 	}
 
 	// FIXME: Since podman login doesn't work with daemonless image pulling, we need to login with docker first so podman tests don't fail.

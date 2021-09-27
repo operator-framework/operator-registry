@@ -85,12 +85,12 @@ func buildContainer(tag, dockerfilePath, dockerContext string, w io.Writer) {
 
 var _ = Describe("Launch bundle", func() {
 	namespace := "default"
-	initImage := dockerHost + "/olmtest/init-operator-manifest:test"
 
 	Context("Deploy bundle job", func() {
 		table.DescribeTable("should populate specified configmap", func(bundleName, bundleDirectory string, gzip bool) {
 			// these permissions are only necessary for the e2e (and not OLM using the feature)
 			By("configuring configmap service account")
+			initImage := imageRegistry + "/init-operator-manifest:test"
 			kubeclient, err := kubernetes.NewForConfig(ctx.Ctx().RESTConfig())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -134,7 +134,7 @@ var _ = Describe("Launch bundle", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("building required images")
-			bundleImage := dockerHost + "/olmtest/" + bundleName + ":test"
+			bundleImage := imageRegistry + "/" + bundleName + ":test"
 			buildContainer(initImage, imageDirectory+"serve.Dockerfile", "../../bin", GinkgoWriter)
 			buildContainer(bundleImage, imageDirectory+"bundle.Dockerfile", bundleDirectory, GinkgoWriter)
 
