@@ -52,6 +52,8 @@ type Render struct {
 	Refs           []string
 	Registry       image.Registry
 	AllowedRefMask RefType
+
+	skipSqliteDeprecationLog bool
 }
 
 func nullLogger() *logrus.Entry {
@@ -61,6 +63,10 @@ func nullLogger() *logrus.Entry {
 }
 
 func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
+	if r.skipSqliteDeprecationLog {
+		// exhaust once with a no-op function.
+		logDeprecationMessage.Do(func() {})
+	}
 	if r.Registry == nil {
 		reg, err := r.createRegistry()
 		if err != nil {
