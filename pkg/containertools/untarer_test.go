@@ -86,7 +86,7 @@ func TestUntarer(t *testing.T) {
 		for _, entry := range dir {
 			if f == entry.Name() {
 				found = true
-				continue
+				break
 			}
 		}
 	}
@@ -112,5 +112,68 @@ func TestUntarer(t *testing.T) {
 		if !reflect.DeepEqual(content, []byte(files[key])) {
 			t.Errorf("file %s does not match after extraction: got %s expected %s", key, content, files[key])
 		}
+	}
+}
+
+func TestUntarDirectory(t *testing.T) {
+	log := logrus.NewEntry(logrus.StandardLogger())
+	temp, err := ioutil.TempDir("./", "temp-")
+	if err != nil {
+		t.Error(err)
+	}
+
+	defer os.RemoveAll(temp)
+
+	piper, pipew := io.Pipe()
+	defer func() {
+		pipew.Close()
+		piper.Close()
+	}()
+
+	var (
+		wg          sync.WaitGroup
+		ctx, cancel = context.WithCancel(context.Background())
+		untarer     = newUntarer(log)
+	)
+	defer cancel()
+
+	tr := tar.NewReader(piper)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		if err := untarer.Untar(ctx, tr, temp); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	// tree tar has the following format
+	// tree
+	//	.
+	//	├── a
+	//	│   └── a.txt
+	//	└── b
+	//		└── b.txt
+	tree, err := os.Open("./testdata/tree.tar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(pipew, tree)
+
+	// check temp for results
+	a, err := os.Stat(filepath.Join(temp + "/tree/a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !a.IsDir() {
+		t.Fatal("expected /a dir at the top level")
+	}
+
+	b, err := os.Stat(filepath.Join(temp + "/tree/b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !b.IsDir() {
+		t.Fatal("expected /b dir at the top level")
 	}
 }

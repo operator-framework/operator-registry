@@ -28,6 +28,7 @@ func (u *untarer) Untar(ctx context.Context, reader *tar.Reader, path string) er
 	if err != nil {
 		return err
 	}
+	u.log.Debugf("untarer writing to %s", path)
 
 	for {
 		header, err := reader.Next()
@@ -50,7 +51,7 @@ func (u *untarer) Untar(ctx context.Context, reader *tar.Reader, path string) er
 
 	}
 
-	u.log.Debugf("extracted contents from container filesystem")
+	u.log.Debugf("untarer extracted contents from container filesystem")
 	return nil
 }
 
@@ -85,13 +86,13 @@ func (u *untarer) expandHeader(reader *tar.Reader, header *tar.Header, base stri
 		}
 	}()
 
-	u.log.Debugf("writing %s to disk", path)
+	u.log.Debugf("untarer writing %s to disk", path)
 	n, err := io.Copy(file, reader)
 	if err != nil {
 		return err
 	}
 
-	if int64(n) != info.Size() {
+	if n != info.Size() {
 		return fmt.Errorf("unpacking to disk: wrote %d, want %d", n, info.Size())
 	}
 

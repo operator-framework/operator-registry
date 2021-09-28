@@ -260,6 +260,8 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		return err
 	}
 
+	i.Logger.Infof("databasePath %s", databasePath)
+
 	// Run opm registry prune on the database
 	pruneFromRegistryReq := registry.PruneFromRegistryRequest{
 		Packages:      request.Packages,
@@ -305,6 +307,7 @@ func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTL
 	if err != nil {
 		return "", err
 	}
+
 	// copy the index to the database folder in the build directory
 	return copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder))
 }
@@ -356,14 +359,14 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 	if !ok {
 		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
-
-	i.Logger.Debugf("Copying index db from %s inside the container to %s on the filesystem", dbLocation, workingDir)
+	i.Logger.Infof("Copying index from %s inside the container to %s on the filesystem", dbLocation, workingDir)
 	// unpack just the index db file from the container filesystem to avoid potential file permissions errors
 	if err := reg.Unpack(context.TODO(), imageRef, dbLocation, workingDir); err != nil {
 		return "", err
 	}
+	dbPathOnDisk := filepath.Base(dbLocation)
 
-	return path.Join(workingDir, dbLocation), nil
+	return path.Join(workingDir, dbPathOnDisk), nil
 }
 
 func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
