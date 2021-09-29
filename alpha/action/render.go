@@ -328,14 +328,12 @@ func getRelatedImages(b *registry.Bundle) ([]declcfg.RelatedImage, error) {
 		return nil, err
 	}
 
-	rawValue, ok := objmap["relatedImages"]
-	if !ok || rawValue == nil {
-		return nil, err
-	}
-
 	var relatedImages []declcfg.RelatedImage
-	if err = json.Unmarshal(*rawValue, &relatedImages); err != nil {
-		return nil, err
+	rawValue, ok := objmap["relatedImages"]
+	if ok && rawValue != nil {
+		if err = json.Unmarshal(*rawValue, &relatedImages); err != nil {
+			return nil, err
+		}
 	}
 
 	// Keep track of the images we've already found, so that we don't add

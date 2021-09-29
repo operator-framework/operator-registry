@@ -473,6 +473,47 @@ func TestRender(t *testing.T) {
 			},
 			assertion: require.NoError,
 		},
+		{
+			name: "Success/BundleImageWithNoCSVRelatedImages",
+			render: action.Render{
+				Refs:     []string{"test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0"},
+				Registry: reg,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
 	}
 
 	for _, s := range specs {
@@ -687,6 +728,10 @@ var bundleImageV1 embed.FS
 //go:embed testdata/foo-bundle-v0.2.0/metadata/*
 var bundleImageV2 embed.FS
 
+//go:embed testdata/foo-bundle-v0.2.0-no-csv-related-images/manifests/*
+//go:embed testdata/foo-bundle-v0.2.0-no-csv-related-images/metadata/*
+var bundleImageV2NoCSVRelatedImages embed.FS
+
 //go:embed testdata/foo-index-v0.2.0-declcfg/foo/*
 var declcfgImage embed.FS
 
@@ -709,6 +754,10 @@ func newRegistry() (image.Registry, error) {
 		return nil, err
 	}
 	subBundleImageV2, err := fs.Sub(bundleImageV2, "testdata/foo-bundle-v0.2.0")
+	if err != nil {
+		return nil, err
+	}
+	subBundleImageV2NoCSVRelatedImages, err := fs.Sub(bundleImageV2NoCSVRelatedImages, "testdata/foo-bundle-v0.2.0-no-csv-related-images")
 	if err != nil {
 		return nil, err
 	}
@@ -737,6 +786,12 @@ func newRegistry() (image.Registry, error) {
 					bundle.PackageLabel: "foo",
 				},
 				FS: subBundleImageV2,
+			},
+			image.SimpleReference("test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0"): {
+				Labels: map[string]string{
+					bundle.PackageLabel: "foo",
+				},
+				FS: subBundleImageV2NoCSVRelatedImages,
 			},
 		},
 	}, nil
