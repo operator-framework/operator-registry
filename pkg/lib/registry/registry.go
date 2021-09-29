@@ -425,7 +425,11 @@ func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.Graph
 					errs = append(errs, fmt.Errorf("could not validate pruned bundle %s (%s) as deprecated: %v", bundle.CsvName, bundle.BundlePath, err))
 				}
 				if !deprecated {
-					errs = append(errs, fmt.Errorf("added bundle %s pruned from package %s, channel %s: this may be due to incorrect channel head (%s)", bundle.BundlePath, pkg.Name, channel, graph.Channels[channel].Head.CsvName))
+					headSkips := []string{}
+					for b := range graph.Channels[channel].Nodes[graph.Channels[channel].Head] {
+						headSkips = append(headSkips, b.CsvName)
+					}
+					errs = append(errs, fmt.Errorf("add prunes bundle %s (%s, %s) from package %s, channel %s: this may be due to incorrect channel head (%s, skips/replaces %v)", bundle.CsvName, bundle.Version, bundle.BundlePath, pkg.Name, channel, graph.Channels[channel].Head.CsvName, headSkips))
 				}
 			}
 		}

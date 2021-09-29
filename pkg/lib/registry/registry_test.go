@@ -444,7 +444,7 @@ func TestCheckForBundles(t *testing.T) {
 					},
 				},
 			},
-			wantErr: fmt.Errorf("added bundle unorderedReplaces-1.0.0 pruned from package testpkg, channel stable: this may be due to incorrect channel head (unorderedReplaces-1.1.0)"),
+			wantErr: fmt.Errorf("add prunes bundle unorderedReplaces-1.0.0 (1.0.0, unorderedReplaces-1.0.0) from package testpkg, channel stable: this may be due to incorrect channel head (unorderedReplaces-1.1.0, skips/replaces [])"),
 		},
 		{
 			description: "ignoreDeprecated",
