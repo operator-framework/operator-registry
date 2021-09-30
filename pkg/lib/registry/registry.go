@@ -396,69 +396,35 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 // check for the presence of newly added bundles after a replaces-mode add.
 func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.GraphLoader, required []*registry.Bundle) error {
 	var errs []error
-checkRequired:
 	for _, bundle := range required {
-		var graph *registry.Package
-		var deprecated *bool
-		var err error
-	checkForBundleInChannel:
-		for _, channel := range bundle.Channels {
-			if graph == nil {
-				graph, err = g.Generate(bundle.Package)
-				if err != nil {
-					errs = append(errs, fmt.Errorf("unable to verify added bundles for package %s: %v", bundle.Package, err))
-					continue
-				}
-			}
+		graph, err := g.Generate(bundle.Package)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("unable to verify added bundles for package %s: %v", bundle.Package, err))
+			continue
+		}
 
+		for _, channel := range bundle.Channels {
+			var foundImage bool
 			for next := []registry.BundleKey{graph.Channels[channel].Head}; len(next) > 0; next = next[1:] {
 				if next[0].BundlePath == bundle.BundleImage {
-					continue checkForBundleInChannel
+					foundImage = true
+					break
 				}
 				for edge := range graph.Channels[channel].Nodes[next[0]] {
 					next = append(next, edge)
 				}
 			}
 
-			if deprecated == nil {
-				version, err := bundle.Version()
-				if err != nil {
-					errs = append(errs, fmt.Errorf("could not check pruned bundle %s (%s) for deprecation: %v", bundle.Name, bundle.BundleImage, err))
-					continue checkRequired
-				}
-				depr, err := isDeprecated(ctx, q, registry.BundleKey{
-					BundlePath: bundle.BundleImage,
-					Version:    version,
-					CsvName:    bundle.Name,
-				})
-				if err != nil {
-					errs = append(errs, fmt.Errorf("could not validate pruned bundle %s (%s) as deprecated: %v", bundle.Name, bundle.BundleImage, err))
-					continue checkRequired
-				}
-				deprecated = &depr
+			if foundImage {
+				continue
 			}
 
-			if !*deprecated {
-				headSkips := []string{}
-				for b := range graph.Channels[channel].Nodes[graph.Channels[channel].Head] {
-					headSkips = append(headSkips, b.CsvName)
-				}
-				errs = append(errs, fmt.Errorf("add prunes bundle %s (%s) from package %s, channel %s: this may be due to incorrect channel head (%s, skips/replaces %v)", bundle.Name, bundle.BundleImage, bundle.Package, channel, graph.Channels[channel].Head.CsvName, headSkips))
+			var headSkips []string
+			for b := range graph.Channels[channel].Nodes[graph.Channels[channel].Head] {
+				headSkips = append(headSkips, b.CsvName)
 			}
+			errs = append(errs, fmt.Errorf("add prunes bundle %s (%s) from package %s, channel %s: this may be due to incorrect channel head (%s, skips/replaces %v)", bundle.Name, bundle.BundleImage, bundle.Package, channel, graph.Channels[channel].Head.CsvName, headSkips))
 		}
 	}
 	return utilerrors.NewAggregate(errs)
-}
-
-func isDeprecated(ctx context.Context, q *sqlite.SQLQuerier, bundle registry.BundleKey) (bool, error) {
-	props, err := q.GetPropertiesForBundle(ctx, bundle.CsvName, bundle.Version, bundle.BundlePath)
-	if err != nil {
-		return false, err
-	}
-	for _, prop := range props {
-		if prop.Type == registry.DeprecatedType {
-			return true, nil
-		}
-	}
-	return false, nil
 }
