@@ -1,3 +1,4 @@
+SHELL = /bin/bash
 GO := GOFLAGS="-mod=vendor" go
 CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
