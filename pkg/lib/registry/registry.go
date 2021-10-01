@@ -209,6 +209,9 @@ func (r RegistryUpdater) DeleteFromRegistry(request DeleteFromRegistryRequest) e
 		return fmt.Errorf("error removing stranded packages from database: %s", err)
 	}
 
+	if _, err := db.Exec("VACUUM"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -236,6 +239,9 @@ func (r RegistryUpdater) PruneStrandedFromRegistry(request PruneStrandedFromRegi
 		return fmt.Errorf("error removing stranded packages from database: %s", err)
 	}
 
+	if _, err := db.Exec("VACUUM"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -288,6 +294,9 @@ func (r RegistryUpdater) PruneFromRegistry(request PruneFromRegistryRequest) err
 		}
 	}
 
+	if _, err := db.Exec("VACUUM"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -354,6 +363,9 @@ func (r RegistryUpdater) DeprecateFromRegistry(request DeprecateFromRegistryRequ
 		r.Logger.WithError(err).Warn("permissive mode enabled")
 	}
 
+	if _, err := db.Exec("VACUUM"); err != nil {
+		return err
+	}
 	return nil
 }
 
