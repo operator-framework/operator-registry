@@ -499,8 +499,13 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	}
 	defer os.RemoveAll(workingDir)
 
-	// extract the index database to the file
-	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLS)
+	//// extract the index database to the file
+	//databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLS)
+	//if err != nil {
+	//	return err
+	//}
+
+	databaseFile, err := i.ExtractDatabase(workingDir, request.Index, request.CaFile, request.SkipTLS)
 	if err != nil {
 		return err
 	}
