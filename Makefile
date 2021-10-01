@@ -145,6 +145,6 @@ release:
 define tagged-or-empty
 $(shell \
 	echo $(OPM_VERSION) | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
-	&& git describe --exact-match HEAD >/dev/null 2>&1 \
+	&& git describe --tags --exact-match HEAD >/dev/null 2>&1 \
 	&& echo "$(OPM_IMAGE_REPO):$(1)" || echo "" )
 endef
