@@ -156,31 +156,32 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	f, err := os.Open(a.includeFile)
-	if err != nil {
-		a.logger.Fatalf("error opening include file: %v", err)
-	}
-	defer func() {
-		if cerr := f.Close(); cerr != nil {
-			a.logger.Error(cerr)
-		}
-	}()
-	includeConfig, err := action.LoadDiffIncludeConfig(f)
-	if err != nil {
-		a.logger.Fatalf("error loading include file: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
-	defer cancel()
-
 	diff := action.Diff{
 		Registry:         reg,
 		OldRefs:          a.oldRefs,
 		NewRefs:          a.newRefs,
 		SkipDependencies: a.skipDeps,
-		IncludeConfig:    includeConfig,
 		Logger:           a.logger,
 	}
+
+	if a.includeFile != "" {
+		f, err := os.Open(a.includeFile)
+		if err != nil {
+			a.logger.Fatalf("error opening include file: %v", err)
+		}
+		defer func() {
+			if cerr := f.Close(); cerr != nil {
+				a.logger.Error(cerr)
+			}
+		}()
+		if diff.IncludeConfig, err = action.LoadDiffIncludeConfig(f); err != nil {
+			a.logger.Fatalf("error loading include file: %v", err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+
 	cfg, err := diff.Run(ctx)
 	if err != nil {
 		a.logger.Fatalf("error generating diff: %v", err)
