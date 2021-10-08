@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -1093,6 +1094,42 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			description: "PersistDefaultChannel",
+			fields: fields{
+				bundles: []*registry.Bundle{
+					newBundle(t, "csv-a", "pkg-0", []string{"a"}, newUnstructuredCSV(t, "csv-a", "")),
+					newBundle(t, "csv-b", "pkg-0", []string{"b"}, newUnstructuredCSV(t, "csv-b", "")),
+				},
+				pkgs: []registry.PackageManifest{
+					{
+						PackageName: "pkg-0",
+						Channels: []registry.PackageChannel{
+							{
+								Name:           "a",
+								CurrentCSVName: "csv-a",
+							},
+							{
+								Name:           "b",
+								CurrentCSVName: "csv-b",
+							},
+						},
+						DefaultChannelName: "a",
+					},
+				},
+			},
+			args: args{
+				bundle: "csv-a",
+				pkg:    "pkg-0",
+			},
+			expected: expected{
+				err: nil,
+				bundles: map[string]struct{}{
+					"pkg-0/b/csv-b": {},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
@@ -1112,6 +1149,21 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 				// Throw away any errors loading packages (not testing this)
 				store.AddPackageChannels(pkg)
 			}
+
+			getDefaultChannel := func(pkg string) sql.NullString {
+				// get defaultChannel before delete
+				rows, err := db.QueryContext(context.TODO(), `SELECT default_channel FROM package WHERE name = ?`, pkg)
+				require.NoError(t, err)
+				defer rows.Close()
+				var defaultChannel sql.NullString
+				for rows.Next() {
+					require.NoError(t, rows.Scan(&defaultChannel))
+					break
+				}
+				return defaultChannel
+			}
+			oldDefaultChannel := getDefaultChannel(tt.args.pkg)
+
 			err = store.(registry.HeadOverwriter).RemoveOverwrittenChannelHead(tt.args.pkg, tt.args.bundle)
 			if tt.expected.err != nil {
 				require.EqualError(t, err, tt.expected.err.Error())
@@ -1141,6 +1193,9 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 				t.Errorf("unexpected bundles found: %v", extra)
 			}
 
+			// should preserve defaultChannel entry in package table
+			currentDefaultChannel := getDefaultChannel(tt.args.pkg)
+			require.Equal(t, oldDefaultChannel, currentDefaultChannel)
 		})
 	}
 }
