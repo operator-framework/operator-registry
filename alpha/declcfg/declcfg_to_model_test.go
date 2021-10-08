@@ -77,7 +77,7 @@ func TestConvertToModel(t *testing.T) {
 		},
 		{
 			name:      "Error/BundleInvalidVersion",
-			assertion: hasError(`error parsing bundle version: Invalid character(s) found in patch number "0.1"`),
+			assertion: hasError(`error parsing bundle "foo.v0.1.0" version "0.1.0.1": Invalid character(s) found in patch number "0.1"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
@@ -85,6 +85,14 @@ func TestConvertToModel(t *testing.T) {
 						property.MustBuildPackage("foo", "0.1.0.1"),
 					}
 				})},
+			},
+		},
+		{
+			name:      "Error/BundleMissingVersion",
+			assertion: hasError(`error parsing bundle "foo.v" version "": Version string empty`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Bundles:  []Bundle{newTestBundle("foo", "", func(b *Bundle) {})},
 			},
 		},
 		{
