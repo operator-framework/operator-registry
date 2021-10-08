@@ -98,9 +98,10 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		// Parse version from the package property.
-		ver, err := semver.Parse(props.Packages[0].Version)
+		rawVersion := props.Packages[0].Version
+		ver, err := semver.Parse(rawVersion)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing bundle version: %v", err)
+			return nil, fmt.Errorf("error parsing bundle %q version %q: %v", b.Name, rawVersion, err)
 		}
 
 		channelDefinedEntries[b.Package] = channelDefinedEntries[b.Package].Delete(b.Name)
