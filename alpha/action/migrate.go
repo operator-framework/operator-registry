@@ -17,9 +17,10 @@ type Migrate struct {
 	CatalogRef string
 	OutputDir  string
 
-	WriteFunc WriteFunc
-	FileExt   string
-	Registry  image.Registry
+	WriteFunc  WriteFunc
+	FileExt    string
+	Registry   image.Registry
+	SingleFile bool
 }
 
 type WriteFunc func(config declcfg.DeclarativeConfig, w io.Writer) error
@@ -52,10 +53,10 @@ func (m Migrate) Run(ctx context.Context) error {
 		return fmt.Errorf("render catalog image: %w", err)
 	}
 
-	return writeToFS(*cfg, m.OutputDir, m.WriteFunc, m.FileExt)
+	return writeToFS(*cfg, m.OutputDir, m.WriteFunc, m.FileExt, m.SingleFile)
 }
 
-func writeToFS(cfg declcfg.DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
+func writeToFS(cfg declcfg.DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string, singleFile bool) error {
 	channelsByPackage := map[string][]declcfg.Channel{}
 	for _, c := range cfg.Channels {
 		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
@@ -79,9 +80,15 @@ func writeToFS(cfg declcfg.DeclarativeConfig, rootDir string, writeFunc WriteFun
 		if err := os.MkdirAll(pkgDir, 0777); err != nil {
 			return err
 		}
-		filename := filepath.Join(pkgDir, fmt.Sprintf("catalog%s", fileExt))
-		if err := writeFile(fcfg, filename, writeFunc); err != nil {
-			return err
+		if singleFile {
+			filename := filepath.Join(pkgDir, fmt.Sprintf("catalog%s", fileExt))
+			if err := writeFile(fcfg, filename, writeFunc); err != nil {
+				return err
+			}
+		} else {
+			if err := writeFiles(fcfg, writeFunc, pkgDir, fileExt); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -94,6 +101,35 @@ func writeFile(cfg declcfg.DeclarativeConfig, filename string, writeFunc WriteFu
 	}
 	if err := ioutil.WriteFile(filename, buf.Bytes(), 0666); err != nil {
 		return fmt.Errorf("write file %q: %v", filename, err)
+	}
+	return nil
+}
+
+func writeFiles(cfg declcfg.DeclarativeConfig, writeFunc WriteFunc, pkgDir, fileExt string) error {
+	pkgCfg := declcfg.DeclarativeConfig{Packages: cfg.Packages}
+	pkgFileName := filepath.Join(pkgDir, fmt.Sprintf("package%s", fileExt))
+	if err := writeFile(pkgCfg, pkgFileName, writeFunc); err != nil {
+		return err
+	}
+	bundleDir := filepath.Join(pkgDir, "bundles")
+	if err := os.MkdirAll(bundleDir, 0777); err != nil {
+		return err
+	}
+	for _, bundle := range cfg.Bundles {
+		bundleFileName := filepath.Join(bundleDir, fmt.Sprintf("%s%s", bundle.Name, fileExt))
+		if err := writeFile(declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{bundle}}, bundleFileName, writeFunc); err != nil {
+			return err
+		}
+	}
+	channelDir := filepath.Join(pkgDir, "channels")
+	if err := os.MkdirAll(channelDir, 0777); err != nil {
+		return err
+	}
+	for _, ch := range cfg.Channels {
+		chFileName := filepath.Join(channelDir, fmt.Sprintf("%s%s", ch.Name, fileExt))
+		if err := writeFile(declcfg.DeclarativeConfig{Channels: []declcfg.Channel{ch}}, chFileName, writeFunc); err != nil {
+			return err
+		}
 	}
 	return nil
 }
