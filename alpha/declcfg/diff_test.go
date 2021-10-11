@@ -1,6 +1,8 @@
 package declcfg
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -1736,6 +1738,327 @@ func TestDiffHeadsOnly(t *testing.T) {
 			},
 		},
 		{
+			name: "HasDiff/CompoundDependencies",
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+						{Name: "etcd.v0.9.3", Replaces: "etcd.v0.9.2"},
+						{Name: "etcd.v1.0.0", Replaces: "etcd.v0.9.3", Skips: []string{"etcd.v0.9.1", "etcd.v0.9.2", "etcd.v0.9.3"}},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.0"),
+							{
+								Type: "olm.constraint",
+								Value: minifyJSON(t, `{
+									"message": "blah",
+									"all": {
+										"constraints": [
+											{
+												"message": "etcd and bar must be stable versions",
+												"all": {
+													"constraints": [
+														{
+															"package": {
+																"packageName": "etcd",
+																"versionRange": "<0.9.2"
+															}
+														},
+														{
+															"package": {
+																"packageName": "bar",
+																"versionRange": ">=0.1.0"
+															}
+														},
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1",
+																"kind": "EtcdBackup"
+															}
+														}
+													]
+												}
+											},
+											{
+												"message": "blah blah",
+												"any": {
+													"constraints": [
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1beta1",
+																"kind": "EtcdBackup"
+															}
+														},
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1beta2",
+																"kind": "EtcdBackup"
+															}
+														}
+													]
+												}
+											},
+											{
+												"none": {
+													"constraints": [
+														{
+															"gvk": {
+																"group": "bazs.example.com",
+																"version": "v1alpha1",
+																"kind": "Baz"
+															}
+														}
+													]
+												}
+											}
+										]
+									}}`),
+							},
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v0.1.0",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildGVKRequired("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("bar", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.2",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.2"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.3",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.3"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v1.0.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "1.0.0"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{},
+			expCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v0.1.0"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.2", Replaces: "etcd.v0.9.1"},
+						{Name: "etcd.v0.9.3", Replaces: "etcd.v0.9.2"},
+						{Name: "etcd.v1.0.0", Replaces: "etcd.v0.9.3", Skips: []string{"etcd.v0.9.1", "etcd.v0.9.2", "etcd.v0.9.3"}},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v0.1.0",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildGVKRequired("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildPackage("bar", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.2",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.2"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.3",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "0.9.3"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v1.0.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("etcd.database.coreos.com", "v1", "EtcdBackup"),
+							property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
+							property.MustBuildPackage("etcd", "1.0.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							{
+								Type: "olm.constraint",
+								Value: minifyJSON(t, `{
+									"message": "blah",
+									"all": {
+										"constraints": [
+											{
+												"message": "etcd and bar must be stable versions",
+												"all": {
+													"constraints": [
+														{
+															"package": {
+																"packageName": "etcd",
+																"versionRange": "<0.9.2"
+															}
+														},
+														{
+															"package": {
+																"packageName": "bar",
+																"versionRange": ">=0.1.0"
+															}
+														},
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1",
+																"kind": "EtcdBackup"
+															}
+														}
+													]
+												}
+											},
+											{
+												"message": "blah blah",
+												"any": {
+													"constraints": [
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1beta1",
+																"kind": "EtcdBackup"
+															}
+														},
+														{
+															"gvk": {
+																"group": "etcd.database.coreos.com",
+																"version": "v1beta2",
+																"kind": "EtcdBackup"
+															}
+														}
+													]
+												}
+											},
+											{
+												"none": {
+													"constraints": [
+														{
+															"gvk": {
+																"group": "bazs.example.com",
+																"version": "v1alpha1",
+																"kind": "Baz"
+															}
+														}
+													]
+												}
+											}
+										]
+									}}`),
+							},
+							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "HasDiff/IncludeAdditive",
 			newCfg: DeclarativeConfig{
 				Packages: []Package{
@@ -2308,4 +2631,11 @@ func TestDiffHeadsOnly(t *testing.T) {
 			require.Equal(t, s.expCfg, outputCfg)
 		})
 	}
+}
+
+func minifyJSON(t *testing.T, jsonStr string) json.RawMessage {
+	t.Helper()
+	dst := &bytes.Buffer{}
+	require.NoError(t, json.Compact(dst, []byte(jsonStr)))
+	return json.RawMessage(dst.Bytes())
 }

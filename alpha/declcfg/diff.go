@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/sirupsen/logrus"
 
+	"github.com/operator-framework/api/pkg/constraints"
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -359,32 +360,61 @@ func findDependencies(bundles []*model.Bundle) (map[property.GVK]struct{}, map[s
 	reqPkgs := map[string][]semver.Range{}
 	for _, b := range bundles {
 
-		for _, gvkReq := range b.PropertiesP.GVKsRequired {
-			gvk := property.GVK{
-				Group:   gvkReq.Group,
-				Version: gvkReq.Version,
-				Kind:    gvkReq.Kind,
+		// All top-level gvks and packages are logically a union (all).
+		for _, gvk := range b.PropertiesP.GVKsRequired {
+			reqGVKs[property.GVK(gvk)] = struct{}{}
+		}
+		for _, pkg := range b.PropertiesP.PackagesRequired {
+			inRange, err := parsePackageVersionRange(pkg.VersionRange)
+			if err != nil {
+				return nil, nil, err
 			}
-			reqGVKs[gvk] = struct{}{}
+			reqPkgs[pkg.PackageName] = append(reqPkgs[pkg.PackageName], inRange)
+		}
+		// Add all and any, and their sub-constraints, to the sets since they
+		// could be resolved to.
+		var olmConstraints []constraints.Constraint
+		for _, other := range b.PropertiesP.Others {
+			if other.Type != constraints.OLMConstraintType {
+				continue
+			}
+			c, err := constraints.Parse(other.Value)
+			if err != nil {
+				return nil, nil, err
+			}
+			olmConstraints = append(olmConstraints, c)
 		}
 
-		for _, pkgReq := range b.PropertiesP.PackagesRequired {
-			var inRange semver.Range
-			if pkgReq.VersionRange != "" {
-				var err error
-				if inRange, err = semver.ParseRange(pkgReq.VersionRange); err != nil {
-					// Should never happen since model has been validated.
+		// Recursively find all GVK/package constraints, excluding c.None
+		// which contains constraints that can never be resolved to.
+		for i := 0; i < len(olmConstraints); i++ {
+			c := olmConstraints[i]
+			switch {
+			case c.GVK != nil:
+				reqGVKs[property.GVK(*c.GVK)] = struct{}{}
+			case c.Package != nil:
+				inRange, err := parsePackageVersionRange(c.Package.VersionRange)
+				if err != nil {
 					return nil, nil, err
 				}
-			} else {
-				// Any bundle in this package will satisfy a range-less package requirement.
-				inRange = func(semver.Version) bool { return true }
+				reqPkgs[c.Package.PackageName] = append(reqPkgs[c.Package.PackageName], inRange)
+			case c.All != nil:
+				olmConstraints = append(olmConstraints, c.All.Constraints...)
+			case c.Any != nil:
+				olmConstraints = append(olmConstraints, c.Any.Constraints...)
 			}
-			reqPkgs[pkgReq.PackageName] = append(reqPkgs[pkgReq.PackageName], inRange)
 		}
 	}
 
 	return reqGVKs, reqPkgs, nil
+}
+
+func parsePackageVersionRange(vrange string) (semver.Range, error) {
+	if vrange != "" {
+		return semver.ParseRange(vrange)
+	}
+	// Any bundle in this package will satisfy a range-less package requirement.
+	return func(semver.Version) bool { return true }, nil
 }
 
 // getBundlesThatProvide returns the latest-version bundles in pkg that provide
