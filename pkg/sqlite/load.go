@@ -1816,7 +1816,8 @@ func (s sqlLoader) RemoveOverwrittenChannelHead(pkg, bundle string) error {
 				return err
 			}
 		} else {
-			if _, err := tx.Exec(`DELETE FROM channel WHERE name = ? AND package_name = ?`, channel, pkg); err != nil {
+			// NULL default channel before dropping to let packagemanifest detect default channel
+			if _, err := tx.Exec(`UPDATE channel SET head_operatorbundle_name = NULL WHERE name = ? AND package_name = ? AND name IN (SELECT default_channel FROM package WHERE name = ?)`, channel, pkg, pkg); err != nil {
 				return err
 			}
 		}
