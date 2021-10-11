@@ -1820,9 +1820,6 @@ func (s sqlLoader) RemoveOverwrittenChannelHead(pkg, bundle string) error {
 			if _, err := tx.Exec(`UPDATE channel SET head_operatorbundle_name = NULL WHERE name = ? AND package_name = ? AND name IN (SELECT default_channel FROM package WHERE name = ?)`, channel, pkg, pkg); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(`DELETE FROM channel WHERE name = ? AND package_name = ? AND head_operatorbundle_name = ?`, channel, pkg, bundle); err != nil {
-				return err
-			}
 		}
 	}
 

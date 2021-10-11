@@ -1137,7 +1137,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 			defer cleanup()
 			store, err := NewSQLLiteLoader(db)
 			require.NoError(t, err)
-			err = store.Migrate(context.TODO())
+			err = store.Migrate(context.Background())
 			require.NoError(t, err)
 
 			for _, bundle := range tt.fields.bundles {
@@ -1152,7 +1152,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 
 			getDefaultChannel := func(pkg string) sql.NullString {
 				// get defaultChannel before delete
-				rows, err := db.QueryContext(context.TODO(), `SELECT default_channel FROM package WHERE name = ?`, pkg)
+				rows, err := db.QueryContext(context.Background(), `SELECT default_channel FROM package WHERE name = ?`, pkg)
 				require.NoError(t, err)
 				defer rows.Close()
 				var defaultChannel sql.NullString
@@ -1173,7 +1173,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 
 			querier := NewSQLLiteQuerierFromDb(db)
 
-			bundles, err := querier.ListBundles(context.TODO())
+			bundles, err := querier.ListBundles(context.Background())
 			require.NoError(t, err)
 
 			var extra []string
