@@ -6,6 +6,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -97,17 +99,34 @@ func TestDecodeFileFS(t *testing.T) {
 	}
 
 	root := fstest.MapFS{
-		"foo.yaml": &fstest.MapFile{Data: []byte("bar: baz")},
+		"foo.yaml":   &fstest.MapFile{Data: []byte("bar: baz")},
+		"multi.yaml": &fstest.MapFile{Data: []byte("bar: baz\n---\nfoo: bar")},
 	}
 
+	logger, logHook := test.NewNullLogger()
+	entry := logger.WithFields(nil)
+
 	var nilPtr *foo
-	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr))
+	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr, entry))
 	require.Nil(t, nilPtr)
+	require.Equal(t, 0, len(logHook.Entries))
+	logHook.Reset()
 
 	ptr := &foo{}
-	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr))
+	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr, entry))
 	require.NotNil(t, ptr)
 	require.Equal(t, "baz", ptr.Bar)
+	require.Equal(t, 0, len(logHook.Entries))
+	logHook.Reset()
+
+	ptr = &foo{}
+	require.NoError(t, decodeFileFS(root, "multi.yaml", ptr, entry))
+	require.NotNil(t, ptr)
+	require.Equal(t, "baz", ptr.Bar)
+	require.Equal(t, 1, len(logHook.Entries))
+	require.Equal(t, logrus.WarnLevel, logHook.LastEntry().Level)
+	require.Equal(t, "found more than one document inside multi.yaml, using only the first one", logHook.LastEntry().Message)
+	logHook.Reset()
 }
 
 func loadFile(t *testing.T, path string) io.Reader {
