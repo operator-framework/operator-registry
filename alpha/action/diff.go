@@ -26,6 +26,8 @@ type Diff struct {
 	SkipDependencies bool
 
 	IncludeConfig DiffIncludeConfig
+	// IncludeAdditively catalog objects specified in IncludeConfig.
+	IncludeAdditively bool
 
 	Logger *logrus.Entry
 }
@@ -69,9 +71,10 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	}
 
 	g := &declcfg.DiffGenerator{
-		Logger:           a.Logger,
-		SkipDependencies: a.SkipDependencies,
-		Includer:         convertIncludeConfigToIncluder(a.IncludeConfig),
+		Logger:            a.Logger,
+		SkipDependencies:  a.SkipDependencies,
+		Includer:          convertIncludeConfigToIncluder(a.IncludeConfig),
+		IncludeAdditively: a.IncludeAdditively,
 	}
 	diffModel, err := g.Run(oldModel, newModel)
 	if err != nil {

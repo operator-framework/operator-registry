@@ -24,10 +24,11 @@ const (
 )
 
 type diff struct {
-	oldRefs     []string
-	newRefs     []string
-	skipDeps    bool
-	includeFile string
+	oldRefs         []string
+	newRefs         []string
+	skipDeps        bool
+	includeAdditive bool
+	includeFile     string
 
 	output string
 	caFile string
@@ -35,6 +36,18 @@ type diff struct {
 	debug  bool
 	logger *logrus.Entry
 }
+
+// Example include file needs to be formatted separately so indentation is not messed up.
+var includeFileExample = fmt.Sprintf(`packages:
+%[1]s- name: foo
+%[1]s- name: bar
+%[1]s  channels:
+%[1]s  - name: stable
+%[1]s- name: baz
+%[1]s  channels:
+%[1]s  - name: alpha
+%[1]s    versions:
+%[1]s    - 0.2.0-alpha.0`, templates.Indentation)
 
 func NewCmd() *cobra.Command {
 	a := diff{
@@ -44,27 +57,28 @@ func NewCmd() *cobra.Command {
 		Use:   "diff [old-refs]... new-refs...",
 		Short: "Diff old and new catalog references into a declarative config",
 		Long: templates.LongDesc(`
-Diff a set of old and new catalog references ("refs") to produce a
-declarative config containing only packages channels, and versions not present
-in the old set, and versions that differ between the old and new sets. This is known as "latest" mode.
+'diff' returns a declarative config containing packages, channels, and versions
+from new-refs, optionally removing those in old-refs or those omitted by an include config file.
 
-These references are passed through 'opm render' to produce a single declarative config.
-Bundle image refs are not supported directly; a valid "olm.package" declarative config object
-referring to the bundle's package must exist in all input refs.
+Each set of refs is passed to 'opm render <refs>' to produce a single, normalized delcarative config.
 
-This command has special behavior when old-refs are omitted, called "heads-only" mode:
-instead of the output being that of 'opm render refs...'
-(which would be the case given the preceding behavior description),
-only the channel heads of all channels in all packages are included in the output,
-and dependencies. Dependencies are assumed to be provided by either an old ref,
-in which case they are not included in the diff, or a new ref, in which
-case they are included. Dependencies provided by some catalog unknown to
-'opm alpha diff' will not cause the command to error, but an error will occur
-if that catalog is not serving these dependencies at runtime.
-Dependency inclusion can be turned off with --no-deps, although this is not recommended
+Depending on what arguments are provided to the command, a particular "mode" is invoked to produce a diff:
+
+- If in heads-only mode (old-refs is not specified), then the heads of channels in new-refs are added to the output.
+- If in latest mode (old-refs is specified), a diff between old-refs and new-refs is added to the output.
+- If --include-file is set, items from that file will be added to the diff:
+	- If --include-additive is false (the default), a diff will be generated only on those objects, depending on the mode.
+	- If --include-additive is true, the diff will contain included objects, plus those added by the mode's invocation.
+
+Dependencies are added in all modes if --skip-deps is false (the default).
+Dependencies are assumed to be provided by either an old-ref, in which case they are not included in the diff,
+or a new-ref, in which case they are included.
+Dependencies provided by some catalog unknown to 'diff' will not cause the command to error,
+but an error will occur if that catalog is not serving these dependencies at runtime.
+While dependency inclusion can be turned off with --skip-deps, doing so is not recommended
 unless you are certain some in-cluster catalog satisfies all dependencies.
 `),
-		Example: templates.Examples(`
+		Example: fmt.Sprintf(templates.Examples(`
 # Create a directory for your declarative config diff.
 mkdir -p my-catalog-index
 
@@ -78,21 +92,18 @@ opm alpha diff registry.org/my-catalog:abc123 registry.org/my-catalog:def456 -o 
 opm alpha diff registry.org/my-catalog:def456 -o yaml > my-catalog-index/index.yaml
 
 # OR:
-# Create a heads-only catalog, but include all of package "foo", package "bar" channel "stable",
+# Only include all of package "foo", package "bar" channel "stable",
 # and package "baz" channel "alpha" version "0.2.0-alpha.0" (and its upgrade graph) in the diff.
 cat <<EOF > include.yaml
-packages:
-- name: foo
-- name: bar
-  channels:
-  - name: stable
-- name: baz
-  channels:
-  - name: alpha
-    versions:
-    - 0.2.0-alpha.0
+%s
 EOF
-opm alpha diff registry.org/my-catalog:def456 -i include.yaml -o yaml > my-catalog-index/index.yaml
+opm alpha diff registry.org/my-catalog:def456 -i include.yaml -o yaml > pruned-index/index.yaml
+
+# OR:
+# Include all of package "foo", package "bar" channel "stable",
+# and package "baz" channel "alpha" version "0.2.0-alpha.0" in the diff
+# on top of heads of all other channels in all packages (using the above include.yaml).
+opm alpha diff registry.org/my-catalog:def456 -i include.yaml --include-additive -o yaml > pruned-index/index.yaml
 
 # FINALLY:
 # Build an index image containing the diff-ed declarative config,
@@ -100,7 +111,7 @@ opm alpha diff registry.org/my-catalog:def456 -i include.yaml -o yaml > my-catal
 opm alpha generate dockerfile ./my-catalog-index
 docker build -t registry.org/my-catalog:diff-latest -f index.Dockerfile .
 docker push registry.org/my-catalog:diff-latest
-`),
+`), includeFileExample),
 		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if a.debug {
@@ -116,9 +127,11 @@ docker push registry.org/my-catalog:diff-latest
 
 	cmd.Flags().StringVarP(&a.output, "output", "o", "yaml", "Output format (json|yaml)")
 	cmd.Flags().StringVar(&a.caFile, "ca-file", "", "the root Certificates to use with this command")
-	cmd.Flags().StringVarP(&a.includeFile, "include-file", "i", "", "YAML defining packages, "+
-		"channels, and/or bundles/versions to include in the diff from the new refs. Upgrade graphs "+
-		"from individual bundles/versions to their channel's head are added to the diff")
+	cmd.Flags().StringVarP(&a.includeFile, "include-file", "i", "",
+		"YAML defining packages, channels, and/or bundles/versions to extract from the new refs. "+
+			"Upgrade graphs from individual bundles/versions to their channel's head are also included")
+	cmd.Flags().BoolVar(&a.includeAdditive, "include-additive", false,
+		"Ref objects from --include-file are returned on top of 'heads-only' or 'latest' output")
 
 	cmd.Flags().BoolVar(&a.debug, "debug", false, "enable debug logging")
 	return cmd
@@ -127,9 +140,8 @@ docker push registry.org/my-catalog:diff-latest
 func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 	a.parseArgs(args)
 
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
-	if err != nil {
-		logrus.Panic(err)
+	if cmd.Flags().Changed("include-additive") && a.includeFile == "" {
+		a.logger.Fatal("must set --include-file if --include-additive is set")
 	}
 
 	var write func(declcfg.DeclarativeConfig, io.Writer) error
@@ -142,6 +154,10 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output value: %q", a.output)
 	}
 
+	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	if err != nil {
+		logrus.Panic(err)
+	}
 	rootCAs, err := certs.RootCAs(a.caFile)
 	if err != nil {
 		a.logger.Fatalf("error getting root CAs: %v", err)
@@ -157,11 +173,12 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 	}()
 
 	diff := action.Diff{
-		Registry:         reg,
-		OldRefs:          a.oldRefs,
-		NewRefs:          a.newRefs,
-		SkipDependencies: a.skipDeps,
-		Logger:           a.logger,
+		Registry:          reg,
+		OldRefs:           a.oldRefs,
+		NewRefs:           a.newRefs,
+		SkipDependencies:  a.skipDeps,
+		IncludeAdditively: a.includeAdditive,
+		Logger:            a.logger,
 	}
 
 	if a.includeFile != "" {
