@@ -42,6 +42,10 @@ func TestRender(t *testing.T) {
 	require.NoError(t, err)
 	foov2crd, err := bundleImageV2.ReadFile("testdata/foo-bundle-v0.2.0/manifests/foos.test.foo.crd.yaml")
 	require.NoError(t, err)
+	foov2csvNoRelatedImages, err := bundleImageV2NoCSVRelatedImages.ReadFile("testdata/foo-bundle-v0.2.0-no-csv-related-images/manifests/foo.v0.2.0.csv.yaml")
+	require.NoError(t, err)
+	foov2crdNoRelatedImages, err := bundleImageV2NoCSVRelatedImages.ReadFile("testdata/foo-bundle-v0.2.0-no-csv-related-images/manifests/foos.test.foo.crd.yaml")
+	require.NoError(t, err)
 
 	foov1csv, err = yaml.ToJSON(foov1csv)
 	require.NoError(t, err)
@@ -50,6 +54,10 @@ func TestRender(t *testing.T) {
 	foov2csv, err = yaml.ToJSON(foov2csv)
 	require.NoError(t, err)
 	foov2crd, err = yaml.ToJSON(foov2crd)
+	require.NoError(t, err)
+	foov2csvNoRelatedImages, err = yaml.ToJSON(foov2csvNoRelatedImages)
+	require.NoError(t, err)
+	foov2crdNoRelatedImages, err = yaml.ToJSON(foov2crdNoRelatedImages)
 	require.NoError(t, err)
 
 	dir := t.TempDir()
@@ -445,7 +453,11 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObjectData(foov2csv),
+							property.MustBuildBundleObjectData(foov2crd),
 						},
+						Objects: []string{string(foov2csv), string(foov2crd)},
+						CsvJSON: string(foov2csv),
 						RelatedImages: []declcfg.RelatedImage{
 							{
 								Image: "test.registry/foo-operator/foo-2:v0.2.0",
@@ -491,7 +503,11 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObjectData(foov2csvNoRelatedImages),
+							property.MustBuildBundleObjectData(foov2crdNoRelatedImages),
 						},
+						Objects: []string{string(foov2csvNoRelatedImages), string(foov2crdNoRelatedImages)},
+						CsvJSON: string(foov2csvNoRelatedImages),
 						RelatedImages: []declcfg.RelatedImage{
 							{
 								Image: "test.registry/foo-operator/foo-2:v0.2.0",
