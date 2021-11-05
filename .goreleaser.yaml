@@ -11,7 +11,7 @@ builds:
       - CGO_ENABLED=1
     mod_timestamp: "{{ .CommitTimestamp }}"
     flags: &build-flags
-      - -tags=json1
+      - -tags=json1,netgo,osusergo
     asmflags: &build-asmflags
       - all=-trimpath={{ .Env.PWD }}
     gcflags: &build-gcflags
