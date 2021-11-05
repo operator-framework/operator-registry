@@ -23,6 +23,8 @@ type DiffGenerator struct {
 	SkipDependencies bool
 	// Includer for adding catalog objects to Run() output.
 	Includer DiffIncluder
+	// IncludeAdditively catalog objects specified in Includer in headsOnly mode.
+	IncludeAdditively bool
 
 	initOnce sync.Once
 }
@@ -32,13 +34,21 @@ func (g *DiffGenerator) init() {
 		if g.Logger == nil {
 			g.Logger = &logrus.Entry{}
 		}
+		if g.Includer.Logger == nil {
+			g.Includer.Logger = g.Logger
+		}
 	})
 }
 
-// Run returns a Model containing everything in newModel not in oldModel,
-// and all bundles that exist in oldModel but are different in newModel.
-// If oldModel is empty, only channel heads in newModel's packages are
-// added to the output Model. All dependencies not in oldModel are also added.
+// Run returns a Model containing a subset of catalog objects in newModel:
+// - If g.Includer contains objects:
+//   - If g.IncludeAdditively is false, a diff will be generated only on those objects,
+//     depending on the mode.
+//   - If g.IncludeAdditionally is true, the diff will contain included objects,
+//     plus those added by the mode.
+// - If in heads-only mode (oldModel == nil), then the heads of channels are added to the output.
+// - If in latest mode, a diff between old and new Models is added to the output.
+// - Dependencies are added in all modes if g.SkipDependencies is false.
 func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error) {
 	g.init()
 
@@ -48,73 +58,101 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 
 	outputModel := model.Model{}
 
-	// Add included packages/channels/bundles from newModel to outputModel.
-	// Code further down handles packages and channels included in outputModel.
-	g.Includer.Logger = g.Logger
-	if err := g.Includer.Run(newModel, outputModel); err != nil {
-		return nil, err
-	}
+	// Prunes old objects from outputModel if they exist.
+	latestPruneFromOutput := func() error {
 
-	if len(oldModel) == 0 {
-		// Heads-only mode.
-
-		// Make shallow copies of packages and channels that are only
-		// filled with channel heads.
-		for _, newPkg := range newModel {
-			// This package may have been created in the include step.
-			outputPkg, pkgIncluded := outputModel[newPkg.Name]
-			if !pkgIncluded {
-				outputPkg = copyPackageNoChannels(newPkg)
-				outputModel[outputPkg.Name] = outputPkg
-			}
-			for _, newCh := range newPkg.Channels {
-				if _, chIncluded := outputPkg.Channels[newCh.Name]; chIncluded {
-					// Head (and other bundles) were added in the include step.
-					continue
-				}
-				outputCh := copyChannelNoBundles(newCh, outputPkg)
-				outputPkg.Channels[outputCh.Name] = outputCh
-				head, err := newCh.Head()
-				if err != nil {
-					return nil, err
-				}
-				outputBundle := copyBundle(head, outputCh, outputPkg)
-				outputModel.AddBundle(*outputBundle)
-			}
-		}
-	} else {
-		// Latest mode.
-
-		// Copy newModel to create an output model by deletion,
-		// which is more succinct than by addition and potentially
-		// more memory efficient.
-		for _, newPkg := range newModel {
-			if _, pkgIncluded := outputModel[newPkg.Name]; pkgIncluded {
-				// The user has specified the state they want this package to have in the diff
-				// via an inclusion entry, so the package created above should not be changed.
-				continue
-			}
-			outputModel[newPkg.Name] = copyPackage(newPkg)
-		}
-
-		// NB(estroz): if a net-new package or channel is published,
-		// this currently adds the entire package. I'm fairly sure
-		// this behavior is ok because the next diff after a new
-		// package is published still has only new data.
 		for _, outputPkg := range outputModel {
 			oldPkg, oldHasPkg := oldModel[outputPkg.Name]
 			if !oldHasPkg {
 				// outputPkg was already copied to outputModel above.
 				continue
 			}
-			if err := diffPackages(oldPkg, outputPkg); err != nil {
-				return nil, err
+			if err := pruneOldFromNewPackage(oldPkg, outputPkg); err != nil {
+				return err
 			}
 			if len(outputPkg.Channels) == 0 {
 				// Remove empty packages.
 				delete(outputModel, outputPkg.Name)
 			}
 		}
+
+		return nil
+	}
+
+	headsOnlyMode := len(oldModel) == 0
+	latestMode := !headsOnlyMode
+	isInclude := len(g.Includer.Packages) != 0
+
+	switch {
+	case !g.IncludeAdditively && isInclude: // Only diff between included objects.
+
+		// Add included packages/channels/bundles from newModel to outputModel.
+		if err := g.Includer.Run(newModel, outputModel); err != nil {
+			return nil, err
+		}
+
+		if latestMode {
+			if err := latestPruneFromOutput(); err != nil {
+				return nil, err
+			}
+		}
+
+	case isInclude: // Add included objects to outputModel.
+
+		// Add included packages/channels/bundles from newModel to outputModel.
+		if err := g.Includer.Run(newModel, outputModel); err != nil {
+			return nil, err
+		}
+
+		fallthrough
+	default:
+
+		if headsOnlyMode { // Net-new diff of heads only.
+
+			// Make shallow copies of packages and channels that are only
+			// filled with channel heads.
+			for _, newPkg := range newModel {
+				// This package may have been created in the include step.
+				outputPkg, pkgIncluded := outputModel[newPkg.Name]
+				if !pkgIncluded {
+					outputPkg = copyPackageNoChannels(newPkg)
+					outputModel[outputPkg.Name] = outputPkg
+				}
+				for _, newCh := range newPkg.Channels {
+					if _, chIncluded := outputPkg.Channels[newCh.Name]; chIncluded {
+						// Head (and other bundles) were added in the include step.
+						continue
+					}
+					outputCh := copyChannelNoBundles(newCh, outputPkg)
+					outputPkg.Channels[outputCh.Name] = outputCh
+					head, err := newCh.Head()
+					if err != nil {
+						return nil, err
+					}
+					outputBundle := copyBundle(head, outputCh, outputPkg)
+					outputModel.AddBundle(*outputBundle)
+				}
+			}
+
+		} else { // Diff between old and new Model.
+
+			// Copy newModel to create an output model by deletion,
+			// which is more succinct than by addition.
+			for _, newPkg := range newModel {
+				if _, pkgIncluded := outputModel[newPkg.Name]; pkgIncluded {
+					// The user has specified the state they want this package to have in the diff
+					// via an inclusion entry, so the package created above should not be changed.
+					continue
+				}
+				outputModel[newPkg.Name] = copyPackage(newPkg)
+			}
+
+			if err := latestPruneFromOutput(); err != nil {
+				return nil, err
+			}
+
+		}
+
 	}
 
 	if !g.SkipDependencies {
@@ -126,8 +164,8 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 
 	// Default channel may not have been copied, so set it to the new default channel here.
 	for _, outputPkg := range outputModel {
-		outputHasDefault := false
 		newPkg := newModel[outputPkg.Name]
+		var outputHasDefault bool
 		outputPkg.DefaultChannel, outputHasDefault = outputPkg.Channels[newPkg.DefaultChannel.Name]
 		if !outputHasDefault {
 			// Create a name-only channel since oldModel contains the channel already.
@@ -138,9 +176,9 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 	return outputModel, nil
 }
 
-// diffPackages removes any bundles and channels from newPkg that
+// pruneOldFromNewPackage prune any bundles and channels from newPkg that
 // are in oldPkg, but not those that differ in any way.
-func diffPackages(oldPkg, newPkg *model.Package) error {
+func pruneOldFromNewPackage(oldPkg, newPkg *model.Package) error {
 	for _, newCh := range newPkg.Channels {
 		oldCh, oldHasCh := oldPkg.Channels[newCh.Name]
 		if !oldHasCh {
