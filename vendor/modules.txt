@@ -310,6 +310,7 @@ github.com/h2non/filetype/types
 ## explicit
 github.com/h2non/go-is-svg
 # github.com/imdario/mergo v0.3.12
+## explicit
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap

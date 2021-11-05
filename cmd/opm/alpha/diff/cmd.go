@@ -61,6 +61,7 @@ func NewCmd() *cobra.Command {
 from new-refs, optionally removing those in old-refs or those omitted by an include config file.
 
 Each set of refs is passed to 'opm render <refs>' to produce a single, normalized delcarative config.
+Objects with the same unique keys are merged in ascending priority of their ref.
 
 Depending on what arguments are provided to the command, a particular "mode" is invoked to produce a diff:
 
@@ -132,6 +133,7 @@ docker push registry.org/my-catalog:diff-latest
 			"Upgrade graphs from individual bundles/versions to their channel's head are also included")
 	cmd.Flags().BoolVar(&a.includeAdditive, "include-additive", false,
 		"Ref objects from --include-file are returned on top of 'heads-only' or 'latest' output")
+	// TODO: consider exposing a.MergeType via flag, ex. --merge-type=PreferLast
 
 	cmd.Flags().BoolVar(&a.debug, "debug", false, "enable debug logging")
 	return cmd

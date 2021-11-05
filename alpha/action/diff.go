@@ -29,6 +29,8 @@ type Diff struct {
 	// IncludeAdditively catalog objects specified in IncludeConfig.
 	IncludeAdditively bool
 
+	MergeType MergeType
+
 	Logger *logrus.Entry
 }
 
@@ -51,6 +53,9 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			}
 			return nil, fmt.Errorf("error rendering old refs: %v", err)
 		}
+		if err := a.MergeType.mergeDC(oldCfg); err != nil {
+			return nil, fmt.Errorf("error merging across old refs: %v", err)
+		}
 		oldModel, err = declcfg.ConvertToModel(*oldCfg)
 		if err != nil {
 			return nil, fmt.Errorf("error converting old declarative config to model: %v", err)
@@ -64,6 +69,9 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			return nil, fmt.Errorf("%w (diff does not permit direct bundle references)", err)
 		}
 		return nil, fmt.Errorf("error rendering new refs: %v", err)
+	}
+	if err := a.MergeType.mergeDC(newCfg); err != nil {
+		return nil, fmt.Errorf("error merging across new refs: %v", err)
 	}
 	newModel, err := declcfg.ConvertToModel(*newCfg)
 	if err != nil {
