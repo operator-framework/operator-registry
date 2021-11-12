@@ -45,6 +45,7 @@ github.com/beorn7/perks/quantile
 ## explicit
 github.com/blang/semver
 # github.com/blang/semver/v4 v4.0.0
+## explicit
 github.com/blang/semver/v4
 # github.com/bshuster-repo/logrus-logstash-hook v0.4.1
 github.com/bshuster-repo/logrus-logstash-hook
