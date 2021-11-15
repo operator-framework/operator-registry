@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -412,6 +412,7 @@ func DecodeFile(path string, into interface{}) error {
 	return decoder.Decode(into)
 }
 
+// ValidateEdgeBundlePackage ensures that all bundles in the input will only skip or replace bundles in the same package.
 func (i *DirectoryPopulator) ValidateEdgeBundlePackage(images []*ImageInput) error {
 	// track packages for encountered bundles
 	expectedBundlePackages := map[string]string{}
@@ -452,7 +453,6 @@ func (i *DirectoryPopulator) ValidateEdgeBundlePackage(images []*ImageInput) err
 		if err != nil {
 			return fmt.Errorf("unable to verify bundles for package %v", err)
 		}
-		fmt.Println(expectedBundlePackages)
 		for _, b := range entries {
 			if bundlePkg, ok := expectedBundlePackages[b.BundleName]; ok && bundlePkg != b.PackageName {
 				return fmt.Errorf("bundle %s belongs to package %s on index, cannot be added as an edge for package %s", b.BundleName, b.PackageName, bundlePkg)

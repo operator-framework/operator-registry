@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	_ "github.com/mattn/go-sqlite3"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
