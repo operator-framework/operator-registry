@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -128,6 +129,9 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 		}
 	}
 
+	if err := i.ValidateEdgeBundlePackage(imagesToAdd); err != nil {
+		errs = append(errs, err)
+	}
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -406,4 +410,55 @@ func DecodeFile(path string, into interface{}) error {
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
 
 	return decoder.Decode(into)
+}
+
+// ValidateEdgeBundlePackage ensures that all bundles in the input will only skip or replace bundles in the same package.
+func (i *DirectoryPopulator) ValidateEdgeBundlePackage(images []*ImageInput) error {
+	// track packages for encountered bundles
+	expectedBundlePackages := map[string]string{}
+	for _, b := range images {
+		r, err := b.Bundle.Replaces()
+		if err != nil {
+			return fmt.Errorf("failed to validate replaces for bundle %s(%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err)
+		}
+
+		skipped, err := b.Bundle.Skips()
+		if err != nil {
+			return fmt.Errorf("failed to validate skipped entries for bundle %s(%s): %v", b.Bundle.Name, b.Bundle.BundleImage, err)
+		}
+
+		for _, bndl := range append(skipped, r, b.Bundle.Name) {
+			if len(bndl) == 0 {
+				continue
+			}
+
+			if pkg, ok := expectedBundlePackages[bndl]; ok && pkg != b.Bundle.Package {
+				pkgs := []string{pkg, b.Bundle.Package}
+				sort.Strings(pkgs)
+				return fmt.Errorf("bundle %s must belong to exactly one package, found on: %v", bndl, pkgs)
+			}
+			expectedBundlePackages[bndl] = b.Bundle.Package
+		}
+	}
+	if len(expectedBundlePackages) == 0 {
+		return nil
+	}
+
+	pkgs, err := i.querier.ListPackages(context.TODO())
+	if err != nil {
+		return fmt.Errorf("unable to verify bundle packages: %v", err)
+	}
+	for _, pkg := range pkgs {
+		entries, err := i.querier.GetChannelEntriesFromPackage(context.TODO(), pkg)
+		if err != nil {
+			return fmt.Errorf("unable to verify bundles for package %v", err)
+		}
+		for _, b := range entries {
+			if bundlePkg, ok := expectedBundlePackages[b.BundleName]; ok && bundlePkg != b.PackageName {
+				return fmt.Errorf("bundle %s belongs to package %s on index, cannot be added as an edge for package %s", b.BundleName, b.PackageName, bundlePkg)
+			}
+		}
+	}
+
+	return nil
 }
