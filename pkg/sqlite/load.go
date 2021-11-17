@@ -1600,6 +1600,7 @@ func (s *sqlLoader) rmStrandedDeprecated(tx *sql.Tx) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	knownPackages := map[string]struct{}{}
 	for rows.Next() {
 		var pkg sql.NullString
@@ -1613,14 +1614,15 @@ func (s *sqlLoader) rmStrandedDeprecated(tx *sql.Tx) error {
 	}
 
 	packagePropertiesQuery := `select distinct operatorbundle_name, value from properties where type = ?`
-	rows, err = s.db.Query(packagePropertiesQuery, registry.PackageType)
+	pRows, err := tx.Query(packagePropertiesQuery, registry.PackageType)
 	if err != nil {
 		return err
 	}
+	defer pRows.Close()
 
-	for rows.Next() {
+	for pRows.Next() {
 		var bundle, value sql.NullString
-		if err := rows.Scan(&bundle, &value); err != nil {
+		if err := pRows.Scan(&bundle, &value); err != nil {
 			return err
 		}
 
@@ -1764,10 +1766,11 @@ func (s sqlLoader) RemoveOverwrittenChannelHead(pkg, bundle string) error {
 		AND channel_entry.operatorbundle_name = ?
 		LIMIT 1`
 
-	rows, err := s.db.QueryContext(context.TODO(), getBundlesThatReplaceHeadQuery, pkg, bundle)
+	rows, err := tx.QueryContext(context.TODO(), getBundlesThatReplaceHeadQuery, pkg, bundle)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	if rows != nil {
 		for rows.Next() {
 			var replaces, channel sql.NullString
@@ -1793,17 +1796,17 @@ func (s sqlLoader) RemoveOverwrittenChannelHead(pkg, bundle string) error {
 		GROUP BY channel_name
 	`
 
-	rows, err = s.db.QueryContext(context.TODO(), getReplacingBundlesQuery, pkg, bundle)
+	pRows, err := tx.QueryContext(context.TODO(), getReplacingBundlesQuery, pkg, bundle)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer pRows.Close()
 
 	channelHeadUpdateQuery := `UPDATE channel SET head_operatorbundle_name = ? WHERE package_name = ? AND name = ? AND head_operatorbundle_name = ?`
-	for rows.Next() {
+	for pRows.Next() {
 		var replaces, channel sql.NullString
 		var depth sql.NullInt64
-		if err := rows.Scan(&replaces, &channel, &depth); err != nil {
+		if err := pRows.Scan(&replaces, &channel, &depth); err != nil {
 			return err
 		}
 
