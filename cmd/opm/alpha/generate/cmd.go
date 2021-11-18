@@ -44,7 +44,7 @@ When specifying extra labels, note that if duplicate keys exist, only the last
 value of each duplicate key will be added to the generated Dockerfile.
 `,
 		RunE: func(_ *cobra.Command, args []string) error {
-			fromDir := args[0]
+			fromDir := filepath.Clean(args[0])
 
 			extraLabels, err := parseLabels(extraLabelStrs)
 			if err != nil {
