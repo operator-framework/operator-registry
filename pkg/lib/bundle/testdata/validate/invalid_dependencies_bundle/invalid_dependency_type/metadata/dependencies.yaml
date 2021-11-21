@@ -1,6 +1,0 @@
-dependencies:
-  - type: olm.crd
-    value:
-      group: test.coreos.com
-      version: v1alpha1
-      kind: testcrd

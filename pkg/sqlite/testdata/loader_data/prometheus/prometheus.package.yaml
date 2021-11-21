@@ -1,4 +1,0 @@
-packageName: prometheus
-channels:
-- name: preview
-  currentCSV: prometheusoperator.0.22.2
