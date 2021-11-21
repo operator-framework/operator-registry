@@ -1,9 +1,0 @@
-packageName: aqua
-channels:
-- name: alpha
-  currentCSV: aqua-operator.v1.0.1
-- name: beta
-  currentCSV: aqua-operator.v0.0.2
-- name: stable
-  currentCSV: aqua-operator.v1.0.1
-defaultChannel: stable
