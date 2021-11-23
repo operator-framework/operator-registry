@@ -28,6 +28,8 @@ type MigratableLoader interface {
 
 var _ MigratableLoader = &sqlLoader{}
 
+const startDepth = 0
+
 func newSQLLoader(db *sql.DB, opts ...DbOption) (*sqlLoader, error) {
 	options := defaultDBOptions()
 	for _, o := range opts {
@@ -424,7 +426,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	// update each channel's graph
 	for channelName, channel := range graph.Channels {
 		currentNode := channel.Head
-		depth := 1
+		depth := startDepth
 
 		var previousNodeID int64
 
@@ -495,7 +497,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 
 			// we got to the end of the channel graph
 			if nextNode.IsEmpty() {
-				if len(channel.Nodes) != depth {
+				if len(channel.Nodes)+startDepth-1 != depth {
 					err := fmt.Errorf("Invalid graph: some (non-bottom) nodes defined in the graph were not mentioned as replacements of any node")
 					errs = append(errs, err)
 				}
@@ -608,7 +610,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	}
 
 	for _, c := range channels {
-		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, 0)
+		res, err := addChannelEntry.Exec(c.Name, manifest.PackageName, c.CurrentCSVName, startDepth)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to add channel %q in package %q: %s", c.Name, manifest.PackageName, err.Error()))
 			continue
@@ -620,7 +622,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 		}
 
 		channelEntryCSVName := c.CurrentCSVName
-		depth := 1
+		depth := startDepth + 1
 
 		// Since this loop depends on following 'replaces', keep track of where it's been
 		replaceCycle := map[string]bool{channelEntryCSVName: true}

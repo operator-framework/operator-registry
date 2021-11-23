@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -154,6 +155,71 @@ func TestAddPackageChannels(t *testing.T) {
 	}
 }
 
+func TestAddBundleSemver(t *testing.T) {
+	// Create a test DB
+	db, cleanup := CreateTestDb(t)
+	defer cleanup()
+	store, err := NewSQLLiteLoader(db)
+	require.NoError(t, err)
+	err = store.Migrate(context.TODO())
+	require.NoError(t, err)
+	graphLoader, err := NewSQLGraphLoaderFromDB(db)
+	require.NoError(t, err)
+
+	// Seed the db with a replaces-mode bundle/package
+	replacesBundle := newBundle(t, "csv-a", "pkg-foo", []string{"stable"}, newUnstructuredCSV(t, "csv-a", ""))
+	err = store.AddOperatorBundle(replacesBundle)
+	require.NoError(t, err)
+
+	err = store.AddPackageChannels(registry.PackageManifest{
+		PackageName: "pkg-foo",
+		Channels: []registry.PackageChannel{
+			{
+				Name:           "stable",
+				CurrentCSVName: "csv-a",
+			},
+		},
+		DefaultChannelName: "stable",
+	})
+	require.NoError(t, err)
+
+	// Add semver bundles in non-semver order.
+	bundles := []*registry.Bundle{
+		newBundle(t, "csv-3", "pkg-0", []string{"stable"}, newUnstructuredCSVWithVersion(t, "csv-3", "0.3.0")),
+		newBundle(t, "csv-1", "pkg-0", []string{"stable"}, newUnstructuredCSVWithVersion(t, "csv-1", "0.1.0")),
+		newBundle(t, "csv-2", "pkg-0", []string{"stable"}, newUnstructuredCSVWithVersion(t, "csv-2", "0.2.0")),
+	}
+	for _, b := range bundles {
+		graph, err := graphLoader.Generate(b.Package)
+		require.Conditionf(t, func() bool {
+			return err == nil || errors.Is(err, registry.ErrPackageNotInDatabase)
+		}, "got unexpected error: %v", err)
+		bundleLoader := registry.BundleGraphLoader{}
+		updatedGraph, err := bundleLoader.AddBundleToGraph(b, graph, &registry.AnnotationsFile{Annotations: *b.Annotations}, false)
+		require.NoError(t, err)
+		err = store.AddBundleSemver(updatedGraph, b)
+		require.NoError(t, err)
+	}
+
+	// Ensure bundles can be queried with expected replaces and skips values.
+	querier := NewSQLLiteQuerierFromDb(db)
+	gotBundles, err := querier.ListBundles(context.Background())
+	require.NoError(t, err)
+	replaces := map[string]string{}
+	for _, b := range gotBundles {
+		if b.PackageName != "pkg-0" {
+			continue
+		}
+		require.Len(t, b.Skips, 0, "unexpected skips value(s) for bundle %q", b.CsvName)
+		replaces[b.CsvName] = b.Replaces
+	}
+	require.Equal(t, map[string]string{
+		"csv-3": "csv-2",
+		"csv-2": "csv-1",
+		"csv-1": "",
+	}, replaces)
+}
+
 func TestClearNonHeadBundles(t *testing.T) {
 	db, cleanup := CreateTestDb(t)
 	defer cleanup()
@@ -231,6 +297,18 @@ func newUnstructuredCSVWithSkips(t *testing.T, name, replaces string, skips ...s
 	require.NoError(t, err)
 	replacesSkips := fmt.Sprintf(`{"replaces": "%s", "skips": %s}`, replaces, string(allSkips))
 	csv.Spec = json.RawMessage(replacesSkips)
+
+	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
+	require.NoError(t, err)
+	return &unstructured.Unstructured{Object: out}
+}
+
+func newUnstructuredCSVWithVersion(t *testing.T, name, version string) *unstructured.Unstructured {
+	csv := &registry.ClusterServiceVersion{}
+	csv.TypeMeta.Kind = "ClusterServiceVersion"
+	csv.SetName(name)
+	versionJson := fmt.Sprintf(`{"version": "%s"}`, version)
+	csv.Spec = json.RawMessage(versionJson)
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
 	require.NoError(t, err)
