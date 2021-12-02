@@ -87,14 +87,23 @@ func readBundleObjects(bundles []Bundle, root fs.FS, path string) error {
 	for bi, b := range bundles {
 		props, err := property.Parse(b.Properties)
 		if err != nil {
-			return fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
+			return fmt.Errorf("package %q, bundle %q: parse properties: %v", b.Package, b.Name, err)
 		}
 		for oi, obj := range props.BundleObjects {
+			objID := fmt.Sprintf(" %q", obj.GetRef())
+			if !obj.IsRef() {
+				objID = fmt.Sprintf("[%d]", oi)
+			}
+
 			d, err := obj.GetData(root, filepath.Dir(path))
 			if err != nil {
-				return fmt.Errorf("get data for bundle object[%d]: %v", oi, err)
+				return fmt.Errorf("package %q, bundle %q: get data for bundle object%s: %v", b.Package, b.Name, objID, err)
 			}
-			bundles[bi].Objects = append(bundles[bi].Objects, string(d))
+			objJson, err := yaml.ToJSON(d)
+			if err != nil {
+				return fmt.Errorf("package %q, bundle %q: convert object%s to JSON: %v", b.Package, b.Name, objID, err)
+			}
+			bundles[bi].Objects = append(bundles[bi].Objects, string(objJson))
 		}
 		bundles[bi].CsvJSON = extractCSV(bundles[bi].Objects)
 	}

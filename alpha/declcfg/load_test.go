@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -188,8 +189,8 @@ func TestLoadFS(t *testing.T) {
 							{Type: "olm.bundle.object", Value: json.RawMessage(`{"ref":"etcdoperator.v0.6.1.clusterserviceversion.yaml"}`)},
 						},
 						RelatedImages: []RelatedImage{{Name: "etcdv0.6.1", Image: "quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943"}},
-						Objects:       []string{string(etcdCSV.Data)},
-						CsvJSON:       string(etcdCSV.Data),
+						Objects:       []string{toJSON(t, etcdCSV.Data)},
+						CsvJSON:       toJSON(t, etcdCSV.Data),
 					},
 					{
 						Schema:  "olm.bundle",
@@ -278,6 +279,15 @@ func TestLoadFS(t *testing.T) {
 			}
 		})
 	}
+}
+
+func toJSON(t *testing.T, in []byte) string {
+	t.Helper()
+	out, err := yaml.ToJSON(in)
+	if err != nil {
+		t.Fatalf("failed converting testdata to JSON: %v", err)
+	}
+	return string(out)
 }
 
 var (
