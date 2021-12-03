@@ -12,7 +12,7 @@ import (
 var extractCmd = &cobra.Command{
 	Use:   "extract",
 	Short: "Extracts the data in a bundle directory via ConfigMap",
-	Long:  "Extract takes as input a directory containing manifests and writes the per file contents to a ConfipMap",
+	Long:  "Extract takes as input a directory containing manifests and writes the per file contents to a ConfigMap",
 
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if debug, _ := cmd.Flags().GetBool("debug"); debug {
