@@ -2,12 +2,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"time"
-
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"time"
 )
 
 const (
@@ -107,7 +106,7 @@ type GrpcPodConfig struct {
 	// If not specified, the pod priority will be default or zero if there is no
 	// default.
 	// +optional
-	PriorityClassName string `json:"priorityClassName,omitempty" protobuf:"bytes,24,opt,name=priorityClassName"`
+	PriorityClassName *string `json:"priorityClassName,omitempty"`
 }
 
 // UpdateStrategy holds all the different types of catalog source update strategies
