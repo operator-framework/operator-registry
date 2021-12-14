@@ -1,8 +1,8 @@
-// +build !linux appengine
+// +build go1.13
 
 /*
  *
- * Copyright 2018 gRPC authors.
+ * Copyright 2019 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,16 @@
  *
  */
 
-package channelz
+package dns
 
-// GetSocketOption gets the socket option info of the conn.
-func GetSocketOption(c interface{}) *SocketOptionData {
-	return nil
+import "net"
+
+func init() {
+	filterError = func(err error) error {
+		if dnsErr, ok := err.(*net.DNSError); ok && dnsErr.IsNotFound {
+			// The name does not exist; not an error.
+			return nil
+		}
+		return err
+	}
 }

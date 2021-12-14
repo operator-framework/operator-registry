@@ -197,7 +197,7 @@ var _ = Describe("Launch bundle", func() {
 			bundleDataConfigMap, err = kubeclient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), bundleDataConfigMap.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			bundle, err := configmap.NewBundleLoader().Load(bundleDataConfigMap)
+			bundle, _, err := configmap.NewBundleLoader().Load(bundleDataConfigMap)
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedObjects, err := unstructuredlib.FromDir(bundleDirectory + "/manifests")

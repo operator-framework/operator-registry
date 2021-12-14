@@ -24,12 +24,12 @@ func TestLoad(t *testing.T) {
 	tests := []struct {
 		name       string
 		source     string
-		assertFunc func(t *testing.T, bundleGot *api.Bundle)
+		assertFunc func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string)
 	}{
 		{
 			name:   "BundleWithCsvAndCrd",
 			source: "testdata/bundle.cm.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 				assert.Equal(t, "etcdoperator.v0.6.1", bundleGot.GetCsvName())
@@ -37,12 +37,13 @@ func TestLoad(t *testing.T) {
 				crdListGot := bundleGot.GetObject()
 				// 1 CSV + 1 CRD = 2 objects
 				assert.Equal(t, 2, len(crdListGot))
+				assert.True(t, assert.ElementsMatch(t, []string{"crd.yaml", "csv.yaml"}, filenamesGot))
 			},
 		},
 		{
 			name:   "BundleWithBuiltInKubeTypes",
 			source: "testdata/bundle-with-kube-resources.cm.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				objects := bundleGot.GetObject()
 				assert.NotNil(t, objects)
 				assert.Equal(t, 1, len(objects))
@@ -50,32 +51,37 @@ func TestLoad(t *testing.T) {
 				unst, err := unstructuredlib.FromString(objects[0])
 				assert.NoError(t, err)
 				assert.True(t, unst.GetKind() == "Foo")
+
+				assert.True(t, assert.ElementsMatch(t, []string{"my.kube.type.yaml"}, filenamesGot))
 			},
 		},
 		{
 			name:   "BundleWithMultipleCsvs",
 			source: "testdata/bundle-with-multiple-csvs.cm.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 
 				unst, err := unstructuredlib.FromString(csvGot)
 				assert.NoError(t, err)
 				assert.True(t, unst.GetName() == "first" || unst.GetName() == "second")
+
+				assert.True(t, assert.ElementsMatch(t, []string{"first.csv.yaml", "second.csv.yaml"}, filenamesGot))
 			},
 		},
 		{
 			name:   "BundleWithBadResource",
 			source: "testdata/bundle-with-bad-resource.cm.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
+
 			},
 		},
 		{
 			name:   "BundleWithAll",
 			source: "testdata/bundle-with-all.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 				unst, err := unstructuredlib.FromString(csvGot)
@@ -85,12 +91,15 @@ func TestLoad(t *testing.T) {
 				objects := bundleGot.GetObject()
 				// 2 CRDs + 1 CSV == 3 objects
 				assert.Equal(t, 3, len(objects))
+
+				// kiali.package.yaml not added as it is missing Kind
+				assert.True(t, assert.ElementsMatch(t, []string{"kiali.crd.yaml", "kiali.monitoringdashboards.crd.yaml", "kiali.v1.4.2.clusterserviceversion.yaml"}, filenamesGot))
 			},
 		},
 		{
 			name:   "BundleWithNoDefaultChannel",
 			source: "testdata/bundle-with-no-default-channel.yaml",
-			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
+			assertFunc: func(t *testing.T, bundleGot *api.Bundle, filenamesGot []string) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 				unst, err := unstructuredlib.FromString(csvGot)
@@ -99,6 +108,9 @@ func TestLoad(t *testing.T) {
 
 				objects := bundleGot.GetObject()
 				assert.Equal(t, 3, len(objects))
+
+				// kiali.package.yaml not added as it is missing Kind
+				assert.True(t, assert.ElementsMatch(t, []string{"kiali.crd.yaml", "kiali.monitoringdashboards.crd.yaml", "kiali.v1.4.2.clusterserviceversion.yaml"}, filenamesGot))
 			},
 		},
 	}
@@ -108,13 +120,13 @@ func TestLoad(t *testing.T) {
 			cm := loadfromFile(t, tt.source)
 
 			loader := NewBundleLoader()
-			bundleGot, errGot := loader.Load(cm)
+			bundleGot, filenamesGot, errGot := loader.Load(cm)
 
 			assert.NoError(t, errGot)
 			assert.NotNil(t, bundleGot)
 
 			if tt.assertFunc != nil {
-				tt.assertFunc(t, bundleGot)
+				tt.assertFunc(t, bundleGot, filenamesGot)
 			}
 		})
 	}
@@ -157,7 +169,7 @@ func TestLoadWriteRead(t *testing.T) {
 			assert.NoError(t, err)
 
 			bundleLoader := NewBundleLoader()
-			bundle, err := bundleLoader.Load(cm)
+			bundle, _, err := bundleLoader.Load(cm)
 
 			expectedObjects, err := unstructuredlib.FromDir(tt.source + "manifests/")
 			assert.NoError(t, err)

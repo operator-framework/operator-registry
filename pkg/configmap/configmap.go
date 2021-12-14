@@ -32,7 +32,9 @@ type BundleLoader struct {
 // creates an operator registry Bundle object.
 // If the Data section has a PackageManifest resource then it is also
 // deserialized and included in the result.
-func (l *BundleLoader) Load(cm *corev1.ConfigMap) (bundle *api.Bundle, err error) {
+// The filenames contained in the ConfigMap are also returned.
+// bundle.Object and filenames share the same index.
+func (l *BundleLoader) Load(cm *corev1.ConfigMap) (bundle *api.Bundle, filenames []string, err error) {
 	if cm == nil {
 		err = errors.New("ConfigMap must not be <nil>")
 		return
@@ -42,7 +44,7 @@ func (l *BundleLoader) Load(cm *corev1.ConfigMap) (bundle *api.Bundle, err error
 		"configmap": fmt.Sprintf("%s/%s", cm.GetNamespace(), cm.GetName()),
 	})
 
-	bundle, skipped, bundleErr := loadBundle(logger, cm)
+	bundle, skipped, filenames, bundleErr := loadBundle(logger, cm)
 	if bundleErr != nil {
 		err = fmt.Errorf("failed to extract bundle from configmap - %v", bundleErr)
 		return
@@ -51,10 +53,13 @@ func (l *BundleLoader) Load(cm *corev1.ConfigMap) (bundle *api.Bundle, err error
 	return
 }
 
-func loadBundle(entry *logrus.Entry, cm *corev1.ConfigMap) (bundle *api.Bundle, skipped map[string]string, err error) {
+// loadBundle returns an API bundle built from a ConfigMap.
+// it also returns the list of filenames and a list of files that have been skipped
+// bundle.Object and filenames share the same index
+func loadBundle(entry *logrus.Entry, cm *corev1.ConfigMap) (bundle *api.Bundle, skipped map[string]string, filenames []string, err error) {
 	bundle = &api.Bundle{Object: []string{}}
 	skipped = map[string]string{}
-
+	filenames = []string{}
 	data := cm.Data
 	if hasGzipEncodingAnnotation(cm) {
 		entry.Debug("Decoding gzip-encoded bundle data")
@@ -62,7 +67,7 @@ func loadBundle(entry *logrus.Entry, cm *corev1.ConfigMap) (bundle *api.Bundle, 
 		var err error
 		data, err = decodeGzipBinaryData(cm)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 
@@ -78,7 +83,7 @@ func loadBundle(entry *logrus.Entry, cm *corev1.ConfigMap) (bundle *api.Bundle, 
 			logger.Infof("skipping due to decode error - %v", decodeErr)
 
 			// It may not be not a kube resource, let's add it to the skipped
-			// list so the caller can act on ot.
+			// list so the caller can act on to.
 			skipped[name] = content
 			continue
 		}
@@ -86,11 +91,14 @@ func loadBundle(entry *logrus.Entry, cm *corev1.ConfigMap) (bundle *api.Bundle, 
 		if resource.GetKind() == "ClusterServiceVersion" {
 			csvBytes, err := resource.MarshalJSON()
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			bundle.CsvJson = string(csvBytes)
 			bundle.CsvName = resource.GetName()
 		}
+		// Surface the file name for enabling manifest specific logic at a higher level
+		// This cannot be added to content as it is a plain string
+		filenames = append(filenames, name)
 		bundle.Object = append(bundle.Object, content)
 		logger.Infof("added to bundle, Kind=%s", resource.GetKind())
 	}

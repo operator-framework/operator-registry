@@ -616,22 +616,12 @@ func (t *http2Client) getCallAuthData(ctx context.Context, audience string, call
 	return callAuthData, nil
 }
 
-// NewStreamError wraps an error and reports additional information.  Typically
-// NewStream errors result in transparent retry, as they mean nothing went onto
-// the wire.  However, there are two notable exceptions:
-//
-// 1. If the stream headers violate the max header list size allowed by the
-//    server.  In this case there is no reason to retry at all, as it is
-//    assumed the RPC would continue to fail on subsequent attempts.
-// 2. If the credentials errored when requesting their headers.  In this case,
-//    it's possible a retry can fix the problem, but indefinitely transparently
-//    retrying is not appropriate as it is likely the credentials, if they can
-//    eventually succeed, would need I/O to do so.
+// NewStreamError wraps an error and reports additional information.
 type NewStreamError struct {
 	Err error
 
-	DoNotRetry            bool
-	DoNotTransparentRetry bool
+	DoNotRetry  bool
+	PerformedIO bool
 }
 
 func (e NewStreamError) Error() string {
@@ -641,10 +631,24 @@ func (e NewStreamError) Error() string {
 // NewStream creates a stream and registers it into the transport as "active"
 // streams.  All non-nil errors returned will be *NewStreamError.
 func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Stream, err error) {
+	defer func() {
+		if err != nil {
+			nse, ok := err.(*NewStreamError)
+			if !ok {
+				nse = &NewStreamError{Err: err}
+			}
+			if len(t.perRPCCreds) > 0 || callHdr.Creds != nil {
+				// We may have performed I/O in the per-RPC creds callback, so do not
+				// allow transparent retry.
+				nse.PerformedIO = true
+			}
+			err = nse
+		}
+	}()
 	ctx = peer.NewContext(ctx, t.getPeer())
 	headerFields, err := t.createHeaderFields(ctx, callHdr)
 	if err != nil {
-		return nil, &NewStreamError{Err: err, DoNotTransparentRetry: true}
+		return nil, err
 	}
 	s := t.newStream(ctx, callHdr)
 	cleanup := func(err error) {
@@ -744,7 +748,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			return true
 		}, hdr)
 		if err != nil {
-			return nil, &NewStreamError{Err: err}
+			return nil, err
 		}
 		if success {
 			break
@@ -755,12 +759,12 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		firstTry = false
 		select {
 		case <-ch:
-		case <-ctx.Done():
-			return nil, &NewStreamError{Err: ContextErr(ctx.Err())}
+		case <-s.ctx.Done():
+			return nil, ContextErr(s.ctx.Err())
 		case <-t.goAway:
-			return nil, &NewStreamError{Err: errStreamDrain}
+			return nil, errStreamDrain
 		case <-t.ctx.Done():
-			return nil, &NewStreamError{Err: ErrConnClosing}
+			return nil, ErrConnClosing
 		}
 	}
 	if t.statsHandler != nil {
