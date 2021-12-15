@@ -396,7 +396,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/operator-framework/api v0.10.8-0.20211210002341-1eb6c0266cce
+# github.com/operator-framework/api v0.11.0
 ## explicit
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/manifests
