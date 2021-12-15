@@ -237,6 +237,8 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 				errs = dp.Validate()
 			case registry.LabelDependency:
 				errs = dp.Validate()
+			case registry.CelConstraint:
+				errs = dp.Validate()
 			default:
 				errs = append(errs, fmt.Errorf("unsupported dependency type %s", d.GetType()))
 			}
