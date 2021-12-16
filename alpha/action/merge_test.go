@@ -112,6 +112,9 @@ func TestMergeDC(t *testing.T) {
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5"},
 						{Name: "foo.v0.1.0", Skips: []string{"foo.v0.0.4"}},
 					}},
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.1.1", Replaces: "foo.v1.0.0"},
+					}},
 					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
@@ -133,6 +136,15 @@ func TestMergeDC(t *testing.T) {
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
 							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.1.1",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.1"),
 						},
 					},
 					{
@@ -168,6 +180,7 @@ func TestMergeDC(t *testing.T) {
 					}},
 					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5", Skips: []string{"foo.v0.0.4"}},
+						{Name: "foo.v0.1.1", Replaces: "foo.v1.0.0"},
 					}},
 				},
 				Bundles: []declcfg.Bundle{
@@ -198,6 +211,15 @@ func TestMergeDC(t *testing.T) {
 						Image:   "reg/foo:latest",
 						Properties: []property.Property{
 							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.1.1",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.1"),
 						},
 					},
 				},
@@ -395,7 +417,7 @@ func TestMergeDC(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := c.mt.mergeDC(c.dc)
+			err := c.mt.MergeDC(c.dc)
 			if c.expError != "" {
 				require.EqualError(t, err, c.expError)
 			} else {

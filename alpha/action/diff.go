@@ -53,7 +53,7 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			}
 			return nil, fmt.Errorf("error rendering old refs: %v", err)
 		}
-		if err := a.MergeType.mergeDC(oldCfg); err != nil {
+		if err := a.MergeType.MergeDC(oldCfg); err != nil {
 			return nil, fmt.Errorf("error merging across old refs: %v", err)
 		}
 		oldModel, err = declcfg.ConvertToModel(*oldCfg)
@@ -70,7 +70,7 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		}
 		return nil, fmt.Errorf("error rendering new refs: %v", err)
 	}
-	if err := a.MergeType.mergeDC(newCfg); err != nil {
+	if err := a.MergeType.MergeDC(newCfg); err != nil {
 		return nil, fmt.Errorf("error merging across new refs: %v", err)
 	}
 	newModel, err := declcfg.ConvertToModel(*newCfg)
