@@ -191,6 +191,21 @@ func exportIndexImageWith(containerTool string) error {
 	return indexExporter.ExportFromIndex(request)
 }
 
+func exportSpecificIndexImageWith(containerTool string, indexImage string) error {
+	logger := logrus.NewEntry(logrus.New())
+	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
+
+	request := indexer.ExportFromIndexRequest{
+		Index:         indexImage,
+		Packages:      []string{},
+		DownloadPath:  "downloaded",
+		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
+		SkipTLS:       *skipTLSForRegistry,
+	}
+
+	return indexExporter.ExportFromIndex(request)
+}
+
 func initialize() error {
 	tmpDB, err := ioutil.TempFile("./", "index_tmp.db")
 	if err != nil {
@@ -367,6 +382,37 @@ var _ = Describe("opm", func() {
 			indexImage := indexImage + ":" + rand.String(6)
 			By("building an index")
 			err := buildIndexWith(containerTool, "", indexImage, []string{}, registry.ReplacesMode, true)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("successfully extracts the contents of a locally present index image", func() {
+			bundles := bundleLocations{
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.1"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/0.0.2"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.0"},
+				{bundleImage + ":" + rand.String(6), "./testdata/aqua/1.0.1"},
+			}
+			By("building bundles")
+			for _, b := range bundles {
+				td, err := ioutil.TempDir(".", "opm-")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.RemoveAll(td)
+
+				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("pushing bundles")
+			for _, b := range bundles {
+				Expect(pushWith(containerTool, b.image)).NotTo(HaveOccurred())
+			}
+
+			By("building an index")
+			indexImage := indexImage + ":" + rand.String(6)
+			err := buildIndexWith(containerTool, "", indexImage, bundles.images(), registry.ReplacesMode, false)
+			Expect(err).NotTo(HaveOccurred())
+			By("exporting index to disk")
+			err = exportSpecificIndexImageWith(containerTool, indexImage)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
