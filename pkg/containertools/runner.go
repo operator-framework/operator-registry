@@ -81,6 +81,11 @@ func (r *ContainerCommandRunner) GetToolName() string {
 // Pull takes a container image path hosted on a container registry and runs the
 // pull command to download it onto the local environment
 func (r *ContainerCommandRunner) Pull(image string) error {
+	if r.imagePresentLocally(image) {
+		// Image present locally, dont pull.
+		return nil
+	}
+
 	args := r.argsForCmd("pull", image)
 
 	command := exec.Command(r.containerTool.String(), args...)
@@ -181,4 +186,18 @@ func (r *ContainerCommandRunner) Inspect(image string) ([]byte, error) {
 	}
 
 	return out, err
+}
+
+// Checks if the passed image is present locally. Returns false
+// if a non-zero exit code (or any other error) is returned when
+// docker image inspect <image> is run.
+func (r *ContainerCommandRunner) imagePresentLocally(image string) bool {
+	args := r.argsForCmd("inspect", image)
+	command := exec.Command(r.containerTool.String(), args...)
+
+	_, err := command.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return true
 }
