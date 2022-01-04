@@ -31,6 +31,7 @@ import (
 
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/version"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context/ctxhttp"
@@ -198,15 +199,9 @@ func (a *dockerAuthorizer) generateTokenOptions(ctx context.Context, host string
 	scope, ok := c.parameters["scope"]
 	if ok {
 		to.scopes = append(to.scopes, scope)
-	}
-	// fallback to request scope if there's no scope in the challenge
-	if v := ctx.Value(tokenScopesKey{}); !ok && v != nil {
-		scopes := v.([]string)
-		to.scopes = append(to.scopes, scopes...)
 	} else {
 		log.G(ctx).WithField("host", host).Debug("no scope specified for token auth challenge")
 	}
-	to.scopes = append(to.scopes, scope)
 
 	if a.credentials != nil {
 		to.username, to.secret, err = a.credentials(host)
@@ -279,10 +274,7 @@ func (ah *authHandler) doBearerAuth(ctx context.Context) (string, error) {
 	// copy common tokenOptions
 	to := ah.common
 
-	to.scopes = getTokenScopes(ctx, to.scopes)
-	if len(to.scopes) == 0 {
-		return "", errors.Errorf("no scope specified for token auth challenge")
-	}
+	to.scopes = GetTokenScopes(ctx, to.scopes)
 
 	// Docs: https://docs.docker.com/registry/spec/auth/scope
 	scoped := strings.Join(to.scopes, " ")
@@ -339,7 +331,9 @@ type postTokenResponse struct {
 
 func (ah *authHandler) fetchTokenWithOAuth(ctx context.Context, to tokenOptions) (string, error) {
 	form := url.Values{}
-	form.Set("scope", strings.Join(to.scopes, " "))
+	if len(to.scopes) > 0 {
+		form.Set("scope", strings.Join(to.scopes, " "))
+	}
 	form.Set("service", to.service)
 	// TODO: Allow setting client_id
 	form.Set("client_id", "containerd-client")
@@ -363,6 +357,9 @@ func (ah *authHandler) fetchTokenWithOAuth(ctx context.Context, to tokenOptions)
 			req.Header[k] = append(req.Header[k], v...)
 		}
 	}
+	if len(req.Header.Get("User-Agent")) == 0 {
+		req.Header.Set("User-Agent", "containerd/"+version.Version)
+	}
 
 	resp, err := ctxhttp.Do(ctx, ah.client, req)
 	if err != nil {
@@ -373,7 +370,7 @@ func (ah *authHandler) fetchTokenWithOAuth(ctx context.Context, to tokenOptions)
 	// Registries without support for POST may return 404 for POST /v2/token.
 	// As of September 2017, GCR is known to return 404.
 	// As of February 2018, JFrog Artifactory is known to return 401.
-	if (resp.StatusCode == 405 && to.username != "") || resp.StatusCode == 404 || resp.StatusCode == 401 || resp.StatusCode == 403 {
+	if (resp.StatusCode == 405 && to.username != "") || resp.StatusCode == 404 || resp.StatusCode == 401 {
 		return ah.fetchToken(ctx, to)
 	} else if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		b, _ := ioutil.ReadAll(io.LimitReader(resp.Body, 64000)) // 64KB
@@ -414,6 +411,9 @@ func (ah *authHandler) fetchToken(ctx context.Context, to tokenOptions) (string,
 		for k, v := range ah.header {
 			req.Header[k] = append(req.Header[k], v...)
 		}
+	}
+	if len(req.Header.Get("User-Agent")) == 0 {
+		req.Header.Set("User-Agent", "containerd/"+version.Version)
 	}
 
 	reqParams := req.URL.Query()

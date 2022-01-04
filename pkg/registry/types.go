@@ -7,7 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
+	"github.com/operator-framework/api/pkg/constraints"
 )
 
 var (
@@ -55,6 +56,7 @@ const (
 	DeprecatedType = "olm.deprecated"
 	LabelType      = "olm.label"
 	PropertyKey    = "olm.properties"
+	ConstraintType = "olm.constraint"
 )
 
 // APIKey stores GroupVersionKind for use as map keys
@@ -160,19 +162,25 @@ type Annotations struct {
 	DefaultChannelName string `json:"operators.operatorframework.io.bundle.channel.default.v1" yaml:"operators.operatorframework.io.bundle.channel.default.v1"`
 }
 
-// DependenciesFile holds dependency information about a bundle
+// DependenciesFile holds dependency information about a bundle.
 type DependenciesFile struct {
 	// Dependencies is a list of dependencies for a given bundle
 	Dependencies []Dependency `json:"dependencies" yaml:"dependencies"`
 }
 
-// Dependency specifies a single constraint that can be satisfied by a property on another bundle..
+// Dependency specifies a single constraint that can be satisfied by a property on another bundle.
 type Dependency struct {
 	// The type of dependency. This field is required.
 	Type string `json:"type" yaml:"type"`
 
 	// The serialized value of the dependency
 	Value json.RawMessage `json:"value" yaml:"value"`
+}
+
+// PropertiesFile holds the properties associated with a bundle.
+type PropertiesFile struct {
+	// Properties is a list of properties.
+	Properties []Property `json:"properties" yaml:"properties"`
 }
 
 // Property defines a single piece of the public interface for a bundle. Dependencies are specified over properties.
@@ -184,6 +192,10 @@ type Property struct {
 
 	// The serialized value of the propertuy
 	Value json.RawMessage `json:"value" yaml:"value"`
+}
+
+func (p Property) String() string {
+	return fmt.Sprintf("type: %s, value: %s", p.Type, p.Value)
 }
 
 type GVKDependency struct {
@@ -208,6 +220,16 @@ type PackageDependency struct {
 type LabelDependency struct {
 	// The Label name of dependency
 	Label string `json:"label" yaml:"label"`
+}
+
+type CelConstraint struct {
+	// Constraint message that surfaces in resolution
+	// This field is optional
+	Message string `json:"message" yaml:"message"`
+
+	// The cel struct that contraints CEL expression
+	// This field is required
+	Cel *constraints.Cel `json:"cel" yaml:"cel"`
 }
 
 type GVKProperty struct {
@@ -279,6 +301,25 @@ func (pd *PackageDependency) Validate() []error {
 	return errs
 }
 
+// Validate will validate constraint type and return error(s)
+func (cc *CelConstraint) Validate() []error {
+	errs := []error{}
+	if cc.Cel == nil {
+		errs = append(errs, fmt.Errorf("The CEL field is missing"))
+	} else {
+		if cc.Cel.Rule == "" {
+			errs = append(errs, fmt.Errorf("The CEL expression is missing"))
+			return errs
+		}
+		validator := constraints.NewCelEnvironment()
+		_, err := validator.Validate(cc.Cel.Rule)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Invalid CEL expression: %s", err.Error()))
+		}
+	}
+	return errs
+}
+
 // GetDependencies returns the list of dependency
 func (d *DependenciesFile) GetDependencies() []*Dependency {
 	var dependencies []*Dependency
@@ -319,6 +360,13 @@ func (e *Dependency) GetTypeValue() interface{} {
 			return nil
 		}
 		return dep
+	case ConstraintType:
+		dep := CelConstraint{}
+		err := json.Unmarshal([]byte(e.GetValue()), &dep)
+		if err != nil {
+			return nil
+		}
+		return dep
 	}
 	return nil
 }
@@ -349,11 +397,16 @@ func (a *AnnotationsFile) GetDefaultChannelName() string {
 // SelectDefaultChannel returns the first item in channel list that is sorted
 // in lexicographic order.
 func (a *AnnotationsFile) SelectDefaultChannel() string {
-	if a.Annotations.Channels != "" {
-		channels := strings.Split(a.Annotations.Channels, ",")
-		sort.Strings(channels)
-		return channels[0]
+	return a.Annotations.SelectDefaultChannel()
+}
+
+func (a Annotations) SelectDefaultChannel() string {
+	if len(a.Channels) < 1 {
+		return ""
 	}
 
-	return ""
+	channels := strings.Split(a.Channels, ",")
+	sort.Strings(channels)
+
+	return channels[0]
 }

@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/internal/model"
-	"github.com/operator-framework/operator-registry/internal/property"
+	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 func TestConvertAPIBundleToModelBundle(t *testing.T) {
@@ -25,7 +25,6 @@ func TestConvertModelBundleToAPIBundle(t *testing.T) {
 	modelBundle.Channel = &model.Channel{Name: "singlenamespace-alpha"}
 	expected := testAPIBundle()
 	expected.Properties = append(expected.Properties,
-		&Property{Type: "olm.channel", Value: "{\"name\":\"singlenamespace-alpha\",\"replaces\":\"etcdoperator.v0.9.2\"}"},
 		&Property{Type: "olm.package.required", Value: "{\"packageName\":\"test\",\"versionRange\":\">=1.2.3 <2.0.0-0\"}"},
 		&Property{Type: "olm.gvk.required", Value: "{\"group\":\"testapi.coreos.com\",\"kind\":\"Testapi\",\"version\":\"v1\"}"},
 	)
@@ -49,15 +48,14 @@ func testModelBundle() model.Bundle {
 		Replaces: "etcdoperator.v0.9.2",
 		Skips:    nil,
 		Properties: []property.Property{
-			property.MustBuildChannel("singlenamespace-alpha", "etcdoperator.v0.9.2"),
 			property.MustBuildPackage("etcd", "0.9.4"),
 			property.MustBuildPackageRequired("test", ">=1.2.3 <2.0.0-0"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "Testapi"),
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
-			property.MustBuildBundleObjectRef("objects/etcdoperator.v0.9.4/etcdbackups.etcd.database.coreos.com_apiextensions.k8s.io_v1beta1_customresourcedefinition.yaml"),
-			property.MustBuildBundleObjectRef("objects/etcdoperator.v0.9.4/etcdclusters.etcd.database.coreos.com_apiextensions.k8s.io_v1beta1_customresourcedefinition.yaml"),
-			property.MustBuildBundleObjectRef("objects/etcdoperator.v0.9.4/etcdoperator.v0.9.4_operators.coreos.com_v1alpha1_clusterserviceversion.yaml"),
-			property.MustBuildBundleObjectRef("objects/etcdoperator.v0.9.4/etcdrestores.etcd.database.coreos.com_apiextensions.k8s.io_v1beta1_customresourcedefinition.yaml"),
+			property.MustBuildBundleObjectData([]byte(crdbackups)),
+			property.MustBuildBundleObjectData([]byte(crdclusters)),
+			property.MustBuildBundleObjectData([]byte(csvJson)),
+			property.MustBuildBundleObjectData([]byte(crdrestores)),
 		},
 		CsvJSON: csvJson,
 		Objects: []string{

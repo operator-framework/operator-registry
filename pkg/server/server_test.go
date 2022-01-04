@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -61,10 +60,10 @@ func dbStore(dbPath string) *sqlite.SQLQuerier {
 	return store
 }
 
-func cfgStore() *registry.Querier {
+func cfgStore() (*registry.Querier, error) {
 	tmpDir, err := ioutil.TempDir("", "server_test-")
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -73,10 +72,13 @@ func cfgStore() *registry.Querier {
 	dbStore := dbStore(dbFile)
 	m, err := sqlite.ToModel(context.TODO(), dbStore)
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
-	store := registry.NewQuerier(m)
-	return store
+	store, err := registry.NewQuerier(m)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func server(store registry.GRPCQuery) *grpc.Server {
@@ -87,7 +89,13 @@ func server(store registry.GRPCQuery) *grpc.Server {
 
 func TestMain(m *testing.M) {
 	s1 := server(dbStore(dbName))
-	s2 := server(cfgStore())
+
+	cfgQuerier, err := cfgStore()
+	defer cfgQuerier.Close()
+	if err != nil {
+		logrus.Fatalf("failed to create fbc querier: %v", err)
+	}
+	s2 := server(cfgQuerier)
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
 		if err != nil {
@@ -216,7 +224,13 @@ func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
 }
 
 func TestGetBundleForChannel(t *testing.T) {
-	t.Run("Sqlite", testGetBundleForChannel(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
+	{
+		b := etcdoperator_v0_9_2("alpha", false, false)
+		t.Run("Sqlite", testGetBundleForChannel(dbAddress, &api.Bundle{
+			CsvName: b.CsvName,
+			CsvJson: b.CsvJson + "\n",
+		}))
+	}
 	t.Run("DeclarativeConfig", testGetBundleForChannel(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
@@ -641,6 +655,7 @@ func testListBundles(addr string, etcdAlpha *api.Bundle, etcdStable *api.Bundle)
 }
 
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
+	t.Helper()
 	stripPlural(actual.ProvidedApis)
 	stripPlural(actual.RequiredApis)
 
@@ -736,9 +751,6 @@ func etcdoperator_v0_9_2(channel string, addSkipsReplaces, addExtraProperties bo
 	}
 	if addExtraProperties {
 		b.Properties = append(b.Properties, []*api.Property{
-			{Type: "olm.skipRange", Value: `"< 0.6.0"`},
-			{Type: "olm.skips", Value: `"etcdoperator.v0.9.1"`},
-			{Type: "olm.channel", Value: fmt.Sprintf(`{"name":%q,"replaces":"etcdoperator.v0.9.0"}`, channel)},
 			{Type: "olm.gvk.required", Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`},
 		}...)
 	}

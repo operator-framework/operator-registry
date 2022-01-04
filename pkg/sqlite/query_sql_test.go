@@ -12,9 +12,10 @@ import (
 
 func TestListBundlesQuery(t *testing.T) {
 	for _, tt := range []struct {
-		Name   string
-		Setup  func(t *testing.T, db *sql.DB)
-		Expect func(t *testing.T, rows *sql.Rows)
+		Name         string
+		Setup        func(t *testing.T, db *sql.DB)
+		Expect       func(t *testing.T, rows *sql.Rows)
+		OmitManfests bool
 	}{
 		{
 			Name: "replacement comes from channel entry",
@@ -42,7 +43,7 @@ func TestListBundlesQuery(t *testing.T) {
 						c            interface{}
 						name, actual sql.NullString
 					)
-					if err := rows.Scan(&c, &c, &c, &name, &c, &c, &actual, &c, &c, &c, &c, &c, &c, &c); err != nil {
+					if err := rows.Scan(&c, &c, &c, &name, &c, &c, &actual, &c, &c, &c, &c, &c); err != nil {
 						t.Fatalf("unexpected error during row scan: %v", err)
 					}
 					expected, ok := replacements[name]
@@ -107,7 +108,7 @@ func TestListBundlesQuery(t *testing.T) {
 						c      interface{}
 						actual result
 					)
-					if err := rows.Scan(&c, &c, &c, &actual.Name, &c, &c, &actual.Replaces, &actual.Skips, &c, &c, &c, &c, &c, &c); err != nil {
+					if err := rows.Scan(&c, &c, &c, &actual.Name, &c, &c, &actual.Replaces, &actual.Skips, &c, &c, &c, &c); err != nil {
 						t.Fatalf("unexpected error during row scan: %v", err)
 					}
 					r, ok := expected[actual.Name]
@@ -124,6 +125,93 @@ func TestListBundlesQuery(t *testing.T) {
 				for _, e := range expected {
 					t.Errorf("missing expected result row: %v", e)
 				}
+			},
+		},
+		{
+			Name:         "manifests omitted without bundlepath",
+			OmitManfests: true,
+			Setup: func(t *testing.T, db *sql.DB) {
+				for _, stmt := range []string{
+					`insert into package (name, default_channel) values ("package", "channel")`,
+					`insert into channel (name, package_name, head_operatorbundle_name) values ("channel", "package", "bundle")`,
+					`insert into operatorbundle (name, bundle) values ("bundle-a", "{}")`,
+					`insert into channel_entry (package_name, channel_name, operatorbundle_name, entry_id, depth) values ("package", "channel", "bundle-a", 1, 0)`,
+				} {
+					if _, err := db.Exec(stmt); err != nil {
+						t.Fatalf("unexpected error executing setup statements: %v", err)
+					}
+				}
+
+			},
+			Expect: func(t *testing.T, rows *sql.Rows) {
+				require := require.New(t)
+				require.True(rows.Next())
+				var (
+					c      interface{}
+					bundle sql.NullString
+				)
+				require.NoError(rows.Scan(&c, &bundle, &c, &c, &c, &c, &c, &c, &c, &c, &c, &c))
+				require.Equal(sql.NullString{Valid: true, String: "{}"}, bundle)
+				require.False(rows.Next())
+			},
+		},
+		{
+			Name:         "properties and depdendencies columns may be stored as sqlite type blob",
+			OmitManfests: true,
+			Setup: func(t *testing.T, db *sql.DB) {
+				for _, stmt := range []string{
+					`insert into package (name, default_channel) values ("package", "channel")`,
+					`insert into channel (name, package_name, head_operatorbundle_name) values ("channel", "package", "bundle")`,
+					`insert into operatorbundle (name, bundle) values ("bundle-a", "{}")`,
+					`insert into channel_entry (package_name, channel_name, operatorbundle_name, entry_id, depth) values ("package", "channel", "bundle-a", 1, 0)`,
+					`insert into properties (type, value, operatorbundle_name) values (CAST("blob_ptype" AS BLOB), CAST("blob_pvalue" AS BLOB), "bundle-a")`,
+					`insert into dependencies (type, value, operatorbundle_name) values (CAST("blob_dtype" AS BLOB), CAST("blob_dvalue" AS BLOB), "bundle-a")`,
+				} {
+					if _, err := db.Exec(stmt); err != nil {
+						t.Fatalf("unexpected error executing setup statements: %v", err)
+					}
+				}
+
+			},
+			Expect: func(t *testing.T, rows *sql.Rows) {
+				require := require.New(t)
+				require.True(rows.Next())
+				var (
+					props, deps sql.NullString
+					c           interface{}
+				)
+				require.NoError(rows.Scan(&c, &c, &c, &c, &c, &c, &c, &c, &c, &c, &deps, &props))
+				require.Equal(sql.NullString{Valid: true, String: `[{"type":"blob_ptype","value":"blob_pvalue"}]`}, props)
+				require.Equal(sql.NullString{Valid: true, String: `[{"type":"blob_dtype","value":"blob_dvalue"}]`}, deps)
+				require.False(rows.Next())
+			},
+		},
+		{
+			Name:         "manifests not omitted with bundlepath",
+			OmitManfests: true,
+			Setup: func(t *testing.T, db *sql.DB) {
+				for _, stmt := range []string{
+					`insert into package (name, default_channel) values ("package", "channel")`,
+					`insert into channel (name, package_name, head_operatorbundle_name) values ("channel", "package", "bundle")`,
+					`insert into operatorbundle (name, bundle, bundlepath) values ("bundle-a", "{}", "path")`,
+					`insert into channel_entry (package_name, channel_name, operatorbundle_name, entry_id, depth) values ("package", "channel", "bundle-a", 1, 0)`,
+				} {
+					if _, err := db.Exec(stmt); err != nil {
+						t.Fatalf("unexpected error executing setup statements: %v", err)
+					}
+				}
+
+			},
+			Expect: func(t *testing.T, rows *sql.Rows) {
+				require := require.New(t)
+				require.True(rows.Next())
+				var (
+					c      interface{}
+					bundle sql.NullString
+				)
+				require.NoError(rows.Scan(&c, &bundle, &c, &c, &c, &c, &c, &c, &c, &c, &c, &c))
+				require.Equal(sql.NullString{Valid: false, String: ""}, bundle)
+				require.False(rows.Next())
 			},
 		},
 	} {
@@ -143,7 +231,7 @@ func TestListBundlesQuery(t *testing.T) {
 			_, err = db.Exec("PRAGMA foreign_keys = ON")
 			require.NoError(t, err)
 
-			rows, err := db.QueryContext(ctx, listBundlesQuery)
+			rows, err := db.QueryContext(ctx, listBundlesQuery, sql.Named("omit_manifests", tt.OmitManfests))
 			if err != nil {
 				t.Fatalf("unexpected error executing list bundles query: %v", err)
 			}

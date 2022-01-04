@@ -106,7 +106,7 @@ LABEL operators.operatorframework.io.bundle.package.v1=test-operator
 LABEL operators.operatorframework.io.bundle.channels.v1=beta,stable
 LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
 
-ADD test/*.yaml /manifests
+ADD test/*.yaml /manifests/
 ADD test/metadata/annotations.yaml /metadata/annotations.yaml
 ```
 

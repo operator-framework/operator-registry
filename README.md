@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/operator-framework/operator-registry.svg?branch=master)](https://travis-ci.com/operator-framework/operator-registry)
-
 # operator-registry
 
 Operator Registry runs in a Kubernetes or OpenShift cluster to provide operator catalog data to [Operator Lifecycle Manager](https://github.com/operator-framework/operator-lifecycle-manager).
