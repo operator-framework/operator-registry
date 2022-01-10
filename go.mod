@@ -11,7 +11,7 @@ require (
 	github.com/containerd/containerd v1.4.11
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
 	github.com/containerd/ttrpc v1.0.1 // indirect
-	github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
+	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/docker/docker-credential-helpers v0.6.3 // indirect
