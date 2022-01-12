@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -88,7 +89,13 @@ func credential(cfg *configfile.ConfigFile) func(string) (string, string, error)
 	}
 }
 
+// protects against a data race inside the docker CLI
+var configMutex sync.Mutex
+
 func loadConfig(dir string) (*configfile.ConfigFile, error) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+
 	if dir == "" {
 		dir = config.Dir()
 	}
