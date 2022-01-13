@@ -5,6 +5,8 @@ import (
 	"crypto/x509"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/containerd/containerd/remotes"
@@ -85,14 +87,31 @@ func credential(cfg *configfile.ConfigFile) func(string) (string, string, error)
 	}
 }
 
-func loadConfig(dir string) (*configfile.ConfigFile, error) {
+func loadConfig(dir string) (cfg *configfile.ConfigFile, err error) {
 	if dir == "" {
 		dir = config.Dir()
 	}
 
-	cfg, err := config.Load(dir)
-	if err != nil {
-		return nil, err
+	dockerConfigJSON := filepath.Join(dir, config.ConfigFileName)
+	cfg = configfile.New(dockerConfigJSON)
+
+	switch _, err := os.Stat(dockerConfigJSON); {
+	case err == nil:
+		cfg, err = config.Load(dir)
+		if err != nil {
+			return cfg, err
+		}
+	case os.IsNotExist(err):
+		podmanConfig := filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "containers/auth.json")
+		if file, err := os.Open(podmanConfig); err == nil {
+			defer file.Close()
+			cfg, err = config.LoadFromReader(file)
+			if err != nil {
+				return cfg, err
+			}
+		} else if !os.IsNotExist(err) {
+			return cfg, err
+		}
 	}
 
 	if !cfg.ContainsAuth() {
