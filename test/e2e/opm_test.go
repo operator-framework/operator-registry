@@ -108,7 +108,8 @@ func buildIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleIm
 		Bundles:           bundleImages,
 		Permissive:        false,
 		Overwrite:         overwriteLatest,
-		SkipTLS:           *skipTLSForRegistry,
+		SkipTLSVerify:     *skipTLSForRegistry,
+		PlainHTTP:         *useHTTPforRegistry,
 	}
 
 	return indexAdder.AddToIndex(request)
@@ -169,7 +170,8 @@ func exportPackageWith(containerTool string) error {
 		Packages:      packages,
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
-		SkipTLS:       *skipTLSForRegistry,
+		SkipTLSVerify: *skipTLSForRegistry,
+		PlainHTTP:     *useHTTPforRegistry,
 	}
 
 	return indexExporter.ExportFromIndex(request)
@@ -185,7 +187,8 @@ func exportIndexImageWith(containerTool string) error {
 		Packages:      []string{},
 		DownloadPath:  "downloaded",
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
-		SkipTLS:       *skipTLSForRegistry,
+		SkipTLSVerify: *skipTLSForRegistry,
+		PlainHTTP:     *useHTTPforRegistry,
 	}
 
 	return indexExporter.ExportFromIndex(request)
@@ -426,7 +429,7 @@ var _ = Describe("opm", func() {
 				PullTool: tool,
 				Logger:   logger,
 			}
-			dbFile, err := imageIndexer.ExtractDatabase(".", publishedIndex, "", true)
+			dbFile, err := imageIndexer.ExtractDatabase(".", publishedIndex, "", *skipTLSForRegistry, *useHTTPforRegistry)
 			Expect(err).NotTo(HaveOccurred(), "error extracting registry db")
 
 			db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s", dbFile))
@@ -460,7 +463,8 @@ var _ = Describe("opm", func() {
 
 					request := lregistry.AddToRegistryRequest{
 						Permissive:    false,
-						SkipTLS:       *skipTLSForRegistry,
+						SkipTLSVerify: *skipTLSForRegistry,
+						PlainHTTP:     *useHTTPforRegistry,
 						InputDatabase: dbFile,
 						Bundles:       []string{ch.Head.BundlePath},
 						Mode:          registry.ReplacesMode,

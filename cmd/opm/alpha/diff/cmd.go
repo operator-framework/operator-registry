@@ -156,13 +156,31 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 
 	skipTLS, err := cmd.Flags().GetBool("skip-tls")
 	if err != nil {
-		logrus.Panic(err)
+		return err
+	}
+	skipTLSVerify, err := cmd.Flags().GetBool("skip-tls-verify")
+	if err != nil {
+		return err
+	}
+	useHTTP, err := cmd.Flags().GetBool("use-http")
+	if err != nil {
+		return err
+	}
+	if skipTLS {
+		// Set useHTTP when use deprecated skipTlS
+		// for functional parity with existing
+		useHTTP = true
 	}
 	rootCAs, err := certs.RootCAs(a.caFile)
 	if err != nil {
 		a.logger.Fatalf("error getting root CAs: %v", err)
 	}
-	reg, err := containerd.NewRegistry(containerd.SkipTLS(skipTLS), containerd.WithLog(a.logger), containerd.WithRootCAs(rootCAs))
+	reg, err := containerd.NewRegistry(
+		containerd.SkipTLSVerify(skipTLSVerify),
+		containerd.WithLog(a.logger),
+		containerd.WithRootCAs(rootCAs),
+		containerd.WithPlainHTTP(useHTTP),
+	)
 	if err != nil {
 		a.logger.Fatalf("error creating containerd registry: %v", err)
 	}

@@ -28,11 +28,16 @@ func newBundleUnpackCmd() *cobra.Command {
 		RunE: unpackBundle,
 	}
 	unpack.Flags().BoolP("debug", "d", false, "enable debug log output")
-	unpack.Flags().BoolP("skip-tls", "s", false, "disable TLS verification")
+	unpack.Flags().BoolP("skip-tls", "s", false, "use plain HTTP")
+	unpack.Flags().Bool("skip-tls-verify", false, "disable TLS verification")
+	unpack.Flags().Bool("use-http", false, "use plain HTTP")
 	unpack.Flags().BoolP("skip-validation", "v", false, "disable bundle validation")
 	unpack.Flags().StringP("root-ca", "c", "", "file path of a root CA to use when communicating with image registries")
 	unpack.Flags().StringP("out", "o", "./", "directory in which to unpack operator bundle content")
 
+	if err := unpack.Flags().MarkDeprecated("skip-tls", "use --use-http and --skip-tls-verify instead"); err != nil {
+		logrus.Panic(err.Error())
+	}
 	return unpack
 }
 
@@ -70,14 +75,30 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 	}
 
 	var (
-		registryOpts []containerdregistry.RegistryOption
-		skipTLS      bool
+		registryOpts  []containerdregistry.RegistryOption
+		useHTTP       bool
+		skipTLSVerify bool
+		skipTLS       bool
 	)
 	skipTLS, err = cmd.Flags().GetBool("skip-tls")
 	if err != nil {
 		return err
 	}
-	registryOpts = append(registryOpts, containerdregistry.SkipTLS(skipTLS))
+	skipTLSVerify, err = cmd.Flags().GetBool("skip-tls-verify")
+	if err != nil {
+		return err
+	}
+	useHTTP, err = cmd.Flags().GetBool("use-http")
+	if err != nil {
+		return err
+	}
+	if skipTLS {
+		// Set useHTTP when use deprecated skipTlS
+		// for functional parity with existing
+		useHTTP = true
+	}
+
+	registryOpts = append(registryOpts, containerdregistry.SkipTLSVerify(skipTLSVerify), containerdregistry.WithPlainHTTP(useHTTP))
 
 	var skipValidation bool
 	skipValidation, err = cmd.Flags().GetBool("skip-validation")

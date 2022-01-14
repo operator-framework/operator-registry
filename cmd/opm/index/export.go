@@ -105,6 +105,22 @@ func runIndexExportCmdFunc(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	skipTLSVerify, err := cmd.Flags().GetBool("skip-tls-verify")
+	if err != nil {
+		return err
+	}
+
+	useHTTP, err := cmd.Flags().GetBool("use-http")
+	if err != nil {
+		return err
+	}
+
+	if skipTLS {
+		// Set useHTTP when use deprecated skipTlS
+		// for functional parity with existing
+		useHTTP = true
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"index": index, "package": packages})
 
 	logger.Info("export from the index")
@@ -116,7 +132,8 @@ func runIndexExportCmdFunc(cmd *cobra.Command, _ []string) error {
 		Packages:      packages,
 		DownloadPath:  downloadPath,
 		ContainerTool: containertools.NewContainerTool(containerTool, containertools.NoneTool),
-		SkipTLS:       skipTLS,
+		SkipTLSVerify: skipTLSVerify,
+		PlainHTTP:     useHTTP,
 	}
 
 	err = indexExporter.ExportFromIndex(request)

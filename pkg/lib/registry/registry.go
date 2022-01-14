@@ -24,7 +24,8 @@ type RegistryUpdater struct {
 
 type AddToRegistryRequest struct {
 	Permissive    bool
-	SkipTLS       bool
+	SkipTLSVerify bool
+	PlainHTTP     bool
 	CaFile        string
 	InputDatabase string
 	Bundles       []string
@@ -66,11 +67,15 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		if err != nil {
 			return fmt.Errorf("failed to get RootCAs: %v", err)
 		}
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(request.SkipTLS), containerdregistry.WithRootCAs(rootCAs))
+		reg, rerr = containerdregistry.NewRegistry(
+			containerdregistry.SkipTLSVerify(request.SkipTLSVerify),
+			containerdregistry.WithPlainHTTP(request.PlainHTTP),
+			containerdregistry.WithRootCAs(rootCAs),
+		)
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger, containertools.SkipTLS(request.SkipTLS))
+		reg, rerr = execregistry.NewRegistry(request.ContainerTool, r.Logger, containertools.SkipTLS(request.SkipTLSVerify))
 	}
 	if rerr != nil {
 		return rerr

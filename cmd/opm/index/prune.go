@@ -104,6 +104,22 @@ func runIndexPruneCmdFunc(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	skipTLSVerify, err := cmd.Flags().GetBool("skip-tls-verify")
+	if err != nil {
+		return err
+	}
+
+	useHTTP, err := cmd.Flags().GetBool("use-http")
+	if err != nil {
+		return err
+	}
+
+	if skipTLS {
+		// Set useHTTP when use deprecated skipTlS
+		// for functional parity with existing
+		useHTTP = true
+	}
+
 	logger := logrus.WithFields(logrus.Fields{"packages": packages})
 
 	logger.Info("pruning the index")
@@ -118,7 +134,8 @@ func runIndexPruneCmdFunc(cmd *cobra.Command, _ []string) error {
 		Packages:          packages,
 		Tag:               tag,
 		Permissive:        permissive,
-		SkipTLS:           skipTLS,
+		SkipTLSVerify:     skipTLSVerify,
+		PlainHTTP:         useHTTP,
 	}
 
 	err = indexPruner.PruneFromIndex(request)
