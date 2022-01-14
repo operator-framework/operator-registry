@@ -21,6 +21,7 @@ const (
 	PlainType           = "plain"
 	HelmType            = "helm"
 	AnnotationsFile     = "annotations.yaml"
+	PropertiesFile      = "properties.yaml"
 	DockerFile          = "bundle.Dockerfile"
 	ManifestsDir        = "manifests/"
 	MetadataDir         = "metadata/"
@@ -34,6 +35,14 @@ const (
 
 type AnnotationMetadata struct {
 	Annotations map[string]string `yaml:"annotations" json:"annotations"`
+}
+
+type PropertiesTypeVal struct {
+	Type  string `yaml:"type"`
+	Value string `yaml:"value"`
+}
+type PropertiesMetadata struct {
+	Properties []PropertiesTypeVal `yaml:"properties"`
 }
 
 // GenerateFunc builds annotations.yaml with mediatype, manifests &

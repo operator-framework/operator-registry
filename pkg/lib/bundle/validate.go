@@ -39,6 +39,20 @@ type Meta struct {
 	metav1.ObjectMeta `json:"metadata"`
 }
 
+// validationWarnings is a struct implementation of warnings
+// to make code interacting with them dry
+type validationWarnings struct {
+	cache  map[string]bool
+	unique []string
+}
+
+func (vw *validationWarnings) addIfNew(warning string) {
+	if !vw.cache[warning] {
+		vw.cache[warning] = true
+		vw.unique = append(vw.unique, warning)
+	}
+}
+
 // imageValidator is a struct implementation of the Indexer interface
 type imageValidator struct {
 	registry image.Registry
@@ -73,9 +87,9 @@ func (i imageValidator) PullBundleImage(imageTag, directory string) error {
 // Inputs:
 // directory: the directory which the /manifests and /metadata exist
 // Outputs:
-// error: ValidattionError which contains a list of errors
+// error: ValidationError which contains a list of errors
 func (i imageValidator) ValidateBundleFormat(directory string) error {
-	var manifestsFound, metadataFound, annotationsFound, dependenciesFound bool
+	var manifestsFound, metadataFound, annotationsFound, dependenciesFound, propertiesFound bool
 	var metadataDir, manifestsDir string
 	var validationErrors []error
 
@@ -126,6 +140,7 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	// Look for the metadata and manifests sub-directories to find the annotations file
 	fileAnnotations := &AnnotationMetadata{}
 	dependenciesFile := &registry.DependenciesFile{}
+	propertiesFile := &PropertiesMetadata{}
 	for _, f := range files {
 		if !annotationsFound {
 			err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), fileAnnotations)
@@ -141,6 +156,14 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 				dependenciesFound = true
 			}
 		}
+
+		if !propertiesFound {
+			err = registry.DecodeFile(filepath.Join(metadataDir, f.Name()), propertiesFile)
+			if err == nil && len(propertiesFile.Properties) > 0 {
+				propertiesFound = true
+				continue
+			}
+		}
 	}
 
 	if !annotationsFound {
@@ -150,6 +173,16 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 		errs := validateAnnotations(mediaType, fileAnnotations)
 		if errs != nil {
 			validationErrors = append(validationErrors, errs...)
+		}
+	}
+
+	if !propertiesFound {
+		i.logger.Debug("Could not find optional properties file")
+	} else {
+		i.logger.Debug("Found properties file")
+		warnings := validateProperties(manifestsDir, propertiesFile.Properties)
+		for _, w := range warnings {
+			i.logger.Warn(w)
 		}
 	}
 
@@ -168,6 +201,78 @@ func (i imageValidator) ValidateBundleFormat(directory string) error {
 	}
 
 	return nil
+}
+
+func validateProperties(manifestsDir string, fileBasedProperties []PropertiesTypeVal) []string {
+	warnings := validationWarnings{cache: map[string]bool{}, unique: []string{}}
+
+	// Read the manifests directory for the CSV
+	manifestFiles, err := ioutil.ReadDir(manifestsDir)
+	if err != nil {
+		warnings.addIfNew(fmt.Sprintf("Failed to read manifests directory while running optional validation of properties: %v", err))
+		return warnings.unique
+	}
+
+	// Find the CSV
+	csvFound := false
+	csvFile := &v1.ClusterServiceVersion{}
+	for _, f := range manifestFiles {
+		err = registry.DecodeFile(filepath.Join(manifestsDir, f.Name()), &csvFile)
+		if err == nil && csvFile.Kind == CSVKind {
+			csvFound = true
+			break
+		}
+	}
+
+	// If CSV is found and it has the olm.properties attribute defined
+	if csvFound {
+		if annotationPropertiesString, defined := csvFile.Annotations["olm.properties"]; defined {
+			// Structure the olm.properties into a comparable format
+			var annotationBasedProperties []PropertiesTypeVal
+			err := json.Unmarshal([]byte(annotationPropertiesString), &annotationBasedProperties)
+			if err != nil {
+				warnings.addIfNew(fmt.Sprintf("Failed to read CSV file while validating properties: %v", err))
+				return warnings.unique
+			}
+
+			// Go through each annotationProperty and determine if its duplicated with the same key/value pair
+			apPropertyCache := map[string]string{}
+			for _, ap := range annotationBasedProperties {
+				// If it exists in the cache and has the same value, then it is a duplicate and requires a warning
+				if existingValue, defined := apPropertyCache[ap.Type]; defined && existingValue == ap.Value {
+					warnings.addIfNew(
+						fmt.Sprintf("Found property %s defined with the same value more than once in CSV", ap.Type),
+					)
+				}
+
+				// Go through each fileProperty and determine if its duplicated with the same key/value pair
+				fpPropertyCache := map[string]string{}
+				for _, fp := range fileBasedProperties {
+					// If it exists in the cache and has the same value, then it is a duplicate and requires a warning
+					if existingValue, defined := fpPropertyCache[fp.Type]; defined && existingValue == fp.Value {
+						warnings.addIfNew(
+							fmt.Sprintf("Found property %s defined with the same value more than once in properties.yaml", fp.Type),
+						)
+					}
+
+					// If the both of the types on either properties match, they require a warning
+					if ap.Type == fp.Type {
+						warnings.addIfNew(
+							fmt.Sprintf("Found property %s defined in both CSV and properties.yaml", ap.Type),
+						)
+					}
+
+					// Update the fileProperties cache
+					fpPropertyCache[fp.Type] = fp.Value
+				}
+
+				// Update the annotationProperties cache
+				apPropertyCache[ap.Type] = ap.Value
+			}
+		}
+	}
+
+	return warnings.unique
 }
 
 // Validate the annotations file
@@ -327,6 +432,7 @@ func (i imageValidator) ValidateBundleContent(manifestDir string) error {
 					validationErrors = append(validationErrors, err)
 				}
 			}
+
 		} else if gvk.Kind == CRDKind {
 			dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 30)
 			switch gv := gvk.GroupVersion().String(); gv {

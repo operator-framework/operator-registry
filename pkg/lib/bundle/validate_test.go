@@ -3,24 +3,100 @@ package bundle
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidateBundleFormat(t *testing.T) {
-	dir := "./testdata/validate/valid_bundle/"
-
-	logger := logrus.NewEntry(logrus.New())
-
 	validator := imageValidator{
-		logger: logger,
+		logger: logrus.NewEntry(logrus.New()),
 	}
 
-	err := validator.ValidateBundleFormat(dir)
-	require.NoError(t, err)
+	var table = []struct {
+		description string
+		directory   string
+		errs        []error
+	}{
+		{
+			description: "should pass validation on a valid bundle",
+			directory:   "./testdata/validate/valid_bundle/",
+			errs:        []error{},
+		},
+	}
+
+	for _, tt := range table {
+		err := validator.ValidateBundleFormat(tt.directory)
+		require.NoError(t, err)
+	}
+}
+
+func TestValidateProperties(t *testing.T) {
+	var table = []struct {
+		description  string
+		rootDir      string
+		manifestsDir string
+		metadataDir  string
+		warnings     []string
+		err          error
+	}{
+		{
+			description:  "should pass validation on valid properties",
+			rootDir:      "./testdata/validate/valid_properties_bundle/",
+			manifestsDir: "manifests/",
+			metadataDir:  "metadata/",
+			warnings:     []string{},
+			err:          nil,
+		},
+		{
+			description:  "should warn validation on duplicate properties in csv and properties.yaml",
+			rootDir:      "./testdata/validate/invalid_properties_bundle/csv_and_properties_share_property/",
+			manifestsDir: "manifests/",
+			metadataDir:  "metadata/",
+			warnings: []string{
+				"Found property existingType defined in both CSV and properties.yaml",
+			},
+			err: nil,
+		},
+		{
+			description:  "should warn validation on properties with same type and value in csv",
+			rootDir:      "./testdata/validate/invalid_properties_bundle/csv_has_duplicate_type_and_value/",
+			manifestsDir: "manifests/",
+			metadataDir:  "metadata/",
+			warnings: []string{
+				"Found property existingType defined with the same value more than once in CSV",
+			},
+			err: nil,
+		},
+		{
+			description:  "should warn validation on properties with same type and value in properties.yaml",
+			rootDir:      "./testdata/validate/invalid_properties_bundle/properties_has_duplicate_type_and_value/",
+			manifestsDir: "manifests/",
+			metadataDir:  "metadata/",
+			warnings: []string{
+				"Found property existingType defined with the same value more than once in properties.yaml",
+			},
+			err: nil,
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.description, func(t *testing.T) {
+			propertiesFile := &PropertiesMetadata{}
+			err := registry.DecodeFile(filepath.Join(tt.rootDir+tt.metadataDir, "properties.yaml"), propertiesFile)
+			if err != tt.err || !(len(propertiesFile.Properties) > 0) {
+				t.Fatalf("could not find properties file when it should have been present")
+			}
+
+			warnings := validateProperties(tt.rootDir+tt.manifestsDir, propertiesFile.Properties)
+			require.ElementsMatch(t, warnings, tt.warnings)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestValidateBundleDependencies(t *testing.T) {
