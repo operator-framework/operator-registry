@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
 	"github.com/docker/cli/cli/config"
@@ -87,13 +88,13 @@ func credential(cfg *configfile.ConfigFile) func(string) (string, string, error)
 	}
 }
 
-func loadConfig(dir string) (cfg *configfile.ConfigFile, err error) {
+func loadConfig(dir string) (*configfile.ConfigFile, error) {
 	if dir == "" {
 		dir = config.Dir()
 	}
 
 	dockerConfigJSON := filepath.Join(dir, config.ConfigFileName)
-	cfg = configfile.New(dockerConfigJSON)
+	cfg := configfile.New(dockerConfigJSON)
 
 	switch _, err := os.Stat(dockerConfigJSON); {
 	case err == nil:
@@ -102,7 +103,7 @@ func loadConfig(dir string) (cfg *configfile.ConfigFile, err error) {
 			return cfg, err
 		}
 	case os.IsNotExist(err):
-		podmanConfig := filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "containers/auth.json")
+		podmanConfig := filepath.Join(xdg.RuntimeDir, "containers/auth.json")
 		if file, err := os.Open(podmanConfig); err == nil {
 			defer file.Close()
 			cfg, err = config.LoadFromReader(file)
