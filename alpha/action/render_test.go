@@ -3,6 +3,7 @@ package action_test
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
@@ -265,13 +266,20 @@ func TestRender(t *testing.T) {
 						Schema:         "olm.package",
 						Name:           "foo",
 						DefaultChannel: "beta",
+						Properties: []property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
 					},
 				},
 				Channels: []declcfg.Channel{
 					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
+					},
+						Properties: []property.Property{
+							{Type: "user", Value: json.RawMessage("{\"group\":\"xyz.com\",\"name\":\"account\"}")},
+						},
+					},
 					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
 					}},
@@ -356,13 +364,20 @@ func TestRender(t *testing.T) {
 						Schema:         "olm.package",
 						Name:           "foo",
 						DefaultChannel: "beta",
+						Properties: []property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
 					},
 				},
 				Channels: []declcfg.Channel{
 					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
+					},
+						Properties: []property.Property{
+							{Type: "user", Value: json.RawMessage("{\"group\":\"xyz.com\",\"name\":\"account\"}")},
+						},
+					},
 					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
 						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
 					}},
