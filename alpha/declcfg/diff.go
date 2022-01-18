@@ -101,7 +101,10 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 					if len(ch.Bundles) == 0 {
 						delete(outputPkg.Channels, ch.Name)
 					}
-
+				}
+				if len(outputPkg.Channels) == 0 {
+					// Remove empty packages.
+					delete(outputModel, outputPkg.Name)
 				}
 			}
 		}
