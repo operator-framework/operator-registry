@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
+	"github.com/operator-framework/operator-registry/cmd/opm/generate"
 	"github.com/operator-framework/operator-registry/cmd/opm/index"
 	initcmd "github.com/operator-framework/operator-registry/cmd/opm/init"
 	"github.com/operator-framework/operator-registry/cmd/opm/migrate"
@@ -29,7 +30,7 @@ func NewCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd())
+	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd(), generate.NewCmd())
 	index.AddCommand(cmd)
 	version.AddCommand(cmd)
 
