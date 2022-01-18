@@ -223,9 +223,9 @@ type LabelDependency struct {
 }
 
 type CelConstraint struct {
-	// Constraint message that surfaces in resolution
+	// Constraint failure message that surfaces in resolution
 	// This field is optional
-	Message string `json:"message" yaml:"message"`
+	FailureMessage string `json:"failureMessage" yaml:"failureMessage"`
 
 	// The cel struct that contraints CEL expression
 	// This field is required

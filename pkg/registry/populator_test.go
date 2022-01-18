@@ -151,6 +151,10 @@ func TestQuerierForImage(t *testing.T) {
 				Type:  "olm.gvk",
 				Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
 			},
+			{
+				Type:  "olm.constraint",
+				Value: `{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`,
+			},
 		},
 		Properties: []*api.Property{
 			{
@@ -572,6 +576,10 @@ func TestQuerierForDependencies(t *testing.T) {
 			Type:  "olm.gvk",
 			Value: `{"group":"testprometheus.coreos.com","kind":"testtestprometheus","version":"v1"}`,
 		},
+		{
+			Type:  "olm.constraint",
+			Value: `{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`,
+		},
 	}
 
 	type operatorbundle struct {
@@ -634,6 +642,14 @@ func TestListBundles(t *testing.T) {
 		{
 			Type:  "olm.gvk",
 			Value: `{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`,
+		},
+		{
+			Type:  "olm.constraint",
+			Value: `{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`,
+		},
+		{
+			Type:  "olm.constraint",
+			Value: `{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`,
 		},
 	}
 

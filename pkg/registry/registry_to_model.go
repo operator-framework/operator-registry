@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/operator-framework/api/pkg/constraints"
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
@@ -55,6 +56,15 @@ func ObjectsAndPropertiesFromBundle(b *Bundle) ([]string, []property.Property, e
 				return nil, nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
 			}
 			packageRequiredProps = append(packageRequiredProps, property.MustBuildPackageRequired(v.PackageName, v.Version))
+		case constraints.OLMConstraintType:
+			var v constraints.Constraint
+			if err := json.Unmarshal(p.Value, &v); err != nil {
+				return nil, nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
+			}
+			otherProps = append(otherProps, property.Property{
+				Type:  p.Type,
+				Value: p.Value,
+			})
 		}
 	}
 
