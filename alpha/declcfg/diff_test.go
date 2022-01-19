@@ -1272,6 +1272,66 @@ func TestDiffHeadsOnly(t *testing.T) {
 			expCfg: DeclarativeConfig{},
 		},
 		{
+			name: "NoDiff/EmptyBundleWithInclude",
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "etcd", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.0"},
+						{Name: "etcd.v0.9.1", Replaces: "etcd.v0.9.0"},
+					}},
+					{Schema: schemaChannel, Name: "clusterwide", Package: "etcd", Entries: []ChannelEntry{
+						{Name: "etcd.v0.9.1-clusterwide"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.0",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("etcd", "0.9.1"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "etcd.v0.9.1-clusterwide",
+						Package: "etcd",
+						Image:   "reg/etcd:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("etcd", "0.9.1-clusterwide"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{
+				IncludeAdditively: false,
+				Includer: DiffIncluder{
+					Packages: []DiffIncludePackage{
+						{
+							Name: "etcd",
+							AllChannels: DiffIncludeChannel{
+								Versions: []semver.Version{{Major: 0, Minor: 9, Patch: 2}},
+							},
+						},
+					},
+				},
+			},
+			expCfg: DeclarativeConfig{},
+		},
+		{
 			name: "HasDiff/OneBundle",
 			newCfg: DeclarativeConfig{
 				Packages: []Package{
