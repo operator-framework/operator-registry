@@ -1,9 +1,8 @@
-package action
+package declcfg
 
 import (
 	"testing"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/stretchr/testify/require"
 )
@@ -11,35 +10,35 @@ import (
 func TestMergeDC(t *testing.T) {
 	type spec struct {
 		name      string
-		mt        MergeType
-		dc, expDC *declcfg.DeclarativeConfig
+		mt        Merger
+		dc, expDC *DeclarativeConfig
 		expError  string
 	}
 
 	cases := []spec{
 		{
 			name:  "TwoWay/Empty",
-			mt:    TwoWay,
-			dc:    &declcfg.DeclarativeConfig{},
-			expDC: &declcfg.DeclarativeConfig{},
+			mt:    &TwoWayStrategy{},
+			dc:    &DeclarativeConfig{},
+			expDC: &DeclarativeConfig{},
 		},
 		{
 			name: "TwoWay/NoMergeNeeded",
-			mt:   TwoWay,
-			dc: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			mt:   &TwoWayStrategy{},
+			dc: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.1.0",
@@ -61,20 +60,20 @@ func TestMergeDC(t *testing.T) {
 					},
 				},
 			},
-			expDC: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			expDC: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "bar.v0.1.0",
@@ -99,27 +98,27 @@ func TestMergeDC(t *testing.T) {
 		},
 		{
 			name: "TwoWay/MergePackagesChannelsBundles",
-			mt:   TwoWay,
-			dc: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			mt:   &TwoWayStrategy{},
+			dc: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "alpha"},
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5"},
 						{Name: "foo.v0.1.0", Skips: []string{"foo.v0.0.4"}},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.1", Replaces: "foo.v1.0.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.0.5",
@@ -169,21 +168,21 @@ func TestMergeDC(t *testing.T) {
 					},
 				},
 			},
-			expDC: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			expDC: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "alpha"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5", Skips: []string{"foo.v0.0.4"}},
 						{Name: "foo.v0.1.1", Replaces: "foo.v1.0.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "bar.v0.1.0",
@@ -227,27 +226,27 @@ func TestMergeDC(t *testing.T) {
 		},
 		{
 			name:  "PreferLast/Empty",
-			mt:    PreferLast,
-			dc:    &declcfg.DeclarativeConfig{},
-			expDC: &declcfg.DeclarativeConfig{},
+			mt:    &PreferLastStrategy{},
+			dc:    &DeclarativeConfig{},
+			expDC: &DeclarativeConfig{},
 		},
 		{
 			name: "PreferLast/NoMergeNeeded",
-			mt:   PreferLast,
-			dc: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			mt:   &PreferLastStrategy{},
+			dc: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.1.0",
@@ -269,20 +268,20 @@ func TestMergeDC(t *testing.T) {
 					},
 				},
 			},
-			expDC: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			expDC: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "bar.v0.1.0",
@@ -307,26 +306,26 @@ func TestMergeDC(t *testing.T) {
 		},
 		{
 			name: "PreferLast/MergePackagesChannelsBundles",
-			mt:   PreferLast,
-			dc: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			mt:   &PreferLastStrategy{},
+			dc: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "alpha"},
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.5.0"},
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.0.5",
@@ -367,21 +366,21 @@ func TestMergeDC(t *testing.T) {
 					},
 				},
 			},
-			expDC: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
+			expDC: &DeclarativeConfig{
+				Packages: []Package{
 					{Schema: "olm.package", Name: "bar", DefaultChannel: "stable"},
 					{Schema: "olm.package", Name: "foo", DefaultChannel: "alpha"},
 				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []declcfg.ChannelEntry{
+				Channels: []Channel{
+					{Schema: "olm.channel", Name: "stable", Package: "bar", Entries: []ChannelEntry{
 						{Name: "bar.v0.1.0"},
 					}},
-					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []declcfg.ChannelEntry{
+					{Schema: "olm.channel", Name: "stable", Package: "foo", Entries: []ChannelEntry{
 						{Name: "foo.v0.5.0"},
 						{Name: "foo.v0.1.0", Replaces: "foo.v0.0.5"},
 					}},
 				},
-				Bundles: []declcfg.Bundle{
+				Bundles: []Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "bar.v0.1.0",

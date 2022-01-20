@@ -29,12 +29,17 @@ type Diff struct {
 	// IncludeAdditively catalog objects specified in IncludeConfig.
 	IncludeAdditively bool
 
-	MergeType MergeType
+	Merger declcfg.Merger
 
 	Logger *logrus.Entry
 }
 
 func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
+
+	if a.Merger == nil {
+		a.Merger = &declcfg.PreferLastStrategy{}
+	}
+
 	if err := a.validate(); err != nil {
 		return nil, err
 	}
@@ -53,7 +58,11 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			}
 			return nil, fmt.Errorf("error rendering old refs: %v", err)
 		}
-		if err := a.MergeType.MergeDC(oldCfg); err != nil {
+
+		if err != nil {
+			return nil, fmt.Errorf("error setting merge type: %v", err)
+		}
+		if err := a.Merger.MergeDC(oldCfg); err != nil {
 			return nil, fmt.Errorf("error merging across old refs: %v", err)
 		}
 		oldModel, err = declcfg.ConvertToModel(*oldCfg)
@@ -70,7 +79,7 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		}
 		return nil, fmt.Errorf("error rendering new refs: %v", err)
 	}
-	if err := a.MergeType.MergeDC(newCfg); err != nil {
+	if err := a.Merger.MergeDC(newCfg); err != nil {
 		return nil, fmt.Errorf("error merging across new refs: %v", err)
 	}
 	newModel, err := declcfg.ConvertToModel(*newCfg)

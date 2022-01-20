@@ -1,68 +1,37 @@
-package action
+package declcfg
 
 import (
 	"fmt"
 	"sort"
 
 	"github.com/imdario/mergo"
-
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
-// MergeType is the merge strategy used to combine declarative config objects
-// that have the same unique key.
-type MergeType int
-
-const (
-	// PreferLast just uses the last/most recent object.
-	// This is the default merge type.
-	PreferLast MergeType = iota
-	// TwoWay fills in object fields by combining objects in ascending order,
-	// starting with the first/oldest.
-	// Bundle properties are NOT merged because an arbitrary property's key is unknowable.
-	TwoWay
-)
-
-func (mt MergeType) MergeDC(cfg *declcfg.DeclarativeConfig) error {
-	switch mt {
-	case PreferLast:
-		return mergeDCPreferLast(cfg)
-	case TwoWay:
-		return mergeDCTwoWay(cfg)
-	default:
-		return fmt.Errorf("unknown merge type %v", mt)
-	}
+// Merger is an object that will complete merge actions declarative config options
+type Merger interface {
+	MergeDC(*DeclarativeConfig) error
 }
 
-func keyForDCObj(obj interface{}) string {
-	switch t := obj.(type) {
-	case declcfg.Package:
-		// Package name is globally unique.
-		return t.Name
-	case declcfg.Channel:
-		// Channel name is unqiue per package.
-		return t.Package + t.Name
-	case declcfg.Bundle:
-		// Bundle name is unqiue per package.
-		return t.Package + t.Name
-	default:
-		// This should never happen.
-		panic(fmt.Sprintf("bug: unrecognized type %T, expected one of Package, Channel, Bundle", t))
-	}
+var _ Merger = &PreferLastStrategy{}
+
+type PreferLastStrategy struct{}
+
+func (mg *PreferLastStrategy) MergeDC(dc *DeclarativeConfig) error {
+	return mergeDCPreferLast(dc)
 }
 
 // mergeDCPreferLast merges all packages, channels, and bundles with the same unique key
 // into single objects using the last element with that key.
-func mergeDCPreferLast(cfg *declcfg.DeclarativeConfig) error {
+func mergeDCPreferLast(cfg *DeclarativeConfig) error {
 
 	// Merge packages.
-	pkgsByKey := make(map[string][]declcfg.Package, len(cfg.Packages))
+	pkgsByKey := make(map[string][]Package, len(cfg.Packages))
 	for i, pkg := range cfg.Packages {
 		key := keyForDCObj(pkg)
 		pkgsByKey[key] = append(pkgsByKey[key], cfg.Packages[i])
 	}
 	if len(pkgsByKey) != 0 {
-		outPkgs := make([]declcfg.Package, len(pkgsByKey))
+		outPkgs := make([]Package, len(pkgsByKey))
 		i := 0
 		for _, pkgs := range pkgsByKey {
 			outPkgs[i] = pkgs[len(pkgs)-1]
@@ -73,13 +42,13 @@ func mergeDCPreferLast(cfg *declcfg.DeclarativeConfig) error {
 	}
 
 	// Merge channels.
-	chsByKey := make(map[string][]declcfg.Channel, len(cfg.Channels))
+	chsByKey := make(map[string][]Channel, len(cfg.Channels))
 	for i, ch := range cfg.Channels {
 		key := keyForDCObj(ch)
 		chsByKey[key] = append(chsByKey[key], cfg.Channels[i])
 	}
 	if len(chsByKey) != 0 {
-		outChs := make([]declcfg.Channel, len(chsByKey))
+		outChs := make([]Channel, len(chsByKey))
 		i := 0
 		for _, chs := range chsByKey {
 			outChs[i] = chs[len(chs)-1]
@@ -90,13 +59,13 @@ func mergeDCPreferLast(cfg *declcfg.DeclarativeConfig) error {
 	}
 
 	// Merge bundles.
-	bundlesByKey := make(map[string][]declcfg.Bundle, len(cfg.Bundles))
+	bundlesByKey := make(map[string][]Bundle, len(cfg.Bundles))
 	for i, b := range cfg.Bundles {
 		key := keyForDCObj(b)
 		bundlesByKey[key] = append(bundlesByKey[key], cfg.Bundles[i])
 	}
 	if len(bundlesByKey) != 0 {
-		outBundles := make([]declcfg.Bundle, len(bundlesByKey))
+		outBundles := make([]Bundle, len(bundlesByKey))
 		i := 0
 		for _, bundles := range bundlesByKey {
 			outBundles[i] = bundles[len(bundles)-1]
@@ -110,9 +79,17 @@ func mergeDCPreferLast(cfg *declcfg.DeclarativeConfig) error {
 	return nil
 }
 
+var _ Merger = &TwoWayStrategy{}
+
+type TwoWayStrategy struct{}
+
+func (mg *TwoWayStrategy) MergeDC(dc *DeclarativeConfig) error {
+	return mergeDCTwoWay(dc)
+}
+
 // mergeDCTwoWay merges all packages, channels, and bundles with the same unique key
 // into single objects with ascending priority.
-func mergeDCTwoWay(cfg *declcfg.DeclarativeConfig) error {
+func mergeDCTwoWay(cfg *DeclarativeConfig) error {
 	var err error
 	if cfg.Packages, err = mergePackages(cfg.Packages); err != nil {
 		return err
@@ -129,8 +106,8 @@ func mergeDCTwoWay(cfg *declcfg.DeclarativeConfig) error {
 
 // mergePackages merges all packages with the same name into one package object.
 // Value preference is ascending: values of packages later in input are preferred.
-func mergePackages(inPkgs []declcfg.Package) (outPkgs []declcfg.Package, err error) {
-	pkgsByName := make(map[string][]declcfg.Package, len(inPkgs))
+func mergePackages(inPkgs []Package) (outPkgs []Package, err error) {
+	pkgsByName := make(map[string][]Package, len(inPkgs))
 	for i, pkg := range inPkgs {
 		key := keyForDCObj(pkg)
 		pkgsByName[key] = append(pkgsByName[key], inPkgs[i])
@@ -157,15 +134,15 @@ func mergePackages(inPkgs []declcfg.Package) (outPkgs []declcfg.Package, err err
 
 // mergeChannels merges all channels with the same name and package into one channel object.
 // Value preference is ascending: values of channels later in input are preferred.
-func mergeChannels(inChs []declcfg.Channel) (outChs []declcfg.Channel, err error) {
-	chsByKey := make(map[string][]declcfg.Channel, len(inChs))
-	entriesByKey := make(map[string]map[string][]declcfg.ChannelEntry, len(inChs))
+func mergeChannels(inChs []Channel) (outChs []Channel, err error) {
+	chsByKey := make(map[string][]Channel, len(inChs))
+	entriesByKey := make(map[string]map[string][]ChannelEntry, len(inChs))
 	for i, ch := range inChs {
 		chKey := keyForDCObj(ch)
 		chsByKey[chKey] = append(chsByKey[chKey], inChs[i])
 		entries, ok := entriesByKey[chKey]
 		if !ok {
-			entries = make(map[string][]declcfg.ChannelEntry)
+			entries = make(map[string][]ChannelEntry)
 			entriesByKey[chKey] = entries
 		}
 		for j, e := range ch.Entries {
@@ -213,8 +190,8 @@ func mergeChannels(inChs []declcfg.Channel) (outChs []declcfg.Channel, err error
 
 // mergeBundles merges all bundles with the same name and package into one bundle object.
 // Value preference is ascending: values of bundles later in input are preferred.
-func mergeBundles(inBundles []declcfg.Bundle) (outBundles []declcfg.Bundle, err error) {
-	bundlesByKey := make(map[string][]declcfg.Bundle, len(inBundles))
+func mergeBundles(inBundles []Bundle) (outBundles []Bundle, err error) {
+	bundlesByKey := make(map[string][]Bundle, len(inBundles))
 	for i, bundle := range inBundles {
 		key := keyForDCObj(bundle)
 		bundlesByKey[key] = append(bundlesByKey[key], inBundles[i])
@@ -239,13 +216,13 @@ func mergeBundles(inBundles []declcfg.Bundle) (outBundles []declcfg.Bundle, err 
 	return outBundles, nil
 }
 
-func sortPackages(pkgs []declcfg.Package) {
+func sortPackages(pkgs []Package) {
 	sort.Slice(pkgs, func(i, j int) bool {
 		return pkgs[i].Name < pkgs[j].Name
 	})
 }
 
-func sortChannels(chs []declcfg.Channel) {
+func sortChannels(chs []Channel) {
 	sort.Slice(chs, func(i, j int) bool {
 		if chs[i].Package == chs[j].Package {
 			return chs[i].Name < chs[j].Name
@@ -254,11 +231,28 @@ func sortChannels(chs []declcfg.Channel) {
 	})
 }
 
-func sortBundles(bundles []declcfg.Bundle) {
+func sortBundles(bundles []Bundle) {
 	sort.Slice(bundles, func(i, j int) bool {
 		if bundles[i].Package == bundles[j].Package {
 			return bundles[i].Name < bundles[j].Name
 		}
 		return bundles[i].Package < bundles[j].Package
 	})
+}
+
+func keyForDCObj(obj interface{}) string {
+	switch t := obj.(type) {
+	case Package:
+		// Package name is globally unique.
+		return t.Name
+	case Channel:
+		// Channel name is unqiue per package.
+		return t.Package + t.Name
+	case Bundle:
+		// Bundle name is unqiue per package.
+		return t.Package + t.Name
+	default:
+		// This should never happen.
+		panic(fmt.Sprintf("bug: unrecognized type %T, expected one of Package, Channel, Bundle", t))
+	}
 }
