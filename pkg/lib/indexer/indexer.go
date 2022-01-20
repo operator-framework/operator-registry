@@ -89,6 +89,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		Permissive:    request.Permissive,
 		Mode:          request.Mode,
 		SkipTLSVerify: request.SkipTLSVerify,
+		PlainHTTP:     request.PlainHTTP,
 		ContainerTool: i.PullTool,
 		Overwrite:     request.Overwrite,
 		EnableAlpha:   request.EnableAlpha,

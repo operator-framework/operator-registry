@@ -131,6 +131,10 @@ func addFunc(cmd *cobra.Command, _ []string) error {
 		logger.Warn("--skip-tls-verify flag is set: this mode is insecure and meant for development purposes only.")
 	}
 
+	if useHTTP {
+		logger.Warn("--use-http flag is set: this mode is insecure and meant for development purposes only.")
+	}
+
 	logger.Info("adding to the registry")
 
 	registryAdder := registry.NewRegistryAdder(logger)

@@ -1,7 +1,7 @@
 package util
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
 )
@@ -23,11 +23,11 @@ func GetTLSOptions(cmd *cobra.Command) (bool, bool, error) {
 
 	switch {
 	case cmd.Flags().Changed("skip-tls") && cmd.Flags().Changed("use-http"):
-		return false, false, fmt.Errorf("invalid flag combination: cannot use --use-http with --skip-tls")
+		return false, false, errors.New("invalid flag combination: cannot use --use-http with --skip-tls")
 	case cmd.Flags().Changed("skip-tls") && cmd.Flags().Changed("skip-tls-verify"):
-		return false, false, fmt.Errorf("invalid flag combination: cannot use --skip-tls-verify with --skip-tls")
+		return false, false, errors.New("invalid flag combination: cannot use --skip-tls-verify with --skip-tls")
 	case skipTLSVerify && useHTTP:
-		return false, false, fmt.Errorf("invalid flag combination: --use-http and --skip-tls-verify cannot both be true")
+		return false, false, errors.New("invalid flag combination: --use-http and --skip-tls-verify cannot both be true")
 	default:
 		// return use HTTP true if just skipTLS
 		// is set for functional parity with existing
