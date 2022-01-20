@@ -337,7 +337,7 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger, containertools.SkipTLS(skipTLSVerify))
+		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger, containertools.SkipTLS(plainHTTP))
 	}
 	if rerr != nil {
 		return "", rerr

@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
 	reg "github.com/operator-framework/operator-registry/pkg/registry"
@@ -61,18 +62,6 @@ func addFunc(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
-	if err != nil {
-		return err
-	}
-	skipTLSVerify, err := cmd.Flags().GetBool("skip-tls-verify")
-	if err != nil {
-		return err
-	}
-	useHTTP, err := cmd.Flags().GetBool("use-http")
-	if err != nil {
-		return err
-	}
 	caFile, err := cmd.Flags().GetString("ca-file")
 	if err != nil {
 		return err
@@ -108,6 +97,11 @@ func addFunc(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
+	if err != nil {
+		return err
+	}
+
 	if caFile != "" {
 		if skipTLSVerify {
 			return errors.New("--skip-tls-verify must be false when --ca-file is set")
@@ -116,12 +110,6 @@ func addFunc(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("--ca-file cannot be set with --container-tool=%[1]s; "+
 				"certificates must be configured specifically for %[1]s", containerTool)
 		}
-	}
-
-	if skipTLS {
-		// Set useHTTP when use
-		// deprecated skipTlS for functional parity with existing
-		useHTTP = true
 	}
 
 	request := registry.AddToRegistryRequest{
@@ -139,8 +127,8 @@ func addFunc(cmd *cobra.Command, _ []string) error {
 
 	logger := logrus.WithFields(logrus.Fields{"bundles": bundleImages})
 
-	if skipTLS {
-		logger.Warn("--skip-tls flag is set: this mode is insecure and meant for development purposes only.")
+	if skipTLSVerify {
+		logger.Warn("--skip-tls-verify flag is set: this mode is insecure and meant for development purposes only.")
 	}
 
 	logger.Info("adding to the registry")

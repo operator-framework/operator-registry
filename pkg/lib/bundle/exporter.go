@@ -30,7 +30,7 @@ func NewExporterForBundle(image, directory string, containerTool containertools.
 	}
 }
 
-func (i *BundleExporter) Export(skipTLSVerify, useHTTP bool) error {
+func (i *BundleExporter) Export(skipTLSVerify, plainHTTP bool) error {
 
 	log := logrus.WithField("img", i.image)
 
@@ -46,14 +46,14 @@ func (i *BundleExporter) Export(skipTLSVerify, useHTTP bool) error {
 	case containertools.NoneTool:
 		reg, rerr = containerdregistry.NewRegistry(
 			containerdregistry.SkipTLSVerify(skipTLSVerify),
-			containerdregistry.WithPlainHTTP(useHTTP),
+			containerdregistry.WithPlainHTTP(plainHTTP),
 			containerdregistry.WithLog(log),
 			containerdregistry.WithCacheDir(filepath.Join(tmpDir, "cacheDir")),
 		)
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(i.containerTool, log, containertools.SkipTLS(skipTLSVerify))
+		reg, rerr = execregistry.NewRegistry(i.containerTool, log, containertools.SkipTLS(plainHTTP))
 	}
 	if rerr != nil {
 		return rerr

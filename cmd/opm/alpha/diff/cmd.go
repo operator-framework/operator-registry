@@ -14,6 +14,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 )
@@ -154,23 +155,11 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output value: %q", a.output)
 	}
 
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
 	if err != nil {
 		return err
 	}
-	skipTLSVerify, err := cmd.Flags().GetBool("skip-tls-verify")
-	if err != nil {
-		return err
-	}
-	useHTTP, err := cmd.Flags().GetBool("use-http")
-	if err != nil {
-		return err
-	}
-	if skipTLS {
-		// Set useHTTP when use deprecated skipTlS
-		// for functional parity with existing
-		useHTTP = true
-	}
+
 	rootCAs, err := certs.RootCAs(a.caFile)
 	if err != nil {
 		a.logger.Fatalf("error getting root CAs: %v", err)

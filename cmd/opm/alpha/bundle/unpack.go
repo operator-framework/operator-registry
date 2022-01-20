@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
@@ -75,27 +76,12 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 	}
 
 	var (
-		registryOpts  []containerdregistry.RegistryOption
-		useHTTP       bool
-		skipTLSVerify bool
-		skipTLS       bool
+		registryOpts []containerdregistry.RegistryOption
 	)
-	skipTLS, err = cmd.Flags().GetBool("skip-tls")
+
+	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
 	if err != nil {
 		return err
-	}
-	skipTLSVerify, err = cmd.Flags().GetBool("skip-tls-verify")
-	if err != nil {
-		return err
-	}
-	useHTTP, err = cmd.Flags().GetBool("use-http")
-	if err != nil {
-		return err
-	}
-	if skipTLS {
-		// Set useHTTP when use deprecated skipTlS
-		// for functional parity with existing
-		useHTTP = true
 	}
 
 	registryOpts = append(registryOpts, containerdregistry.SkipTLSVerify(skipTLSVerify), containerdregistry.WithPlainHTTP(useHTTP))
