@@ -19,13 +19,13 @@ running even after the test suite has completed.
 1. Start the e2e tests:
 
    ```bash
-   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e SKIPTLS="true" CLUSTER=kind
+   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e USEHTTP="true" CLUSTER=kind
    ```
 
 1. Run a specific BDD test using the `TEST` argument to make. Note that this argument uses regular expressions.
 
    ```bash
-   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e TEST='builds and manipulates bundle and index images' SKIPTLS="true" CLUSTER=kind   
+   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e TEST='builds and manipulates bundle and index images' USEHTTP="true" CLUSTER=kind   
    ```
 
 1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the 

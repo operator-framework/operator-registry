@@ -18,7 +18,7 @@ import (
 	"github.com/docker/docker/registry"
 )
 
-func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes.Resolver, error) {
+func NewResolver(configDir string, skipTlSVerify, plainHTTP bool, roots *x509.CertPool) (remotes.Resolver, error) {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -35,9 +35,9 @@ func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes
 		},
 	}
 
-	if insecure {
+	if plainHTTP || skipTlSVerify {
 		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: insecure,
+			InsecureSkipVerify: true,
 		}
 	}
 	headers := http.Header{}
@@ -58,7 +58,7 @@ func NewResolver(configDir string, insecure bool, roots *x509.CertPool) (remotes
 		)),
 		docker.WithClient(client),
 	}
-	if insecure {
+	if plainHTTP {
 		regopts = append(regopts, docker.WithPlainHTTP(docker.MatchAllHosts))
 	}
 

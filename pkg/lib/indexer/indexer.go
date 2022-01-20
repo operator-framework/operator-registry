@@ -63,7 +63,8 @@ type AddToIndexRequest struct {
 	Tag               string
 	Mode              pregistry.Mode
 	CaFile            string
-	SkipTLS           bool
+	SkipTLSVerify     bool
+	PlainHTTP         bool
 	Overwrite         bool
 	EnableAlpha       bool
 }
@@ -76,7 +77,7 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,8 @@ func (i ImageIndexer) AddToIndex(request AddToIndexRequest) error {
 		InputDatabase: databasePath,
 		Permissive:    request.Permissive,
 		Mode:          request.Mode,
-		SkipTLS:       request.SkipTLS,
+		SkipTLSVerify: request.SkipTLSVerify,
+		PlainHTTP:     request.PlainHTTP,
 		ContainerTool: i.PullTool,
 		Overwrite:     request.Overwrite,
 		EnableAlpha:   request.EnableAlpha,
@@ -129,7 +131,8 @@ type DeleteFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	Operators         []string
-	SkipTLS           bool
+	SkipTLSVerify     bool
+	PlainHTTP         bool
 	CaFile            string
 }
 
@@ -142,7 +145,7 @@ func (i ImageIndexer) DeleteFromIndex(request DeleteFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}
@@ -188,7 +191,8 @@ type PruneStrandedFromIndexRequest struct {
 	OutDockerfile     string
 	Tag               string
 	CaFile            string
-	SkipTLS           bool
+	SkipTLSVerify     bool
+	PlainHTTP         bool
 }
 
 // PruneStrandedFromIndex is an aggregate API used to generate a registry index image
@@ -200,7 +204,7 @@ func (i ImageIndexer) PruneStrandedFromIndex(request PruneStrandedFromIndexReque
 		return err
 	}
 
-	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}
@@ -245,7 +249,8 @@ type PruneFromIndexRequest struct {
 	Tag               string
 	Packages          []string
 	CaFile            string
-	SkipTLS           bool
+	SkipTLSVerify     bool
+	PlainHTTP         bool
 }
 
 func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
@@ -255,7 +260,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 		return err
 	}
 
-	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}
@@ -294,14 +299,14 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 }
 
 // ExtractDatabase sets a temp directory for unpacking an image
-func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTLS bool) (string, error) {
+func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTLSVerify, plainHTTP bool) (string, error) {
 	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmpDir)
 
-	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex, caFile, skipTLS)
+	databaseFile, err := i.getDatabaseFile(tmpDir, fromIndex, caFile, skipTLSVerify, plainHTTP)
 	if err != nil {
 		return "", err
 	}
@@ -309,7 +314,7 @@ func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTL
 	return copyDatabaseTo(databaseFile, filepath.Join(buildDir, defaultDatabaseFolder))
 }
 
-func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skipTLS bool) (string, error) {
+func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skipTLSVerify, plainHTTP bool) (string, error) {
 	if fromIndex == "" {
 		return path.Join(workingDir, defaultDatabaseFile), nil
 	}
@@ -325,11 +330,15 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 		if err != nil {
 			return "", fmt.Errorf("failed to get RootCAs: %v", err)
 		}
-		reg, rerr = containerdregistry.NewRegistry(containerdregistry.SkipTLS(skipTLS), containerdregistry.WithLog(i.Logger), containerdregistry.WithRootCAs(rootCAs))
+		reg, rerr = containerdregistry.NewRegistry(
+			containerdregistry.SkipTLSVerify(skipTLSVerify),
+			containerdregistry.WithPlainHTTP(plainHTTP),
+			containerdregistry.WithLog(i.Logger),
+			containerdregistry.WithRootCAs(rootCAs))
 	case containertools.PodmanTool:
 		fallthrough
 	case containertools.DockerTool:
-		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger, containertools.SkipTLS(skipTLS))
+		reg, rerr = execregistry.NewRegistry(i.PullTool, i.Logger, containertools.SkipTLS(plainHTTP))
 	}
 	if rerr != nil {
 		return "", rerr
@@ -481,7 +490,8 @@ type ExportFromIndexRequest struct {
 	DownloadPath  string
 	ContainerTool containertools.ContainerTool
 	CaFile        string
-	SkipTLS       bool
+	SkipTLSVerify bool
+	PlainHTTP     bool
 }
 
 // ExportFromIndex is an aggregate API used to specify operators from
@@ -495,7 +505,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	defer os.RemoveAll(workingDir)
 
 	// extract the index database to the file
-	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLS)
+	databaseFile, err := i.getDatabaseFile(workingDir, request.Index, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}
@@ -549,7 +559,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 				bundleDir.bundleVersion = strconv.Itoa(rand.Intn(10000))
 			}
 			exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, bundleDir.pkgName, bundleDir.bundleVersion), request.ContainerTool)
-			if err := exporter.Export(request.SkipTLS); err != nil {
+			if err := exporter.Export(request.SkipTLSVerify, request.PlainHTTP); err != nil {
 				err = fmt.Errorf("exporting bundle image:%s failed with %s", bundleImage, err)
 				mu.Lock()
 				errs = append(errs, err)
@@ -651,7 +661,8 @@ type DeprecateFromIndexRequest struct {
 	Bundles             []string
 	Tag                 string
 	CaFile              string
-	SkipTLS             bool
+	SkipTLSVerify       bool
+	PlainHTTP           bool
 	AllowPackageRemoval bool
 }
 
@@ -664,7 +675,7 @@ func (i ImageIndexer) DeprecateFromIndex(request DeprecateFromIndexRequest) erro
 		return err
 	}
 
-	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLS)
+	databasePath, err := i.ExtractDatabase(buildDir, request.FromIndex, request.CaFile, request.SkipTLSVerify, request.PlainHTTP)
 	if err != nil {
 		return err
 	}

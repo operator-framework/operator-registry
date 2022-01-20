@@ -27,7 +27,8 @@ var (
 	// opm command under test.
 	opm *cobra.Command
 
-	skipTLSForRegistry = flag.Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
+	skipTLSForRegistry = flag.Bool("skip-tls-verify", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
+	useHTTPforRegistry = flag.Bool("use-http", false, "use HTTP for container image registries while pulling bundles or index")
 )
 
 func TestE2E(t *testing.T) {

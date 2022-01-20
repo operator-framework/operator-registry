@@ -14,6 +14,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/certs"
 )
@@ -154,15 +155,21 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output value: %q", a.output)
 	}
 
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
 	if err != nil {
-		logrus.Panic(err)
+		return err
 	}
+
 	rootCAs, err := certs.RootCAs(a.caFile)
 	if err != nil {
 		a.logger.Fatalf("error getting root CAs: %v", err)
 	}
-	reg, err := containerd.NewRegistry(containerd.SkipTLS(skipTLS), containerd.WithLog(a.logger), containerd.WithRootCAs(rootCAs))
+	reg, err := containerd.NewRegistry(
+		containerd.SkipTLSVerify(skipTLSVerify),
+		containerd.WithLog(a.logger),
+		containerd.WithRootCAs(rootCAs),
+		containerd.WithPlainHTTP(useHTTP),
+	)
 	if err != nil {
 		a.logger.Fatalf("error creating containerd registry: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/indexer"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -110,7 +111,7 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	skipTLS, err := cmd.Flags().GetBool("skip-tls")
+	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,8 @@ func runIndexDeprecateTruncateCmdFunc(cmd *cobra.Command, _ []string) error {
 		Tag:                 tag,
 		Bundles:             bundles,
 		Permissive:          permissive,
-		SkipTLS:             skipTLS,
+		SkipTLSVerify:       skipTLSVerify,
+		PlainHTTP:           useHTTP,
 		AllowPackageRemoval: allowPackageRemoval,
 	}
 
