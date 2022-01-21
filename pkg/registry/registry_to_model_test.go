@@ -38,7 +38,6 @@ func testExpectedObjects() []string {
 }
 
 func testExpectedProperties() []property.Property {
-	constraint := `{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`
 	props := []property.Property{
 		property.MustBuildPackage("etcd", "0.9.2"),
 		property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
@@ -46,11 +45,12 @@ func testExpectedProperties() []property.Property {
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdRestore"),
+		property.Property{
+			Type:  "olm.constraint",
+			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
+		},
 	}
-	props = append(props, property.Property{
-		Type:  "olm.constraint",
-		Value: json.RawMessage(constraint),
-	})
+
 	for _, obj := range testExpectedObjects() {
 		props = append(props, property.MustBuildBundleObjectData([]byte(obj)))
 	}
