@@ -416,7 +416,7 @@ func TestMergeDC(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := c.mt.MergeDC(c.dc)
+			err := c.mt.Merge(c.dc)
 			if c.expError != "" {
 				require.EqualError(t, err, c.expError)
 			} else {

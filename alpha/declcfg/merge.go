@@ -9,14 +9,14 @@ import (
 
 // Merger is an object that will complete merge actions declarative config options
 type Merger interface {
-	MergeDC(*DeclarativeConfig) error
+	Merge(*DeclarativeConfig) error
 }
 
 var _ Merger = &PreferLastStrategy{}
 
 type PreferLastStrategy struct{}
 
-func (mg *PreferLastStrategy) MergeDC(dc *DeclarativeConfig) error {
+func (mg *PreferLastStrategy) Merge(dc *DeclarativeConfig) error {
 	return mergeDCPreferLast(dc)
 }
 
@@ -83,7 +83,7 @@ var _ Merger = &TwoWayStrategy{}
 
 type TwoWayStrategy struct{}
 
-func (mg *TwoWayStrategy) MergeDC(dc *DeclarativeConfig) error {
+func (mg *TwoWayStrategy) Merge(dc *DeclarativeConfig) error {
 	return mergeDCTwoWay(dc)
 }
 
