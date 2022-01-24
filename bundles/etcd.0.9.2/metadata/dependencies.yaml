@@ -4,3 +4,8 @@ dependencies:
     group: testapi.coreos.com
     kind: testapi
     version: v1
+- type: olm.constraint
+  value:
+    failureMessage: 'require to have "certified"'
+    cel:
+        rule: 'properties.exists(p, p.type == "certified")'

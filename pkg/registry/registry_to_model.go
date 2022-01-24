@@ -55,6 +55,11 @@ func ObjectsAndPropertiesFromBundle(b *Bundle) ([]string, []property.Property, e
 				return nil, nil, property.ParseError{Idx: i, Typ: p.Type, Err: err}
 			}
 			packageRequiredProps = append(packageRequiredProps, property.MustBuildPackageRequired(v.PackageName, v.Version))
+		default:
+			otherProps = append(otherProps, property.Property{
+				Type:  p.Type,
+				Value: p.Value,
+			})
 		}
 	}
 

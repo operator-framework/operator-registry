@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,7 +45,12 @@ func testExpectedProperties() []property.Property {
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdRestore"),
+		property.Property{
+			Type:  "olm.constraint",
+			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
+		},
 	}
+
 	for _, obj := range testExpectedObjects() {
 		props = append(props, property.MustBuildBundleObjectData([]byte(obj)))
 	}
