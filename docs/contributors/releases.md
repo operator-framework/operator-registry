@@ -2,7 +2,7 @@
 
 ## opm
 
-Binary releases of opm are built by Github Actions, see [release.yaml](../../.github/workflows/release.yaml) for details.
+Binary releases of opm are built by Github Actions, see [goreleaser.yaml](../../.github/workflows/goreleaser.yaml) for details.
 amd64 builds are produced for linux, macos, and windows. 
 
 opm follows semantic versioning, with the latest version derived from the newest semver tag.
