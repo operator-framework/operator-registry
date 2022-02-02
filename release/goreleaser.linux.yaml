@@ -67,21 +67,6 @@ builds:
     asmflags: *build-asmflags
     gcflags: *build-gcflags
     ldflags: *build-ldflags
-  - id: windows-amd64
-    main: ./cmd/opm
-    binary: opm
-    goos:
-      - windows
-    goarch:
-      - amd64
-    env:
-      - CC=x86_64-w64-mingw32-gcc-posix
-      - CGO_ENABLED=1
-    mod_timestamp: "{{ .CommitTimestamp }}"
-    flags: *build-flags
-    asmflags: *build-asmflags
-    gcflags: *build-gcflags
-    ldflags: *build-ldflags
 archives:
   - id: opm
     builds:
@@ -89,9 +74,8 @@ archives:
       - linux-arm64
       - linux-ppc64le
       - linux-s390x
-      - windows-amd64
-    name_template: "{{ .Binary }}_{{ .Env.OPM_VERSION }}_{{ .Os }}_{{ .Arch }}"
     format: binary
+    name_template: "{{ .Os }}-{{ .Arch }}-{{ .Binary }}"
 dockers:
   - image_templates:
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
@@ -167,8 +151,4 @@ checksum:
 snapshot:
   name_template: "{{ .Env.OPM_VERSION }}"
 release:
-  name_template: "{{ .Env.OPM_VERSION }}"
-  draft: true
-  ## Disable release steps, since a separate GitHub Action job
-  ## handles binary builds and release uploads
   disable: true

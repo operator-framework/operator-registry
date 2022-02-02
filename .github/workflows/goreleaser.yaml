@@ -10,13 +10,97 @@ defaults:
   run:
     shell: bash
 jobs:
-  goreleaser:
+  release:
+    needs:
+      - build-windows
+      - build-darwin
+      - build-linux
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+
+      - run: |
+         for dist in dist-*; do
+           tar -C "${dist}" -xf "${dist}/${dist}.tar"
+         done
+
+      - name: Create assets
+        run: |
+          set -xe
+          mkdir -p assets
+          cat dist-*/dist/checksums.txt > assets/checksums.txt
+          for asset in dist-*/dist/*_*/*; do
+            base=$(basename "${asset}")
+            variant=$(basename $(dirname "${asset}") | cut -d_ -f1)
+            cp "${asset}" "assets/${variant}-${base}"
+          done
+          find assets -ls
+          cat assets/checksums.txt
+
+      - name: Upload Release Assets
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" --generate-notes ./assets/*
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # GoReleaser requires fetch-depth: 0 to correctly
+          # run git describe
+          fetch-depth: 0
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '~1.16'
+
+      - name: "Run GoReleaser"
+        run: make release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ARGS: release --rm-dist -f release/goreleaser.windows.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+
+      - run: tar -cvf dist-windows.tar dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: dist-windows
+          path: dist-windows.tar
+
+  build-darwin:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # GoReleaser requires fetch-depth: 0 to correctly
+          # run git describe
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '~1.16'
+
+      - name: "Run GoReleaser"
+        run: make release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ARGS: release --rm-dist -f release/goreleaser.darwin.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+
+      - run: tar -cvf dist-darwin.tar dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: dist-darwin
+          path: dist-darwin.tar
+
+  build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
-          # GoReleaser requires fetch-depth: 0 for
-          # changelog generation to work correctly.
+          # GoReleaser requires fetch-depth: 0 to correctly
+          # run git describe
           fetch-depth: 0
 
       - uses: actions/setup-go@v2
@@ -26,23 +110,7 @@ jobs:
       - name: "Install linux cross-compilers"
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-s390x-linux-gnu gcc-powerpc64le-linux-gnu gcc-mingw-w64-x86-64
-
-      - name: "Install yq"
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/download/v4.10.0/yq_linux_amd64 -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: "Disable image pushes for pull requests"
-        if: github.event_name == 'pull_request'
-        run: |
-          yq eval '.dockers[].skip_push=true' -i .goreleaser.yaml
-          yq eval '.docker_manifests[].skip_push=true' -i .goreleaser.yaml
-
-      - name: "Disable the Github release upload for non-tag builds"
-        if: startsWith(github.ref, 'refs/tags') != true
-        run: |
-          yq eval '.release.disable=true' -i .goreleaser.yaml
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-s390x-linux-gnu gcc-powerpc64le-linux-gnu
 
       - name: "Set the image tag"
         run: |
@@ -74,4 +142,10 @@ jobs:
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ARGS: release --rm-dist ${{ !startsWith(github.ref, 'refs/tags') && '--skip-validate' || '' }}
+          RELEASE_ARGS: release --rm-dist -f release/goreleaser.linux.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+
+      - run: tar -cvf dist-linux.tar dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: dist-linux
+          path: dist-linux.tar
