@@ -88,7 +88,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ARGS: release --rm-dist -f release/goreleaser.darwin.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
-      - run: tar -cvf dist-darwin.tar dist
+      - run: gtar -cvf dist-darwin.tar dist
       - uses: actions/upload-artifact@v2
         with:
           name: dist-darwin
