@@ -15,7 +15,7 @@ fetch() {
       ;;
     "goreleaser")
       ver_cmd="${ROOT}/bin/goreleaser --version 2>/dev/null | grep 'goreleaser version' | cut -d' ' -f3"
-      fetch_cmd="curl -sSfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh -s -- -b \"${ROOT}/bin\" -d \"v${ver}\""
+      fetch_cmd="GOBIN=${ROOT}/bin go install github.com/goreleaser/goreleaser@v${ver}"
       ;;
     *)
       echo "unknown tool $tool"

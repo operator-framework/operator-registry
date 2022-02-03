@@ -1,0 +1,49 @@
+builds:
+  - id: darwin-amd64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: &build-flags
+      - -tags=json1
+    asmflags: &build-asmflags
+      - all=-trimpath={{ .Env.PWD }}
+    gcflags: &build-gcflags
+      - all=-trimpath={{ .Env.PWD }}
+    ldflags: &build-ldflags
+      - -s -w
+      - -X {{ .Env.PKG }}/cmd/opm/version.gitCommit={{ .Env.GIT_COMMIT }}
+      - -X {{ .Env.PKG }}/cmd/opm/version.opmVersion={{ .Env.OPM_VERSION }}
+      - -X {{ .Env.PKG }}/cmd/opm/version.buildDate={{ .Env.BUILD_DATE }}
+  - id: darwin-arm64
+    main: ./cmd/opm
+    binary: opm
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags: *build-flags
+    asmflags: *build-asmflags
+    gcflags: *build-gcflags
+    ldflags: *build-ldflags
+archives:
+  - id: opm
+    builds:
+     - darwin-amd64
+     - darwin-arm64
+    format: binary
+    name_template: "{{ .Os }}-{{ .Arch }}-{{ .Binary }}"
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Env.OPM_VERSION }}"
+release:
+  disable: true
