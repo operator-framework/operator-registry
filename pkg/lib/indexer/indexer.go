@@ -363,6 +363,9 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 
 	dbLocation, ok := labels[containertools.DbLocationLabel]
 	if !ok {
+		if _, ok := labels[containertools.ConfigsLocationLabel]; ok {
+			return "", fmt.Errorf("opm index prune only supports sqlite-based catalogs")
+		}
 		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
 
