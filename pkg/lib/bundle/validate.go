@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/operator-framework/api/pkg/constraints"
 	"github.com/operator-framework/api/pkg/manifests"
 	v1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v "github.com/operator-framework/api/pkg/validation"
@@ -227,8 +228,12 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 
 	// Validate dependencies if exists
 	for _, d := range dependenciesFile.Dependencies {
-		dep := d.GetTypeValue()
 		errs := []error{}
+		dep, err := d.GetTypeValue()
+		if err != nil {
+			validationErrors = append(errs, fmt.Errorf("couldn't parse dependency of type %s: %s", d.GetType(), err.Error()))
+			continue
+		}
 		if dep != nil {
 			switch dp := dep.(type) {
 			case registry.GVKDependency:
@@ -237,8 +242,8 @@ func validateDependencies(dependenciesFile *registry.DependenciesFile) []error {
 				errs = dp.Validate()
 			case registry.LabelDependency:
 				errs = dp.Validate()
-			case registry.CelConstraint:
-				errs = dp.Validate()
+			case constraints.Constraint:
+				errs = registry.ValidateCEL(dp)
 			default:
 				errs = append(errs, fmt.Errorf("unsupported dependency type %s", d.GetType()))
 			}

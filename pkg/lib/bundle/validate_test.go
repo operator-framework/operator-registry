@@ -41,7 +41,7 @@ func TestValidateBundleDependencies(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_dependencies_bundle/invalid_gvk_dependency/",
 			errs: []error{
-				fmt.Errorf("couldn't parse dependency of type olm.gvk"),
+				fmt.Errorf("couldn't parse dependency of type olm.gvk: unexpected end of JSON input"),
 			},
 		},
 		{

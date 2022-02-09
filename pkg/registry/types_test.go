@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/operator-framework/api/pkg/constraints"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,13 +18,6 @@ func TestCelConstraintValidation(t *testing.T) {
 		{
 			name:       "ValidCelConstraint",
 			constraint: `{"cel":{"rule":"properties.exists(p, p.type == 'olm.test' && (semver_compare(p.value, '1.0.0') == 0))"}}`,
-		},
-		{
-			name:       "InvalidCelConstraint/MissingCel",
-			constraint: `{}`,
-			errs: []error{
-				fmt.Errorf("The CEL field is missing"),
-			},
 		},
 		{
 			name:       "InvalidCelConstraint/MissingRule",
@@ -50,10 +44,10 @@ func TestCelConstraintValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var dep CelConstraint
+			var dep constraints.Constraint
 			err := json.Unmarshal([]byte(tt.constraint), &dep)
 			assert.NoError(t, err)
-			errs := dep.Validate()
+			errs := ValidateCEL(dep)
 			if len(tt.errs) > 0 {
 				assert.Error(t, errs[0])
 				assert.Contains(t, errs[0].Error(), tt.errs[0].Error())
