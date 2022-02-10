@@ -90,6 +90,8 @@ func credential(cfg *configfile.ConfigFile) func(string) (string, string, error)
 }
 
 // protects against a data race inside the docker CLI
+// TODO: upstream issue for 20.10.x is tracked here https://github.com/docker/cli/pull/3410
+// newer versions already contain the fix
 var configMutex sync.Mutex
 
 func loadConfig(dir string) (*configfile.ConfigFile, error) {
