@@ -159,6 +159,11 @@ func newTestPackage(packageName, defaultChannel, svgData string) Package {
 	return p
 }
 
+func addPackageProperties(in Package, p []property.Property) Package {
+	in.Properties = p
+	return in
+}
+
 func newTestChannel(packageName, channelName string, entries ...ChannelEntry) Channel {
 	return Channel{
 		Schema:  schemaChannel,
@@ -166,6 +171,11 @@ func newTestChannel(packageName, channelName string, entries ...ChannelEntry) Ch
 		Package: packageName,
 		Entries: entries,
 	}
+}
+
+func addChannelProperties(in Channel, p []property.Property) Channel {
+	in.Properties = p
+	return in
 }
 
 func buildTestModel() model.Model {

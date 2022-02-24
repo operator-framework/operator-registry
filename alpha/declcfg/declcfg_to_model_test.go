@@ -248,6 +248,38 @@ func TestConvertToModel(t *testing.T) {
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},
+		{
+			name:      "Success/ValidModelWithChannelProperties",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{
+					addChannelProperties(
+						newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"}),
+						[]property.Property{
+							{Type: "user", Value: json.RawMessage("{\"group\":\"xyz.com\",\"name\":\"account\"}")},
+						},
+					),
+				},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0")},
+			},
+		},
+		{
+			name:      "Success/ValidModelWithPackageProperties",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+			},
+		},
 	}
 
 	for _, s := range specs {

@@ -20,11 +20,12 @@ type DeclarativeConfig struct {
 }
 
 type Package struct {
-	Schema         string `json:"schema"`
-	Name           string `json:"name"`
-	DefaultChannel string `json:"defaultChannel"`
-	Icon           *Icon  `json:"icon,omitempty"`
-	Description    string `json:"description,omitempty"`
+	Schema         string              `json:"schema"`
+	Name           string              `json:"name"`
+	DefaultChannel string              `json:"defaultChannel"`
+	Icon           *Icon               `json:"icon,omitempty"`
+	Description    string              `json:"description,omitempty"`
+	Properties     []property.Property `json:"properties,omitempty" hash:"set"`
 }
 
 type Icon struct {
@@ -33,10 +34,11 @@ type Icon struct {
 }
 
 type Channel struct {
-	Schema  string         `json:"schema"`
-	Name    string         `json:"name"`
-	Package string         `json:"package"`
-	Entries []ChannelEntry `json:"entries"`
+	Schema     string              `json:"schema"`
+	Name       string              `json:"name"`
+	Package    string              `json:"package"`
+	Entries    []ChannelEntry      `json:"entries"`
+	Properties []property.Property `json:"properties,omitempty" hash:"set"`
 }
 
 type ChannelEntry struct {

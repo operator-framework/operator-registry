@@ -2,6 +2,11 @@
 schema: olm.package
 name: foo
 defaultChannel: beta
+properties:
+  - type: owner
+    value:
+      group: abc.com
+      name: admin
 ---
 schema: olm.channel
 package: foo
@@ -15,6 +20,11 @@ entries:
     skips:
       - foo.v0.1.1
       - foo.v0.1.2
+properties:
+  - type: user
+    value:
+      group: xyz.com
+      name: account
 ---
 schema: olm.channel
 package: foo
