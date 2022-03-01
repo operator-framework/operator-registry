@@ -421,7 +421,15 @@ func getBundlesThatProvide(pkg *model.Package, reqGVKs map[property.GVK]struct{}
 	latestBundles := make(map[string]*model.Bundle)
 	for gvk, bundles := range bundlesProvidingGVK {
 		sort.Slice(bundles, func(i, j int) bool {
-			return bundles[i].Version.LT(bundles[j].Version)
+			// sort by version
+			sortedByVersion := bundles[i].Version.LT(bundles[j].Version)
+
+			// sort by channel
+			// prioritize default channel bundles
+			if bundles[i].Version.EQ(bundles[j].Version) {
+				return bundles[i].Channel != pkg.DefaultChannel
+			}
+			return sortedByVersion
 		})
 		lb := bundles[len(bundles)-1]
 		latestBundles[lb.Version.String()] = lb
@@ -436,7 +444,15 @@ func getBundlesThatProvide(pkg *model.Package, reqGVKs map[property.GVK]struct{}
 			continue
 		}
 		sort.Slice(bundlesInRange, func(i, j int) bool {
-			return bundlesInRange[i].Version.LT(bundlesInRange[j].Version)
+			// sort by version
+			sortedByVersion := bundlesInRange[i].Version.LT(bundlesInRange[j].Version)
+
+			// sort by channel
+			// prioritize default channel bundles
+			if bundlesInRange[i].Version.EQ(bundlesInRange[j].Version) {
+				return bundlesInRange[i].Channel != pkg.DefaultChannel
+			}
+			return sortedByVersion
 		})
 		lb := bundlesInRange[len(bundlesInRange)-1]
 		latestBundles[lb.Version.String()] = lb
