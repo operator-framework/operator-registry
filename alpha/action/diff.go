@@ -32,8 +32,8 @@ type Diff struct {
 	Logger *logrus.Entry
 }
 
-func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
-	if err := a.validate(); err != nil {
+func (diff Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
+	if err := diff.validate(); err != nil {
 		return nil, err
 	}
 
@@ -42,8 +42,8 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 
 	// Heads-only mode does not require an old ref, so there may be nothing to render.
 	var oldModel model.Model
-	if len(a.OldRefs) != 0 {
-		oldRender := Render{Refs: a.OldRefs, Registry: a.Registry, AllowedRefMask: mask}
+	if len(diff.OldRefs) != 0 {
+		oldRender := Render{Refs: diff.OldRefs, Registry: diff.Registry, AllowedRefMask: mask}
 		oldCfg, err := oldRender.Run(ctx)
 		if err != nil {
 			if errors.Is(err, ErrNotAllowed) {
@@ -57,7 +57,7 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		}
 	}
 
-	newRender := Render{Refs: a.NewRefs, Registry: a.Registry, AllowedRefMask: mask}
+	newRender := Render{Refs: diff.NewRefs, Registry: diff.Registry, AllowedRefMask: mask}
 	newCfg, err := newRender.Run(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNotAllowed) {
@@ -71,10 +71,10 @@ func (a Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	}
 
 	g := &declcfg.DiffGenerator{
-		Logger:            a.Logger,
-		SkipDependencies:  a.SkipDependencies,
-		Includer:          convertIncludeConfigToIncluder(a.IncludeConfig),
-		IncludeAdditively: a.IncludeAdditively,
+		Logger:            diff.Logger,
+		SkipDependencies:  diff.SkipDependencies,
+		Includer:          convertIncludeConfigToIncluder(diff.IncludeConfig),
+		IncludeAdditively: diff.IncludeAdditively,
 	}
 	diffModel, err := g.Run(oldModel, newModel)
 	if err != nil {
