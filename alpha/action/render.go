@@ -195,7 +195,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		if len(labelVals) > 0 {
 			return nil, fmt.Errorf("render %q: image type could not be determined, found labels\n%s", ref, strings.Join(labelVals, "\n"))
 		} else {
-			return nil, fmt.Errorf("render %q: image type could not be determined: image has no labels", ref)
+			return nil, fmt.Errorf("render %q: image type could not be determined: image has no labels to indicate if it is a bundle or an index image", ref)
 		}
 	}
 	return cfg, nil
