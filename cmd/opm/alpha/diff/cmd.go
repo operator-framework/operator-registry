@@ -24,7 +24,7 @@ const (
 	timeout       = time.Minute * 1
 )
 
-type diff struct {
+type input struct {
 	oldRefs         []string
 	newRefs         []string
 	skipDeps        bool
@@ -51,7 +51,7 @@ var includeFileExample = fmt.Sprintf(`packages:
 %[1]s    - 0.2.0-alpha.0`, templates.Indentation)
 
 func NewCmd() *cobra.Command {
-	a := diff{
+	in := input{
 		logger: logrus.NewEntry(logrus.New()),
 	}
 	cmd := &cobra.Command{
@@ -115,44 +115,44 @@ docker push registry.org/my-catalog:diff-latest
 `), includeFileExample),
 		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if a.debug {
-				a.logger.Logger.SetLevel(logrus.DebugLevel)
+			if in.debug {
+				in.logger.Logger.SetLevel(logrus.DebugLevel)
 			}
-			a.logger.Logger.SetOutput(os.Stderr)
+			in.logger.Logger.SetOutput(os.Stderr)
 			return nil
 		},
-		RunE: a.addFunc,
+		RunE: in.diffFunc,
 	}
 
-	cmd.Flags().BoolVar(&a.skipDeps, "skip-deps", false, "do not include bundle dependencies in the output catalog")
+	cmd.Flags().BoolVar(&in.skipDeps, "skip-deps", false, "do not include bundle dependencies in the output catalog")
 
-	cmd.Flags().StringVarP(&a.output, "output", "o", "yaml", "Output format (json|yaml)")
-	cmd.Flags().StringVar(&a.caFile, "ca-file", "", "the root Certificates to use with this command")
-	cmd.Flags().StringVarP(&a.includeFile, "include-file", "i", "",
+	cmd.Flags().StringVarP(&in.output, "output", "o", "yaml", "Output format (json|yaml)")
+	cmd.Flags().StringVar(&in.caFile, "ca-file", "", "the root Certificates to use with this command")
+	cmd.Flags().StringVarP(&in.includeFile, "include-file", "i", "",
 		"YAML defining packages, channels, and/or bundles/versions to extract from the new refs. "+
 			"Upgrade graphs from individual bundles/versions to their channel's head are also included")
-	cmd.Flags().BoolVar(&a.includeAdditive, "include-additive", false,
+	cmd.Flags().BoolVar(&in.includeAdditive, "include-additive", false,
 		"Ref objects from --include-file are returned on top of 'heads-only' or 'latest' output")
 
-	cmd.Flags().BoolVar(&a.debug, "debug", false, "enable debug logging")
+	cmd.Flags().BoolVar(&in.debug, "debug", false, "enable debug logging")
 	return cmd
 }
 
-func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
-	a.parseArgs(args)
+func (in *input) diffFunc(cmd *cobra.Command, args []string) error {
+	in.parseArgs(args)
 
-	if cmd.Flags().Changed("include-additive") && a.includeFile == "" {
-		a.logger.Fatal("must set --include-file if --include-additive is set")
+	if cmd.Flags().Changed("include-additive") && in.includeFile == "" {
+		in.logger.Fatal("must set --include-file if --include-additive is set")
 	}
 
 	var write func(declcfg.DeclarativeConfig, io.Writer) error
-	switch a.output {
+	switch in.output {
 	case "yaml":
 		write = declcfg.WriteYAML
 	case "json":
 		write = declcfg.WriteJSON
 	default:
-		return fmt.Errorf("invalid --output value: %q", a.output)
+		return fmt.Errorf("invalid --output value: %q", in.output)
 	}
 
 	skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
@@ -160,46 +160,46 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	rootCAs, err := certs.RootCAs(a.caFile)
+	rootCAs, err := certs.RootCAs(in.caFile)
 	if err != nil {
-		a.logger.Fatalf("error getting root CAs: %v", err)
+		in.logger.Fatalf("error getting root CAs: %v", err)
 	}
 	reg, err := containerd.NewRegistry(
 		containerd.SkipTLSVerify(skipTLSVerify),
-		containerd.WithLog(a.logger),
+		containerd.WithLog(in.logger),
 		containerd.WithRootCAs(rootCAs),
 		containerd.WithPlainHTTP(useHTTP),
 	)
 	if err != nil {
-		a.logger.Fatalf("error creating containerd registry: %v", err)
+		in.logger.Fatalf("error creating containerd registry: %v", err)
 	}
 	defer func() {
 		if err := reg.Destroy(); err != nil {
-			a.logger.Errorf("error destroying local cache: %v", err)
+			in.logger.Errorf("error destroying local cache: %v", err)
 		}
 	}()
 
 	diff := action.Diff{
 		Registry:          reg,
-		OldRefs:           a.oldRefs,
-		NewRefs:           a.newRefs,
-		SkipDependencies:  a.skipDeps,
-		IncludeAdditively: a.includeAdditive,
-		Logger:            a.logger,
+		OldRefs:           in.oldRefs,
+		NewRefs:           in.newRefs,
+		SkipDependencies:  in.skipDeps,
+		IncludeAdditively: in.includeAdditive,
+		Logger:            in.logger,
 	}
 
-	if a.includeFile != "" {
-		f, err := os.Open(a.includeFile)
+	if in.includeFile != "" {
+		f, err := os.Open(in.includeFile)
 		if err != nil {
-			a.logger.Fatalf("error opening include file: %v", err)
+			in.logger.Fatalf("error opening include file: %v", err)
 		}
 		defer func() {
 			if cerr := f.Close(); cerr != nil {
-				a.logger.Error(cerr)
+				in.logger.Error(cerr)
 			}
 		}()
 		if diff.IncludeConfig, err = action.LoadDiffIncludeConfig(f); err != nil {
-			a.logger.Fatalf("error loading include file: %v", err)
+			in.logger.Fatalf("error loading include file: %v", err)
 		}
 	}
 
@@ -208,17 +208,17 @@ func (a *diff) addFunc(cmd *cobra.Command, args []string) error {
 
 	cfg, err := diff.Run(ctx)
 	if err != nil {
-		a.logger.Fatalf("error generating diff: %v", err)
+		in.logger.Fatalf("error generating diff: %v", err)
 	}
 
 	if err := write(*cfg, os.Stdout); err != nil {
-		a.logger.Fatalf("error writing diff: %v", err)
+		in.logger.Fatalf("error writing diff: %v", err)
 	}
 
 	return nil
 }
 
-func (a *diff) parseArgs(args []string) {
+func (in *input) parseArgs(args []string) {
 	var old, new string
 	switch len(args) {
 	case 1:
@@ -229,7 +229,7 @@ func (a *diff) parseArgs(args []string) {
 		logrus.Panic("should never be here, CLI must enforce arg size")
 	}
 	if old != "" {
-		a.oldRefs = strings.Split(old, ",")
+		in.oldRefs = strings.Split(old, ",")
 	}
-	a.newRefs = strings.Split(new, ",")
+	in.newRefs = strings.Split(new, ",")
 }

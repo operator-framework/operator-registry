@@ -242,8 +242,10 @@ func bundlesEqual(b1, b2 *model.Bundle) (bool, error) {
 func addAllDependencies(newModel, oldModel, outputModel model.Model) error {
 	// Get every oldModel's bundle's dependencies, and their dependencies, etc. by BFS.
 	providingBundlesByPackage := map[string][]*model.Bundle{}
-	for curr := getBundles(outputModel); len(curr) != 0; {
-		reqGVKs, reqPkgs, err := findDependencies(curr)
+	var visitedBundles []*model.Bundle
+	for currentList := getBundles(outputModel); len(currentList) != 0; {
+		visitedBundles = append(visitedBundles, currentList...)
+		reqGVKs, reqPkgs, err := findDependencies(currentList)
 		if err != nil {
 			return err
 		}
@@ -251,15 +253,16 @@ func addAllDependencies(newModel, oldModel, outputModel model.Model) error {
 		if len(reqGVKs) == 0 && len(reqPkgs) == 0 {
 			break
 		}
-		curr = nil
+		currentList = nil
 		// Get bundles that provide dependencies from newModel, which should have
 		// the latest bundles of each dependency package.
 		for _, pkg := range newModel {
 			providingBundles := getBundlesThatProvide(pkg, reqGVKs, reqPkgs)
-			curr = append(curr, providingBundles...)
+			unvisitedProvidingBundles := difference(visitedBundles, providingBundles)
+			currentList = append(currentList, unvisitedProvidingBundles...)
 
 			oldPkg, oldHasPkg := oldModel[pkg.Name]
-			for _, b := range providingBundles {
+			for _, b := range unvisitedProvidingBundles {
 				// If the bundle is not in oldModel, add it to the set.
 				// outputModel is checked below.
 				add := true
@@ -339,6 +342,20 @@ func addAllDependencies(newModel, oldModel, outputModel model.Model) error {
 	}
 
 	return nil
+}
+
+func difference(a, b []*model.Bundle) []*model.Bundle {
+	aMap := make(map[*model.Bundle]struct{})
+	for _, bd := range a {
+		aMap[bd] = struct{}{}
+	}
+	uniqueBundles := make([]*model.Bundle, 0)
+	for _, bd := range b {
+		if _, present := aMap[bd]; !present {
+			uniqueBundles = append(uniqueBundles, bd)
+		}
+	}
+	return uniqueBundles
 }
 
 // getBundles collects all bundles specified by m. Since each bundle

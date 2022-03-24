@@ -1520,6 +1520,86 @@ func TestDiffHeadsOnly(t *testing.T) {
 			},
 		},
 		{
+			name: "HasDiff/CyclicDependencyGraph",
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v4.9.3"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v4.9.3"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v4.9.3",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.0"),
+							property.MustBuildGVK("foo", "v1alpha1", "Foo"),
+							property.MustBuildGVKRequired("bar", "v1alpha1", "Bar"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v4.9.3",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("bar", "4.9.3"),
+							property.MustBuildGVK("bar", "v1alpha1", "Bar"),
+							property.MustBuildGVKRequired("foo", "v1alpha1", "Foo"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{},
+			expCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "bar", DefaultChannel: "stable"},
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "bar", Entries: []ChannelEntry{
+						{Name: "bar.v4.9.3"},
+					}},
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v4.9.3"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "bar.v4.9.3",
+						Package: "bar",
+						Image:   "reg/bar:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("bar", "v1alpha1", "Bar"),
+							property.MustBuildGVKRequired("foo", "v1alpha1", "Foo"),
+							property.MustBuildPackage("bar", "4.9.3"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v4.9.3",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildGVK("foo", "v1alpha1", "Foo"),
+							property.MustBuildGVKRequired("bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+				},
+			},
+		},
+		{
 			// Testing SkipDependencies only really makes sense in heads-only mode,
 			// since new dependencies are always added.
 			name: "HasDiff/SkipDependencies",
