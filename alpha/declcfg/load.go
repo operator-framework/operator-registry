@@ -31,6 +31,7 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 	if root == nil {
 		return fmt.Errorf("no declarative config filesystem provided")
 	}
+
 	matcher, err := ignore.NewMatcher(root, indexIgnoreFilename)
 	if err != nil {
 		return err
@@ -45,18 +46,12 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 		if info.IsDir() || info.Name() == indexIgnoreFilename || matcher.Match(path, false) {
 			return nil
 		}
-		file, err := root.Open(path)
-		if err != nil {
-			return walkFn(path, nil, err)
-		}
-		defer file.Close()
-		cfg, err := readYAMLOrJSON(file)
+
+		cfg, err := LoadFile(root, path)
 		if err != nil {
 			return walkFn(path, cfg, err)
 		}
-		if err := readBundleObjects(cfg.Bundles, root, path); err != nil {
-			return fmt.Errorf("read bundle objects: %v", err)
-		}
+
 		return walkFn(path, cfg, err)
 	})
 }
@@ -166,5 +161,26 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 			cfg.Others = append(cfg.Others, in)
 		}
 	}
+	return cfg, nil
+}
+
+// LoadFile will unmarshall declarative config components from a single filename provided in 'path'
+// located at a filesystem hierarchy 'root'
+func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
+	file, err := root.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	cfg, err := readYAMLOrJSON(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := readBundleObjects(cfg.Bundles, root, path); err != nil {
+		return nil, fmt.Errorf("read bundle objects: %v", err)
+	}
+
 	return cfg, nil
 }

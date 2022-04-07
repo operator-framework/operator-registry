@@ -821,3 +821,88 @@ present in the .indexignore file.`),
 		"unrecognized-schema.json": unrecognizedSchema,
 	}
 )
+
+func TestLoadFile(t *testing.T) {
+	type spec struct {
+		name              string
+		fsys              fs.FS
+		path              string
+		assertion         require.ErrorAssertionFunc
+		expectNumPackages int
+		expectNumBundles  int
+		expectNumOthers   int
+	}
+	specs := []spec{
+		{
+			name:      "Error/NonExistentDir",
+			fsys:      os.DirFS("non/existent/dir/"),
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/Invalid",
+			fsys:      invalidFS,
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/NotYAMLOrJSON",
+			fsys:      invalidFS,
+			path:      "invalid-format.txt",
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/NotJSONObject",
+			fsys:      invalidFS,
+			path:      "not-object.json",
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/NoSchema",
+			fsys:      invalidFS,
+			path:      "no-schema.yaml",
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/InvalidPackageJSON",
+			fsys:      invalidFS,
+			path:      "invalid-package.json",
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/InvalidBundleJSON",
+			fsys:      invalidFS,
+			path:      "invalid-bundle.json",
+			assertion: require.Error,
+		},
+		{
+			name:              "Success/UnrecognizedSchema",
+			fsys:              validFS,
+			path:              "unrecognized-schema.json",
+			assertion:         require.NoError,
+			expectNumPackages: 1,
+			expectNumBundles:  1,
+			expectNumOthers:   1,
+		},
+		{
+			name:              "Success/ValidFile",
+			fsys:              validFS,
+			path:              "etcd.yaml",
+			assertion:         require.NoError,
+			expectNumPackages: 1,
+			expectNumBundles:  6,
+			expectNumOthers:   0,
+		},
+	}
+
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			cfg, err := LoadFile(s.fsys, s.path)
+			s.assertion(t, err)
+			if err == nil {
+				require.NotNil(t, cfg)
+				assert.Equal(t, len(cfg.Packages), s.expectNumPackages, "unexpected package count")
+				assert.Equal(t, len(cfg.Bundles), s.expectNumBundles, "unexpected bundle count")
+				assert.Equal(t, len(cfg.Others), s.expectNumOthers, "unexpected others count")
+			}
+		})
+	}
+}
