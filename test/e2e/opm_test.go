@@ -49,6 +49,9 @@ var (
 	indexImage2 = dockerHost + "/olmtest/e2e-index:" + indexTag2
 	indexImage3 = dockerHost + "/olmtest/e2e-index:" + indexTag3
 
+	fbcIndexImageTag = dockerHost + "/olmtest/e2e-fbc"
+	fbcPackageName   = "webhook-operator"
+
 	// publishedIndex is an index used to check for regressions in opm's behavior.
 	publishedIndex = os.Getenv("PUBLISHED_INDEX")
 )
@@ -68,23 +71,26 @@ func (bl bundleLocations) images() []string {
 	return images
 }
 
-func inTemporaryBuildContext(f func() error) (rerr error) {
+func inTemporaryBuildContext(f func() error, fromDir, toDir string) (rerr error) {
 	td, err := ioutil.TempDir(".", "opm-")
 	if err != nil {
 		return err
 	}
-	err = copy.Copy("../../manifests", filepath.Join(td, "manifests"))
+	err = copy.Copy(fromDir, filepath.Join(td, toDir))
 	if err != nil {
 		return err
 	}
+
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
+
 	err = os.Chdir(td)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		err := os.Chdir(wd)
 		if rerr == nil {
@@ -92,6 +98,51 @@ func inTemporaryBuildContext(f func() error) (rerr error) {
 		}
 	}()
 	return f()
+}
+
+func executeCommand(cmd *exec.Cmd) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Failed to exec %#v: %v", cmd.Args, err)
+	}
+
+	return nil
+}
+
+// buildFBCWith builds a file based catalog image in the local registry
+func buildFBCWith(containerTool, image string) error {
+	err := inTemporaryBuildContext(func() error {
+		cmd, err := buildFBCImage(image, containerTool, "file-based-catalog.Dockerfile")
+		if err != nil {
+			return err
+		}
+
+		return executeCommand(cmd)
+	}, "../../fbc-dir", "")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// buildFBCImagce uses docker or podman an executes the build command of a dockerfile
+func buildFBCImage(imageTag, imageBuilder string, dockerFile string) (*exec.Cmd, error) {
+	var args []string
+
+	switch imageBuilder {
+	case "docker", "podman":
+		args = append(args, "build", "-f", dockerFile, "-t", imageTag, ".")
+	case "buildah":
+		args = append(args, "bud", "--format=docker", "-f", dockerFile, "-t", imageTag, ".")
+	default:
+		return nil, fmt.Errorf("%s is not supported image builder", imageBuilder)
+	}
+
+	return exec.Command(imageBuilder, args...), nil
 }
 
 func buildIndexWith(containerTool, fromIndexImage, toIndexImage string, bundleImages []string, mode registry.Mode, overwriteLatest bool) error {
@@ -136,17 +187,17 @@ func buildFromIndexWith(containerTool string) error {
 }
 
 // TODO(djzager): make this more complete than what should be a simple no-op
-func pruneIndexWith(containerTool string) error {
-	logger := logrus.WithFields(logrus.Fields{"packages": packageName})
+func pruneIndexWith(containerTool string, fromIndex string, tag string, packageValue string) error {
+	logger := logrus.WithFields(logrus.Fields{"packages": packageValue})
 	indexAdder := indexer.NewIndexPruner(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 
 	request := indexer.PruneFromIndexRequest{
 		Generate:          false,
-		FromIndex:         indexImage2,
+		FromIndex:         fromIndex,
 		BinarySourceImage: "",
 		OutDockerfile:     "",
-		Tag:               indexImage3,
-		Packages:          []string{packageName},
+		Tag:               tag,
+		Packages:          []string{packageValue},
 		Permissive:        false,
 	}
 
@@ -226,7 +277,7 @@ var _ = Describe("opm", func() {
 			img := bundleImage + ":" + bundleTag3
 			err := inTemporaryBuildContext(func() error {
 				return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false)
-			})
+			}, "../../manifests", "manifests")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("pushing bundle")
@@ -271,7 +322,7 @@ var _ = Describe("opm", func() {
 			for _, b := range bundles {
 				err = inTemporaryBuildContext(func() error {
 					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false)
-				})
+				}, "../../manifests", "manifests")
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -296,9 +347,21 @@ var _ = Describe("opm", func() {
 			err = pushWith(containerTool, indexImage2)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("pruning an index")
-			err = pruneIndexWith(containerTool)
+			By("building a fbc index")
+			err = buildFBCWith(containerTool, fbcIndexImageTag)
 			Expect(err).NotTo(HaveOccurred())
+
+			By("pushing a fbc index")
+			err = pushWith(containerTool, fbcIndexImageTag)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pruning an index")
+			err = pruneIndexWith(containerTool, indexImage2, indexImage3, packageName)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pruning a fbc index")
+			err = pruneIndexWith(containerTool, fbcIndexImageTag, indexImage3, fbcPackageName)
+			Expect(err).To(MatchError(indexer.ErrFileBasedCatalogPrune))
 
 			By("pushing an index")
 			err = pushWith(containerTool, indexImage3)
