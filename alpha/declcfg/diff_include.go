@@ -300,10 +300,6 @@ func getBundlesForRange(ch *model.Channel, vers semver.Range, logger *logrus.Ent
 		}
 	}
 
-	bundles, err = fillUpgradeGraph(ch, bundles, logger)
-	if err != nil {
-		return nil, err
-	}
 	return bundles, nil
 }
 
