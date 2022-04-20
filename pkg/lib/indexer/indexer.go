@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,6 +37,8 @@ const (
 	tmpBuildDirPrefix         = "index_build_tmp"
 	concurrencyLimitForExport = 10
 )
+
+var ErrFileBasedCatalogPrune = errors.New("`opm index prune` only supports sqlite-based catalogs")
 
 // ImageIndexer is a struct implementation of the Indexer interface
 type ImageIndexer struct {
@@ -363,6 +366,9 @@ func (i ImageIndexer) getDatabaseFile(workingDir, fromIndex, caFile string, skip
 
 	dbLocation, ok := labels[containertools.DbLocationLabel]
 	if !ok {
+		if _, ok := labels[containertools.ConfigsLocationLabel]; ok {
+			return "", ErrFileBasedCatalogPrune
+		}
 		return "", fmt.Errorf("index image %s missing label %s", fromIndex, containertools.DbLocationLabel)
 	}
 
