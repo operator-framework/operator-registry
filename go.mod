@@ -1,4 +1,4 @@
-module github.com/zoscb/operator-registry
+module github.com/operator-framework/operator-registry
 
 go 1.17
 
