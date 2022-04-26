@@ -73,7 +73,7 @@ func (dip DiffIncludePackage) Validate() error {
 	}
 
 	if len(errs) != 0 {
-		return fmt.Errorf("invalid DiffIncludePackage config:\n%v", utilerrors.NewAggregate(errs))
+		return fmt.Errorf("invalid DiffIncludePackage config for package %q:\n%v", dip.Name, utilerrors.NewAggregate(errs))
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (dic DiffIncludeChannel) Validate() error {
 	}
 
 	if len(errs) != 0 {
-		return fmt.Errorf("invalid DiffIncludeChannel config:\n%v", utilerrors.NewAggregate(errs))
+		return fmt.Errorf("invalid DiffIncludeChannel config for channel %q:\n%v", dic.Name, utilerrors.NewAggregate(errs))
 	}
 	return nil
 }

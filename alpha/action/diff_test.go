@@ -311,6 +311,77 @@ packages:
 `,
 			assertion: require.Error,
 		},
+		{
+			name: "Fail/InvalidPackageRange",
+			input: `
+			{
+			  "packages": [
+			    {
+			      "name": "foo",
+			      "range": "test"
+			    }
+			  ]
+			}`,
+			assertion: require.Error,
+		},
+		{
+			name: "Fail/InvalidChannelRange",
+			input: `
+			{
+			  "packages": [
+			    {
+			      "name": "foo",
+			      "channels": [
+			        {
+			          "name": "stable",
+			          "range": "test"
+			        }
+			      ]
+			    }
+			  ]
+			}`,
+			assertion: require.Error,
+		},
+		{
+			name: "Fail/InvalidRangeSetting/MixedRange&ChannelRange",
+			input: `
+			{
+			  "packages": [
+			    {
+			      "name": "foo",
+			      "range": "test",
+			      "channels": [
+			        {
+			          "name": "stable",
+			          "range": "test"
+			        }
+			      ]
+			    }
+			  ]
+			}`,
+			assertion: require.Error,
+		},
+		{
+			name: "Fail/InvalidRangeSetting/MixedRange&OtherVersions",
+			input: `
+			{
+			  "packages": [
+			    {
+			      "name": "foo",
+			      "channels": [
+			        {
+			          "name": "stable",
+			          "range": ">0.1.0",
+			          "versions": [
+			            "0.1.0"
+			          ]
+			        }
+			      ]
+			    }
+			  ]
+			}`,
+			assertion: require.Error,
+		},
 	}
 
 	for _, s := range specs {

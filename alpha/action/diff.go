@@ -160,12 +160,12 @@ func LoadDiffIncludeConfig(r io.Reader) (c DiffIncludeConfig, err error) {
 			continue
 		}
 		if pkg.Range != "" && (len(pkg.Versions) != 0 || len(pkg.Bundles) != 0) {
-			errs = append(errs, fmt.Errorf("package at index %v has an invalid settings for range/versions/bundles", pkgI))
+			errs = append(errs, fmt.Errorf("package %q contains invalid settings: range and versions and/or bundles are mutually exclusive", pkg.Name))
 		}
 		if pkg.Range != "" {
 			_, err := semver.ParseRange(pkg.Range)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("package at index %v has an invalid version range %s", pkgI, pkg.Range))
+				errs = append(errs, fmt.Errorf("package %q has an invalid version range %s", pkg.Name, pkg.Range))
 			}
 		}
 		for chI, ch := range pkg.Channels {
@@ -177,14 +177,14 @@ func LoadDiffIncludeConfig(r io.Reader) (c DiffIncludeConfig, err error) {
 				continue
 			}
 			if ch.Range != "" && (len(ch.Versions) != 0 || len(ch.Bundles) != 0) {
-				errs = append(errs, fmt.Errorf("package %s: channel at index %v has an invalid settings for range/versions/bundles", pkg.Name, chI))
+				errs = append(errs, fmt.Errorf("package %q: channel %q contains invalid settings: range and versions and/or bundles are mutually exclusive", pkg.Name, ch.Name))
 			}
 			if pkg.Range != "" && ch.Range != "" {
-				errs = append(errs, fmt.Errorf("version range settings in package (%s) and in channel (%s) must be mutually exclusive", pkg.Name, ch.Name))
+				errs = append(errs, fmt.Errorf("version range settings in package %q and in channel %q must be mutually exclusive", pkg.Name, ch.Name))
 			}
 			_, err := semver.ParseRange(ch.Range)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("package %s: channel at index %v has an invalid version range %s", pkg.Name, chI, pkg.Range))
+				errs = append(errs, fmt.Errorf("package %s: channel %q has an invalid version range %s", pkg.Name, ch.Name, pkg.Range))
 			}
 		}
 	}
