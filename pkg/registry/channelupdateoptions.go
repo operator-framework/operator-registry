@@ -11,6 +11,7 @@ const (
 	ReplacesMode  Mode = "replaces"
 	SemVerMode    Mode = "semver"
 	SkipPatchMode Mode = "semver-skippatch"
+	FBCMode       Mode = "fbc"
 )
 
 func GetModeFromString(mode string) (Mode, error) {
@@ -21,6 +22,8 @@ func GetModeFromString(mode string) (Mode, error) {
 		return SemVerMode, nil
 	case "semver-skippatch":
 		return SkipPatchMode, nil
+	case "fbc":
+		return FBCMode, nil
 	default:
 		return "", fmt.Errorf("Invalid channel update mode %s specified", mode)
 	}
