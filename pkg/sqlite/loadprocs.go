@@ -3,6 +3,8 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 // TODO: Finish separating procedures from loader layer: make this a type to make
@@ -56,14 +58,14 @@ func addPackage(tx *sql.Tx, packageName string) error {
 	return nil
 }
 
-func addPackageIfNotExists(tx *sql.Tx, packageName string) error {
-	addPackage, err := tx.Prepare("insert or replace into package(name) values(?)")
+func addPackageIfNotExists(tx *sql.Tx, packageName string, addMode registry.Mode) error {
+	addPackage, err := tx.Prepare("insert or replace into package(name, add_mode) values(?, ?)")
 	if err != nil {
 		return err
 	}
 	defer addPackage.Close()
 
-	_, err = addPackage.Exec(packageName)
+	_, err = addPackage.Exec(packageName, addMode)
 	if err != nil {
 		return fmt.Errorf("failed to insert or replace package (%s): %s", packageName, err)
 	}

@@ -178,7 +178,7 @@ func (c *ConfigMapLoader) Populate() error {
 	}
 	for _, packageManifest := range parsedPackageManifests {
 		c.log.WithField("package", packageManifest.PackageName).Debug("loading package")
-		if err := c.store.AddPackageChannels(packageManifest); err != nil {
+		if err := c.store.AddPackageChannels(packageManifest, registry.ReplacesMode); err != nil {
 			errs = append(errs, fmt.Errorf("error loading package %s: %s", packageManifest.PackageName, err))
 		}
 	}

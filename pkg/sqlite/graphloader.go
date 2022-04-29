@@ -42,6 +42,12 @@ func (g *SQLGraphLoader) Generate(packageName string) (*registry.Package, error)
 	}
 	graph.DefaultChannel = defaultChannel
 
+	addMode, err := g.Querier.GetAddModeForPackage(ctx, packageName)
+	if err != nil {
+		return graph, err
+	}
+	graph.AddMode = addMode
+
 	channelEntries, err := g.Querier.GetChannelEntriesFromPackage(ctx, packageName)
 	if err != nil {
 		return graph, err

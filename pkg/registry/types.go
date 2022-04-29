@@ -50,6 +50,15 @@ func (e OverwriteErr) Error() string {
 	return e.ErrorString
 }
 
+// AddModeError is an error that describes that an error with the add request with an incompatible add mode.
+type AddModeError struct {
+	ErrorString string
+}
+
+func (e AddModeError) Error() string {
+	return e.ErrorString
+}
+
 const (
 	GVKType        = "olm.gvk"
 	PackageType    = "olm.package"

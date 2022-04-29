@@ -412,7 +412,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 
 	var errs []error
 
-	if err := addPackageIfNotExists(tx, graph.Name); err != nil {
+	if err := addPackageIfNotExists(tx, graph.Name, graph.AddMode); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -527,7 +527,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (s *sqlLoader) AddPackageChannels(manifest registry.PackageManifest) error {
+func (s *sqlLoader) AddPackageChannels(manifest registry.PackageManifest, mode registry.Mode) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("unable to start a transaction: %s", err)
@@ -540,15 +540,15 @@ func (s *sqlLoader) AddPackageChannels(manifest registry.PackageManifest) error 
 		return err
 	}
 
-	if err := s.addPackageChannels(tx, manifest); err != nil {
+	if err := s.addPackageChannels(tx, manifest, mode); err != nil {
 		return err
 	}
 
 	return tx.Commit()
 }
 
-func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageManifest) error {
-	addPackage, err := tx.Prepare("insert into package(name) values(?)")
+func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageManifest, mode registry.Mode) error {
+	addPackage, err := tx.Prepare("insert into package(name, add_mode) values(?, ?)")
 	if err != nil {
 		return err
 	}
@@ -587,7 +587,7 @@ func (s *sqlLoader) addPackageChannels(tx *sql.Tx, manifest registry.PackageMani
 	}
 	defer getReplaces.Close()
 
-	if _, err := addPackage.Exec(manifest.PackageName); err != nil {
+	if _, err := addPackage.Exec(manifest.PackageName, mode); err != nil {
 		return fmt.Errorf("failed to add package %q: %s", manifest.PackageName, err.Error())
 	}
 
@@ -1051,30 +1051,6 @@ func (s *sqlLoader) AddBundleSemver(graph *registry.Package, bundle *registry.Bu
 	}
 
 	return nil
-}
-
-func (s *sqlLoader) AddBundlePackageChannels(manifest registry.PackageManifest, bundle *registry.Bundle) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		tx.Rollback()
-	}()
-
-	if err := s.addOperatorBundle(tx, bundle); err != nil {
-		return err
-	}
-
-	if err := s.rmPackage(tx, manifest.PackageName); err != nil {
-		return err
-	}
-
-	if err := s.addPackageChannels(tx, manifest); err != nil {
-		return err
-	}
-
-	return tx.Commit()
 }
 
 func (s *sqlLoader) rmPackage(tx *sql.Tx, pkg string) error {

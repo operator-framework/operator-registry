@@ -68,6 +68,7 @@ func TestBundleGraphLoader(t *testing.T) {
 			expectedGraph: &Package{
 				Name:           "etcd",
 				DefaultChannel: "alpha",
+				AddMode:        SemVerMode,
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
@@ -149,6 +150,7 @@ func TestBundleGraphLoader(t *testing.T) {
 			expectedGraph: &Package{
 				Name:           "etcd",
 				DefaultChannel: "beta",
+				AddMode:        SemVerMode,
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
@@ -186,6 +188,7 @@ func TestBundleGraphLoader(t *testing.T) {
 			expectedGraph: &Package{
 				Name:           "etcd",
 				DefaultChannel: "alpha",
+				AddMode:        SemVerMode,
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
@@ -217,6 +220,7 @@ func TestBundleGraphLoader(t *testing.T) {
 			expectedGraph: &Package{
 				Name:           "etcd",
 				DefaultChannel: "alpha",
+				AddMode:        SemVerMode,
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
@@ -271,6 +275,7 @@ func TestBundleGraphLoader(t *testing.T) {
 			expectedGraph: &Package{
 				Name:           "etcd",
 				DefaultChannel: "alpha",
+				AddMode:        SkipPatchMode,
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{

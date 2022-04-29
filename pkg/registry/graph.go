@@ -9,6 +9,7 @@ type Package struct {
 	Name           string
 	DefaultChannel string
 	Channels       map[string]Channel
+	AddMode        Mode
 }
 
 func (p *Package) String() string {
@@ -17,6 +18,8 @@ func (p *Package) String() string {
 	b.WriteString(p.Name)
 	b.WriteString("\ndefault channel: ")
 	b.WriteString(p.DefaultChannel)
+	b.WriteString("\nadd mode: ")
+	b.WriteString(string(p.AddMode))
 	b.WriteString("\nchannels:\n")
 
 	for n, c := range p.Channels {

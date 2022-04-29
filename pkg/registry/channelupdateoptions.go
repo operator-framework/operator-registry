@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-type Mode int
+type Mode string
 
 const (
-	ReplacesMode = iota
-	SemVerMode
-	SkipPatchMode
+	ReplacesMode  Mode = "replaces"
+	SemVerMode    Mode = "semver"
+	SkipPatchMode Mode = "semver-skippatch"
 )
 
 func GetModeFromString(mode string) (Mode, error) {
@@ -22,6 +22,6 @@ func GetModeFromString(mode string) (Mode, error) {
 	case "semver-skippatch":
 		return SkipPatchMode, nil
 	default:
-		return -1, fmt.Errorf("Invalid channel update mode %s specified", mode)
+		return "", fmt.Errorf("Invalid channel update mode %s specified", mode)
 	}
 }

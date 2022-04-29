@@ -301,6 +301,7 @@ func TestImageLoading(t *testing.T) {
 				{
 					Name:           "prometheus",
 					DefaultChannel: "preview",
+					AddMode:        registry.ReplacesMode,
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -350,6 +351,7 @@ func TestImageLoading(t *testing.T) {
 				{
 					Name:           "prometheus",
 					DefaultChannel: "preview",
+					AddMode:        registry.ReplacesMode,
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -394,6 +396,7 @@ func TestImageLoading(t *testing.T) {
 				{
 					Name:           "prometheus",
 					DefaultChannel: "stable",
+					AddMode:        registry.ReplacesMode,
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -440,6 +443,7 @@ func TestImageLoading(t *testing.T) {
 				{
 					Name:           "prometheus",
 					DefaultChannel: "stable",
+					AddMode:        registry.ReplacesMode,
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -475,6 +479,7 @@ func TestImageLoading(t *testing.T) {
 				{
 					Name:           "prometheus",
 					DefaultChannel: "stable",
+					AddMode:        registry.ReplacesMode,
 					Channels: map[string]registry.Channel{
 						"preview": {
 							Head: registry.BundleKey{
@@ -3167,6 +3172,137 @@ func TestValidateEdgeBundlePackage(t *testing.T) {
 				return
 			}
 			require.EqualError(t, err, tt.wantErr.Error())
+		})
+	}
+}
+
+func TestCheckAddMode(t *testing.T) {
+	type args struct {
+		initBundles []string
+		initMode    registry.Mode
+		addBundle   string
+		addMode     registry.Mode
+	}
+	type expected struct {
+		err     error
+		addMode registry.Mode
+	}
+	tests := []struct {
+		description string
+		args        args
+		expected    expected
+	}{
+		{
+			description: "SetReplacesFromNonExistentPackage",
+			args: args{
+				addMode:   registry.ReplacesMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.ReplacesMode},
+		},
+		{
+			description: "SetSemverFromNonExistentPackage",
+			args: args{
+				addMode:   registry.SemVerMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.SemVerMode},
+		},
+		{
+			description: "SetSkipPatchFromNonExistentPackage",
+			args: args{
+				addMode:   registry.SkipPatchMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.SkipPatchMode},
+		},
+		{
+			description: "SetReplacesFromNull",
+			args: args{
+				initMode:  "",
+				addMode:   registry.ReplacesMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.ReplacesMode},
+		},
+		{
+			description: "SetSemverFromNull",
+			args: args{
+				initMode:  "",
+				addMode:   registry.SemVerMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.SemVerMode},
+		},
+		{
+			description: "SetSkipPatchFromNull",
+			args: args{
+				initMode:  "",
+				addMode:   registry.SkipPatchMode,
+				addBundle: "prometheus.0.14.0",
+			},
+			expected: expected{addMode: registry.SkipPatchMode},
+		},
+		{
+			description: "ChangeMode",
+			args: args{
+				initMode:    registry.ReplacesMode,
+				initBundles: []string{"prometheus.0.14.0"},
+				addMode:     registry.SemVerMode,
+				addBundle:   "prometheus.0.15.0",
+			},
+			expected: expected{err: fmt.Errorf(`package "prometheus" add mode "replaces" incompatible with requested mode "semver"`)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			logrus.SetLevel(logrus.DebugLevel)
+			db, cleanup := CreateTestDb(t)
+			defer cleanup()
+
+			load, err := sqlite.NewSQLLiteLoader(db)
+			require.NoError(t, err)
+			err = load.Migrate(context.TODO())
+			require.NoError(t, err)
+			query := sqlite.NewSQLLiteQuerierFromDb(db)
+
+			graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
+			require.NoError(t, err)
+
+			populate := func(names []string, mode registry.Mode) error {
+				refMap := make(map[image.Reference]string, 0)
+				for _, name := range names {
+					refMap[image.SimpleReference("quay.io/test/"+name)] = "../../bundles/" + name
+				}
+				populator := registry.NewDirectoryPopulator(
+					load,
+					graphLoader,
+					query,
+					refMap,
+					nil)
+				err := populator.Populate(mode)
+				return err
+			}
+			// Initialize index with some bundles
+			if len(tt.args.initBundles) > 0 {
+				require.NoError(t, populate(tt.args.initBundles, registry.ReplacesMode))
+			}
+			// If initMode is empty, simulate an old database where add_mode has not yet been set.
+			if tt.args.initMode == "" {
+				db.Exec("UPDATE package SET add_mode = NULL")
+			}
+
+			// Add the bundle with the desired add mode and verify expectations.
+			addErr := populate([]string{tt.args.addBundle}, tt.args.addMode)
+			if addErr == nil {
+				require.Nil(t, tt.expected.err)
+				mode, err := query.GetAddModeForPackage(context.Background(), "prometheus")
+				require.NoError(t, err)
+				require.Equal(t, tt.expected.addMode, mode)
+			} else {
+				require.EqualError(t, tt.expected.err, addErr.Error())
+			}
 		})
 	}
 }

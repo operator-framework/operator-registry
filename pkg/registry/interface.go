@@ -9,8 +9,7 @@ import (
 type Load interface {
 	AddOperatorBundle(bundle *Bundle) error
 	AddBundleSemver(graph *Package, bundle *Bundle) error
-	AddPackageChannels(manifest PackageManifest) error
-	AddBundlePackageChannels(manifest PackageManifest, bundle *Bundle) error
+	AddPackageChannels(manifest PackageManifest, mode Mode) error
 	RemovePackage(packageName string) error
 	RemoveStrandedBundles() error
 	DeprecateBundle(path string) error
@@ -79,6 +78,8 @@ type Query interface {
 	GetBundlesForPackage(ctx context.Context, pkgName string) (map[BundleKey]struct{}, error)
 	// Get DefaultChannel for Package
 	GetDefaultChannelForPackage(ctx context.Context, pkgName string) (string, error)
+	// Get AddMode for Package
+	GetAddModeForPackage(ctx context.Context, pkgName string) (Mode, error)
 	// List channels for package
 	ListChannels(ctx context.Context, pkgName string) ([]string, error)
 	// Get CurrentCSV name for channel and package

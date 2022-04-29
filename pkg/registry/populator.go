@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/blang/semver/v4"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -63,12 +64,50 @@ func (i *DirectoryPopulator) Populate(mode Mode) error {
 	return nil
 }
 
-func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error {
+func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput, mode Mode) error {
 	overwrite := len(i.overwrittenImages) > 0
 	var errs []error
 	images := make(map[string]struct{})
 	for _, image := range imagesToAdd {
 		images[image.Bundle.BundleImage] = struct{}{}
+	}
+
+	// check package add modes
+	for _, image := range imagesToAdd {
+		_, err := i.querier.GetPackage(context.TODO(), image.Bundle.Package)
+		if err != nil {
+			// Package not found errors are okay. That means we're adding this
+			// package for the first time. If the error is anything else, we
+			// should report it.
+			if !strings.Contains(err.Error(), "not found") {
+				errs = append(errs, AddModeError{fmt.Sprintf("failed checking for package %q: %v", image.Bundle.Package, err)})
+			}
+			// Either way, we can skip the rest of the add mode checks for this image.
+			continue
+		}
+
+		// At this point, we know the package already exists in the database,
+		// so we'll fetch its add mode.
+		packageAddMode, err := i.querier.GetAddModeForPackage(context.TODO(), image.Bundle.Package)
+		if err != nil {
+			errs = append(errs, AddModeError{ErrorString: fmt.Sprintf("failed to get add mode for package %q", image.Bundle.Package)})
+			continue
+		}
+
+		// If packageAddMode is empty (and we didn't encounter an error above),
+		// that means this is a package that was added to the database prior to
+		// the add_mode column existing. We'll assume that this add is safe.
+		if packageAddMode == "" {
+			continue
+		}
+
+		// If packageAddMode is non-empty AND its not equal to the requested
+		// add mode, that's a problem. We don't support mixing and matching add
+		// modes within a single package.
+		if packageAddMode != mode {
+			errs = append(errs, AddModeError{ErrorString: fmt.Sprintf("package %q add mode %q incompatible with requested mode %q", image.Bundle.Package, packageAddMode, mode)})
+			continue
+		}
 	}
 
 	attemptedOverwritesPerPackage := map[string]struct{}{}
@@ -137,7 +176,7 @@ func (i *DirectoryPopulator) globalSanityCheck(imagesToAdd []*ImageInput) error 
 
 func (i *DirectoryPopulator) loadManifests(imagesToAdd []*ImageInput, mode Mode) error {
 	// global sanity checks before insertion
-	if err := i.globalSanityCheck(imagesToAdd); err != nil {
+	if err := i.globalSanityCheck(imagesToAdd, mode); err != nil {
 		return err
 	}
 
@@ -233,11 +272,10 @@ func (i *DirectoryPopulator) loadManifestsReplaces(images []*ImageInput) error {
 			continue
 		}
 
-		if err = i.loader.AddPackageChannels(*packageManifest); err != nil {
+		if err = i.loader.AddPackageChannels(*packageManifest, ReplacesMode); err != nil {
 			errs = append(errs, err)
 		}
 	}
-
 	return utilerrors.NewAggregate(errs)
 }
 
@@ -255,19 +293,6 @@ func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, skippatch bool)
 	}
 
 	if err := i.loader.AddBundleSemver(updatedGraph, bundle); err != nil {
-		return fmt.Errorf("error loading bundle %s into db: %s", bundle.Name, err)
-	}
-
-	return nil
-}
-
-// loadOperatorBundle adds the package information to the loader's store
-func (i *DirectoryPopulator) loadOperatorBundle(manifest PackageManifest, bundle *Bundle) error {
-	if manifest.PackageName == "" {
-		return nil
-	}
-
-	if err := i.loader.AddBundlePackageChannels(manifest, bundle); err != nil {
 		return fmt.Errorf("error loading bundle %s into db: %s", bundle.Name, err)
 	}
 

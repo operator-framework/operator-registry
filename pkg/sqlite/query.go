@@ -871,6 +871,36 @@ func (s *SQLQuerier) GetDefaultChannelForPackage(ctx context.Context, pkgName st
 	return "", nil
 }
 
+func (s *SQLQuerier) GetAddModeForPackage(ctx context.Context, pkgName string) (registry.Mode, error) {
+	query := `SELECT DISTINCT add_mode FROM package WHERE name=? LIMIT 1`
+	rows, err := s.db.QueryContext(ctx, query, pkgName)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var addMode sql.NullString
+	if rows.Next() {
+		if err := rows.Scan(&addMode); err != nil {
+			return "", err
+		}
+	}
+
+	// We need to distinguish a NULL add mode (hasn't been set before)
+	// from an explicitly specified add mode.
+	//
+	// Older databases that were created prior to the add mode column
+	// existing will have a NULL value. We should treat those as valid
+	// (we'll set the add mode during the next add operation).
+	//
+	// If the add mode has been set, we need to verify that it is one of
+	// the values we expect -- hence, we pass it through GetModeFromString.
+	if !addMode.Valid {
+		return "", nil
+	}
+	return registry.GetModeFromString(addMode.String)
+}
+
 func (s *SQLQuerier) ListChannels(ctx context.Context, pkgName string) ([]string, error) {
 	query := `SELECT DISTINCT name FROM channel WHERE channel.package_name=?`
 	rows, err := s.db.QueryContext(ctx, query, pkgName)

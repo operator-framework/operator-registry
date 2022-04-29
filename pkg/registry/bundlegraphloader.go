@@ -35,6 +35,12 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		graph.Name = bundle.Package
 	}
 
+	if skippatch {
+		graph.AddMode = SkipPatchMode
+	} else {
+		graph.AddMode = SemVerMode
+	}
+
 	newDefaultChannel := annotations.Annotations.DefaultChannelName
 	if newDefaultChannel != "" {
 		graph.DefaultChannel = newDefaultChannel

@@ -91,6 +91,9 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 		simpleRefs = append(simpleRefs, image.SimpleReference(ref))
 	}
 
+	if request.Mode == "" {
+		request.Mode = registry.ReplacesMode
+	}
 	if err := populate(context.TODO(), dbLoader, graphLoader, dbQuerier, reg, simpleRefs, request.Mode, request.Overwrite); err != nil {
 		r.Logger.Debugf("unable to populate database: %s", err)
 

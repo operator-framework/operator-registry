@@ -88,6 +88,10 @@ func (EmptyQuery) GetDefaultChannelForPackage(ctx context.Context, pkgName strin
 	return "", errors.New("empty querier: cannot get default channel")
 }
 
+func (EmptyQuery) GetAddModeForPackage(ctx context.Context, pkgName string) (Mode, error) {
+	return "", errors.New("empty querier: cannot get add mode")
+}
+
 func (EmptyQuery) ListChannels(ctx context.Context, pkgName string) ([]string, error) {
 	return nil, errors.New("empty querier: cannot list channels")
 }

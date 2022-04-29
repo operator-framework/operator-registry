@@ -142,7 +142,7 @@ func TestAddPackageChannels(t *testing.T) {
 			}
 
 			for i, pkg := range tt.args.pkgs {
-				errs := store.AddPackageChannels(pkg)
+				errs := store.AddPackageChannels(pkg, registry.ReplacesMode)
 				require.Equal(t, tt.expected.errs[i], errs, "expected %v, got %v", tt.expected.errs[i], errs)
 			}
 
@@ -180,7 +180,7 @@ func TestAddBundleSemver(t *testing.T) {
 			},
 		},
 		DefaultChannelName: "stable",
-	})
+	}, registry.SemVerMode)
 	require.NoError(t, err)
 
 	// Add semver bundles in non-semver order.
@@ -249,7 +249,7 @@ func TestClearNonHeadBundles(t *testing.T) {
 			},
 		},
 		DefaultChannelName: channel,
-	})
+	}, registry.ReplacesMode)
 	require.NoError(t, err)
 
 	// Clear everything but the default bundle
@@ -612,7 +612,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			}
 
 			for _, pkg := range tt.fields.pkgs {
-				require.NoError(t, store.AddPackageChannels(pkg))
+				require.NoError(t, store.AddPackageChannels(pkg, registry.ReplacesMode))
 			}
 			for _, deprecatedPath := range tt.fields.deprecatedPaths {
 				require.NoError(t, store.DeprecateBundle(deprecatedPath))
@@ -881,7 +881,7 @@ func TestGetTailFromBundle(t *testing.T) {
 			}
 
 			for _, pkg := range tt.fields.pkgs {
-				require.NoError(t, store.AddPackageChannels(pkg))
+				require.NoError(t, store.AddPackageChannels(pkg, registry.ReplacesMode))
 			}
 			tx, err := db.Begin()
 			require.NoError(t, err)
@@ -1225,7 +1225,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 
 			for _, pkg := range tt.fields.pkgs {
 				// Throw away any errors loading packages (not testing this)
-				store.AddPackageChannels(pkg)
+				store.AddPackageChannels(pkg, registry.ReplacesMode)
 			}
 
 			getDefaultChannel := func(pkg string) sql.NullString {
