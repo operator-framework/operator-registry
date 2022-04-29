@@ -17,6 +17,9 @@ type DiffIncluder struct {
 	// Packages to add.
 	Packages []DiffIncludePackage
 	Logger   *logrus.Entry
+	// HeadsOnly is the mode that selects the head of the channels only.
+	// This setting will be overridden by any versions or bundles in the channels.
+	HeadsOnly bool
 }
 
 // DiffIncludePackage specifies a package, and optionally channels
@@ -35,6 +38,9 @@ type DiffIncludePackage struct {
 	// Package range setting is mutually exclusive with channel range/bundles/version
 	// settings.
 	Range semver.Range
+	// HeadsOnly is the mode that selects the head of the channels only.
+	// This setting will be overridden by any versions or bundles in the channels.
+	HeadsOnly bool
 }
 
 // DiffIncludeChannel specifies a channel, and optionally bundles and bundle versions
@@ -126,6 +132,7 @@ func (i DiffIncluder) Run(newModel, outputModel model.Model) error {
 
 	for _, ipkg := range i.Packages {
 		pkgLog := i.Logger.WithField("package", ipkg.Name)
+		ipkg.HeadsOnly = i.HeadsOnly
 		includeErrs = append(includeErrs, ipkg.includeNewInOutputModel(newModel, outputModel, pkgLog)...)
 	}
 	if len(includeErrs) != 0 {
@@ -146,10 +153,20 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 	}
 	pkgLog := logger.WithField("package", newPkg.Name)
 
-	// No channels or versions were specified, meaning "include the full package".
+	// No range, channels or versions were specified
 	if len(ipkg.Channels) == 0 && len(ipkg.AllChannels.Versions) == 0 && len(ipkg.AllChannels.Bundles) == 0 && ipkg.Range == nil {
-		outputModel[ipkg.Name] = newPkg
-		return nil
+		// heads-only false, meaning "include the full package".
+		if !ipkg.HeadsOnly {
+			outputModel[ipkg.Name] = newPkg
+			return nil
+		}
+		// heads-only true, get the head of every channel in the package
+		for _, c := range newPkg.Channels {
+			newCh := DiffIncludeChannel{
+				Name: c.Name,
+			}
+			ipkg.Channels = append(ipkg.Channels, newCh)
+		}
 	}
 
 	outputPkg := copyPackageNoChannels(newPkg)
@@ -197,16 +214,24 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 		chLog := pkgLog.WithField("channel", newCh.Name)
 
 		var bundles []*model.Bundle
+		var head *model.Bundle
 		var err error
-		if ich.Range != nil {
+		// No versions have been specified, but heads-only set to true, get the channel head only.
+		switch {
+		case ipkg.HeadsOnly && len(ich.Versions) == 0 && len(ich.Bundles) == 0 && ich.Range == nil:
+			head, err = newCh.Head()
+			bundles = append(bundles, head)
+		case ich.Range != nil:
 			bundles, err = getBundlesForRange(newCh, ich.Range, chLog)
-		} else {
+		default:
 			bundles, err = getBundlesForVersions(newCh, ich.Versions, ich.Bundles, chLog, skipMissingBundleForChannels[newCh.Name])
 		}
+
 		if err != nil {
 			ierrs = append(ierrs, fmt.Errorf("[package=%q channel=%q] %v", newPkg.Name, newCh.Name, err))
 			continue
 		}
+
 		outputCh := copyChannelNoBundles(newCh, outputPkg)
 		outputPkg.Channels[outputCh.Name] = outputCh
 		for _, b := range bundles {
