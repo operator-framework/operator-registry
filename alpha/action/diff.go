@@ -117,6 +117,12 @@ type DiffIncludePackage struct {
 	// are parsed for an upgrade graph.
 	// Set this field only if the named bundle has no semantic version metadata.
 	Bundles []string `json:"bundles,omitempty" yaml:"bundles,omitempty"`
+	// Semver range of versions to include. All channels containing these versions
+	// are parsed for an upgrade graph. If the channels don't contain these versions,
+	// they will be ignored. This range can only be used with package exclusively
+	// and cannot combined with `Range` in `DiffIncludeChannel`.
+	// Range setting is mutually exclusive with channel versions/bundles/range settings.
+	Range string `json:"range,omitempty" yaml:"range,omitempty"`
 }
 
 // DiffIncludeChannel contains a name (required) and versions (optional)
@@ -129,6 +135,11 @@ type DiffIncludeChannel struct {
 	// Bundles are bundle names to include.
 	// Set this field only if the named bundle has no semantic version metadata.
 	Bundles []string `json:"bundles,omitempty" yaml:"bundles,omitempty"`
+	// Semver range of versions to include in the channel. If the channel don't contain
+	// these versions, an error will be raised. This range can only be used with
+	// channel exclusively and cannot combined with `Range` in `DiffIncludePackage`.
+	// Range setting is mutually exclusive with Versions and Bundles settings.
+	Range string `json:"range,omitempty" yaml:"range,omitempty"`
 }
 
 // LoadDiffIncludeConfig loads a (YAML or JSON) DiffIncludeConfig from r.
@@ -148,10 +159,32 @@ func LoadDiffIncludeConfig(r io.Reader) (c DiffIncludeConfig, err error) {
 			errs = append(errs, fmt.Errorf("package at index %v requires a name", pkgI))
 			continue
 		}
+		if pkg.Range != "" && (len(pkg.Versions) != 0 || len(pkg.Bundles) != 0) {
+			errs = append(errs, fmt.Errorf("package %q contains invalid settings: range and versions and/or bundles are mutually exclusive", pkg.Name))
+		}
+		if pkg.Range != "" {
+			_, err := semver.ParseRange(pkg.Range)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("package %q has an invalid version range %s", pkg.Name, pkg.Range))
+			}
+		}
 		for chI, ch := range pkg.Channels {
 			if ch.Name == "" {
 				errs = append(errs, fmt.Errorf("package %s: channel at index %v requires a name", pkg.Name, chI))
 				continue
+			}
+			if ch.Range == "" {
+				continue
+			}
+			if ch.Range != "" && (len(ch.Versions) != 0 || len(ch.Bundles) != 0) {
+				errs = append(errs, fmt.Errorf("package %q: channel %q contains invalid settings: range and versions and/or bundles are mutually exclusive", pkg.Name, ch.Name))
+			}
+			if pkg.Range != "" && ch.Range != "" {
+				errs = append(errs, fmt.Errorf("version range settings in package %q and in channel %q must be mutually exclusive", pkg.Name, ch.Name))
+			}
+			_, err := semver.ParseRange(ch.Range)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("package %s: channel %q has an invalid version range %s", pkg.Name, ch.Name, pkg.Range))
 			}
 		}
 	}
@@ -165,6 +198,9 @@ func convertIncludeConfigToIncluder(c DiffIncludeConfig) (includer declcfg.DiffI
 		pkg.Name = cpkg.Name
 		pkg.AllChannels.Versions = cpkg.Versions
 		pkg.AllChannels.Bundles = cpkg.Bundles
+		if cpkg.Range != "" {
+			pkg.Range, _ = semver.ParseRange(cpkg.Range)
+		}
 
 		if len(cpkg.Channels) != 0 {
 			pkg.Channels = make([]declcfg.DiffIncludeChannel, len(cpkg.Channels))
@@ -173,6 +209,9 @@ func convertIncludeConfigToIncluder(c DiffIncludeConfig) (includer declcfg.DiffI
 				ch.Name = cch.Name
 				ch.Versions = cch.Versions
 				ch.Bundles = cch.Bundles
+				if cch.Range != "" {
+					ch.Range, _ = semver.ParseRange(cch.Range)
+				}
 			}
 		}
 	}

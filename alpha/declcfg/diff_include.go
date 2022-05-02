@@ -31,9 +31,14 @@ type DiffIncludePackage struct {
 	// Upgrade graphs from all channels in the named package containing a version
 	// from this field are included.
 	AllChannels DiffIncludeChannel
+	// The semver range of bundle versions.
+	// Package range setting is mutually exclusive with channel range/bundles/version
+	// settings.
+	Range semver.Range
 }
 
-// DiffIncludeChannel specifies a channel, and optionally bundles and bundle versions to include.
+// DiffIncludeChannel specifies a channel, and optionally bundles and bundle versions
+// (or version range) to include.
 type DiffIncludeChannel struct {
 	// Name of channel.
 	Name string
@@ -42,6 +47,71 @@ type DiffIncludeChannel struct {
 	// Bundles are bundle names to include.
 	// Set this field only if the named bundle has no semantic version metadata.
 	Bundles []string
+	// The semver range of bundle versions.
+	// Range setting is mutually exclusive with Versions and Bundles settings.
+	Range semver.Range
+}
+
+func (dip DiffIncludePackage) Validate() error {
+	var errs []error
+	if dip.Name == "" {
+		errs = append(errs, fmt.Errorf("missing package name"))
+	}
+
+	var isChannelSet bool
+	for _, ch := range dip.Channels {
+		isChannelSet = ch.isChannelSet()
+		err := ch.Validate()
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	isChannelSet = dip.AllChannels.isChannelSet()
+	if isChannelSet && dip.Range != nil {
+		errs = append(errs, fmt.Errorf("package range setting is mutually exclusive with channel versions/bundles/range settings"))
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("invalid DiffIncludePackage config for package %q:\n%v", dip.Name, utilerrors.NewAggregate(errs))
+	}
+	return nil
+}
+
+// isChannelSet returns true if at least one of Range/Bundles/Versions is set
+func (dic DiffIncludeChannel) isChannelSet() bool {
+	return dic.Range != nil || len(dic.Versions) != 0 || len(dic.Bundles) != 0
+}
+
+func (dic DiffIncludeChannel) Validate() error {
+	var errs []error
+	if dic.Name == "" {
+		errs = append(errs, fmt.Errorf("missing channel name"))
+	}
+
+	if dic.Range != nil && (len(dic.Versions) != 0 || len(dic.Bundles) != 0) {
+		errs = append(errs, fmt.Errorf("Channel %q: range and versions/bundles are mutually exclusive", dic.Name))
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("invalid DiffIncludeChannel config for channel %q:\n%v", dic.Name, utilerrors.NewAggregate(errs))
+	}
+	return nil
+}
+
+func (i DiffIncluder) Validate() error {
+	var errs []error
+	for _, pkg := range i.Packages {
+		err := pkg.Validate()
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("invalid DiffIncluder config:\n%v", utilerrors.NewAggregate(errs))
+	}
+	return nil
 }
 
 // Run adds all packages and channels in DiffIncluder with matching names
@@ -49,6 +119,11 @@ type DiffIncludeChannel struct {
 // from newModel to outputModel.
 func (i DiffIncluder) Run(newModel, outputModel model.Model) error {
 	var includeErrs []error
+	if err := i.Validate(); err != nil {
+		includeErrs = append(includeErrs, err)
+		return fmt.Errorf("invalid DiffIncluder config:\n%v", utilerrors.NewAggregate(includeErrs))
+	}
+
 	for _, ipkg := range i.Packages {
 		pkgLog := i.Logger.WithField("package", ipkg.Name)
 		includeErrs = append(includeErrs, ipkg.includeNewInOutputModel(newModel, outputModel, pkgLog)...)
@@ -59,7 +134,7 @@ func (i DiffIncluder) Run(newModel, outputModel model.Model) error {
 	return nil
 }
 
-// includeNewInOutputModel adds all packages, channels, and versions (bundles)
+// includeNewInOutputModel adds all packages, channels, and range (or versions/bundles)
 // specified by ipkg that exist in newModel to outputModel. Any package, channel,
 // or version in ipkg not satisfied by newModel is an error.
 func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel model.Model, logger *logrus.Entry) (ierrs []error) {
@@ -72,26 +147,44 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 	pkgLog := logger.WithField("package", newPkg.Name)
 
 	// No channels or versions were specified, meaning "include the full package".
-	if len(ipkg.Channels) == 0 && len(ipkg.AllChannels.Versions) == 0 && len(ipkg.AllChannels.Bundles) == 0 {
+	if len(ipkg.Channels) == 0 && len(ipkg.AllChannels.Versions) == 0 && len(ipkg.AllChannels.Bundles) == 0 && ipkg.Range == nil {
 		outputModel[ipkg.Name] = newPkg
 		return nil
 	}
 
 	outputPkg := copyPackageNoChannels(newPkg)
 	outputModel[outputPkg.Name] = outputPkg
-
-	// Add all channels to ipkg.Channels if bundles or versions were specified to include across all channels.
-	// skipMissingBundleForChannels's value for a channel will be true IFF at least one version is specified,
-	// since some other channel may contain that version.
 	skipMissingBundleForChannels := map[string]bool{}
-	if len(ipkg.AllChannels.Versions) != 0 || len(ipkg.AllChannels.Bundles) != 0 {
-		for newChName := range newPkg.Channels {
-			ipkg.Channels = append(ipkg.Channels, DiffIncludeChannel{
-				Name:     newChName,
-				Versions: ipkg.AllChannels.Versions,
-				Bundles:  ipkg.AllChannels.Bundles,
-			})
-			skipMissingBundleForChannels[newChName] = true
+	if ipkg.Range != nil {
+		if len(ipkg.Channels) != 0 {
+			for _, ich := range ipkg.Channels {
+				if ich.Range != nil {
+					ierrs = append(ierrs, fmt.Errorf("[package=%q channel=%q] range setting is mutually exclusive between package and channel", newPkg.Name, ich.Name))
+				}
+			}
+		} else {
+			// Add package range setting to all existing channels if there is no
+			// channel setting in the config
+			for newChName := range newPkg.Channels {
+				ipkg.Channels = append(ipkg.Channels, DiffIncludeChannel{
+					Name:  newChName,
+					Range: ipkg.Range,
+				})
+			}
+		}
+	} else {
+		// Add all channels to ipkg.Channels if bundles or versions were specified to include across all channels.
+		// skipMissingBundleForChannels's value for a channel will be true IFF at least one version is specified,
+		// since some other channel may contain that version.
+		if len(ipkg.AllChannels.Versions) != 0 || len(ipkg.AllChannels.Bundles) != 0 {
+			for newChName := range newPkg.Channels {
+				ipkg.Channels = append(ipkg.Channels, DiffIncludeChannel{
+					Name:     newChName,
+					Versions: ipkg.AllChannels.Versions,
+					Bundles:  ipkg.AllChannels.Bundles,
+				})
+				skipMissingBundleForChannels[newChName] = true
+			}
 		}
 	}
 
@@ -103,7 +196,13 @@ func (ipkg DiffIncludePackage) includeNewInOutputModel(newModel, outputModel mod
 		}
 		chLog := pkgLog.WithField("channel", newCh.Name)
 
-		bundles, err := getBundlesForVersions(newCh, ich.Versions, ich.Bundles, chLog, skipMissingBundleForChannels[newCh.Name])
+		var bundles []*model.Bundle
+		var err error
+		if ich.Range != nil {
+			bundles, err = getBundlesForRange(newCh, ich.Range, chLog)
+		} else {
+			bundles, err = getBundlesForVersions(newCh, ich.Versions, ich.Bundles, chLog, skipMissingBundleForChannels[newCh.Name])
+		}
 		if err != nil {
 			ierrs = append(ierrs, fmt.Errorf("[package=%q channel=%q] %v", newPkg.Name, newCh.Name, err))
 			continue
@@ -173,11 +272,43 @@ func getBundlesForVersions(ch *model.Channel, vers []semver.Version, names []str
 		return nil, fmt.Errorf("bundles do not exist in channel: %s", strings.TrimSpace(sb.String()))
 	}
 
-	// Fill in the upgrade graph between each bundle and head.
-	// Regardless of semver order, this step needs to be performed
-	// for each included bundle because there might be leaf nodes
-	// in the upgrade graph for a particular version not captured
-	// by any other fill due to skips not being honored here.
+	bundles, err = fillUpgradeGraph(ch, bundles, logger)
+	if err != nil {
+		return nil, err
+	}
+	return bundles, nil
+}
+
+// getBundlesForRange returns all bundles matching the version range in vers
+// If the range is nil, return all bundles in the channel
+func getBundlesForRange(ch *model.Channel, vers semver.Range, logger *logrus.Entry) (bundles []*model.Bundle, err error) {
+	// Short circuit when an empty range was specified, meaning "include the whole channel"
+	if vers == nil {
+		for _, b := range ch.Bundles {
+			bundles = append(bundles, b)
+		}
+		return bundles, nil
+	}
+
+	for _, b := range ch.Bundles {
+		v, err := semver.Parse(b.Version.String())
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse bunble version: %s", err.Error())
+		}
+		if vers(v) {
+			bundles = append(bundles, b)
+		}
+	}
+
+	return bundles, nil
+}
+
+// fillUpgradeGraph fills in the upgrade graph between each bundle and head.
+// Regardless of semver order, this step needs to be performed
+// for each included bundle because there might be leaf nodes
+// in the upgrade graph for a particular version not captured
+// by any other fill due to skips not being honored here.
+func fillUpgradeGraph(ch *model.Channel, bundles []*model.Bundle, logger *logrus.Entry) (bd []*model.Bundle, err error) {
 	head, err := ch.Head()
 	if err != nil {
 		return nil, err
@@ -199,10 +330,10 @@ func getBundlesForVersions(ch *model.Channel, vers []semver.Version, names []str
 			bundleSet[rb.Name] = rb
 		}
 	}
+
 	for _, b := range bundleSet {
 		bundles = append(bundles, b)
 	}
-
 	return bundles, nil
 }
 
