@@ -10,14 +10,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/veneer/basic"
+	veneer_basic "github.com/operator-framework/operator-registry/alpha/veneer/basic"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 )
 
 func newBasicVeneerRenderCmd() *cobra.Command {
 	var (
-		veneer basic.Veneer
+		veneer veneer_basic.Veneer
 		output string
 	)
 	cmd := &cobra.Command{
