@@ -1,0 +1,99 @@
+package veneer
+
+import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+
+	"github.com/sirupsen/logrus"
+
+	// "github.com/blang/semver/v4"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/veneer/semver"
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
+	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/spf13/cobra"
+)
+
+func newSemverCmd() *cobra.Command {
+	output := ""
+	cmd := &cobra.Command{
+		Use:   "semver <filename>",
+		Short: "Generate a declarative config blob from a single 'semver veneer' file",
+		Long:  `Generate a declarative config blob from a single 'semver veneer' file`,
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := args[0]
+
+			var (
+				// semverRange semver.Range
+				err error
+			)
+			// if semverRangeStr == "" {
+			// 	semverRange = func(semver.Version) bool { return true }
+			// } else {
+			// 	semverRange, err = semver.ParseRange(semverRangeStr)
+			// 	if err != nil {
+			// 		return fmt.Errorf("invalid semver range %q", semverRangeStr)
+			// 	}
+			// }
+
+			var write func(declcfg.DeclarativeConfig, io.Writer) error
+			switch output {
+			case "json":
+				write = declcfg.WriteJSON
+			case "yaml":
+				write = declcfg.WriteYAML
+			default:
+				return fmt.Errorf("invalid output format %q", output)
+			}
+
+			// The bundle loading impl is somewhat verbose, even on the happy path,
+			// so discard all logrus default logger logs. Any important failures will be
+			// returned from veneer.Render and logged as fatal errors.
+			logrus.SetOutput(ioutil.Discard)
+
+			skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			cacheDir, err := os.MkdirTemp("", "veneer-registry-")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			reg, err := containerd.NewRegistry(
+				containerd.WithCacheDir(cacheDir),
+				containerd.SkipTLSVerify(skipTLSVerify),
+				containerd.WithPlainHTTP(useHTTP),
+				containerd.WithLog(nullLogger()),
+			)
+			if err != nil {
+				log.Fatalf("creating containerd registry: %v", err)
+			}
+			defer reg.Destroy()
+
+			veneer := semver.Veneer{
+				Ref: ref,
+			}
+			out, err := veneer.Render(cmd.Context())
+			if err != nil {
+				log.Fatalf("semver %q: %v", ref, err)
+			}
+
+			if out != nil {
+				if err := write(*out, os.Stdout); err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
+	return cmd
+}
