@@ -21,6 +21,7 @@ func NewCmd() *cobra.Command {
 	}
 
 	runCmd.AddCommand(newBasicVeneerRenderCmd())
+	runCmd.AddCommand(newSemverCmd())
 
 	return runCmd
 }
