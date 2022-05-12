@@ -18,33 +18,32 @@ import (
 
 // data passed into this module externally
 type Veneer struct {
-	Ref             string
-	SkipPatch       bool
-	ChannelsMajor   bool
-	ChannelsMinor   bool
-	TemplateStrings []string
+	Ref string
 }
 
 // IO structs -- BEGIN
-type SemverVeneerBundleEntry struct {
+type semverVeneerBundleEntry struct {
 	Image string `json:"image,omitempty"`
 }
 
-type CandidateBundles struct {
-	Bundles []SemverVeneerBundleEntry `json:"bundles,omitempty"`
+type candidateBundles struct {
+	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
 }
-type FastBundles struct {
-	Bundles []SemverVeneerBundleEntry `json:"bundles,omitempty"`
+type fastBundles struct {
+	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
 }
-type StableBundles struct {
-	Bundles []SemverVeneerBundleEntry `json:"bundles,omitempty"`
+type stableBundles struct {
+	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
 }
 
-type SemverVeneer struct {
-	Schema    string           `json:"schema"`
-	Candidate CandidateBundles `json:"candidate,omitempty"`
-	Fast      FastBundles      `json:"fast,omitempty"`
-	Stable    StableBundles    `json:"stable"`
+type semverVeneer struct {
+	Schema                string           `json:"schema"`
+	GenerateMajorChannels bool             `json:"generateMajorChannels,omitempty"`
+	GenerateMinorChannels bool             `json:"generateMinorChannels,omitempty"`
+	AvoidSkipPatch        bool             `json:"avoidSkipPatch,omitempty"`
+	Candidate             candidateBundles `json:"candidate,omitempty"`
+	Fast                  fastBundles      `json:"fast,omitempty"`
+	Stable                stableBundles    `json:"stable"`
 }
 
 // IO structs -- END
@@ -56,26 +55,26 @@ const (
 )
 
 // isvd.Channels["stable"] --> quay.io/foo/foo-bundle[0.1.0]
-type ChannelsDataMap map[string]BundlesDataMap  // channel-name --> BundlesDataMap
-type BundlesDataMap map[string][]semver.Version // bundle-name --> []bundle-versions
+type channelsDataMap map[string]bundlesDataMap  // channel-name --> bundlesDataMap
+type bundlesDataMap map[string][]semver.Version // bundle-name --> []bundle-versions
 // cname --> bname --> [v0, v1, v2, ...]
 
-type _tokenized_bundle_entry struct {
-	_path    string
-	_version semver.Version
+type tokenizedBundleEntry struct {
+	path    string
+	version semver.Version
 }
 
 // splits an image line into its identifying image path and version, e.g.
 // quay.io/foo/foo-bundle:0.2.1 ==> {
-//	_path:   quay.io/foo/foo-bundle,
-//  _version: 0.2.1
+//	path:   quay.io/foo/foo-bundle,
+//  version: 0.2.1
 // }
 // specifically decomposes to retain the bundle origin to differentiate in
 // case there are multiple operators of the same name but different origins,
 // e.g.:
 // "quay.io/foo/foo-bundle"
 // "docker.io/foo/foo-bundle"
-func newTokenizedBundleEntry(s string) (*_tokenized_bundle_entry, error) {
+func newTokenizedBundleEntry(s string) (*tokenizedBundleEntry, error) {
 	splits := strings.Split(s, ":")
 	path := splits[0]
 	verstring := splits[1]
@@ -84,27 +83,27 @@ func newTokenizedBundleEntry(s string) (*_tokenized_bundle_entry, error) {
 		return nil, err
 	}
 
-	return &_tokenized_bundle_entry{
-		_path:    path,
-		_version: ver,
+	return &tokenizedBundleEntry{
+		path:    path,
+		version: ver,
 	}, nil
 }
 
-func addBundlesToChannel(bundles []SemverVeneerBundleEntry) (*BundlesDataMap, error) {
-	bdm := make(BundlesDataMap)
+func addBundlesToChannel(bundles []semverVeneerBundleEntry) (*bundlesDataMap, error) {
+	bdm := make(bundlesDataMap)
 	for _, b := range bundles {
 		// fmt.Printf("  <--> adding %s bundle: %s\n", b.Image)
 		e, err := newTokenizedBundleEntry(b.Image)
 		if err != nil {
 			return nil, err
 		}
-		bdm[e._path] = append(bdm[e._path], e._version)
+		bdm[e.path] = append(bdm[e.path], e.version)
 	}
 	return &bdm, nil
 }
 
-func (sv *SemverVeneer) addBundlesToStandardChannels() (*ChannelsDataMap, error) {
-	isvd := ChannelsDataMap{}
+func (sv *semverVeneer) addBundlesToStandardChannels() (*channelsDataMap, error) {
+	isvd := channelsDataMap{}
 
 	bdm, err := addBundlesToChannel(sv.Candidate.Bundles)
 	if err != nil {
@@ -127,26 +126,47 @@ func (sv *SemverVeneer) addBundlesToStandardChannels() (*ChannelsDataMap, error)
 	return &isvd, nil
 }
 
-func ReadFile(ref string) (*SemverVeneer, error) {
+func ReadFile(ref string) (*semverVeneer, error) {
 	data, err := ioutil.ReadFile(ref)
 	if err != nil {
 		return nil, err
 	}
 
-	var sv SemverVeneer
+	// default behavior is to generate only minor channels and to use skips over replaces
+	sv := semverVeneer{
+		GenerateMajorChannels: false,
+		GenerateMinorChannels: true,
+		AvoidSkipPatch:        false,
+	}
 	if err := yaml.Unmarshal(data, &sv); err != nil {
 		return nil, err
 	}
 	return &sv, nil
 }
 
-func (v Veneer) Render(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
+func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 	// fmt.Printf("<--> Received config: skip(%t) major(%t) minor(%t) ref(%s)\n", v.SkipPatch, v.ChannelsMajor, v.ChannelsMinor, v.Ref)
 
-	sv, err := ReadFile(ref)
+	sv, err := ReadFile(v.Ref)
 	if err != nil {
 		log.Fatalf("semver-render: unable to read file: %v", err)
+	}
+	fmt.Printf("Semver-Veneer parsed:\n")
+	sv.write()
+
+	var cfgs []declcfg.DeclarativeConfig
+	for _, b := range sv.Candidate.Bundles {
+		r := action.Render{
+			AllowedRefMask: action.RefBundleImage,
+			Refs:           []string{b.Image},
+		}
+		c, err := r.Run(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cfgs = append(cfgs, *c)
+
 	}
 
 	cdm, err := sv.addBundlesToStandardChannels()
@@ -156,7 +176,7 @@ func (v Veneer) Render(ctx context.Context, ref string) (*declcfg.DeclarativeCon
 	// sv.write()
 	// fmt.Printf("<--> <-->\n")
 	// isvd.write()
-	channels, bundles := v.decomposeChannelsAndBundles(cdm)
+	channels, bundles := sv.decomposeChannelsAndBundles(cdm)
 	out.Channels = channels
 
 	// render the nascent bundles and accumulate them
@@ -175,7 +195,7 @@ func (v Veneer) Render(ctx context.Context, ref string) (*declcfg.DeclarativeCon
 	return &out, nil
 }
 
-func (v Veneer) addChannels(data map[string][]semver.Version, bpath string) []declcfg.Channel {
+func (sv *semverVeneer) addChannels(data map[string][]semver.Version, bpath string) []declcfg.Channel {
 	channels := []declcfg.Channel{}
 	for cvername, versions := range data {
 		c := newChannel(bpath, cvername)
@@ -187,7 +207,7 @@ func (v Veneer) addChannels(data map[string][]semver.Version, bpath string) []de
 		}
 
 		// link up the edges according to config
-		if !v.SkipPatch {
+		if sv.AvoidSkipPatch {
 			for i := 1; i < len(c.Entries); i++ {
 				c.Entries[i] = declcfg.ChannelEntry{
 					Name:     c.Entries[i].Name,
@@ -217,7 +237,7 @@ func (v Veneer) addChannels(data map[string][]semver.Version, bpath string) []de
 //   foo with version 0.1.0 ==> foo.0.1.0
 // generates a bundle for each predicted bundle name
 // for now, the name composition is fixed, but should be expanded to utilize user-supplied templates
-func (v Veneer) decomposeChannelsAndBundles(channels *ChannelsDataMap) ([]declcfg.Channel, []declcfg.Bundle) {
+func (sv *semverVeneer) decomposeChannelsAndBundles(channels *channelsDataMap) ([]declcfg.Channel, []declcfg.Bundle) {
 	outChannels := []declcfg.Channel{}
 	outBundles := []declcfg.Bundle{}
 
@@ -233,7 +253,7 @@ func (v Veneer) decomposeChannelsAndBundles(channels *ChannelsDataMap) ([]declcf
 			minors := make(map[string][]semver.Version, len(bver))
 
 			for _, ver := range bver {
-				if v.ChannelsMajor {
+				if sv.GenerateMajorChannels {
 					testChannelName := cname + "-" + getMajorVersion(ver).String()
 					if _, ok := majors[testChannelName]; !ok {
 						majors[testChannelName] = []semver.Version{ver}
@@ -244,7 +264,7 @@ func (v Veneer) decomposeChannelsAndBundles(channels *ChannelsDataMap) ([]declcf
 						// fmt.Printf("Adding new major channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
 					}
 				}
-				if v.ChannelsMinor {
+				if sv.GenerateMinorChannels {
 					testChannelName := cname + "-" + getMinorVersion(ver).String()
 					if _, ok := minors[testChannelName]; !ok {
 						minors[testChannelName] = []semver.Version{ver}
@@ -261,8 +281,8 @@ func (v Veneer) decomposeChannelsAndBundles(channels *ChannelsDataMap) ([]declcf
 				outBundles = append(outBundles, *newBundle(bpkg, bname, bimg))
 			}
 
-			outChannels = append(outChannels, v.addChannels(majors, bpath)...)
-			outChannels = append(outChannels, v.addChannels(minors, bpath)...)
+			outChannels = append(outChannels, sv.addChannels(majors, bpath)...)
+			outChannels = append(outChannels, sv.addChannels(minors, bpath)...)
 		}
 	}
 
@@ -299,11 +319,15 @@ func getMajorVersion(v semver.Version) semver.Version {
 	}
 }
 
-func (sv *SemverVeneer) write() error {
+func (sv *semverVeneer) write() error {
 	fmt.Printf("schema: %s\n", "olm.semver")
+
+	fmt.Printf("generatemajorchannels: %t\n", sv.GenerateMajorChannels)
+	fmt.Printf("generateminorchannels: %t\n", sv.GenerateMinorChannels)
+	fmt.Printf("avoidSkipPatch: %t\n", sv.AvoidSkipPatch)
+
 	fmt.Printf("candidate:\n")
 	fmt.Printf("  bundles:\n")
-
 	for _, b := range sv.Candidate.Bundles {
 		fmt.Printf("  - image: %s\n", b.Image)
 	}
@@ -322,7 +346,7 @@ func (sv *SemverVeneer) write() error {
 	return nil
 }
 
-func (channels *ChannelsDataMap) write() {
+func (channels *channelsDataMap) write() {
 	for cname, bmap := range *channels {
 		fmt.Printf("%s:\n", cname)
 		fmt.Printf("  bundles:\n")
@@ -332,4 +356,15 @@ func (channels *ChannelsDataMap) write() {
 			}
 		}
 	}
+}
+
+func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig {
+	out := &declcfg.DeclarativeConfig{}
+	for _, in := range cfgs {
+		out.Packages = append(out.Packages, in.Packages...)
+		out.Channels = append(out.Channels, in.Channels...)
+		out.Bundles = append(out.Bundles, in.Bundles...)
+		out.Others = append(out.Others, in.Others...)
+	}
+	return out
 }

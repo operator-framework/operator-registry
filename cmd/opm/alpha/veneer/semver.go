@@ -11,7 +11,7 @@ import (
 
 	// "github.com/blang/semver/v4"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	veneer_semver "github.com/operator-framework/operator-registry/alpha/veneer/semver"
+	"github.com/operator-framework/operator-registry/alpha/veneer/semver"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/spf13/cobra"
@@ -19,11 +19,6 @@ import (
 
 func newSemverCmd() *cobra.Command {
 	output := ""
-	// templates := []string{}
-	skipPatch := false
-	// semverRangeStr := ""
-	minorChannels := false
-	majorChannels := false
 	cmd := &cobra.Command{
 		Use:   "semver <filename>",
 		Short: "Generate a declarative config blob from a single 'semver veneer' file",
@@ -81,14 +76,10 @@ func newSemverCmd() *cobra.Command {
 			}
 			defer reg.Destroy()
 
-			veneer := veneer_semver.Veneer{
-				Ref:           ref,
-				SkipPatch:     skipPatch,
-				ChannelsMajor: majorChannels,
-				ChannelsMinor: minorChannels,
-				// TemplateStrings: templates,
+			veneer := semver.Veneer{
+				Ref: ref,
 			}
-			out, err := veneer.Render(cmd.Context(), ref)
+			out, err := veneer.Render(cmd.Context())
 			if err != nil {
 				log.Fatalf("semver %q: %v", ref, err)
 			}
@@ -104,12 +95,5 @@ func newSemverCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
-	cmd.Flags().BoolVar(&skipPatch, "skip-patch", false, "Add skips for intermediate semver patch versions")
-	// cmd.Flags().StringSliceVarP(&templates, "templates", "t", []string{"default"}, "Template strings evaluated against semver versions to generate channel names")
-	// cmd.Flags().StringVarP(&semverRangeStr, "semver-range", "r", "", "Semver range of bundles to consider when building channels")
-	cmd.Flags().BoolVarP(&majorChannels, "major-channels", "M", false, "generate channels including edges with the same major version")
-	cmd.Flags().BoolVarP(&minorChannels, "minor-channels", "m", false, "generate channels including edges with the same minor version")
-	cmd.Flags().Bool("skip-tls-verify", false, "disable TLS verification")
-	cmd.Flags().Bool("use-http", false, "use plain HTTP")
 	return cmd
 }
