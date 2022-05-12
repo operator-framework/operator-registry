@@ -29,6 +29,7 @@ type input struct {
 	newRefs         []string
 	skipDeps        bool
 	includeAdditive bool
+	headsOnly       bool
 	includeFile     string
 
 	output string
@@ -133,6 +134,8 @@ docker push registry.org/my-catalog:diff-latest
 			"Upgrade graphs from individual bundles/versions to their channel's head are also included")
 	cmd.Flags().BoolVar(&in.includeAdditive, "include-additive", false,
 		"Ref objects from --include-file are returned on top of 'heads-only' or 'latest' output")
+	cmd.Flags().BoolVar(&in.headsOnly, "headsOnly", false,
+		"Using `headsOnly` mode where head(s) of the channel(s) in the package are selected")
 
 	cmd.Flags().BoolVar(&in.debug, "debug", false, "enable debug logging")
 	return cmd
@@ -185,6 +188,7 @@ func (in *input) diffFunc(cmd *cobra.Command, args []string) error {
 		NewRefs:           in.newRefs,
 		SkipDependencies:  in.skipDeps,
 		IncludeAdditively: in.includeAdditive,
+		HeadsOnly:         in.headsOnly,
 		Logger:            in.logger,
 	}
 

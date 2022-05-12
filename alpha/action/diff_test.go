@@ -46,8 +46,9 @@ func TestDiff(t *testing.T) {
 		{
 			name: "Success/HeadsOnly",
 			diff: Diff{
-				Registry: registry,
-				NewRefs:  []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				Registry:  registry,
+				NewRefs:   []string{filepath.Join("testdata", "index-declcfgs", "latest")},
+				HeadsOnly: true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-headsonly")),
 			assertion:   require.NoError,
@@ -61,6 +62,7 @@ func TestDiff(t *testing.T) {
 					Packages: []DiffIncludePackage{{Name: "baz"}},
 				},
 				IncludeAdditively: true,
+				HeadsOnly:         true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-pkg")),
 			assertion:   require.NoError,
@@ -79,6 +81,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 				IncludeAdditively: true,
+				HeadsOnly:         true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
 			assertion:   require.NoError,
@@ -97,6 +100,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 				IncludeAdditively: true,
+				HeadsOnly:         true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
 			assertion:   require.NoError,
@@ -115,6 +119,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 				IncludeAdditively: true,
+				HeadsOnly:         true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
 			assertion:   require.NoError,
@@ -134,6 +139,7 @@ func TestDiff(t *testing.T) {
 					},
 				},
 				IncludeAdditively: true,
+				HeadsOnly:         true,
 			},
 			expectedCfg: loadDirFS(t, indicesDir, filepath.Join("testdata", "index-declcfgs", "exp-include-channel")),
 			assertion:   require.NoError,
@@ -141,8 +147,9 @@ func TestDiff(t *testing.T) {
 		{
 			name: "Fail/NewBundleImage",
 			diff: Diff{
-				Registry: registry,
-				NewRefs:  []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
+				Registry:  registry,
+				NewRefs:   []string{"test.registry/foo-operator/foo-bundle:v0.1.0"},
+				HeadsOnly: true,
 			},
 			assertion: func(t require.TestingT, err error, _ ...interface{}) {
 				if !assert.Error(t, err) {

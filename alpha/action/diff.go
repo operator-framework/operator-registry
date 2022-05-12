@@ -28,6 +28,8 @@ type Diff struct {
 	IncludeConfig DiffIncludeConfig
 	// IncludeAdditively catalog objects specified in IncludeConfig.
 	IncludeAdditively bool
+	// HeadsOnly is the mode that selects the head of the channels only.
+	HeadsOnly bool
 
 	Logger *logrus.Entry
 }
@@ -75,6 +77,7 @@ func (diff Diff) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		SkipDependencies:  diff.SkipDependencies,
 		Includer:          convertIncludeConfigToIncluder(diff.IncludeConfig),
 		IncludeAdditively: diff.IncludeAdditively,
+		HeadsOnly:         diff.HeadsOnly,
 	}
 	diffModel, err := g.Run(oldModel, newModel)
 	if err != nil {
