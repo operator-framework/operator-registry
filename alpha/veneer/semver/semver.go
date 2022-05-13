@@ -7,11 +7,11 @@ import (
 	"log"
 	"path"
 	"sort"
-	"strings"
 
 	"github.com/blang/semver/v4"
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/property"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -59,65 +59,94 @@ type channelsDataMap map[string]bundlesDataMap  // channel-name --> bundlesDataM
 type bundlesDataMap map[string][]semver.Version // bundle-name --> []bundle-versions
 // cname --> bname --> [v0, v1, v2, ...]
 
-type tokenizedBundleEntry struct {
-	path    string
-	version semver.Version
+type decomposedBundleEntry struct {
+	img string
+	ver semver.Version
 }
 
-// splits an image line into its identifying image path and version, e.g.
-// quay.io/foo/foo-bundle:0.2.1 ==> {
-//	path:   quay.io/foo/foo-bundle,
-//  version: 0.2.1
-// }
-// specifically decomposes to retain the bundle origin to differentiate in
-// case there are multiple operators of the same name but different origins,
-// e.g.:
-// "quay.io/foo/foo-bundle"
-// "docker.io/foo/foo-bundle"
-func newTokenizedBundleEntry(s string) (*tokenizedBundleEntry, error) {
-	splits := strings.Split(s, ":")
-	path := splits[0]
-	verstring := splits[1]
-	ver, err := semver.ParseTolerant(verstring)
-	if err != nil {
-		return nil, err
-	}
+func findit(s string, bundles []declcfg.Bundle) int {
 
-	return &tokenizedBundleEntry{
-		path:    path,
-		version: ver,
+	for index, _ := range bundles {
+		if bundles[index].Image == s {
+			return index
+		}
+	}
+	return len(bundles)
+}
+
+func decomposeBundle(bundle *semverVeneerBundleEntry, cfg *declcfg.DeclarativeConfig) (*decomposedBundleEntry, error) {
+	// from inputs,
+	// find the Bundle from the input name (bundle.Image in cfg.Bundles)
+	// decompose the bundle into its relevant constituent elements
+	// validate that:
+	// 1 - the named bundle can be found in the []Bundle
+	// 2 - there's only one olm.package property in the Bundle
+	// 3 - the version is parse-able
+	// 4 - the olm.package:packageName matches those already in the cfg.Packages
+	// index := sort.Search(len(cfg.Bundles), func(i int) bool { return bundle.Image == cfg.Bundles[i].Image })
+	index := findit(bundle.Image, cfg.Bundles)
+	if index == len(cfg.Bundles) {
+		return nil, fmt.Errorf("supplied bundle image name %q not found in rendered bundle images", bundle.Image)
+	}
+	b := cfg.Bundles[index]
+
+	props, err := property.Parse(b.Properties)
+	if err != nil {
+		return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
+	}
+	if len(props.Packages) != 1 {
+		return nil, fmt.Errorf("bundle %q has multiple %q properties, expected exactly 1", b.Name, property.TypePackage)
+	}
+	v, err := semver.Parse(props.Packages[0].Version)
+	if err != nil {
+		return nil, fmt.Errorf("bundle %q has invalid version %q: %v", b.Name, props.Packages[0].Version, err)
+	}
+	if len(cfg.Packages) > 0 {
+		// if we have a known package name, then ensure all new packages match
+		if props.Packages[0].PackageName != cfg.Packages[0].Name {
+			return nil, fmt.Errorf("bundle %q does not belong to this package: %q", props.Packages[0].PackageName, cfg.Packages[0].Name)
+		}
+	} else {
+		// if we don't currently have a package started in the catalog, cache the first
+		p := declcfg.Package{Name: props.Packages[0].PackageName}
+		cfg.Packages = append(cfg.Packages, p)
+	}
+	return &decomposedBundleEntry{
+		img: b.Name,
+		ver: v,
 	}, nil
 }
 
-func addBundlesToChannel(bundles []semverVeneerBundleEntry) (*bundlesDataMap, error) {
+func addBundlesToChannel(bundles []semverVeneerBundleEntry, cfg *declcfg.DeclarativeConfig) (*bundlesDataMap, error) {
 	bdm := make(bundlesDataMap)
 	for _, b := range bundles {
-		// fmt.Printf("  <--> adding %s bundle: %s\n", b.Image)
-		e, err := newTokenizedBundleEntry(b.Image)
+		fmt.Printf("  <--> adding bundle %q\n", b.Image)
+
+		e, err := decomposeBundle(&b, cfg)
 		if err != nil {
 			return nil, err
 		}
-		bdm[e.path] = append(bdm[e.path], e.version)
+		bdm[e.img] = append(bdm[e.img], e.ver)
 	}
 	return &bdm, nil
 }
 
-func (sv *semverVeneer) addBundlesToStandardChannels() (*channelsDataMap, error) {
+func (sv *semverVeneer) addBundlesToStandardChannels(cfg *declcfg.DeclarativeConfig) (*channelsDataMap, error) {
 	isvd := channelsDataMap{}
 
-	bdm, err := addBundlesToChannel(sv.Candidate.Bundles)
+	bdm, err := addBundlesToChannel(sv.Candidate.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
 	isvd[CandidateChannelName] = *bdm
 
-	bdm, err = addBundlesToChannel(sv.Fast.Bundles)
+	bdm, err = addBundlesToChannel(sv.Fast.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
 	isvd[FastChannelName] = *bdm
 
-	bdm, err = addBundlesToChannel(sv.Stable.Bundles)
+	bdm, err = addBundlesToChannel(sv.Stable.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +181,8 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	if err != nil {
 		log.Fatalf("semver-render: unable to read file: %v", err)
 	}
-	fmt.Printf("Semver-Veneer parsed:\n")
-	sv.write()
+	fmt.Printf("Semver-Veneer parsed\n")
+	// sv.write()
 
 	var cfgs []declcfg.DeclarativeConfig
 	for _, b := range sv.Candidate.Bundles {
@@ -166,31 +195,23 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 			return nil, err
 		}
 		cfgs = append(cfgs, *c)
+	}
+	out = *combineConfigs(cfgs)
 
+	fmt.Printf("all bundles parsed\n")
+	for _, b := range out.Bundles {
+		fmt.Printf("{ bundle Name:%q Image:%q }\n", b.Name, b.Image)
 	}
 
-	cdm, err := sv.addBundlesToStandardChannels()
+	cdm, err := sv.addBundlesToStandardChannels(&out)
 	if err != nil {
 		log.Fatalf("semver-render: unable to post-process bundle info: %v", err)
 	}
 	// sv.write()
 	// fmt.Printf("<--> <-->\n")
 	// isvd.write()
-	channels, bundles := sv.decomposeChannelsAndBundles(cdm)
+	channels := sv.decomposeChannels(cdm)
 	out.Channels = channels
-
-	// render the nascent bundles and accumulate them
-	for _, b := range bundles {
-		r := action.Render{
-			AllowedRefMask: action.RefBundleImage,
-			Refs:           []string{b.Image},
-		}
-		contributor, err := r.Run(ctx)
-		if err != nil {
-			return nil, err
-		}
-		out.Bundles = append(out.Bundles, contributor.Bundles...)
-	}
 
 	return &out, nil
 }
@@ -237,9 +258,8 @@ func (sv *semverVeneer) addChannels(data map[string][]semver.Version, bpath stri
 //   foo with version 0.1.0 ==> foo.0.1.0
 // generates a bundle for each predicted bundle name
 // for now, the name composition is fixed, but should be expanded to utilize user-supplied templates
-func (sv *semverVeneer) decomposeChannelsAndBundles(channels *channelsDataMap) ([]declcfg.Channel, []declcfg.Bundle) {
+func (sv *semverVeneer) decomposeChannels(channels *channelsDataMap) []declcfg.Channel {
 	outChannels := []declcfg.Channel{}
-	outBundles := []declcfg.Bundle{}
 
 	// fmt.Printf("<isvd.Schema> %s\n", data.Schema)
 	// fmt.Printf("<isvd.Channels> %s\n", channels)
@@ -275,10 +295,6 @@ func (sv *semverVeneer) decomposeChannelsAndBundles(channels *channelsDataMap) (
 						// fmt.Printf("Adding new minor channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
 					}
 				}
-				bpkg := path.Base(bpath)
-				bimg := bpath + ":" + ver.String()
-				bname := bpkg + "." + ver.String()
-				outBundles = append(outBundles, *newBundle(bpkg, bname, bimg))
 			}
 
 			outChannels = append(outChannels, sv.addChannels(majors, bpath)...)
@@ -286,7 +302,7 @@ func (sv *semverVeneer) decomposeChannelsAndBundles(channels *channelsDataMap) (
 		}
 	}
 
-	return outChannels, outBundles
+	return outChannels
 }
 
 func newChannel(pkgName, chName string) *declcfg.Channel {
