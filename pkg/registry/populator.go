@@ -255,7 +255,7 @@ func (i *DirectoryPopulator) loadManifestsSemver(bundle *Bundle, skippatch bool)
 	}
 
 	if err := i.loader.AddBundleSemver(updatedGraph, bundle); err != nil {
-		return fmt.Errorf("error loading bundle into db: %s", err)
+		return fmt.Errorf("error loading bundle %s into db: %s", bundle.Name, err)
 	}
 
 	return nil
@@ -268,7 +268,7 @@ func (i *DirectoryPopulator) loadOperatorBundle(manifest PackageManifest, bundle
 	}
 
 	if err := i.loader.AddBundlePackageChannels(manifest, bundle); err != nil {
-		return fmt.Errorf("error loading bundle into db: %s", err)
+		return fmt.Errorf("error loading bundle %s into db: %s", bundle.Name, err)
 	}
 
 	return nil
