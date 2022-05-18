@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-
+set -e
 USERNAME=
 IMG=
 VERSION_LIST="0.1.0 0.1.1 0.1.2 0.1.3 0.2.0 0.2.1 0.2.2 0.3.0 1.0.0 1.0.1 1.1.0"
+
+fbc_gen_script="$(dirname ${BASH_SOURCE[0]})/generate_bundle.sh"
 
 # dumb as a box of hammers scripts to generate a bunch of versions of the same bundle in a repo 
 # which can be used to do some testing on semver veneers
@@ -61,6 +63,7 @@ fi
 # in order to actually split a word list by whitespace
 for version in $VERSION_LIST
 do
-    docker build --tag $IMG:$version .
-    docker push $IMG:$version
+    targetrepo=$IMG version=$version force=true $fbc_gen_script
+#    docker build --tag $IMG:$version .
+#    docker push $IMG:$version
 done

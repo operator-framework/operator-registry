@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"path"
 	"sort"
+	"strings"
 
 	"github.com/blang/semver/v4"
 	"github.com/operator-framework/operator-registry/alpha/action"
@@ -54,10 +54,15 @@ const (
 	StableChannelName    = "stable"
 )
 
-// isvd.Channels["stable"] --> quay.io/foo/foo-bundle[0.1.0]
-type channelsDataMap map[string]bundlesDataMap  // channel-name --> bundlesDataMap
-type bundlesDataMap map[string][]semver.Version // bundle-name --> []bundle-versions
-// cname --> bname --> [v0, v1, v2, ...]
+// The order in which to choose a default channel for a package
+// For the earliest prefix with any non-empty channels generated,
+// the highest version with such a non-empty channel will be preferred as the default.
+var safeDefaultChannelPrefixPriority = []string{StableChannelName, FastChannelName, CandidateChannelName}
+
+type decomposedCatalog struct {
+	pkg      string
+	channels map[string][]*decomposedBundleEntry
+}
 
 type decomposedBundleEntry struct {
 	img string
@@ -108,8 +113,8 @@ func decomposeBundle(bundle *semverVeneerBundleEntry, cfg *declcfg.DeclarativeCo
 		}
 	} else {
 		// if we don't currently have a package started in the catalog, cache the first
-		p := declcfg.Package{Name: props.Packages[0].PackageName}
-		cfg.Packages = append(cfg.Packages, p)
+		p := newPackage(props.Packages[0].PackageName)
+		cfg.Packages = append(cfg.Packages, *p)
 	}
 	return &decomposedBundleEntry{
 		img: b.Name,
@@ -117,8 +122,8 @@ func decomposeBundle(bundle *semverVeneerBundleEntry, cfg *declcfg.DeclarativeCo
 	}, nil
 }
 
-func addBundlesToChannel(bundles []semverVeneerBundleEntry, cfg *declcfg.DeclarativeConfig) (*bundlesDataMap, error) {
-	bdm := make(bundlesDataMap)
+func addBundlesToChannel(bundles []semverVeneerBundleEntry, cfg *declcfg.DeclarativeConfig) ([]*decomposedBundleEntry, error) {
+	entries := []*decomposedBundleEntry{}
 	for _, b := range bundles {
 		fmt.Printf("  <--> adding bundle %q\n", b.Image)
 
@@ -126,31 +131,35 @@ func addBundlesToChannel(bundles []semverVeneerBundleEntry, cfg *declcfg.Declara
 		if err != nil {
 			return nil, err
 		}
-		bdm[e.img] = append(bdm[e.img], e.ver)
+		entries = append(entries, e)
 	}
-	return &bdm, nil
+	return entries, nil
 }
 
-func (sv *semverVeneer) addBundlesToStandardChannels(cfg *declcfg.DeclarativeConfig) (*channelsDataMap, error) {
-	isvd := channelsDataMap{}
+func (sv *semverVeneer) addBundlesToStandardChannels(cfg *declcfg.DeclarativeConfig) (*decomposedCatalog, error) {
+	isvd := decomposedCatalog{channels: map[string][]*decomposedBundleEntry{}}
 
 	bdm, err := addBundlesToChannel(sv.Candidate.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
-	isvd[CandidateChannelName] = *bdm
+	isvd.channels[CandidateChannelName] = bdm
 
 	bdm, err = addBundlesToChannel(sv.Fast.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
-	isvd[FastChannelName] = *bdm
+	isvd.channels[FastChannelName] = bdm
 
 	bdm, err = addBundlesToChannel(sv.Stable.Bundles, cfg)
 	if err != nil {
 		return nil, err
 	}
-	isvd[StableChannelName] = *bdm
+	isvd.channels[StableChannelName] = bdm
+
+	if len(cfg.Bundles) > 0 {
+		isvd.pkg = cfg.Bundles[0].Package
+	}
 
 	return &isvd, nil
 }
@@ -203,28 +212,80 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 		fmt.Printf("{ bundle Name:%q Image:%q }\n", b.Name, b.Image)
 	}
 
-	cdm, err := sv.addBundlesToStandardChannels(&out)
+	semverCatalog, err := sv.addBundlesToStandardChannels(&out)
 	if err != nil {
 		log.Fatalf("semver-render: unable to post-process bundle info: %v", err)
 	}
 	// sv.write()
 	// fmt.Printf("<--> <-->\n")
 	// isvd.write()
-	channels := sv.decomposeChannels(cdm)
+	channels := sv.decomposeChannels(semverCatalog)
 	out.Channels = channels
 
+	choosePackageDefaultChannel(&out, safeDefaultChannelPrefixPriority)
 	return &out, nil
 }
 
-func (sv *semverVeneer) addChannels(data map[string][]semver.Version, bpath string) []declcfg.Channel {
+func choosePackageDefaultChannel(dc *declcfg.DeclarativeConfig, defaultChannelPriority []string) {
+	channelPrefixList := []string{}
+	channelPrefixList = append(channelPrefixList, defaultChannelPriority...)
+	sort.Slice(channelPrefixList, func(i, j int) bool {
+		//longest prefix first.
+		return len(channelPrefixList[i]) > len(channelPrefixList[j])
+	})
+
+	for i, p := range dc.Packages {
+		prefixedChannels := map[string]string{}
+		if len(p.DefaultChannel) > 0 {
+			continue
+		}
+
+		for _, c := range dc.Channels {
+			if c.Package != p.Name {
+				continue
+			}
+
+			for _, pre := range channelPrefixList {
+				version := versionFromChannelName(c.Name, pre)
+				if version == nil {
+					// channel doesn't have this prefix
+					continue
+				}
+
+				if len(prefixedChannels[pre]) == 0 && len(c.Name) != 0 {
+					prefixedChannels[pre] = c.Name
+				} else {
+					prefixedVersion := versionFromChannelName(prefixedChannels[pre], pre)
+					if prefixedVersion.LT(*version) {
+						prefixedChannels[pre] = c.Name
+					} else if prefixedVersion.EQ(*version) && len(prefixedChannels[pre]) > len(c.Name) {
+						// Prefer a major version channel over a minor version channel
+						// stable-v1 > stable-v1.0
+						prefixedChannels[pre] = c.Name
+					}
+				}
+				// only the longest prefix must be matched
+				break
+			}
+		}
+
+		// first channel prefix in the priority list with the highest version.
+		for _, pre := range defaultChannelPriority {
+			if len(prefixedChannels[pre]) != 0 {
+				dc.Packages[i].DefaultChannel = prefixedChannels[pre]
+				break
+			}
+		}
+	}
+}
+
+func (sv *semverVeneer) addChannels(data map[string][]*decomposedBundleEntry, pkg string) []declcfg.Channel {
 	channels := []declcfg.Channel{}
-	for cvername, versions := range data {
-		c := newChannel(bpath, cvername)
+	for cname, bundles := range data {
+		c := newChannel(pkg, cname)
 		// add all (unlinked) entries to channel
-		bpkg := path.Base(bpath)
-		for _, ver := range versions {
-			bname := bpkg + "." + ver.String()
-			c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: bname})
+		for _, b := range bundles {
+			c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: b.img})
 		}
 
 		// link up the edges according to config
@@ -258,51 +319,111 @@ func (sv *semverVeneer) addChannels(data map[string][]semver.Version, bpath stri
 //   foo with version 0.1.0 ==> foo.0.1.0
 // generates a bundle for each predicted bundle name
 // for now, the name composition is fixed, but should be expanded to utilize user-supplied templates
-func (sv *semverVeneer) decomposeChannels(channels *channelsDataMap) []declcfg.Channel {
+func (sv *semverVeneer) decomposeChannels(catalog *decomposedCatalog) []declcfg.Channel {
 	outChannels := []declcfg.Channel{}
 
 	// fmt.Printf("<isvd.Schema> %s\n", data.Schema)
 	// fmt.Printf("<isvd.Channels> %s\n", channels)
-	for cname, bmap := range *channels {
-		for bpath, bver := range bmap {
-			sort.Slice(bver, func(i, j int) bool {
-				return bver[i].LT(bver[j])
-			})
+	for cname, blist := range catalog.channels {
+		majors := map[string][]*decomposedBundleEntry{}
+		minors := map[string][]*decomposedBundleEntry{}
+		sort.Slice(blist, func(i, j int) bool {
+			return blist[i].ver.LT(blist[j].ver)
+		})
 
-			majors := make(map[string][]semver.Version, len(bver))
-			minors := make(map[string][]semver.Version, len(bver))
-
-			for _, ver := range bver {
-				if sv.GenerateMajorChannels {
-					testChannelName := cname + "-" + getMajorVersion(ver).String()
-					if _, ok := majors[testChannelName]; !ok {
-						majors[testChannelName] = []semver.Version{ver}
-						// fmt.Printf("Adding new major channel: %s\n", testChannelName)
-						// fmt.Printf("Adding new major channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
-					} else {
-						majors[testChannelName] = append(majors[testChannelName], ver)
-						// fmt.Printf("Adding new major channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
-					}
+		var minorChannelNames []string
+		for _, b := range blist {
+			if sv.GenerateMajorChannels {
+				testChannelName := majorFromVersion(cname, b.ver)
+				if _, ok := majors[testChannelName]; !ok {
+					majors[testChannelName] = []*decomposedBundleEntry{}
 				}
-				if sv.GenerateMinorChannels {
-					testChannelName := cname + "-" + getMinorVersion(ver).String()
-					if _, ok := minors[testChannelName]; !ok {
-						minors[testChannelName] = []semver.Version{ver}
-						// fmt.Printf("Adding new minor channel: %s\n", testChannelName)
-						// fmt.Printf("Adding new minor channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
-					} else {
-						minors[testChannelName] = append(minors[testChannelName], ver)
-						// fmt.Printf("Adding new minor channel contributor: %s to channel: %s\n", ver.String(), testChannelName)
+				majors[testChannelName] = append(majors[testChannelName], b)
+			}
+			if sv.GenerateMinorChannels {
+				testChannelName := minorFromVersion(cname, b.ver)
+				if _, ok := minors[testChannelName]; !ok {
+					minors[testChannelName] = []*decomposedBundleEntry{}
+					minorChannelNames = append(minorChannelNames, testChannelName)
+				}
+				minors[testChannelName] = append(minors[testChannelName], b)
+			}
+		}
+
+		outChannels = append(outChannels, sv.addChannels(majors, catalog.pkg)...)
+
+		minorChannels := sv.addChannels(minors, catalog.pkg)
+
+		// Add edges between heads of sorted successive minor version channels of the same major versions
+		// These don't need to be consecutive: for a channel set [v1.0, v1.3, v1.2], the edges generated would be:
+		// v1.0 -> v1.2 -> v1.3
+		if sv.GenerateMinorChannels {
+			// have an edge from channel head (highest version) of each minor version channel
+			// to the channel head of the minor version channel immediately above it.
+			// No upgrades between channel types (stable, fast, candidate) or between
+			// major versions.
+			minorChannelMap := map[string]int{}
+			for i := range minorChannels {
+				minorChannelMap[minorChannels[i].Name] = i
+			}
+			for i := range minorChannelNames {
+				if i > 0 {
+					prevChannelVersion := versionFromChannelName(minorChannelNames[i-1], cname)
+					currChannelVersion := versionFromChannelName(minorChannelNames[i], cname)
+					if prevChannelVersion.Major != currChannelVersion.Major {
+						continue
 					}
+
+					prevChannelEntries := minorChannels[minorChannelMap[minorChannelNames[i-1]]].Entries
+					currChannelEntries := minorChannels[minorChannelMap[minorChannelNames[i]]].Entries
+
+					prevChannelMaxVersion := prevChannelEntries[len(prevChannelEntries)-1]
+					currChannelMaxVersion := &currChannelEntries[len(currChannelEntries)-1]
+
+					if len(currChannelMaxVersion.Replaces) != 0 {
+						// Since all processed channels are freshly generated, there shouldn't be anything in a channel's replaces. This should never happen
+						currChannelMaxVersion.Skips = append(currChannelMaxVersion.Skips, currChannelMaxVersion.Replaces)
+					}
+					currChannelMaxVersion.Replaces = prevChannelMaxVersion.Name
 				}
 			}
-
-			outChannels = append(outChannels, sv.addChannels(majors, bpath)...)
-			outChannels = append(outChannels, sv.addChannels(minors, bpath)...)
 		}
+
+		outChannels = append(outChannels, minorChannels...)
 	}
 
 	return outChannels
+}
+
+func minorFromVersion(prefix string, version semver.Version) string {
+	return fmt.Sprintf("%s-v%d.%d", prefix, version.Major, version.Minor)
+}
+
+func majorFromVersion(prefix string, version semver.Version) string {
+	return fmt.Sprintf("%s-v%d", prefix, version.Major)
+}
+
+func versionFromChannelName(channel, prefix string) *semver.Version {
+	// assuming '<prefix>-v<version>' format:
+	if !strings.HasPrefix(channel, fmt.Sprintf("%s-v", prefix)) {
+		return nil
+	}
+
+	//edge case with weird names?
+	version, err := semver.ParseTolerant(channel[len(prefix)+2:])
+	if err != nil {
+		// This probably shouldn't get swallowed here
+		return nil
+	}
+	return &version
+}
+
+func newPackage(name string) *declcfg.Package {
+	return &declcfg.Package{
+		Schema:         "olm.package",
+		Name:           name,
+		DefaultChannel: "",
+	}
 }
 
 func newChannel(pkgName, chName string) *declcfg.Channel {
@@ -319,19 +440,6 @@ func newBundle(pkg, name, image string) *declcfg.Bundle {
 		Package: pkg,
 		Image:   image,
 		Name:    name,
-	}
-}
-
-func getMinorVersion(v semver.Version) semver.Version {
-	return semver.Version{
-		Major: v.Major,
-		Minor: v.Minor,
-	}
-}
-
-func getMajorVersion(v semver.Version) semver.Version {
-	return semver.Version{
-		Major: v.Major,
 	}
 }
 
@@ -362,14 +470,12 @@ func (sv *semverVeneer) write() error {
 	return nil
 }
 
-func (channels *channelsDataMap) write() {
-	for cname, bmap := range *channels {
+func (channels *decomposedCatalog) write() {
+	for cname, bmap := range (*channels).channels {
 		fmt.Printf("%s:\n", cname)
 		fmt.Printf("  bundles:\n")
-		for bname, bvers := range bmap {
-			for _, elem := range bvers {
-				fmt.Printf("  - image: %s:%s\n", bname, elem.String())
-			}
+		for _, b := range bmap {
+			fmt.Printf("  - image: %s:%s\n", b.img, b.ver)
 		}
 	}
 }
