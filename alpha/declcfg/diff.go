@@ -99,20 +99,19 @@ func (g *DiffGenerator) Run(oldModel, newModel model.Model) (model.Model, error)
 			if err := latestPruneFromOutput(); err != nil {
 				return nil, err
 			}
-		} else {
-			for _, outputPkg := range outputModel {
-				for _, ch := range outputPkg.Channels {
-					if len(ch.Bundles) == 0 {
-						delete(outputPkg.Channels, ch.Name)
-					}
-				}
-				if len(outputPkg.Channels) == 0 {
-					// Remove empty packages.
-					delete(outputModel, outputPkg.Name)
-				}
-			}
 		}
 
+		for _, outputPkg := range outputModel {
+			for _, ch := range outputPkg.Channels {
+				if len(ch.Bundles) == 0 {
+					delete(outputPkg.Channels, ch.Name)
+				}
+			}
+			if len(outputPkg.Channels) == 0 {
+				// Remove empty packages.
+				delete(outputModel, outputPkg.Name)
+			}
+		}
 	case isInclude: // Add included objects to outputModel.
 
 		// Assume heads-only is false for include additively since we already have the channel heads

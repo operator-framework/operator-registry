@@ -131,6 +131,76 @@ func TestDiffLatest(t *testing.T) {
 			expCfg: DeclarativeConfig{},
 		},
 		{
+			name:   "HasDiff/EmptyChannel",
+			oldCfg: DeclarativeConfig{},
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.2.0"},
+					}},
+					{Schema: schemaChannel, Name: "v1", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.2.0"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{
+				Includer: DiffIncluder{
+					Packages: []DiffIncludePackage{
+						{
+							Name: "foo",
+							AllChannels: DiffIncludeChannel{
+								Versions: []semver.Version{semver.MustParse("0.2.0")},
+							},
+						},
+					},
+				},
+			},
+			expCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.2.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.2.0"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "HasDiff/OneModifiedBundle",
 			oldCfg: DeclarativeConfig{
 				Packages: []Package{
@@ -1331,6 +1401,76 @@ func TestDiffHeadsOnly(t *testing.T) {
 				},
 			},
 			expCfg: DeclarativeConfig{},
+		},
+		{
+			name: "HasDiff/EmptyChannel",
+			newCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.2.0"},
+					}},
+					{Schema: schemaChannel, Name: "v1", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.1.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.1.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.1.0"),
+						},
+					},
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.2.0"),
+						},
+					},
+				},
+			},
+			g: &DiffGenerator{
+				HeadsOnly: true,
+				Includer: DiffIncluder{
+					Packages: []DiffIncludePackage{
+						{
+							Name: "foo",
+							AllChannels: DiffIncludeChannel{
+								Versions: []semver.Version{semver.MustParse("0.2.0")},
+							},
+						},
+					},
+				},
+			},
+			expCfg: DeclarativeConfig{
+				Packages: []Package{
+					{Schema: schemaPackage, Name: "foo", DefaultChannel: "stable"},
+				},
+				Channels: []Channel{
+					{Schema: schemaChannel, Name: "stable", Package: "foo", Entries: []ChannelEntry{
+						{Name: "foo.v0.2.0"},
+					}},
+				},
+				Bundles: []Bundle{
+					{
+						Schema:  schemaBundle,
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "reg/foo:latest",
+						Properties: []property.Property{
+							property.MustBuildPackage("foo", "0.2.0"),
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "HasDiff/OneBundle",
