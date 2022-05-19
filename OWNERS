@@ -22,5 +22,6 @@ reviewers:
   - joelanford
   - jmrodri
   - timflannagan
+  - grokspawn
 # Bugzilla component
 component: "OLM"
