@@ -440,7 +440,20 @@ func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.Graph
 			for b := range graph.Channels[channel].Nodes[graph.Channels[channel].Head] {
 				headSkips = append(headSkips, b.CsvName)
 			}
-			errs = append(errs, fmt.Errorf("add prunes bundle %s (%s) from package %s, channel %s: this may be due to incorrect channel head (%s, skips/replaces %v)", bundle.Name, bundle.BundleImage, bundle.Package, channel, graph.Channels[channel].Head.CsvName, headSkips))
+			errs = append(errs, fmt.Errorf("add prunes bundle %s (%s) from package %s, channel %s: this may be "+
+				"due to incorrect channel head (%s, skips/replaces %v). "+
+				"Be aware that the head of the channel %s where you are trying to add the %s is %s. "+
+				"Upgrade graphs follows the Semantic Versioning 2.0.0 (https://semver.org/) which means that "+
+				"is not possible add new versions lower then the head of the channel",
+				bundle.Name,
+				bundle.BundleImage,
+				bundle.Package,
+				channel,
+				graph.Channels[channel].Head.CsvName,
+				headSkips,
+				channel,
+				bundle.Name,
+				graph.Channels[channel].Head.CsvName))
 		}
 	}
 	return utilerrors.NewAggregate(errs)
