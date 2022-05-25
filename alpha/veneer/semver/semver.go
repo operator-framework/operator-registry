@@ -279,37 +279,152 @@ func choosePackageDefaultChannel(dc *declcfg.DeclarativeConfig, defaultChannelPr
 	}
 }
 
+// all channels that come to addChannels MUST have the same prefix. This adds replaces edges of minor versions of the largest major version.
 func (sv *semverVeneer) addChannels(data map[string][]*decomposedBundleEntry, pkg string) []declcfg.Channel {
 	channels := []declcfg.Channel{}
+
+	type channelParts struct {
+		prefix  string
+		version semver.Version
+		index   int
+	}
+	channelNameParts := []channelParts{}
+
 	for cname, bundles := range data {
+		if len(bundles) == 0 {
+			continue
+		}
 		c := newChannel(pkg, cname)
-		// add all (unlinked) entries to channel
-		for _, b := range bundles {
-			c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: b.img})
+		sort.Slice(bundles, func(i, j int) bool {
+			return bundles[i].ver.LT(bundles[j].ver)
+		})
+
+		currMinor := semver.Version{Major: bundles[0].ver.Major, Minor: bundles[0].ver.Minor}
+		minorVersionStartIndex := 0
+		var prevVersion string
+		for i := range bundles {
+			if sv.AvoidSkipPatch {
+				c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: bundles[i].img, Replaces: prevVersion})
+				prevVersion = bundles[i].img
+				if (i != len(bundles)-1) && currMinor.EQ(semver.Version{Major: bundles[i+1].ver.Major, Minor: bundles[i+1].ver.Minor}) {
+					continue
+				}
+				if i == len(bundles)-1 {
+					// we've already processed the entire bundle set, don't update any loop variables.
+					break
+				}
+				prevVersion = bundles[i].img // The version that gets added to the replaces field of the bundle with the highest version among the next minor version
+				currMinor = semver.Version{Major: bundles[i+1].ver.Major, Minor: bundles[i+1].ver.Minor}
+				minorVersionStartIndex = i + 1 // The bundle from which we start adding skips entries
+				continue
+			}
+
+			c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: bundles[i].img})
+
+			// if either the bundle processed is the last in the list or
+			// the next bundle has a different minor version from the current bundle,
+			// add skips entries to the current bundles.
+			if (i != len(bundles)-1) && currMinor.EQ(semver.Version{Major: bundles[i+1].ver.Major, Minor: bundles[i+1].ver.Minor}) {
+				continue
+			}
+
+			curSkips := sets.NewString()
+			for j := minorVersionStartIndex; j < i; j++ {
+				// previous n entries were all of the same minor.
+				curSkips = curSkips.Insert(c.Entries[j].Name)
+			}
+			c.Entries[i].Replaces = prevVersion // this should be empty for minor version channels
+			if curSkips.Len() > 0 {
+				c.Entries[i].Skips = curSkips.List()
+			}
+
+			if i == len(bundles)-1 {
+				// we've already processed the entire bundle set, don't update any loop variables.
+				break
+			}
+
+			prevVersion = bundles[i].img // The version that gets added to the replaces field of the bundle with the highest version among the next minor version
+			currMinor = semver.Version{Major: bundles[i+1].ver.Major, Minor: bundles[i+1].ver.Minor}
+			minorVersionStartIndex = i + 1 // The bundle from which we start adding skips entries
 		}
 
-		// link up the edges according to config
-		if sv.AvoidSkipPatch {
-			for i := 1; i < len(c.Entries); i++ {
-				c.Entries[i] = declcfg.ChannelEntry{
-					Name:     c.Entries[i].Name,
-					Replaces: c.Entries[i-1].Name,
-				}
-			}
-		} else {
-			maxIndex := len(c.Entries) - 1
-			curSkips := sets.NewString()
-			for i := 0; i < maxIndex; i++ {
-				curSkips = curSkips.Insert(c.Entries[i].Name)
-			}
-			c.Entries[maxIndex] = declcfg.ChannelEntry{
-				Name:  c.Entries[maxIndex].Name,
-				Skips: curSkips.List(),
-			}
+		//// add all (unlinked) entries to channel
+		//for _, b := range bundles {
+		//	c.Entries = append(c.Entries, declcfg.ChannelEntry{Name: b.img})
+		//}
+		//
+		//// link up the edges according to config
+		//if sv.AvoidSkipPatch {
+		//	for i := 1; i < len(c.Entries); i++ {
+		//		c.Entries[i] = declcfg.ChannelEntry{
+		//			Name:     c.Entries[i].Name,
+		//			Replaces: c.Entries[i-1].Name,
+		//		}
+		//	}
+		//} else {
+		//
+		//	maxIndex := len(c.Entries) - 1
+		//	curSkips := sets.NewString()
+		//
+		//	for i := 0; i < maxIndex; i++ {
+		//		curSkips = curSkips.Insert(c.Entries[i].Name)
+		//	}
+		//	c.Entries[maxIndex] = declcfg.ChannelEntry{
+		//		Name:  c.Entries[maxIndex].Name,
+		//		Skips: curSkips.List(),
+		//	}
+		//}
+
+		channelPrefix := prefixFromChannelName(cname, bundles[0].ver)
+		channelVersion := versionFromChannelName(cname, channelPrefix)
+		if c.Name == minorFromVersion(channelPrefix, *channelVersion) {
+			channelNameParts = append(channelNameParts, channelParts{
+				prefix:  channelPrefix,
+				version: *channelVersion,
+				index:   len(channels),
+			})
 		}
 
 		channels = append(channels, *c)
 	}
+
+	// sort the channel ref map by their prefix + version. This should only contain indices of minor version channels
+	sort.Slice(channelNameParts, func(i, j int) bool {
+		if channelNameParts[i].prefix != channelNameParts[j].prefix {
+			return channelNameParts[i].prefix < channelNameParts[j].prefix
+		}
+		return channelNameParts[i].version.LT(channelNameParts[j].version)
+	})
+
+	for i := range channelNameParts {
+		if i == 0 {
+			continue
+		}
+		if channelNameParts[i].version.Major != channelNameParts[i-1].version.Major {
+			// No edges across different major versions
+			continue
+		}
+
+		prevChanEntries := channels[channelNameParts[i-1].index].Entries
+		prevChanLastEntry := channels[channelNameParts[i-1].index].Entries[len(prevChanEntries)-1]
+
+		currChanEntries := channels[channelNameParts[i].index].Entries
+		var currChanLastEntry *declcfg.ChannelEntry
+		if sv.AvoidSkipPatch {
+			// in no skipPatch mode, add the edge from previous channel minor version to first bundle (smallest version) in current minor version channel
+			currChanLastEntry = &channels[channelNameParts[i].index].Entries[0]
+		} else {
+			// in skipPatch mode, the replaces edge from the previous channel minor version goes to the channel head (largest version)
+			currChanLastEntry = &channels[channelNameParts[i].index].Entries[len(currChanEntries)-1]
+		}
+
+		if len(currChanLastEntry.Replaces) != 0 && currChanLastEntry.Replaces != prevChanLastEntry.Name {
+			// This should never happen
+			currChanLastEntry.Skips = append(currChanLastEntry.Skips, currChanLastEntry.Replaces)
+		}
+		currChanLastEntry.Replaces = prevChanLastEntry.Name
+	}
+
 	return channels
 }
 
@@ -351,45 +466,7 @@ func (sv *semverVeneer) decomposeChannels(catalog *decomposedCatalog) []declcfg.
 		}
 
 		outChannels = append(outChannels, sv.addChannels(majors, catalog.pkg)...)
-
-		minorChannels := sv.addChannels(minors, catalog.pkg)
-
-		// Add edges between heads of sorted successive minor version channels of the same major versions
-		// These don't need to be consecutive: for a channel set [v1.0, v1.3, v1.2], the edges generated would be:
-		// v1.0 -> v1.2 -> v1.3
-		if sv.GenerateMinorChannels {
-			// have an edge from channel head (highest version) of each minor version channel
-			// to the channel head of the minor version channel immediately above it.
-			// No upgrades between channel types (stable, fast, candidate) or between
-			// major versions.
-			minorChannelMap := map[string]int{}
-			for i := range minorChannels {
-				minorChannelMap[minorChannels[i].Name] = i
-			}
-			for i := range minorChannelNames {
-				if i > 0 {
-					prevChannelVersion := versionFromChannelName(minorChannelNames[i-1], cname)
-					currChannelVersion := versionFromChannelName(minorChannelNames[i], cname)
-					if prevChannelVersion.Major != currChannelVersion.Major {
-						continue
-					}
-
-					prevChannelEntries := minorChannels[minorChannelMap[minorChannelNames[i-1]]].Entries
-					currChannelEntries := minorChannels[minorChannelMap[minorChannelNames[i]]].Entries
-
-					prevChannelMaxVersion := prevChannelEntries[len(prevChannelEntries)-1]
-					currChannelMaxVersion := &currChannelEntries[len(currChannelEntries)-1]
-
-					if len(currChannelMaxVersion.Replaces) != 0 {
-						// Since all processed channels are freshly generated, there shouldn't be anything in a channel's replaces. This should never happen
-						currChannelMaxVersion.Skips = append(currChannelMaxVersion.Skips, currChannelMaxVersion.Replaces)
-					}
-					currChannelMaxVersion.Replaces = prevChannelMaxVersion.Name
-				}
-			}
-		}
-
-		outChannels = append(outChannels, minorChannels...)
+		outChannels = append(outChannels, sv.addChannels(minors, catalog.pkg)...)
 	}
 
 	return outChannels
@@ -416,6 +493,17 @@ func versionFromChannelName(channel, prefix string) *semver.Version {
 		return nil
 	}
 	return &version
+}
+
+func prefixFromChannelName(channel string, version semver.Version) string {
+	if suffix := fmt.Sprintf("-v%d.%d", version.Major, version.Minor); strings.HasSuffix(channel, suffix) {
+		return channel[:len(channel)-len(suffix)]
+	}
+	if suffix := fmt.Sprintf("-v%d", version.Major); strings.HasSuffix(channel, suffix) {
+		return channel[:len(channel)-len(suffix)]
+	}
+	// No matching prefix
+	return ""
 }
 
 func newPackage(name string) *declcfg.Package {
