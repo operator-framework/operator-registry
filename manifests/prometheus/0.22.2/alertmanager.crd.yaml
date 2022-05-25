@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: alertmanagers.monitoring.coreos.com
 spec:
+  preserveUnknownFields: false
   group: monitoring.coreos.com
   names:
     kind: Alertmanager
