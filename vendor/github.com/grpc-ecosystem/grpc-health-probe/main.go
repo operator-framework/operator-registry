@@ -23,12 +23,18 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
+	"unicode"
 
+	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/alts"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -37,6 +43,7 @@ var (
 	flService       string
 	flUserAgent     string
 	flConnTimeout   time.Duration
+	flRPCHeaders    = rpcHeaders{MD: make(metadata.MD)}
 	flRPCTimeout    time.Duration
 	flTLS           bool
 	flTLSNoVerify   bool
@@ -44,7 +51,10 @@ var (
 	flTLSClientCert string
 	flTLSClientKey  string
 	flTLSServerName string
+	flALTS          bool
 	flVerbose       bool
+	flGZIP          bool
+	flSPIFFE        bool
 )
 
 const (
@@ -56,26 +66,36 @@ const (
 	StatusRPCFailure = 3
 	// StatusUnhealthy indicates rpc succeeded but indicates unhealthy service.
 	StatusUnhealthy = 4
+	// StatusSpiffeFailed indicates failure to retrieve credentials using spiffe workload API
+	StatusSpiffeFailed = 20
 )
 
 func init() {
+	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	log.SetFlags(0)
-	flag.StringVar(&flAddr, "addr", "", "(required) tcp host:port to connect")
-	flag.StringVar(&flService, "service", "", "service name to check (default: \"\")")
-	flag.StringVar(&flUserAgent, "user-agent", "grpc_health_probe", "user-agent header value of health check requests")
+	flagSet.StringVar(&flAddr, "addr", "", "(required) tcp host:port to connect")
+	flagSet.StringVar(&flService, "service", "", "service name to check (default: \"\")")
+	flagSet.StringVar(&flUserAgent, "user-agent", "grpc_health_probe", "user-agent header value of health check requests")
 	// timeouts
-	flag.DurationVar(&flConnTimeout, "connect-timeout", time.Second, "timeout for establishing connection")
-	flag.DurationVar(&flRPCTimeout, "rpc-timeout", time.Second, "timeout for health check rpc")
+	flagSet.DurationVar(&flConnTimeout, "connect-timeout", time.Second, "timeout for establishing connection")
+	flagSet.Var(&flRPCHeaders, "rpc-header", "additional RPC headers in 'name: value' format. May specify more than one via multiple flags.")
+	flagSet.DurationVar(&flRPCTimeout, "rpc-timeout", time.Second, "timeout for health check rpc")
 	// tls settings
-	flag.BoolVar(&flTLS, "tls", false, "use TLS (default: false, INSECURE plaintext transport)")
-	flag.BoolVar(&flTLSNoVerify, "tls-no-verify", false, "(with -tls) don't verify the certificate (INSECURE) presented by the server (default: false)")
-	flag.StringVar(&flTLSCACert, "tls-ca-cert", "", "(with -tls, optional) file containing trusted certificates for verifying server")
-	flag.StringVar(&flTLSClientCert, "tls-client-cert", "", "(with -tls, optional) client certificate for authenticating to the server (requires -tls-client-key)")
-	flag.StringVar(&flTLSClientKey, "tls-client-key", "", "(with -tls) client private key for authenticating to the server (requires -tls-client-cert)")
-	flag.StringVar(&flTLSServerName, "tls-server-name", "", "(with -tls) override the hostname used to verify the server certificate")
-	flag.BoolVar(&flVerbose, "v", false, "verbose logs")
+	flagSet.BoolVar(&flTLS, "tls", false, "use TLS (default: false, INSECURE plaintext transport)")
+	flagSet.BoolVar(&flTLSNoVerify, "tls-no-verify", false, "(with -tls) don't verify the certificate (INSECURE) presented by the server (default: false)")
+	flagSet.StringVar(&flTLSCACert, "tls-ca-cert", "", "(with -tls, optional) file containing trusted certificates for verifying server")
+	flagSet.StringVar(&flTLSClientCert, "tls-client-cert", "", "(with -tls, optional) client certificate for authenticating to the server (requires -tls-client-key)")
+	flagSet.StringVar(&flTLSClientKey, "tls-client-key", "", "(with -tls) client private key for authenticating to the server (requires -tls-client-cert)")
+	flagSet.StringVar(&flTLSServerName, "tls-server-name", "", "(with -tls) override the hostname used to verify the server certificate")
+	flagSet.BoolVar(&flALTS, "alts", false, "use ALTS (default: false, INSECURE plaintext transport)")
+	flagSet.BoolVar(&flVerbose, "v", false, "verbose logs")
+	flagSet.BoolVar(&flGZIP, "gzip", false, "use GZIPCompressor for requests and GZIPDecompressor for response (default: false)")
+	flagSet.BoolVar(&flSPIFFE, "spiffe", false, "use SPIFFE to obtain mTLS credentials")
 
-	flag.Parse()
+	err := flagSet.Parse(os.Args[1:])
+	if err != nil {
+		os.Exit(StatusInvalidArguments)
+	}
 
 	argError := func(s string, v ...interface{}) {
 		log.Printf("error: "+s, v...)
@@ -90,6 +110,12 @@ func init() {
 	}
 	if flRPCTimeout <= 0 {
 		argError("-rpc-timeout must be greater than zero (specified: %v)", flRPCTimeout)
+	}
+	if flALTS && flSPIFFE {
+		argError("-alts and -spiffe are mutually incompatible")
+	}
+	if flTLS && flALTS {
+		argError("cannot specify -tls with -alts")
 	}
 	if !flTLS && flTLSNoVerify {
 		argError("specified -tls-no-verify without specifying -tls")
@@ -119,6 +145,9 @@ func init() {
 	if flVerbose {
 		log.Printf("parsed options:")
 		log.Printf("> addr=%s conn_timeout=%v rpc_timeout=%v", flAddr, flConnTimeout, flRPCTimeout)
+		if flRPCHeaders.Len() > 0 {
+			log.Printf("> headers: %s", flRPCHeaders)
+		}
 		log.Printf("> tls=%v", flTLS)
 		if flTLS {
 			log.Printf("  > no-verify=%v ", flTLSNoVerify)
@@ -127,7 +156,23 @@ func init() {
 			log.Printf("  > client-key=%s", flTLSClientKey)
 			log.Printf("  > server-name=%s", flTLSServerName)
 		}
+		log.Printf("> alts=%v", flALTS)
+		log.Printf("> spiffe=%v", flSPIFFE)
 	}
+}
+
+type rpcHeaders struct{ metadata.MD }
+
+func (s *rpcHeaders) String() string { return fmt.Sprintf("%v", s.MD) }
+
+func (s *rpcHeaders) Set(value string) error {
+	parts := strings.SplitN(value, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid RPC header, expected 'key: value', got %q", value)
+	}
+	trimmed := strings.TrimLeftFunc(parts[1], unicode.IsSpace)
+	s.Append(parts[0], trimmed)
+	return nil
 }
 
 func buildCredentials(skipVerify bool, caCerts, clientCert, clientKey, serverName string) (credentials.TransportCredentials, error) {
@@ -180,7 +225,13 @@ func main() {
 
 	opts := []grpc.DialOption{
 		grpc.WithUserAgent(flUserAgent),
-		grpc.WithBlock()}
+		grpc.WithBlock(),
+	}
+	if flTLS && flSPIFFE {
+		log.Printf("-tls and -spiffe are mutually incompatible")
+		retcode = StatusInvalidArguments
+		return
+	}
 	if flTLS {
 		creds, err := buildCredentials(flTLSNoVerify, flTLSCACert, flTLSClientCert, flTLSClientKey, flTLSServerName)
 		if err != nil {
@@ -189,16 +240,43 @@ func main() {
 			return
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else if flALTS {
+		creds := alts.NewServerCreds(alts.DefaultServerOptions())
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else if flSPIFFE {
+		spiffeCtx, _ := context.WithTimeout(ctx, flRPCTimeout)
+		source, err := workloadapi.NewX509Source(spiffeCtx)
+		if err != nil {
+			log.Printf("failed to initialize tls credentials with spiffe. error=%v", err)
+			retcode = StatusSpiffeFailed
+			return
+		}
+		if flVerbose {
+			svid, err := source.GetX509SVID()
+			if err != nil {
+				log.Fatalf("error getting x509 svid: %+v", err)
+			}
+			log.Printf("SPIFFE Verifiable Identity Document (SVID): %q", svid.ID)
+		}
+		creds := credentials.NewTLS(tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeAny()))
+		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
 		opts = append(opts, grpc.WithInsecure())
+	}
+
+	if flGZIP {
+		opts = append(opts,
+			grpc.WithCompressor(grpc.NewGZIPCompressor()),
+			grpc.WithDecompressor(grpc.NewGZIPDecompressor()),
+		)
 	}
 
 	if flVerbose {
 		log.Print("establishing connection")
 	}
 	connStart := time.Now()
-	dialCtx, cancel2 := context.WithTimeout(ctx, flConnTimeout)
-	defer cancel2()
+	dialCtx, dialCancel := context.WithTimeout(ctx, flConnTimeout)
+	defer dialCancel()
 	conn, err := grpc.DialContext(dialCtx, flAddr, opts...)
 	if err != nil {
 		if err == context.DeadlineExceeded {
@@ -212,16 +290,19 @@ func main() {
 	connDuration := time.Since(connStart)
 	defer conn.Close()
 	if flVerbose {
-		log.Printf("connection establisted (took %v)", connDuration)
+		log.Printf("connection established (took %v)", connDuration)
 	}
 
 	rpcStart := time.Now()
 	rpcCtx, rpcCancel := context.WithTimeout(ctx, flRPCTimeout)
 	defer rpcCancel()
-	resp, err := healthpb.NewHealthClient(conn).Check(rpcCtx, &healthpb.HealthCheckRequest{Service: flService})
+	rpcCtx = metadata.NewOutgoingContext(rpcCtx, flRPCHeaders.MD)
+	resp, err := healthpb.NewHealthClient(conn).Check(rpcCtx,
+		&healthpb.HealthCheckRequest{
+			Service: flService})
 	if err != nil {
 		if stat, ok := status.FromError(err); ok && stat.Code() == codes.Unimplemented {
-			log.Printf("error: this server does not implement the grpc health protocol (grpc.health.v1.Health)")
+			log.Printf("error: this server does not implement the grpc health protocol (grpc.health.v1.Health): %s", stat.Message())
 		} else if stat, ok := status.FromError(err); ok && stat.Code() == codes.DeadlineExceeded {
 			log.Printf("timeout: health rpc did not complete within %v", flRPCTimeout)
 		} else {

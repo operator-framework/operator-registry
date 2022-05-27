@@ -1,14 +1,25 @@
 # grpc_health_probe(1)
 
+![ci](https://github.com/grpc-ecosystem/grpc-health-probe/workflows/ci/badge.svg)
+![GitHub all releases](https://img.shields.io/github/downloads/grpc-ecosystem/grpc-health-probe/total)
+
 The `grpc_health_probe` utility allows you to query health of gRPC services that
 expose service their status through the [gRPC Health Checking Protocol][hc].
+
+`grpc_health_probe` is meant to be used for health checking gRPC applications in
+[Kubernetes][k8s], using the [exec probes][execprobe].
+
+> :warning: [**Kubernetes v1.23 has now introduced built-in gRPC health checking**][k8s-new]
+> capability as an alpha feature. As a result, you might no longer need to use this tool and use the
+> native Kubernetes feature instead.
+>
+> This tool can still be useful if you are on older versions of Kubernetes,
+> or using advanced configuration (such as custom metadata, TLS or finer timeout tuning),
+> or not using Kubernetes at all.
 
 This command-line utility makes a RPC to `/grpc.health.v1.Health/Check`. If it
 responds with a `SERVING` status, the `grpc_health_probe` will exit with
 success, otherwise it will exit with a non-zero exit code (documented below).
-
-`grpc_health_probe` is meant to be used for health checking gRPC applications in
-[Kubernetes][k8s], using the [exec probes][execprobe].
 
 **EXAMPLES**
 
@@ -26,9 +37,10 @@ exit status 2
 ## Installation
 
 **It is recommended** to use a version-stamped binary distribution:
-- Refer to the [Releases][rel] section for binary distributions.
 
-Installing from source (not recommended)
+- Choose a binary from the [Releases][rel] page.
+
+Installing from source (not recommended):
 
 - Make sure you have `git` and `go` installed.
 - Run: `go get github.com/grpc-ecosystem/grpc-health-probe`
@@ -56,13 +68,19 @@ implementation details. This eliminates the need for you to implement the
 
 ## Example: gRPC health checking on Kubernetes
 
-You are recommended to use [Kubernetes exec probes][execprobe] and define
-liveness and readiness checks for your gRPC server pods.
+Kubernetes does not natively support gRPC health checking since it does not
+favor one RPC framework over another. Similarly, HTTP health probes Kubernetes
+has is not sufficient to craft a valid gRPC request. As a solution,
+`grpc_health_probe` [can be used for Kubernetes][k8s] to health-check gRPC
+servers running in the Pod.
+
+You are recommended to use [Kubernetes `exec` probes][execprobe] and define
+liveness and/or readiness checks for your gRPC server pods.
 
 You can bundle the statically compiled `grpc_health_probe` in your container
 image. Choose a [binary release][rel] and download it in your Dockerfile:
 
-```
+```bash
 RUN GRPC_HEALTH_PROBE_VERSION=v0.3.1 && \
     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
     chmod +x /bin/grpc_health_probe
@@ -106,6 +124,16 @@ with command-line options:
 | **`-tls-no-verify`** | use TLS, but do not verify the certificate presented by the server (INSECURE) (default: false) |
 | **`-tls-server-name`** | override the hostname used to verify the server certificate |
 
+## Health checking TLS Servers with SPIFFE issued credentials
+
+If your gRPC server requires authentication, you can use the following command line options and set the 
+[SPIFFE_ENDPOINT_SOCKET][spiffe-socket]
+environment variable.
+
+| Option | Description |
+|:------------|-------------|
+| **`-spiffe`** | use [SPIFFE Workload API][spiffe] to retrieve TLS credentials (default: false) |
+
 ## Other Available Flags
 
 | Option | Description |
@@ -113,8 +141,10 @@ with command-line options:
 | **`-v`**    | verbose logs (default: false) |
 | **`-connect-timeout`** | timeout for establishing connection |
 | **`-rpc-timeout`** | timeout for health check rpc |
+| **`-rpc-header`** | sends metadata in the RPC request context (default: empty map) |
 | **`-user-agent`** | user-agent header value of health check requests (default: grpc_health_probe) |
 | **`-service`** | service name to check (default: "") - empty string is convention for server health |
+| **`-gzip`** | use GZIPCompressor for requests and GZIPDecompressor for response (default: false) |
 
 **Example:**
 
@@ -133,7 +163,9 @@ with command-line options:
       $ grpc_health_probe -addr 127.0.0.1:10000 \
           -tls \
           -tls-ca-cert /path/to/testdata/ca.pem \
-          -tls-server-name=x.test.youtube.com
+          -tls-server-name=example.com \
+          -rpc-header=foo:bar \
+          -rpc-header=foo2:bar2
 
       status: SERVING
       ```
@@ -150,11 +182,16 @@ a non-zero exit code.
 | **2** | failure: connection failed or timed out |
 | **3** | failure: rpc failed or timed out |
 | **4** | failure: rpc successful, but the response is not `SERVING` |
+| **20** | failure: could not retrieve TLS credentials using the [SPIFFE Workload API][spiffe] |
 
 ----
+
 This is not an official Google project.
 
 [hc]: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
-[k8s]: https://kubernetes.io/
+[k8s]: https://kubernetes.io/blog/2018/10/01/health-checking-grpc-servers-on-kubernetes/
 [execprobe]: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#define-a-liveness-command
 [rel]: https://github.com/grpc-ecosystem/grpc-health-probe/releases
+[spiffe]: https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Workload_API.md
+[spiffe-socket]: https://github.com/spiffe/spiffe/blob/0f44285b4caa95244ecbf003dd6729d5295ae743/standards/SPIFFE_Workload_Endpoint.md#4-locating-the-endpoint
+[k8s-new]: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
