@@ -1,0 +1,30 @@
+before:
+  hooks:
+  - go mod download
+builds:
+- main: .
+  binary: grpc_health_probe
+  flags: ["-tags=netgo"] # sync changes to .ko.yml
+  ldflags: ["-w"]        # sync changes to .ko.yml
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - "386"
+  - amd64
+  - arm
+  - arm64
+  - ppc64le
+  - s390x
+  ignore:
+  - goos: darwin
+    goarch: "386"
+  goarm: [6]
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+archives:
+  - format: binary
+    name_template: "{{ .Binary }}-{{ .Os }}-{{ .Arch }}"
