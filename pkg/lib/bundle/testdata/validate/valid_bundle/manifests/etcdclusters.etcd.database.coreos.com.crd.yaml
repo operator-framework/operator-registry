@@ -14,6 +14,7 @@ spec:
     singular: etcdcluster
   scope: Namespaced
   version: v1beta2
+  preserveUnknownFields: false
   validation:
     openAPIV3Schema:
       properties:
