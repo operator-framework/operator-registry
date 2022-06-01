@@ -83,7 +83,7 @@ github.com/cespare/xxhash/v2
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 ## explicit; go 1.12
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.4.11
+# github.com/containerd/containerd v1.4.13
 ## explicit
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression

@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/containerd/containerd v1.4.11
+	github.com/containerd/containerd v1.4.13
 	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
