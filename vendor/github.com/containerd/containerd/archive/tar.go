@@ -19,6 +19,7 @@ package archive
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/pkg/userns"
 	"github.com/containerd/continuity/fs"
 	"github.com/pkg/errors"
 )
@@ -63,13 +65,34 @@ func Diff(ctx context.Context, a, b string) io.ReadCloser {
 }
 
 // WriteDiff writes a tar stream of the computed difference between the
-// provided directories.
+// provided paths.
 //
 // Produces a tar using OCI style file markers for deletions. Deleted
 // files will be prepended with the prefix ".wh.". This style is
 // based off AUFS whiteouts.
 // See https://github.com/opencontainers/image-spec/blob/master/layer.md
-func WriteDiff(ctx context.Context, w io.Writer, a, b string) error {
+func WriteDiff(ctx context.Context, w io.Writer, a, b string, opts ...WriteDiffOpt) error {
+	var options WriteDiffOptions
+	for _, opt := range opts {
+		if err := opt(&options); err != nil {
+			return errors.Wrap(err, "failed to apply option")
+		}
+	}
+	if options.writeDiffFunc == nil {
+		options.writeDiffFunc = writeDiffNaive
+	}
+
+	return options.writeDiffFunc(ctx, w, a, b, options)
+}
+
+// writeDiffNaive writes a tar stream of the computed difference between the
+// provided directories on disk.
+//
+// Produces a tar using OCI style file markers for deletions. Deleted
+// files will be prepended with the prefix ".wh.". This style is
+// based off AUFS whiteouts.
+// See https://github.com/opencontainers/image-spec/blob/master/layer.md
+func writeDiffNaive(ctx context.Context, w io.Writer, a, b string, _ WriteDiffOptions) error {
 	cw := newChangeWriter(w, b)
 	err := fs.Changes(ctx, a, b, cw.HandleChange)
 	if err != nil {
@@ -114,15 +137,17 @@ func Apply(ctx context.Context, root string, r io.Reader, opts ...ApplyOpt) (int
 		options.applyFunc = applyNaive
 	}
 
-	return options.applyFunc(ctx, root, tar.NewReader(r), options)
+	return options.applyFunc(ctx, root, r, options)
 }
 
 // applyNaive applies a tar stream of an OCI style diff tar to a directory
 // applying each file as either a whole file or whiteout.
 // See https://github.com/opencontainers/image-spec/blob/master/layer.md#applying-changesets
-func applyNaive(ctx context.Context, root string, tr *tar.Reader, options ApplyOptions) (size int64, err error) {
+func applyNaive(ctx context.Context, root string, r io.Reader, options ApplyOptions) (size int64, err error) {
 	var (
 		dirs []*tar.Header
+
+		tr = tar.NewReader(r)
 
 		// Used for handling opaque directory markers which
 		// may occur out of order
@@ -347,12 +372,16 @@ func createTarFile(ctx context.Context, path, extractDir string, hdr *tar.Header
 		return nil
 
 	default:
-		return errors.Errorf("unhandled tar header type %d\n", hdr.Typeflag)
+		return errors.Errorf("unhandled tar header type %d", hdr.Typeflag)
 	}
 
 	// Lchown is not supported on Windows.
 	if runtime.GOOS != "windows" {
 		if err := os.Lchown(path, hdr.Uid, hdr.Gid); err != nil {
+			err = fmt.Errorf("failed to Lchown %q for UID %d, GID %d: %w", path, hdr.Uid, hdr.Gid, err)
+			if errors.Is(err, syscall.EINVAL) && userns.RunningInUserNS() {
+				err = fmt.Errorf("%w (Hint: try increasing the number of subordinate IDs in /etc/subuid and /etc/subgid)", err)
+			}
 			return err
 		}
 	}
@@ -370,9 +399,8 @@ func createTarFile(ctx context.Context, path, extractDir string, hdr *tar.Header
 		}
 	}
 
-	// There is no LChmod, so ignore mode for symlink. Also, this
-	// must happen after chown, as that can modify the file mode
-	if err := handleLChmod(hdr, path, hdrInfo); err != nil {
+	// call lchmod after lchown since lchown can modify the file mode
+	if err := lchmod(path, hdrInfo.Mode()); err != nil {
 		return err
 	}
 

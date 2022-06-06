@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/containerd/containerd v1.4.11
+	github.com/containerd/containerd v1.5.13
 	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
@@ -24,7 +24,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
+	github.com/opencontainers/image-spec v1.0.2
 	github.com/operator-framework/api v0.15.0
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
@@ -54,8 +54,8 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd // indirect
-	github.com/Microsoft/go-winio v0.4.16 // indirect
-	github.com/Microsoft/hcsshim v0.8.9 // indirect
+	github.com/Microsoft/go-winio v0.4.17 // indirect
+	github.com/Microsoft/hcsshim v0.8.24 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d // indirect
@@ -68,13 +68,12 @@ require (
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f // indirect
-	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
-	github.com/containerd/ttrpc v1.0.1 // indirect
+	github.com/containerd/cgroups v1.0.3 // indirect
+	github.com/containerd/continuity v0.1.0 // indirect
+	github.com/containerd/ttrpc v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/docker-credential-helpers v0.6.3 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
@@ -98,7 +97,7 @@ require (
 	github.com/google/cel-go v0.10.1 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.1.2 // indirect
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
@@ -108,12 +107,15 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/klauspost/compress v1.11.13 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
+	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
+	github.com/moby/sys/mountinfo v0.4.1 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -147,7 +149,7 @@ require (
 	go.opentelemetry.io/proto/otlp v0.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20220408190544-5352b0902921 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220408201424-a24fb2fb8a0f // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
