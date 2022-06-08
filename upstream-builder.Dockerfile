@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.18-alpine as builder
 
 RUN apk update && apk add sqlite build-base git mercurial bash
 WORKDIR /build
@@ -12,9 +12,6 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.4.11 && \
 FROM alpine:3
 
 COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
-
-RUN chgrp -R 0 /etc && \
-    chmod -R g+rwx /etc
 
 COPY --from=builder [ \
     "/bin/grpc_health_probe", \

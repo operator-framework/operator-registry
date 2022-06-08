@@ -141,7 +141,7 @@ func TestPropertiesDown(t *testing.T) {
 	err = migrator.Down(context.TODO(), migrations.Only(migrations.PropertiesMigrationKey))
 	require.NoError(t, err)
 
-	// check that no properties were extracted.
-	rows, _ = db.Query(propQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
-	require.False(t, rows.Next())
+	// check that no properties were extracted, as properties table no longer exists
+	_, err = db.Query(propQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+	require.Error(t, err)
 }
