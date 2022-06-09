@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -98,7 +100,10 @@ func (s *serve) run(ctx context.Context) error {
 		s.logger.Fatalf("failed to listen: %s", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+		MinTime:             time.Second * 10,
+		PermitWithoutStream: true,
+	}))
 	api.RegisterRegistryServer(grpcServer, server.NewRegistryServer(store))
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
