@@ -84,7 +84,7 @@ func TestDependenciesDown(t *testing.T) {
 	err = migrator.Down(context.TODO(), migrations.Only(migrations.DependenciesMigrationKey))
 	require.NoError(t, err)
 
-	// check that no dependencies were extracted.
-	rows, _ = db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
-	require.False(t, rows.Next())
+	// check that no dependencies were extracted, since table is now gone
+	_, err = db.Query(depQuery, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
+	require.Error(t, err)
 }
