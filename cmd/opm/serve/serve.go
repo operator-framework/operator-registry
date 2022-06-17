@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"net/http"
-	http_pprof "net/http/pprof"
+	endpoint "net/http/pprof"
 	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
@@ -169,11 +169,11 @@ func (p *profilerInterface) startEndpoint() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/debug/pprof/", http_pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", http_pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", http_pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", http_pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", http_pprof.Trace)
+	mux.HandleFunc("/debug/pprof/", endpoint.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", endpoint.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", endpoint.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", endpoint.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", endpoint.Trace)
 	mux.HandleFunc(defaultCpuStartupPath, p.httpHandler)
 
 	p.server = http.Server{
