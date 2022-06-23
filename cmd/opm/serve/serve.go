@@ -6,23 +6,23 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"sync"
-
 	"net/http"
 	endpoint "net/http/pprof"
+	"os"
+	"os/signal"
 	"runtime/pprof"
+	"sync"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	health "github.com/operator-framework/operator-registry/pkg/api/grpc_health_v1"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
-	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
@@ -80,10 +80,13 @@ will not be reflected in the served content.
 
 func (s *serve) run(ctx context.Context) error {
 	p := newProfilerInterface(s.pprofAddr, s.logger)
-	p.startEndpoint()
 	if err := p.startCpuProfileCache(); err != nil {
 		return fmt.Errorf("could not start CPU profile: %v", err)
 	}
+
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	eg, ctx := errgroup.WithContext(ctx)
 
 	// Immediately set up termination log
 	err := log.AddDefaultWriterHooks(s.terminationLog)
@@ -98,20 +101,11 @@ func (s *serve) run(ctx context.Context) error {
 
 	s.logger = s.logger.WithFields(logrus.Fields{"configs": s.configDir, "port": s.port})
 
-	cfg, err := declcfg.LoadFS(os.DirFS(s.configDir))
-	if err != nil {
-		return fmt.Errorf("load declarative config directory: %v", err)
-	}
-
-	m, err := declcfg.ConvertToModel(*cfg)
-	if err != nil {
-		return fmt.Errorf("could not build index model from declarative config: %v", err)
-	}
-	store, err := registry.NewQuerier(m)
-	defer store.Close()
+	store, err := registry.NewQuerierFromFS(os.DirFS(s.configDir))
 	if err != nil {
 		return err
 	}
+	defer store.Close()
 
 	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {
@@ -122,15 +116,55 @@ func (s *serve) run(ctx context.Context) error {
 	api.RegisterRegistryServer(grpcServer, server.NewRegistryServer(store))
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
-	s.logger.Info("serving registry")
-	p.stopCpuProfileCache()
 
-	return graceful.Shutdown(s.logger, func() error {
-		return grpcServer.Serve(lis)
-	}, func() {
-		grpcServer.GracefulStop()
-		p.stopEndpoint(p.logger.Context)
+	eg.Go(func() error {
+		// All this channel stuff is necessary so that we can return from
+		// this function early when the context is cancelled. This is required
+		// to get `eg.Wait()` to unblock, so that we can proceed to gracefully
+		// shutting down.
+		errChan := make(chan error)
+		go func() {
+			s.logger.Info("serving registry")
+			errChan <- grpcServer.Serve(lis)
+		}()
+		select {
+		case err := <-errChan:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	})
+	eg.Go(func() error {
+		return p.listenAndServe(ctx)
+	})
+	eg.Go(func() (err error) {
+		defer p.stopCpuProfileCache()
+		if err := store.Wait(ctx); err != nil {
+			return err
+		}
+		s.logger.Info("registry initialization complete")
+		return nil
+	})
+
+	// wait until both errgroup goroutines return and then
+	// return the first error that occurred (or nil)
+	err = eg.Wait()
+
+	// stop the servers prior to handling the error returned
+	// from Wait().
+	s.logger.Info("stopping grpc server")
+	grpcServer.GracefulStop()
+	if p.isEnabled() {
+		s.logger.Info("stopping http pprof server")
+		if err := p.shutdown(context.Background()); err != nil {
+			return err
+		}
+	}
+
+	if !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
 
 }
 
@@ -162,10 +196,10 @@ func (p *profilerInterface) isEnabled() bool {
 	return p.addr != ""
 }
 
-func (p *profilerInterface) startEndpoint() {
+func (p *profilerInterface) listenAndServe(ctx context.Context) error {
 	// short-circuit if not enabled
 	if !p.isEnabled() {
-		return
+		return nil
 	}
 
 	mux := http.NewServeMux()
@@ -181,14 +215,19 @@ func (p *profilerInterface) startEndpoint() {
 		Handler: mux,
 	}
 
-	// goroutine exits with main
+	errChan := make(chan error)
 	go func() {
-
 		p.logger.Info("starting pprof endpoint")
 		if err := p.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			p.logger.Fatal(err)
+			errChan <- err
 		}
 	}()
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (p *profilerInterface) startCpuProfileCache() error {
@@ -222,10 +261,8 @@ func (p *profilerInterface) httpHandler(w http.ResponseWriter, r *http.Request) 
 	w.Write(p.cache.Bytes())
 }
 
-func (p *profilerInterface) stopEndpoint(ctx context.Context) {
-	if err := p.server.Shutdown(ctx); err != nil {
-		p.logger.Fatal(err)
-	}
+func (p *profilerInterface) shutdown(ctx context.Context) error {
+	return p.server.Shutdown(ctx)
 }
 
 func (p *profilerInterface) isCacheReady() bool {

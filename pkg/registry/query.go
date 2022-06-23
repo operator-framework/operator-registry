@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/pkg/api"
 )
@@ -17,6 +19,9 @@ type Querier struct {
 
 	tmpDir     string
 	apiBundles map[apiBundleKey]string
+
+	initDone chan struct{}
+	initErr  error
 }
 
 func (q Querier) Close() error {
@@ -39,30 +44,67 @@ func (s *SliceBundleSender) Send(b *api.Bundle) error {
 
 var _ GRPCQuery = &Querier{}
 
-func NewQuerier(packages model.Model) (*Querier, error) {
-	q := &Querier{}
+func NewQuerierFromFS(fbcFS fs.FS) (*Querier, error) {
+	return newQuerier(func() (model.Model, error) {
+		return fsToModel(fbcFS)
+	})
+}
 
+func NewQuerier(packages model.Model) (*Querier, error) {
+	return newQuerier(func() (model.Model, error) {
+		return packages, nil
+	})
+}
+
+func newQuerier(getPackages func() (model.Model, error)) (*Querier, error) {
+	q := &Querier{}
 	tmpDir, err := os.MkdirTemp("", "opm-registry-querier-")
 	if err != nil {
 		return nil, err
 	}
 	q.tmpDir = tmpDir
+	q.initDone = make(chan struct{})
+	go func() {
+		defer close(q.initDone)
+		packages, err := getPackages()
+		if err != nil {
+			q.initErr = err
+			return
+		}
+		if err := q.storeAPIBundles(packages); err != nil {
+			q.initErr = err
+			return
+		}
+		q.pkgs = packages
+	}()
+	return q, nil
+}
 
+func fsToModel(fbcFS fs.FS) (model.Model, error) {
+	cfg, err := declcfg.LoadFS(fbcFS)
+	if err != nil {
+		return nil, err
+	}
+
+	return declcfg.ConvertToModel(*cfg)
+}
+
+func (q *Querier) storeAPIBundles(packages model.Model) error {
 	q.apiBundles = map[apiBundleKey]string{}
 	for _, pkg := range packages {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
 				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
 				if err != nil {
-					return q, err
+					return err
 				}
 				jsonBundle, err := json.Marshal(apiBundle)
 				if err != nil {
-					return q, err
+					return err
 				}
-				filename := filepath.Join(tmpDir, fmt.Sprintf("%s_%s_%s.json", pkg.Name, ch.Name, b.Name))
+				filename := filepath.Join(q.tmpDir, fmt.Sprintf("%s_%s_%s.json", pkg.Name, ch.Name, b.Name))
 				if err := os.WriteFile(filename, jsonBundle, 0666); err != nil {
-					return q, err
+					return err
 				}
 				q.apiBundles[apiBundleKey{pkg.Name, ch.Name, b.Name}] = filename
 				packages[pkg.Name].Channels[ch.Name].Bundles[b.Name] = &model.Bundle{
@@ -75,11 +117,24 @@ func NewQuerier(packages model.Model) (*Querier, error) {
 			}
 		}
 	}
-	q.pkgs = packages
-	return q, nil
+	return nil
 }
 
-func (q Querier) loadAPIBundle(k apiBundleKey) (*api.Bundle, error) {
+// Wait waits for the querier initialization to complete.
+// If initialization results in an error or if the provided
+// context is cancelled, Wait returns the associated error.
+// A returned nil error indicates that initialization completed
+// successfully.
+func (q *Querier) Wait(ctx context.Context) error {
+	select {
+	case <-q.initDone:
+		return q.initErr
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (q *Querier) loadAPIBundle(k apiBundleKey) (*api.Bundle, error) {
 	filename, ok := q.apiBundles[k]
 	if !ok {
 		return nil, fmt.Errorf("package %q, channel %q, bundle %q not found", k.pkgName, k.chName, k.name)
@@ -95,7 +150,10 @@ func (q Querier) loadAPIBundle(k apiBundleKey) (*api.Bundle, error) {
 	return &b, nil
 }
 
-func (q Querier) ListPackages(_ context.Context) ([]string, error) {
+func (q *Querier) ListPackages(ctx context.Context) ([]string, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	var packages []string
 	for pkgName := range q.pkgs {
 		packages = append(packages, pkgName)
@@ -103,7 +161,10 @@ func (q Querier) ListPackages(_ context.Context) ([]string, error) {
 	return packages, nil
 }
 
-func (q Querier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+func (q *Querier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	var bundleSender SliceBundleSender
 
 	err := q.SendBundles(ctx, &bundleSender)
@@ -114,7 +175,10 @@ func (q Querier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 	return bundleSender, nil
 }
 
-func (q Querier) SendBundles(_ context.Context, s BundleSender) error {
+func (q *Querier) SendBundles(ctx context.Context, s BundleSender) error {
+	if err := q.Wait(ctx); err != nil {
+		return err
+	}
 	for _, pkg := range q.pkgs {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
@@ -139,7 +203,10 @@ func (q Querier) SendBundles(_ context.Context, s BundleSender) error {
 	return nil
 }
 
-func (q Querier) GetPackage(_ context.Context, name string) (*PackageManifest, error) {
+func (q *Querier) GetPackage(ctx context.Context, name string) (*PackageManifest, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	pkg, ok := q.pkgs[name]
 	if !ok {
 		return nil, fmt.Errorf("package %q not found", name)
@@ -163,7 +230,10 @@ func (q Querier) GetPackage(_ context.Context, name string) (*PackageManifest, e
 	}, nil
 }
 
-func (q Querier) GetBundle(_ context.Context, pkgName, channelName, csvName string) (*api.Bundle, error) {
+func (q *Querier) GetBundle(ctx context.Context, pkgName, channelName, csvName string) (*api.Bundle, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	pkg, ok := q.pkgs[pkgName]
 	if !ok {
 		return nil, fmt.Errorf("package %q not found", pkgName)
@@ -187,7 +257,10 @@ func (q Querier) GetBundle(_ context.Context, pkgName, channelName, csvName stri
 	return apiBundle, nil
 }
 
-func (q Querier) GetBundleForChannel(_ context.Context, pkgName string, channelName string) (*api.Bundle, error) {
+func (q *Querier) GetBundleForChannel(ctx context.Context, pkgName string, channelName string) (*api.Bundle, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	pkg, ok := q.pkgs[pkgName]
 	if !ok {
 		return nil, fmt.Errorf("package %q not found", pkgName)
@@ -211,7 +284,10 @@ func (q Querier) GetBundleForChannel(_ context.Context, pkgName string, channelN
 	return apiBundle, nil
 }
 
-func (q Querier) GetChannelEntriesThatReplace(_ context.Context, name string) ([]*ChannelEntry, error) {
+func (q *Querier) GetChannelEntriesThatReplace(ctx context.Context, name string) ([]*ChannelEntry, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	var entries []*ChannelEntry
 
 	for _, pkg := range q.pkgs {
@@ -227,7 +303,10 @@ func (q Querier) GetChannelEntriesThatReplace(_ context.Context, name string) ([
 	return entries, nil
 }
 
-func (q Querier) GetBundleThatReplaces(_ context.Context, name, pkgName, channelName string) (*api.Bundle, error) {
+func (q *Querier) GetBundleThatReplaces(ctx context.Context, name, pkgName, channelName string) (*api.Bundle, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	pkg, ok := q.pkgs[pkgName]
 	if !ok {
 		return nil, fmt.Errorf("package %s not found", pkgName)
@@ -257,7 +336,10 @@ func (q Querier) GetBundleThatReplaces(_ context.Context, name, pkgName, channel
 	return nil, fmt.Errorf("no entry found for package %q, channel %q", pkgName, channelName)
 }
 
-func (q Querier) GetChannelEntriesThatProvide(_ context.Context, group, version, kind string) ([]*ChannelEntry, error) {
+func (q *Querier) GetChannelEntriesThatProvide(ctx context.Context, group, version, kind string) ([]*ChannelEntry, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	var entries []*ChannelEntry
 
 	for _, pkg := range q.pkgs {
@@ -292,7 +374,10 @@ func (q Querier) GetChannelEntriesThatProvide(_ context.Context, group, version,
 //   ---
 //   Separate, but possibly related, I noticed there are several channels in the channel entry
 //   table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
-func (q Querier) GetLatestChannelEntriesThatProvide(_ context.Context, group, version, kind string) ([]*ChannelEntry, error) {
+func (q *Querier) GetLatestChannelEntriesThatProvide(ctx context.Context, group, version, kind string) ([]*ChannelEntry, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	var entries []*ChannelEntry
 
 	for _, pkg := range q.pkgs {
@@ -317,7 +402,10 @@ func (q Querier) GetLatestChannelEntriesThatProvide(_ context.Context, group, ve
 	return entries, nil
 }
 
-func (q Querier) GetBundleThatProvides(ctx context.Context, group, version, kind string) (*api.Bundle, error) {
+func (q *Querier) GetBundleThatProvides(ctx context.Context, group, version, kind string) (*api.Bundle, error) {
+	if err := q.Wait(ctx); err != nil {
+		return nil, err
+	}
 	latestEntries, err := q.GetLatestChannelEntriesThatProvide(ctx, group, version, kind)
 	if err != nil {
 		return nil, err
@@ -344,7 +432,7 @@ func (q Querier) GetBundleThatProvides(ctx context.Context, group, version, kind
 	return nil, fmt.Errorf("no entry found that provides group:%q version:%q kind:%q", group, version, kind)
 }
 
-func (q Querier) doesModelBundleProvide(b model.Bundle, group, version, kind string) (bool, error) {
+func (q *Querier) doesModelBundleProvide(b model.Bundle, group, version, kind string) (bool, error) {
 	apiBundle, err := q.loadAPIBundle(apiBundleKey{b.Package.Name, b.Channel.Name, b.Name})
 	if err != nil {
 		return false, fmt.Errorf("convert bundle %q: %v", b.Name, err)

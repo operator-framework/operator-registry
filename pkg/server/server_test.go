@@ -78,6 +78,9 @@ func cfgStore() (*registry.Querier, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := store.Wait(context.Background()); err != nil {
+		return nil, err
+	}
 	return store, nil
 }
 

@@ -87,6 +87,8 @@ func newQuerier(t *testing.T, bundles []*model.Bundle) *registry.Querier {
 	}
 	reg, err := registry.NewQuerier(pkgs)
 	require.NoError(t, err)
+	err = reg.Wait(context.Background())
+	require.NoError(t, err)
 	return reg
 }
 

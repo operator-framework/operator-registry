@@ -208,6 +208,9 @@ func genTestModelQuerier(t *testing.T) *Querier {
 	reg, err := NewQuerier(m)
 	require.NoError(t, err)
 
+	err = reg.Wait(context.Background())
+	require.NoError(t, err)
+
 	return reg
 }
 
