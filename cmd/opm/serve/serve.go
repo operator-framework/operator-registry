@@ -1,10 +1,17 @@
 package serve
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"sync"
+
+	"net/http"
+	endpoint "net/http/pprof"
+	"runtime/pprof"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,10 +33,16 @@ type serve struct {
 
 	port           string
 	terminationLog string
-	debug          bool
+
+	debug     bool
+	pprofAddr string
 
 	logger *logrus.Entry
 }
+
+const (
+	defaultCpuStartupPath string = "/debug/pprof/startup/cpu"
+)
 
 func NewCmd() *cobra.Command {
 	logger := logrus.New()
@@ -59,12 +72,19 @@ will not be reflected in the served content.
 	}
 
 	cmd.Flags().BoolVar(&s.debug, "debug", false, "enable debug logging")
-	cmd.Flags().StringVarP(&s.port, "port", "p", "50051", "port number to serve on")
 	cmd.Flags().StringVarP(&s.terminationLog, "termination-log", "t", "/dev/termination-log", "path to a container termination log file")
+	cmd.Flags().StringVarP(&s.port, "port", "p", "50051", "port number to serve on")
+	cmd.Flags().StringVar(&s.pprofAddr, "pprof-addr", "", "address of startup profiling endpoint (addr:port format)")
 	return cmd
 }
 
 func (s *serve) run(ctx context.Context) error {
+	p := newProfilerInterface(s.pprofAddr, s.logger)
+	p.startEndpoint()
+	if err := p.startCpuProfileCache(); err != nil {
+		return fmt.Errorf("could not start CPU profile: %v", err)
+	}
+
 	// Immediately set up termination log
 	err := log.AddDefaultWriterHooks(s.terminationLog)
 	if err != nil {
@@ -103,9 +123,121 @@ func (s *serve) run(ctx context.Context) error {
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
 	s.logger.Info("serving registry")
+	p.stopCpuProfileCache()
+
 	return graceful.Shutdown(s.logger, func() error {
 		return grpcServer.Serve(lis)
 	}, func() {
 		grpcServer.GracefulStop()
+		p.stopEndpoint(p.logger.Context)
 	})
+
+}
+
+// manages an HTTP pprof endpoint served by `server`,
+// including default pprof handlers and custom cpu pprof cache stored in `cache`.
+// the cache is intended to sample CPU activity for a period and serve the data
+// via a custom pprof path once collection is complete (e.g. over process initialization)
+type profilerInterface struct {
+	addr  string
+	cache bytes.Buffer
+
+	server http.Server
+
+	cacheReady bool
+	cacheLock  sync.RWMutex
+
+	logger *logrus.Entry
+}
+
+func newProfilerInterface(a string, log *logrus.Entry) *profilerInterface {
+	return &profilerInterface{
+		addr:   a,
+		logger: log.WithFields(logrus.Fields{"address": a}),
+		cache:  bytes.Buffer{},
+	}
+}
+
+func (p *profilerInterface) isEnabled() bool {
+	return p.addr != ""
+}
+
+func (p *profilerInterface) startEndpoint() {
+	// short-circuit if not enabled
+	if !p.isEnabled() {
+		return
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", endpoint.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", endpoint.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", endpoint.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", endpoint.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", endpoint.Trace)
+	mux.HandleFunc(defaultCpuStartupPath, p.httpHandler)
+
+	p.server = http.Server{
+		Addr:    p.addr,
+		Handler: mux,
+	}
+
+	// goroutine exits with main
+	go func() {
+
+		p.logger.Info("starting pprof endpoint")
+		if err := p.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			p.logger.Fatal(err)
+		}
+	}()
+}
+
+func (p *profilerInterface) startCpuProfileCache() error {
+	// short-circuit if not enabled
+	if !p.isEnabled() {
+		return nil
+	}
+
+	p.logger.Infof("start caching cpu profile data at %q", defaultCpuStartupPath)
+	if err := pprof.StartCPUProfile(&p.cache); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *profilerInterface) stopCpuProfileCache() {
+	// short-circuit if not enabled
+	if !p.isEnabled() {
+		return
+	}
+	pprof.StopCPUProfile()
+	p.setCacheReady()
+	p.logger.Info("stopped caching cpu profile data")
+}
+
+func (p *profilerInterface) httpHandler(w http.ResponseWriter, r *http.Request) {
+	if !p.isCacheReady() {
+		http.Error(w, "cpu profile cache is not yet ready", http.StatusServiceUnavailable)
+	}
+	w.Write(p.cache.Bytes())
+}
+
+func (p *profilerInterface) stopEndpoint(ctx context.Context) {
+	if err := p.server.Shutdown(ctx); err != nil {
+		p.logger.Fatal(err)
+	}
+}
+
+func (p *profilerInterface) isCacheReady() bool {
+	p.cacheLock.RLock()
+	isReady := p.cacheReady
+	p.cacheLock.RUnlock()
+
+	return isReady
+}
+
+func (p *profilerInterface) setCacheReady() {
+	p.cacheLock.Lock()
+	p.cacheReady = true
+	p.cacheLock.Unlock()
 }
