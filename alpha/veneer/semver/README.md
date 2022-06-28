@@ -1,6 +1,6 @@
-## Semver Veneer:
+## Semver Veneer
 
-Since a `veneer` is identified as an input schema which may be processed to generate a valid FBC, we can define a `semver veneer` as a schema which uses channel conventions to facilitate the auto-generation of channels along `semver` delimiters.  
+Since a `veneer` is identified as an input schema which may be processed to generate a valid FBC, we can define a `semver veneer` as a schema which uses channel conventions to facilitate the auto-generation of channels adherent to [Semantic Versioning](https://semver.org/) (semver) guidelines.  
 
 [**DISCLAIMER:** since version build metadata [MUST be ignored when determining version precedence](https://semver.org) when using semver, it cannot be used in any bundle included in the `semver veneer` and will result in a fatal error.]
 
