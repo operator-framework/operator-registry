@@ -12,7 +12,7 @@ The `semver veneer` must have:
 - demonstration of a common type of channel maturity model
 - minor-version (Y-stream), major-version (X-stream) versioning optionality
 
-The resulting FBC must clearly indicate how generated channels relate to veneer entities
+The resulting FBC must clearly indicate how generated channels relate to veneer entities.
 
 ### Schema Anatomy
 For convenience and simplicity, this veneer currently supports hard-coded channel names `Candidate`, `Fast`, and `Stable`, in order of increasing channel stability.  We leverage this relationship to calculate the default channel for the package. 
@@ -68,7 +68,13 @@ Global Flags:
       --skip-tls-verify   skip TLS certificate verification for container image registries while pulling bundles
       --use-http          use plain HTTP for container image registries while pulling bundles
 ```
-With the veneer attribute `GenerateMajorChannels: true` resulting major channels from the command are (skipping the rendered bundle image output):
+If we set the veneer attributes 
+```yaml 
+GenerateMajorChannels: true
+GenerateMinorChannels: false
+```
+
+we generate the following major channels (filtering out `olm.bundle` objects):
 ```yaml
 ---
 defaultChannel: stable-v1
@@ -137,7 +143,13 @@ schema: olm.channel
 We generated a channel for each veneer channel entity corresponding to each of the 0.\#.\#, 1.\#.\# major version ranges with skips to the head of the highest semver in a channel.  We also generated a replaces edge to traverse across minor version transitions within each major channel.  Finally, we generated an `olm.package` object, setting as default the most-stable channel head we created.  This process will prefer `Stable` channel over `Fast`, over `Candidate` and then a higher bundle version over a lower version.   
 (Please note that the naming of the generated channels indicates the digits of significance for that channel.  For example, `fast-v1` is a decomposed channel of the `fast` type which contains only major versions of contributing bundles matching `v1`.)  
 
-For contrast, with the veneer attribute `GenerateMinorChannels: true` and running the command again (again skipping rendered bundle image output) we get a bunch more channels:
+For contrast, if we set the veneer attributes
+```yaml
+GenerateMinorChannels: true
+GenerateMajorChannels: false
+```
+ we generate the following minor channels (again filtering out `olm.bundle` objects):
+
 ```yaml
 ---
 defaultChannel: stable-v1.0
