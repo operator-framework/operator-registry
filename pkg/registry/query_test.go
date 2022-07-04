@@ -5,6 +5,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -194,6 +196,37 @@ func TestQuerier_ListPackages(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, packages)
 	require.Equal(t, 2, len(packages))
+}
+
+func TestQuerier_BadBundleRaisesError(t *testing.T) {
+	t.Helper()
+
+	// Convert a good FS into a model
+	cfg, err := declcfg.LoadFS(validFS)
+	require.NoError(t, err)
+
+	m, err := declcfg.ConvertToModel(*cfg)
+	require.NoError(t, err)
+
+	// break the model by adding another package property
+	bundle := func() *model.Bundle {
+		for _, pkg := range m {
+			for _, ch := range pkg.Channels {
+				for _, bundle := range ch.Bundles {
+					return bundle
+				}
+			}
+		}
+		return nil
+	}()
+
+	bundle.Properties = append(bundle.Properties, property.Property{
+		Type:  PackageType,
+		Value: []byte("{\"packageName\": \"another-package\", \"version\": \"1.0.0\"}"),
+	})
+
+	_, err = NewQuerier(m)
+	require.EqualError(t, err, "parse properties: expected exactly 1 property of type \"olm.package\", found 2")
 }
 
 func genTestModelQuerier(t *testing.T) *Querier {
