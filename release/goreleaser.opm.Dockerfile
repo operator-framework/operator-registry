@@ -7,4 +7,5 @@ FROM gcr.io/distroless/static:debug
 COPY --from=grpc_health_probe /ko-app/grpc-health-probe /bin/grpc_health_probe
 COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY opm /bin/opm
+USER 1001
 ENTRYPOINT ["/bin/opm"]

@@ -6,6 +6,7 @@ COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY database ./
 COPY --from=builder /bin/opm /opm
 COPY --from=builder /bin/grpc_health_probe /bin/grpc_health_probe
+USER 1001
 EXPOSE 50051
 ENTRYPOINT ["/opm"]
 CMD ["registry", "serve", "--database", "index.db"]
