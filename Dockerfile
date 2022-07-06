@@ -7,6 +7,7 @@ WORKDIR /src
 
 COPY . .
 RUN make build cross
+RUN mkdir -p /opm
 
 # copy and build vendored grpc_health_probe
 RUN CGO_ENABLED=0 go build -mod=vendor -tags netgo -ldflags "-w" ./vendor/github.com/grpc-ecosystem/grpc-health-probe/...
@@ -16,18 +17,20 @@ FROM registry.ci.openshift.org/ocp/4.8:base
 COPY --from=builder /src/bin/* /bin/registry/
 COPY --from=builder /src/grpc-health-probe /bin/grpc_health_probe
 
+# directory dedicated to the 1001 user
+COPY --from=builder --chown=1001:1001 ["/opm", "/opm"]
+
 RUN ln -s /bin/registry/* /bin
 
 RUN mkdir /registry
 RUN chgrp -R 0 /registry && \
     chmod -R g+rwx /registry
-WORKDIR /registry
 
 # This image doesn't need to run as root user
 USER 1001
-
 EXPOSE 50051
 
+WORKDIR /registry
 ENTRYPOINT ["/bin/registry-server"]
 CMD ["--database", "/bundles.db"]
 
