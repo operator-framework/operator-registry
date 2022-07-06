@@ -2,12 +2,15 @@ package registry
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/model"
 )
 
 func TestQuerier_GetBundle(t *testing.T) {
@@ -196,6 +199,72 @@ func TestQuerier_ListPackages(t *testing.T) {
 	require.Equal(t, 2, len(packages))
 }
 
+func TestQuerier_NewQuerierFromFSErrors(t *testing.T) {
+	type testcase struct {
+		name        string
+		fsys        fs.FS
+		expectedErr string
+	}
+
+	testcases := []testcase{
+		{
+			name:        "InvalidFBC",
+			fsys:        invalidFS,
+			expectedErr: "invalid index:\n└── invalid package \"cockroachdb\":\n    ├── default channel must be set\n    └── package must contain at least one channel",
+		},
+		{
+			name:        "LoadFBCFailure",
+			fsys:        notFBCFS,
+			expectedErr: "json: cannot unmarshal string into Go value of type declcfg.tmp",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := NewQuerierFromFS(tc.fsys)
+			defer func() {
+				require.NoError(t, q.Close())
+			}()
+			require.NotNil(t, q)
+			require.Nil(t, err)
+
+			expectErr := func(v interface{}, err error) {
+				require.Nil(t, v)
+				require.EqualError(t, err, tc.expectedErr)
+			}
+
+			expectErr(q.GetBundle(context.Background(), "", "", ""))
+			expectErr(q.GetBundleForChannel(context.Background(), "", ""))
+			expectErr(q.GetBundleThatProvides(context.Background(), "", "", ""))
+			expectErr(q.GetBundleThatReplaces(context.Background(), "", "", ""))
+			expectErr(q.GetChannelEntriesThatProvide(context.Background(), "", "", ""))
+			expectErr(q.GetChannelEntriesThatReplace(context.Background(), ""))
+			expectErr(q.GetLatestChannelEntriesThatProvide(context.Background(), "", "", ""))
+			expectErr(q.GetPackage(context.Background(), ""))
+			expectErr(q.ListBundles(context.Background()))
+			expectErr(q.ListPackages(context.Background()))
+			require.EqualError(t, q.Wait(context.Background()), tc.expectedErr)
+		})
+	}
+}
+
+func TestQuerier_WaitContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	block := make(chan struct{})
+	q, err := newQuerier(func() (model.Model, error) {
+		<-block
+		return model.Model{}, nil
+	})
+	require.NoError(t, err)
+
+	waitErr := q.Wait(ctx)
+	close(block)
+	if !errors.Is(waitErr, context.Canceled) {
+		t.Fatalf("expect querier Wait() to return context.Canceled error, got %v", waitErr)
+	}
+}
+
 func genTestModelQuerier(t *testing.T) *Querier {
 	t.Helper()
 
@@ -213,6 +282,21 @@ func genTestModelQuerier(t *testing.T) *Querier {
 
 	return reg
 }
+
+var invalidFS = fstest.MapFS{
+	"cockroachdb.json": &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "cockroachdb",
+    "defaultChannel": "",
+    "icon": {
+        "base64data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMS44MiAzMiIgd2lkdGg9IjI0ODYiIGhlaWdodD0iMjUwMCI+PHRpdGxlPkNMPC90aXRsZT48cGF0aCBkPSJNMTkuNDIgOS4xN2ExNS4zOSAxNS4zOSAwIDAgMS0zLjUxLjQgMTUuNDYgMTUuNDYgMCAwIDEtMy41MS0uNCAxNS42MyAxNS42MyAwIDAgMSAzLjUxLTMuOTEgMTUuNzEgMTUuNzEgMCAwIDEgMy41MSAzLjkxek0zMCAuNTdBMTcuMjIgMTcuMjIgMCAwIDAgMjUuNTkgMGExNy40IDE3LjQgMCAwIDAtOS42OCAyLjkzQTE3LjM4IDE3LjM4IDAgMCAwIDYuMjMgMGExNy4yMiAxNy4yMiAwIDAgMC00LjQ0LjU3QTE2LjIyIDE2LjIyIDAgMCAwIDAgMS4xM2EuMDcuMDcgMCAwIDAgMCAuMDkgMTcuMzIgMTcuMzIgMCAwIDAgLjgzIDEuNTcuMDcuMDcgMCAwIDAgLjA4IDAgMTYuMzkgMTYuMzkgMCAwIDEgMS44MS0uNTQgMTUuNjUgMTUuNjUgMCAwIDEgMTEuNTkgMS44OCAxNy41MiAxNy41MiAwIDAgMC0zLjc4IDQuNDhjLS4yLjMyLS4zNy42NS0uNTUgMXMtLjIyLjQ1LS4zMy42OS0uMzEuNzItLjQ0IDEuMDhhMTcuNDYgMTcuNDYgMCAwIDAgNC4yOSAxOC43Yy4yNi4yNS41My40OS44MS43M3MuNDQuMzcuNjcuNTQuNTkuNDQuODkuNjRhLjA3LjA3IDAgMCAwIC4wOCAwYy4zLS4yMS42LS40Mi44OS0uNjRzLjQ1LS4zNS42Ny0uNTQuNTUtLjQ4LjgxLS43M2ExNy40NSAxNy40NSAwIDAgMCA1LjM4LTEyLjYxIDE3LjM5IDE3LjM5IDAgMCAwLTEuMDktNi4wOWMtLjE0LS4zNy0uMjktLjczLS40NS0xLjA5cy0uMjItLjQ3LS4zMy0uNjktLjM1LS42Ni0uNTUtMWExNy42MSAxNy42MSAwIDAgMC0zLjc4LTQuNDggMTUuNjUgMTUuNjUgMCAwIDEgMTEuNi0xLjg0IDE2LjEzIDE2LjEzIDAgMCAxIDEuODEuNTQuMDcuMDcgMCAwIDAgLjA4IDBxLjQ0LS43Ni44Mi0xLjU2YS4wNy4wNyAwIDAgMCAwLS4wOUExNi44OSAxNi44OSAwIDAgMCAzMCAuNTd6IiBmaWxsPSIjMTUxZjM0Ii8+PHBhdGggZD0iTTIxLjgyIDE3LjQ3YTE1LjUxIDE1LjUxIDAgMCAxLTQuMjUgMTAuNjkgMTUuNjYgMTUuNjYgMCAwIDEtLjcyLTQuNjggMTUuNSAxNS41IDAgMCAxIDQuMjUtMTAuNjkgMTUuNjIgMTUuNjIgMCAwIDEgLjcyIDQuNjgiIGZpbGw9IiMzNDg1NDAiLz48cGF0aCBkPSJNMTUgMjMuNDhhMTUuNTUgMTUuNTUgMCAwIDEtLjcyIDQuNjggMTUuNTQgMTUuNTQgMCAwIDEtMy41My0xNS4zN0ExNS41IDE1LjUgMCAwIDEgMTUgMjMuNDgiIGZpbGw9IiM3ZGJjNDIiLz48L3N2Zz4=",
+        "mediatype": "image/svg+xml"
+    }
+}
+`)}}
+
+var notFBCFS = fstest.MapFS{"txtfile": &fstest.MapFile{Data: []byte(`not fbc format`)}}
 
 var validFS = fstest.MapFS{
 	"cockroachdb.json": &fstest.MapFile{

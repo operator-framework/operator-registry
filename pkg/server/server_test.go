@@ -17,6 +17,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
+	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -25,52 +27,54 @@ import (
 const (
 	dbPort    = ":50052"
 	dbAddress = "localhost" + dbPort
-	dbName    = "test.db"
 
 	cfgPort    = ":50053"
 	cfgAddress = "localhost" + cfgPort
+
+	asyncCfgPort    = ":50054"
+	asyncCfgAddress = "localhost" + asyncCfgPort
 )
 
-func dbStore(dbPath string) *sqlite.SQLQuerier {
-	_ = os.Remove(dbPath)
-
+func dbStore(dbPath string) (*sqlite.SQLQuerier, error) {
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	load, err := sqlite.NewSQLLiteLoader(db)
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	if err := load.Migrate(context.TODO()); err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 
 	loader := sqlite.NewSQLLoaderForDirectory(load, "../../manifests")
 	if err := loader.Populate(); err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	if err := db.Close(); err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 	store, err := sqlite.NewSQLLiteQuerier(dbPath)
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
+
 	}
-	return store
+	return store, nil
 }
 
-func cfgStore() (*registry.Querier, error) {
-	tmpDir, err := ioutil.TempDir("", "server_test-")
+func cfgStore(tmpDir string) (*registry.Querier, error) {
+	dbFile, err := os.CreateTemp(tmpDir, "cfgStore-*.db")
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(tmpDir)
+	dbFile.Close()
+	db, err := dbStore(dbFile.Name())
+	if err != nil {
+		return nil, err
+	}
 
-	dbFile := filepath.Join(tmpDir, "test.db")
-
-	dbStore := dbStore(dbFile)
-	m, err := sqlite.ToModel(context.TODO(), dbStore)
+	m, err := sqlite.ToModel(context.TODO(), db)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +82,27 @@ func cfgStore() (*registry.Querier, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := store.Wait(context.Background()); err != nil {
+	return store, nil
+}
+
+func asyncCfgStore(tmpDir string) (*registry.Querier, error) {
+	dbFile, err := os.CreateTemp(tmpDir, "asyncCfgStore-*.db")
+	if err != nil {
+		return nil, err
+	}
+	dbFile.Close()
+	if _, err := dbStore(dbFile.Name()); err != nil {
+		return nil, err
+	}
+
+	fbcDir := filepath.Join(tmpDir, "catalog")
+	migrate := action.Migrate{CatalogRef: dbFile.Name(), OutputDir: fbcDir, WriteFunc: declcfg.WriteYAML, FileExt: ".yaml"}
+	if err := migrate.Run(context.Background()); err != nil {
+		return nil, err
+	}
+
+	store, err := registry.NewQuerierFromFS(os.DirFS(fbcDir))
+	if err != nil {
 		return nil, err
 	}
 	return store, nil
@@ -91,14 +115,31 @@ func server(store registry.GRPCQuery) *grpc.Server {
 }
 
 func TestMain(m *testing.M) {
-	s1 := server(dbStore(dbName))
+	tmpDir, err := ioutil.TempDir("", "server_test-")
+	if err != nil {
+		logrus.Fatalf("failed to create tmp dir: %v", err)
+	}
+	defer os.Remove(tmpDir)
 
-	cfgQuerier, err := cfgStore()
-	defer cfgQuerier.Close()
+	dbPath := filepath.Join(tmpDir, "sqlite-*.db")
+	dbQuerier, err := dbStore(dbPath)
+	if err != nil {
+		logrus.Fatalf("failed to create sqlite querier: %v", err)
+	}
+	s1 := server(dbQuerier)
+
+	cfgQuerier, err := cfgStore(tmpDir)
 	if err != nil {
 		logrus.Fatalf("failed to create fbc querier: %v", err)
 	}
 	s2 := server(cfgQuerier)
+
+	asyncCfgQuerier, err := asyncCfgStore(tmpDir)
+	if err != nil {
+		logrus.Fatalf("failed to create async fbc querier: %v", err)
+	}
+	s3 := server(asyncCfgQuerier)
+
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
 		if err != nil {
@@ -117,9 +158,30 @@ func TestMain(m *testing.M) {
 			logrus.Fatalf("failed to serve configs: %v", err)
 		}
 	}()
+	go func() {
+		lis, err := net.Listen("tcp", asyncCfgPort)
+		if err != nil {
+			logrus.Fatalf("failed to listen: %v", err)
+		}
+		if err := s3.Serve(lis); err != nil {
+			logrus.Fatalf("failed to serve configs: %v", err)
+		}
+	}()
 	exit := m.Run()
-	if err := os.Remove(dbName); err != nil {
-		logrus.Fatalf("couldn't remove db")
+	s1.GracefulStop()
+	s2.GracefulStop()
+	s3.GracefulStop()
+	if err := cfgQuerier.Wait(context.Background()); err != nil {
+		logrus.Fatal(err)
+	}
+	if err := cfgQuerier.Close(); err != nil {
+		logrus.Fatal(err)
+	}
+	if err := asyncCfgQuerier.Wait(context.Background()); err != nil {
+		logrus.Fatal(err)
+	}
+	if err := asyncCfgQuerier.Close(); err != nil {
+		logrus.Fatal(err)
 	}
 	os.Exit(exit)
 }
@@ -139,6 +201,7 @@ func client(t *testing.T, address string) (api.RegistryClient, *grpc.ClientConn)
 func TestListPackages(t *testing.T) {
 	t.Run("Sqlite", testListPackages(dbAddress))
 	t.Run("DeclarativeConfig", testListPackages(cfgAddress))
+	t.Run("AsyncDeclarativeConfig", testListPackages(asyncCfgAddress))
 }
 
 func testListPackages(addr string) func(*testing.T) {
@@ -171,6 +234,8 @@ func testListPackages(addr string) func(*testing.T) {
 func TestGetPackage(t *testing.T) {
 	t.Run("Sqlite", testGetPackage(dbAddress))
 	t.Run("DeclarativeConfig", testGetPackage(cfgAddress))
+	t.Run("AsyncDeclarativeConfig", testGetPackage(asyncCfgAddress))
+
 }
 
 func testGetPackage(addr string) func(*testing.T) {
@@ -212,6 +277,7 @@ func testGetPackage(addr string) func(*testing.T) {
 func TestGetBundle(t *testing.T) {
 	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
 	t.Run("DeclarativeConfig", testGetBundle(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
+	t.Run("AsyncDeclarativeConfig", testGetBundle(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
 func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
@@ -235,6 +301,7 @@ func TestGetBundleForChannel(t *testing.T) {
 		}))
 	}
 	t.Run("DeclarativeConfig", testGetBundleForChannel(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
+	t.Run("AsyncDeclarativeConfig", testGetBundleForChannel(asyncCfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
 func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T) {
@@ -251,6 +318,7 @@ func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T)
 func TestGetChannelEntriesThatReplace(t *testing.T) {
 	t.Run("Sqlite", testGetChannelEntriesThatReplace(dbAddress))
 	t.Run("DeclarativeConfig", testGetChannelEntriesThatReplace(cfgAddress))
+	t.Run("AsyncDeclarativeConfig", testGetChannelEntriesThatReplace(asyncCfgAddress))
 }
 
 func testGetChannelEntriesThatReplace(addr string) func(*testing.T) {
@@ -327,6 +395,7 @@ func testGetChannelEntriesThatReplace(addr string) func(*testing.T) {
 func TestGetBundleThatReplaces(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
 	t.Run("DeclarativeConfig", testGetBundleThatReplaces(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
+	t.Run("AsyncDeclarativeConfig", testGetBundleThatReplaces(asyncCfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
 func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.T) {
@@ -343,6 +412,7 @@ func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
 	t.Run("DeclarativeConfig", testGetBundleThatReplacesSynthetic(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
+	t.Run("AsyncDeclarativeConfig", testGetBundleThatReplacesSynthetic(asyncCfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
 func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(*testing.T) {
@@ -360,6 +430,7 @@ func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(
 func TestGetChannelEntriesThatProvide(t *testing.T) {
 	t.Run("Sqlite", testGetChannelEntriesThatProvide(dbAddress))
 	t.Run("DeclarativeConfig", testGetChannelEntriesThatProvide(cfgAddress))
+	t.Run("AsyncDeclarativeConfig", testGetChannelEntriesThatProvide(asyncCfgAddress))
 }
 
 func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
@@ -477,6 +548,7 @@ func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
 func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 	t.Run("Sqlite", testGetLatestChannelEntriesThatProvide(dbAddress))
 	t.Run("DeclarativeConfig", testGetLatestChannelEntriesThatProvide(cfgAddress))
+	t.Run("AsyncDeclarativeConfig", testGetLatestChannelEntriesThatProvide(asyncCfgAddress))
 }
 
 func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
@@ -553,6 +625,7 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 func TestGetDefaultBundleThatProvides(t *testing.T) {
 	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperator_v0_9_2("alpha", false, false)))
 	t.Run("DeclarativeConfig", testGetDefaultBundleThatProvides(cfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
+	t.Run("AsyncDeclarativeConfig", testGetDefaultBundleThatProvides(asyncCfgAddress, etcdoperator_v0_9_2("alpha", false, true)))
 }
 
 func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*testing.T) {
@@ -571,6 +644,9 @@ func TestListBundles(t *testing.T) {
 		etcdoperator_v0_9_2("alpha", true, false),
 		etcdoperator_v0_9_2("stable", true, false)))
 	t.Run("DeclarativeConfig", testListBundles(cfgAddress,
+		etcdoperator_v0_9_2("alpha", true, true),
+		etcdoperator_v0_9_2("stable", true, true)))
+	t.Run("AsyncDeclarativeConfig", testListBundles(asyncCfgAddress,
 		etcdoperator_v0_9_2("alpha", true, true),
 		etcdoperator_v0_9_2("stable", true, true)))
 }
