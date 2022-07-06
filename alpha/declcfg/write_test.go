@@ -469,3 +469,56 @@ func removeJSONWhitespace(cfg *DeclarativeConfig) {
 		cfg.Others[io].Blob = buf.Bytes()
 	}
 }
+
+func TestWriteMermaidChannels(t *testing.T) {
+	type spec struct {
+		name     string
+		cfg      DeclarativeConfig
+		expected string
+	}
+	specs := []spec{
+		{
+			name: "Success",
+			cfg:  buildValidDeclarativeConfig(true),
+			expected: `<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
+graph LR
+  %% package "anakin"
+  subgraph "anakin"
+    %% channel "dark"
+    subgraph anakin-dark["dark"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- replaces --> anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]-- replaces --> anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]-- skips --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+    end
+    %% channel "light"
+    subgraph anakin-light["light"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-light-anakin.v0.1.0["anakin.v0.1.0"]-- replaces --> anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
+    end
+  end
+  %% package "boba-fett"
+  subgraph "boba-fett"
+    %% channel "mando"
+    subgraph boba-fett-mando["mando"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]-- replaces --> boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+    end
+  end
+<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
+`,
+		},
+	}
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := WriteMermaidChannels(s.cfg, &buf)
+			require.NoError(t, err)
+			require.Equal(t, s.expected, buf.String())
+		})
+	}
+}
