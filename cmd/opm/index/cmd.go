@@ -32,12 +32,6 @@ func AddCommand(parent *cobra.Command) {
 	}
 
 	parent.AddCommand(cmd)
-	parent.PersistentFlags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
-	parent.PersistentFlags().Bool("skip-tls-verify", false, "skip TLS certificate verification for container image registries while pulling bundles")
-	parent.PersistentFlags().Bool("use-http", false, "use plain HTTP for container image registries while pulling bundles")
-	if err := parent.PersistentFlags().MarkDeprecated("skip-tls", "use --use-http and --skip-tls-verify instead"); err != nil {
-		logrus.Panic(err.Error())
-	}
 
 	cmd.AddCommand(newIndexDeleteCmd())
 	addIndexAddCmd(cmd)
