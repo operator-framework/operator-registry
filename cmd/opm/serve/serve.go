@@ -13,6 +13,7 @@ import (
 	"runtime/pprof"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -33,6 +34,7 @@ type serve struct {
 
 	port           string
 	terminationLog string
+	serverTimeout  time.Duration
 
 	debug     bool
 	pprofAddr string
@@ -75,6 +77,7 @@ will not be reflected in the served content.
 	cmd.Flags().StringVarP(&s.terminationLog, "termination-log", "t", "/dev/termination-log", "path to a container termination log file")
 	cmd.Flags().StringVarP(&s.port, "port", "p", "50051", "port number to serve on")
 	cmd.Flags().StringVar(&s.pprofAddr, "pprof-addr", "", "address of startup profiling endpoint (addr:port format)")
+	cmd.Flags().DurationVar(&s.serverTimeout, "server-timeout", time.Second*30, "server-enforced timeout for grpc requests")
 	return cmd
 }
 
@@ -112,7 +115,20 @@ func (s *serve) run(ctx context.Context) error {
 		s.logger.Fatalf("failed to listen: %s", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	var grpcServerOpts []grpc.ServerOption
+	if s.serverTimeout > 0 {
+		grpcServerOpts = append(grpcServerOpts, grpc.StreamInterceptor(func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			dss := &deadlinableServerStream{timeout: s.serverTimeout, ServerStream: ss}
+			defer dss.Cancel()
+			return handler(srv, dss)
+		}), grpc.UnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+			ctx, cancel := context.WithTimeout(ctx, s.serverTimeout)
+			defer cancel()
+			return handler(ctx, req)
+		}))
+	}
+
+	grpcServer := grpc.NewServer(grpcServerOpts...)
 	api.RegisterRegistryServer(grpcServer, server.NewRegistryServer(store))
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
@@ -277,4 +293,35 @@ func (p *profilerInterface) setCacheReady() {
 	p.cacheLock.Lock()
 	p.cacheReady = true
 	p.cacheLock.Unlock()
+}
+
+type deadlinableServerStream struct {
+	grpc.ServerStream
+	timeout time.Duration
+
+	m          sync.Mutex
+	cancelFunc func()
+	cancelled  bool
+}
+
+func (ss *deadlinableServerStream) Context() context.Context {
+	ss.m.Lock()
+	defer ss.m.Unlock()
+	if ss.cancelled {
+		ctx, cancel := context.WithCancel(ss.ServerStream.Context())
+		cancel()
+		return ctx
+	}
+	ctx, cancel := context.WithTimeout(ss.ServerStream.Context(), ss.timeout)
+	ss.cancelFunc = cancel
+	return ctx
+}
+
+func (ss *deadlinableServerStream) Cancel() {
+	ss.m.Lock()
+	defer ss.m.Unlock()
+	if ss.cancelFunc != nil {
+		ss.cancelFunc()
+	}
+	ss.cancelled = true
 }
