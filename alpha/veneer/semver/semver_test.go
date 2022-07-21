@@ -581,6 +581,8 @@ func TestBailOnVersionBuildMetadata(t *testing.T) {
 				{Image: "repo/origin/a-v2.3.1"},
 				{Image: "repo/origin/a-v2.3.2"},
 				{Image: "repo/origin/a-v1.3.1-alpha"},
+				{Image: "repo/origin/a-v1.3.1-alpha+2001Jan21"},
+				{Image: "repo/origin/a-v1.3.1-alpha+2003May06"},
 			},
 		},
 	}
@@ -597,16 +599,18 @@ func TestBailOnVersionBuildMetadata(t *testing.T) {
 			{Schema: "olm.bundle", Image: "repo/origin/a-v0.1.1", Name: "a-v0.1.1", Properties: []property.Property{property.MustBuildPackage("a", "0.1.1")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v1.1.0", Name: "a-v1.1.0", Properties: []property.Property{property.MustBuildPackage("a", "1.1.0")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v1.2.1", Name: "a-v1.2.1", Properties: []property.Property{property.MustBuildPackage("a", "1.2.1")}},
+			{Schema: "olm.bundle", Image: "repo/origin/a-v1.3.1-alpha", Name: "a-v1.3.1-alpha", Properties: []property.Property{property.MustBuildPackage("a", "1.3.1-alpha")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v1.3.1-alpha+2001Jan21", Name: "a-v1.3.1-alpha+2001Jan21", Properties: []property.Property{property.MustBuildPackage("a", "1.3.1-alpha+2001Jan21")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v1.3.1", Name: "a-v1.3.1", Properties: []property.Property{property.MustBuildPackage("a", "1.3.1")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v2.1.0", Name: "a-v2.1.0", Properties: []property.Property{property.MustBuildPackage("a", "2.1.0")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v2.1.1", Name: "a-v2.1.1", Properties: []property.Property{property.MustBuildPackage("a", "2.1.1")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v2.3.1", Name: "a-v2.3.1", Properties: []property.Property{property.MustBuildPackage("a", "2.3.1")}},
 			{Schema: "olm.bundle", Image: "repo/origin/a-v2.3.2", Name: "a-v2.3.2", Properties: []property.Property{property.MustBuildPackage("a", "2.3.2")}},
+			{Schema: "olm.bundle", Image: "repo/origin/a-v1.3.1-alpha+2003May06", Name: "a-v1.3.1-alpha+2003May06", Properties: []property.Property{property.MustBuildPackage("a", "1.3.1-alpha+2003May06")}},
 		},
 	}
 
-	t.Run("Abort on detected build metadata version data", func(t *testing.T) {
+	t.Run("Abort on unorderable build metadata version data", func(t *testing.T) {
 		_, err := sv.getVersionsFromStandardChannels(&dc)
 		require.Error(t, err)
 	})
