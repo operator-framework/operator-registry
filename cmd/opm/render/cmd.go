@@ -37,8 +37,10 @@ func NewCmd() *cobra.Command {
 				write = declcfg.WriteYAML
 			case "json":
 				write = declcfg.WriteJSON
+			case "mermaid":
+				write = declcfg.WriteMermaidChannels
 			default:
-				log.Fatalf("invalid --output value %q, expected (json|yaml)", output)
+				log.Fatalf("invalid --output value %q, expected (json|yaml|mermaid)", output)
 			}
 
 			// The bundle loading impl is somewhat verbose, even on the happy path,
@@ -79,7 +81,7 @@ func NewCmd() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
+	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml|mermaid)")
 	cmd.Flags().Bool("skip-tls-verify", false, "disable TLS verification")
 	cmd.Flags().Bool("use-http", false, "use plain HTTP")
 	return cmd
