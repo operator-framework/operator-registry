@@ -12,7 +12,6 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/veneer/basic"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
-	containerd "github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 )
 
 func newBasicVeneerRenderCmd() *cobra.Command {
@@ -42,22 +41,7 @@ func newBasicVeneerRenderCmd() *cobra.Command {
 			// returned from veneer.Render and logged as fatal errors.
 			logrus.SetOutput(ioutil.Discard)
 
-			skipTLSVerify, useHTTP, err := util.GetTLSOptions(cmd)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			cacheDir, err := os.MkdirTemp("", "veneer-registry-")
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			reg, err := containerd.NewRegistry(
-				containerd.WithCacheDir(cacheDir),
-				containerd.SkipTLSVerify(skipTLSVerify),
-				containerd.WithPlainHTTP(useHTTP),
-				containerd.WithLog(nullLogger()),
-			)
+			reg, err := util.CreateCLIRegistry(cmd)
 			if err != nil {
 				log.Fatalf("creating containerd registry: %v", err)
 			}
@@ -77,7 +61,5 @@ func newBasicVeneerRenderCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
-	cmd.Flags().Bool("skip-tls-verify", false, "disable TLS verification")
-	cmd.Flags().Bool("use-http", false, "use plain HTTP")
 	return cmd
 }

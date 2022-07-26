@@ -14,14 +14,16 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 type ListPackages struct {
 	IndexReference string
+	Registry       image.Registry
 }
 
 func (l *ListPackages) Run(ctx context.Context) (*ListPackagesResult, error) {
-	m, err := indexRefToModel(ctx, l.IndexReference)
+	m, err := indexRefToModel(ctx, l.IndexReference, l.Registry)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +74,11 @@ func getDisplayName(pkg model.Package) string {
 type ListChannels struct {
 	IndexReference string
 	PackageName    string
+	Registry       image.Registry
 }
 
 func (l *ListChannels) Run(ctx context.Context) (*ListChannelsResult, error) {
-	m, err := indexRefToModel(ctx, l.IndexReference)
+	m, err := indexRefToModel(ctx, l.IndexReference, l.Registry)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +131,11 @@ func (r *ListChannelsResult) WriteColumns(w io.Writer) error {
 type ListBundles struct {
 	IndexReference string
 	PackageName    string
+	Registry       image.Registry
 }
 
 func (l *ListBundles) Run(ctx context.Context) (*ListBundlesResult, error) {
-	m, err := indexRefToModel(ctx, l.IndexReference)
+	m, err := indexRefToModel(ctx, l.IndexReference, l.Registry)
 	if err != nil {
 		return nil, err
 	}
@@ -179,10 +183,11 @@ func (r *ListBundlesResult) WriteColumns(w io.Writer) error {
 	return tw.Flush()
 }
 
-func indexRefToModel(ctx context.Context, ref string) (model.Model, error) {
+func indexRefToModel(ctx context.Context, ref string, reg image.Registry) (model.Model, error) {
 	render := Render{
 		Refs:           []string{ref},
 		AllowedRefMask: RefDCImage | RefDCDir | RefSqliteImage | RefSqliteFile,
+		Registry:       reg,
 	}
 	cfg, err := render.Run(ctx)
 	if err != nil {
