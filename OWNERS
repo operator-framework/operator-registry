@@ -6,6 +6,7 @@ approvers:
   - kevinrizza
   - benluddy
   - joelanford
+  - grokspawn
 # review == this code is good /lgtm
 reviewers:
   - ecordell
