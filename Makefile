@@ -116,8 +116,7 @@ clean:
 
 .PHONY: e2e
 e2e:
-	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
-
+	$(GO) run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
 
 .PHONY: release
 export OPM_IMAGE_REPO ?= quay.io/operator-framework/opm

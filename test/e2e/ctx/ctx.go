@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -39,7 +39,7 @@ func (ctx TestContext) Logf(f string, v ...interface{}) {
 	if !strings.HasSuffix(f, "\n") {
 		f += "\n"
 	}
-	fmt.Fprintf(GinkgoWriter, f, v...)
+	_, _ = fmt.Fprintf(GinkgoWriter, f, v...)
 }
 
 func (ctx TestContext) Scheme() *runtime.Scheme {

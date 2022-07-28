@@ -25,14 +25,14 @@ running even after the test suite has completed.
 1. Run a specific BDD test using the `TEST` argument to make. Note that this argument uses regular expressions.
 
    ```bash
-   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e TEST='builds and manipulates bundle and index images' USEHTTP="true" CLUSTER=kind   
+   DOCKER_REGISTRY_HOST=localhost:5000 GOENV='GOOS=linux' make build e2e TEST='builds and manipulates bundle and index images' USEHTTP="true" CLUSTER=kind
    ```
 
-1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the 
-make file and use `-dryRun` with `-focus` and see if the regex would trigger your specific test(s).
+1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the
+make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race -dryRun -focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
+   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
    ```
 
 ## Kind with SSL
@@ -55,16 +55,16 @@ make file and use `-dryRun` with `-focus` and see if the regex would trigger you
    DOCKER_REGISTRY_HOST=localhost:443 GOENV='GOOS=linux' make build e2e TEST='builds and manipulates bundle and index images' CLUSTER=kind
    ```
 
-1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the 
-make file and use `-dryRun` with `-focus` and see if the regex would trigger your specific test(s).
+1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the
+make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race -dryRun -focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
+   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
    ```
 
 ## Minikube (or other type) using kubeconfig without SSL
 
-1. Install `minikube` (see https://minikube.sigs.k8s.io/docs/start/)
+1. Install [`minikube`](https://minikube.sigs.k8s.io/docs/start/)
 
 1. Create a minikube cluster
 
@@ -90,18 +90,18 @@ make file and use `-dryRun` with `-focus` and see if the regex would trigger you
    KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:5000 make build e2e TEST='builds and manipulates bundle and index images' SKIPTLS="true"
    ```
 
-1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the 
-make file and use `-dryRun` with `-focus` and see if the regex would trigger your specific test(s).
+1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the
+make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race -dryRun -focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
+   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
    ```
 
 TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind" > /tmp/kindconfig` and set `KUBECONFIG="/tmp/kindconfig"`
 
 ## Minikube (or other type) using kubeconfig with SSL
 
-1. Install `minikube` (see https://minikube.sigs.k8s.io/docs/start/)
+1. Install [`minikube`](https://minikube.sigs.k8s.io/docs/start/)
 
 1. Create a minikube cluster
 
@@ -127,11 +127,11 @@ TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind"
    KUBECONFIG="$HOME/.kube/config" DOCKER_REGISTRY_HOST=localhost:443 make build e2e TEST='builds and manipulates bundle and index images'
    ```
 
-1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the 
-make file and use `-dryRun` with `-focus` and see if the regex would trigger your specific test(s).
+1. If you want a quick way to ensure that your TEST regex argument will work, you can bypass the
+make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race -dryRun -focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
+   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
    ```
 
 TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind" > /tmp/kindconfig` and set `KUBECONFIG="/tmp/kindconfig"`
@@ -140,4 +140,4 @@ TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind"
 
 Currently the test case `Launch bundle` in test/e2e/bundle_image_test.go assumes that the `opm` executable used in the test is compiled for linux.
 If you run this test on a darwin environment, the kube job will not succeed unless you manually cross compile for linux and include
-the binary at `bin/opm`. 
+the binary at `bin/opm`.
