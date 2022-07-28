@@ -88,9 +88,13 @@ vendor:
 	$(GO) mod vendor
 	$(GO) mod verify
 
+.PHONY: verify
+verify: vendor
+	git diff --exit-code
+
 .PHONY: lint
-lint:
-	find . -name '*.go' -not -path "./vendor/*" | xargs goimports -w
+lint: golangci-lint ## Run golangci-lint linter checks.
+	$(GOLANGCI_LINT) run
 
 .PHONY: codegen
 codegen:
@@ -165,10 +169,12 @@ $(LOCALBIN):
 ## Tool Binaries
 GORELEASER ?= $(LOCALBIN)/goreleaser
 GINKGO ?= $(LOCALBIN)/ginkgo
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 GORELEASER_VERSION ?= v1.8.3
 GINKGO_VERSION ?= v2.1.3
+GOLANGCI_LINT_VERSION ?= v1.45.2
 
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
@@ -179,3 +185,8 @@ $(GORELEASER): $(LOCALBIN)
 ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
 $(GINKGO): $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT)
+$(GOLANGCI_LINT): $(LOCALBIN) ## Download golangci-lint locally if necessary.
+	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)

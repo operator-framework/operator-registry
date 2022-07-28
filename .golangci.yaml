@@ -1,0 +1,45 @@
+run:
+  # Default timeout is 1m, up to give more room
+  timeout: 4m
+
+linters:
+  enable:
+  - asciicheck
+  - deadcode
+  - depguard
+  - gofmt
+  - goimports
+  - importas
+  - revive
+  - misspell
+  - stylecheck
+  - tparallel
+  - unconvert
+  - unparam
+  - whitespace
+
+linters-settings:
+  importas:
+    alias:
+    - pkg: k8s.io/api/core/v1
+      alias: corev1
+    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+      alias: metav1
+    - pkg: k8s.io/apimachinery/pkg/api/errors
+      alias: apierrors
+    - pkg: github.com/operator-framework/api/pkg/operators/v1alpha1
+      alias: operatorsv1alpha1
+  revive:
+    rules:
+    - name: dot-imports
+      severity: warning
+      disabled: true
+  stylecheck:
+    dot-import-whitelist:
+      - github.com/onsi/gomega
+      - github.com/onsi/ginkgo
+  goimports:
+    local-prefixes: github.com/operator-framework/operator-registry
+
+output:
+  format: tab
