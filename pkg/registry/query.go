@@ -3,24 +3,26 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"hash/fnv"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/pkg/api"
 )
 
 type Querier struct {
-	pkgs model.Model
-
-	tmpDir     string
-	apiBundles map[apiBundleKey]string
+	*cache
 }
 
 func (q Querier) Close() error {
-	return os.RemoveAll(q.tmpDir)
+	return q.cache.close()
 }
 
 type apiBundleKey struct {
@@ -39,43 +41,16 @@ func (s *SliceBundleSender) Send(b *api.Bundle) error {
 
 var _ GRPCQuery = &Querier{}
 
-func NewQuerier(packages model.Model) (*Querier, error) {
+func NewQuerier(fbcFS fs.FS, cacheDir string) (*Querier, error) {
 	q := &Querier{}
-
-	tmpDir, err := os.MkdirTemp("", "opm-registry-querier-")
+	var err error
+	q.cache, err = newCache(cacheDir)
 	if err != nil {
-		return nil, err
+		return q, err
 	}
-	q.tmpDir = tmpDir
-
-	q.apiBundles = map[apiBundleKey]string{}
-	for _, pkg := range packages {
-		for _, ch := range pkg.Channels {
-			for _, b := range ch.Bundles {
-				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
-				if err != nil {
-					return q, err
-				}
-				jsonBundle, err := json.Marshal(apiBundle)
-				if err != nil {
-					return q, err
-				}
-				filename := filepath.Join(tmpDir, fmt.Sprintf("%s_%s_%s.json", pkg.Name, ch.Name, b.Name))
-				if err := os.WriteFile(filename, jsonBundle, 0666); err != nil {
-					return q, err
-				}
-				q.apiBundles[apiBundleKey{pkg.Name, ch.Name, b.Name}] = filename
-				packages[pkg.Name].Channels[ch.Name].Bundles[b.Name] = &model.Bundle{
-					Package:  pkg,
-					Channel:  ch,
-					Name:     b.Name,
-					Replaces: b.Replaces,
-					Skips:    b.Skips,
-				}
-			}
-		}
+	if err := q.cache.load(fbcFS); err != nil {
+		return q, err
 	}
-	q.pkgs = packages
 	return q, nil
 }
 
@@ -147,19 +122,15 @@ func (q Querier) GetPackage(_ context.Context, name string) (*PackageManifest, e
 
 	var channels []PackageChannel
 	for _, ch := range pkg.Channels {
-		head, err := ch.Head()
-		if err != nil {
-			return nil, fmt.Errorf("package %q, channel %q has invalid head: %v", name, ch.Name, err)
-		}
 		channels = append(channels, PackageChannel{
 			Name:           ch.Name,
-			CurrentCSVName: head.Name,
+			CurrentCSVName: ch.Head,
 		})
 	}
 	return &PackageManifest{
 		PackageName:        pkg.Name,
 		Channels:           channels,
-		DefaultChannelName: pkg.DefaultChannel.Name,
+		DefaultChannelName: pkg.DefaultChannel,
 	}, nil
 }
 
@@ -196,13 +167,9 @@ func (q Querier) GetBundleForChannel(_ context.Context, pkgName string, channelN
 	if !ok {
 		return nil, fmt.Errorf("package %q, channel %q not found", pkgName, channelName)
 	}
-	head, err := ch.Head()
+	apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, ch.Head})
 	if err != nil {
-		return nil, fmt.Errorf("package %q, channel %q has invalid head: %v", pkgName, channelName, err)
-	}
-	apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, head.Name})
-	if err != nil {
-		return nil, fmt.Errorf("convert bundle %q: %v", head.Name, err)
+		return nil, fmt.Errorf("convert bundle %q: %v", ch.Head, err)
 	}
 
 	// unset Replaces and Skips (sqlite query does not populate these fields)
@@ -217,7 +184,7 @@ func (q Querier) GetChannelEntriesThatReplace(_ context.Context, name string) ([
 	for _, pkg := range q.pkgs {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
-				entries = append(entries, channelEntriesThatReplace(*b, name)...)
+				entries = append(entries, channelEntriesThatReplace(b, name)...)
 			}
 		}
 	}
@@ -242,7 +209,7 @@ func (q Querier) GetBundleThatReplaces(_ context.Context, name, pkgName, channel
 	//       is ALSO non-deterministic because it doesn't use ORDER BY, so its probably okay for this
 	//       implementation to be non-deterministic as well.
 	for _, b := range ch.Bundles {
-		if bundleReplaces(*b, name) {
+		if bundleReplaces(b, name) {
 			apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, b.Name})
 			if err != nil {
 				return nil, fmt.Errorf("convert bundle %q: %v", b.Name, err)
@@ -263,7 +230,7 @@ func (q Querier) GetChannelEntriesThatProvide(_ context.Context, group, version,
 	for _, pkg := range q.pkgs {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
-				provides, err := q.doesModelBundleProvide(*b, group, version, kind)
+				provides, err := q.doesModelBundleProvide(b, group, version, kind)
 				if err != nil {
 					return nil, err
 				}
@@ -274,7 +241,7 @@ func (q Querier) GetChannelEntriesThatProvide(_ context.Context, group, version,
 					//   the sqlite server and returns seemingly invalid channel entries.
 					//      Don't worry about this. Not used anymore.
 
-					entries = append(entries, channelEntriesForBundle(*b, true)...)
+					entries = append(entries, q.channelEntriesForBundle(b, true)...)
 				}
 			}
 		}
@@ -297,17 +264,13 @@ func (q Querier) GetLatestChannelEntriesThatProvide(_ context.Context, group, ve
 
 	for _, pkg := range q.pkgs {
 		for _, ch := range pkg.Channels {
-			b, err := ch.Head()
-			if err != nil {
-				return nil, fmt.Errorf("package %q, channel %q has invalid head: %v", pkg.Name, ch.Name, err)
-			}
-
-			provides, err := q.doesModelBundleProvide(*b, group, version, kind)
+			b := ch.Bundles[ch.Head]
+			provides, err := q.doesModelBundleProvide(b, group, version, kind)
 			if err != nil {
 				return nil, err
 			}
 			if provides {
-				entries = append(entries, channelEntriesForBundle(*b, false)...)
+				entries = append(entries, q.channelEntriesForBundle(b, false)...)
 			}
 		}
 	}
@@ -337,15 +300,15 @@ func (q Querier) GetBundleThatProvides(ctx context.Context, group, version, kind
 			// collected based on iterating over the packages in q.pkgs.
 			continue
 		}
-		if entry.ChannelName == pkg.DefaultChannel.Name {
+		if entry.ChannelName == pkg.DefaultChannel {
 			return q.GetBundle(ctx, entry.PackageName, entry.ChannelName, entry.BundleName)
 		}
 	}
 	return nil, fmt.Errorf("no entry found that provides group:%q version:%q kind:%q", group, version, kind)
 }
 
-func (q Querier) doesModelBundleProvide(b model.Bundle, group, version, kind string) (bool, error) {
-	apiBundle, err := q.loadAPIBundle(apiBundleKey{b.Package.Name, b.Channel.Name, b.Name})
+func (q Querier) doesModelBundleProvide(b cBundle, group, version, kind string) (bool, error) {
+	apiBundle, err := q.loadAPIBundle(apiBundleKey{b.Package, b.Channel, b.Name})
 	if err != nil {
 		return false, fmt.Errorf("convert bundle %q: %v", b.Name, err)
 	}
@@ -357,7 +320,7 @@ func (q Querier) doesModelBundleProvide(b model.Bundle, group, version, kind str
 	return false, nil
 }
 
-func bundleReplaces(b model.Bundle, name string) bool {
+func bundleReplaces(b cBundle, name string) bool {
 	if b.Replaces == name {
 		return true
 	}
@@ -369,12 +332,12 @@ func bundleReplaces(b model.Bundle, name string) bool {
 	return false
 }
 
-func channelEntriesThatReplace(b model.Bundle, name string) []*ChannelEntry {
+func channelEntriesThatReplace(b cBundle, name string) []*ChannelEntry {
 	var entries []*ChannelEntry
 	if b.Replaces == name {
 		entries = append(entries, &ChannelEntry{
-			PackageName: b.Package.Name,
-			ChannelName: b.Channel.Name,
+			PackageName: b.Package,
+			ChannelName: b.Channel,
 			BundleName:  b.Name,
 			Replaces:    b.Replaces,
 		})
@@ -382,8 +345,8 @@ func channelEntriesThatReplace(b model.Bundle, name string) []*ChannelEntry {
 	for _, s := range b.Skips {
 		if s == name && s != b.Replaces {
 			entries = append(entries, &ChannelEntry{
-				PackageName: b.Package.Name,
-				ChannelName: b.Channel.Name,
+				PackageName: b.Package,
+				ChannelName: b.Channel,
 				BundleName:  b.Name,
 				Replaces:    b.Replaces,
 			})
@@ -392,24 +355,245 @@ func channelEntriesThatReplace(b model.Bundle, name string) []*ChannelEntry {
 	return entries
 }
 
-func channelEntriesForBundle(b model.Bundle, ignoreChannel bool) []*ChannelEntry {
+func (q Querier) channelEntriesForBundle(b cBundle, ignoreChannel bool) []*ChannelEntry {
 	entries := []*ChannelEntry{{
-		PackageName: b.Package.Name,
-		ChannelName: b.Channel.Name,
+		PackageName: b.Package,
+		ChannelName: b.Channel,
 		BundleName:  b.Name,
 		Replaces:    b.Replaces,
 	}}
 	for _, s := range b.Skips {
 		// Ignore skips that duplicate b.Replaces. Also, only add it if its
 		// in the same channel as b (or we're ignoring channel presence).
-		if _, inChannel := b.Channel.Bundles[s]; s != b.Replaces && (ignoreChannel || inChannel) {
+		if _, inChannel := q.pkgs[b.Package].Channels[b.Channel].Bundles[s]; s != b.Replaces && (ignoreChannel || inChannel) {
 			entries = append(entries, &ChannelEntry{
-				PackageName: b.Package.Name,
-				ChannelName: b.Channel.Name,
+				PackageName: b.Package,
+				ChannelName: b.Channel,
 				BundleName:  b.Name,
 				Replaces:    s,
 			})
 		}
 	}
 	return entries
+}
+
+type cache struct {
+	digest     string
+	baseDir    string
+	persist    bool
+	pkgs       map[string]cPkg
+	apiBundles map[apiBundleKey]string
+}
+
+func newCache(baseDir string) (*cache, error) {
+	if baseDir == "" {
+		return newEphemeralCache()
+	}
+	if err := os.MkdirAll(baseDir, 0700); err != nil {
+		return nil, err
+	}
+	qc := &cache{baseDir: baseDir, persist: true}
+	if digest, err := os.ReadFile(filepath.Join(baseDir, "digest")); err == nil {
+		qc.digest = strings.TrimSpace(string(digest))
+	}
+	return qc, nil
+}
+
+func (qc cache) close() error {
+	if qc.persist {
+		return nil
+	}
+	return os.RemoveAll(qc.baseDir)
+}
+
+func newEphemeralCache() (*cache, error) {
+	baseDir, err := os.MkdirTemp("", "opm-serve-cache-")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Join(baseDir, "cache"), 0700); err != nil {
+		return nil, err
+	}
+	return &cache{
+		digest:  "",
+		baseDir: baseDir,
+		persist: false,
+	}, nil
+}
+
+func (qc *cache) load(fbc fs.FS) error {
+	computedDigest, err := qc.computeHash(fbc)
+	if err != nil {
+		return fmt.Errorf("check stale: %v", err)
+	}
+	if qc.digest == computedDigest {
+		err = qc.loadFromCache()
+		if err == nil {
+			return nil
+		}
+		fmt.Printf("repopulating cache due to cache load error: %v\n", err)
+	}
+	return qc.repopulateCache(fbc)
+}
+
+func (qc cache) computeHash(fbc fs.FS) (string, error) {
+	computedHasher := fnv.New64a()
+	if err := fsToTar(computedHasher, fbc); err != nil {
+		return "", err
+	}
+	if cacheFS, err := fs.Sub(os.DirFS(qc.baseDir), "cache"); err == nil {
+		if err := fsToTar(computedHasher, cacheFS); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("compute hash: %v", err)
+		}
+	}
+	return fmt.Sprintf("%x", computedHasher.Sum(nil)), nil
+}
+
+func (qc *cache) loadFromCache() error {
+	packagesData, err := os.ReadFile(filepath.Join(qc.baseDir, "cache", "packages.json"))
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(packagesData, &qc.pkgs); err != nil {
+		return err
+	}
+	qc.apiBundles = map[apiBundleKey]string{}
+	for _, p := range qc.pkgs {
+		for _, ch := range p.Channels {
+			for _, b := range ch.Bundles {
+				filename := filepath.Join(qc.baseDir, "cache", fmt.Sprintf("%s_%s_%s.json", p.Name, ch.Name, b.Name))
+				qc.apiBundles[apiBundleKey{pkgName: p.Name, chName: ch.Name, name: b.Name}] = filename
+			}
+		}
+	}
+	return nil
+}
+
+func (qc *cache) repopulateCache(fbcFS fs.FS) error {
+	fbc, err := declcfg.LoadFS(fbcFS)
+	if err != nil {
+		return err
+	}
+	model, err := declcfg.ConvertToModel(*fbc)
+	if err != nil {
+		return err
+	}
+	cacheDirEntries, err := os.ReadDir(qc.baseDir)
+	if err != nil {
+		return err
+	}
+	for _, e := range cacheDirEntries {
+		if err := os.RemoveAll(filepath.Join(qc.baseDir, e.Name())); err != nil {
+			return err
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(qc.baseDir, "cache"), 0700); err != nil {
+		return err
+	}
+
+	qc.pkgs, err = packagesFromModel(model)
+	if err != nil {
+		return err
+	}
+
+	packageJson, err := json.Marshal(qc.pkgs)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(qc.baseDir, "cache", "packages.json"), packageJson, 0600); err != nil {
+		return err
+	}
+
+	qc.apiBundles = map[apiBundleKey]string{}
+	for _, p := range model {
+		for _, ch := range p.Channels {
+			for _, b := range ch.Bundles {
+				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
+				if err != nil {
+					return err
+				}
+				jsonBundle, err := json.Marshal(apiBundle)
+				if err != nil {
+					return err
+				}
+				filename := filepath.Join(qc.baseDir, "cache", fmt.Sprintf("%s_%s_%s.json", p.Name, ch.Name, b.Name))
+				if err := os.WriteFile(filename, jsonBundle, 0666); err != nil {
+					return err
+				}
+				qc.apiBundles[apiBundleKey{p.Name, ch.Name, b.Name}] = filename
+			}
+		}
+	}
+	computedHash, err := qc.computeHash(fbcFS)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(qc.baseDir, "digest"), []byte(computedHash), 0600); err != nil {
+		return err
+	}
+	return nil
+}
+
+func packagesFromModel(m model.Model) (map[string]cPkg, error) {
+	pkgs := map[string]cPkg{}
+	for _, p := range m {
+		newP := cPkg{
+			Name:           p.Name,
+			Description:    p.Description,
+			DefaultChannel: p.DefaultChannel.Name,
+			Channels:       map[string]cChannel{},
+		}
+		if p.Icon != nil {
+			newP.Icon = &declcfg.Icon{
+				Data:      p.Icon.Data,
+				MediaType: p.Icon.MediaType,
+			}
+		}
+		for _, ch := range p.Channels {
+			head, err := ch.Head()
+			if err != nil {
+				return nil, err
+			}
+			newCh := cChannel{
+				Name:    ch.Name,
+				Head:    head.Name,
+				Bundles: map[string]cBundle{},
+			}
+			for _, b := range ch.Bundles {
+				newB := cBundle{
+					Package:  b.Package.Name,
+					Channel:  b.Channel.Name,
+					Name:     b.Name,
+					Replaces: b.Replaces,
+					Skips:    b.Skips,
+				}
+				newCh.Bundles[b.Name] = newB
+			}
+			newP.Channels[ch.Name] = newCh
+		}
+		pkgs[p.Name] = newP
+	}
+	return pkgs, nil
+}
+
+type cPkg struct {
+	Name           string        `json:"name"`
+	Description    string        `json:"description"`
+	Icon           *declcfg.Icon `json:"icon"`
+	DefaultChannel string        `json:"defaultChannel"`
+	Channels       map[string]cChannel
+}
+
+type cChannel struct {
+	Name    string
+	Head    string
+	Bundles map[string]cBundle
+}
+
+type cBundle struct {
+	Package  string   `json:"package"`
+	Channel  string   `json:"channel"`
+	Name     string   `json:"name"`
+	Replaces string   `json:"replaces""`
+	Skips    []string `json:"skips"`
 }
