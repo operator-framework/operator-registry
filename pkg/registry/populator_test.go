@@ -1184,9 +1184,7 @@ func TestDeprecatePackage(t *testing.T) {
 }
 
 func TestAddAfterDeprecate(t *testing.T) {
-	tmpdir, err := os.MkdirTemp(".", "add-after-deprecate-*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	/*
 	                     (0.1) 0.1.2 <- 0.1.1 <- 0.1.0

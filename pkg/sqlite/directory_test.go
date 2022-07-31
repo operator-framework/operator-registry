@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,13 +37,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 	require.NoError(t, store.Migrate(context.TODO()))
 
 	// Copy golden manifests to a temp dir
-	dir, err := ioutil.TempDir("testdata", "manifests-")
-	require.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	dir := t.TempDir()
 	require.NoError(t, copy.Copy("./testdata/loader_data", dir))
 
 	// Point the first channel at a CSV that doesn't exist

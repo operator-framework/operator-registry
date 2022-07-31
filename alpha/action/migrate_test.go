@@ -37,7 +37,7 @@ func TestMigrate(t *testing.T) {
 	err := generateSqliteFile(dbFile, sqliteBundles)
 	require.NoError(t, err)
 
-	reg, err := newMigrateRegistry(sqliteBundles)
+	reg, err := newMigrateRegistry(t, sqliteBundles)
 	require.NoError(t, err)
 
 	specs := []spec{
@@ -118,8 +118,8 @@ func TestMigrate(t *testing.T) {
 	}
 }
 
-func newMigrateRegistry(imageMap map[image.Reference]string) (image.Registry, error) {
-	subSqliteImage, err := generateSqliteFS(imageMap)
+func newMigrateRegistry(t *testing.T, imageMap map[image.Reference]string) (image.Registry, error) {
+	subSqliteImage, err := generateSqliteFS(t, imageMap)
 	if err != nil {
 		return nil, err
 	}
