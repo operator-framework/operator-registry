@@ -181,8 +181,7 @@ COPY x/y/z /metadata/
 }
 
 func TestCopyYamlOutput(t *testing.T) {
-	testOutputDir, _ := ioutil.TempDir("./", "test-generate")
-	defer os.RemoveAll(testOutputDir)
+	testOutputDir := t.TempDir()
 
 	testContent := []byte{0, 1, 0, 0}
 	testManifestDir := "./testdata/generate/manifests"
@@ -224,8 +223,7 @@ func TestCopyYamlOutput_NoOutputDir(t *testing.T) {
 }
 
 func TestCopyYamlOutput_NestedCopy(t *testing.T) {
-	testOutputDir, _ := ioutil.TempDir("./", "test-generate")
-	defer os.RemoveAll(testOutputDir)
+	testOutputDir := t.TempDir()
 
 	testContent := []byte{0, 1, 0, 0}
 	testManifestDir := "./testdata/generate/nested_manifests"

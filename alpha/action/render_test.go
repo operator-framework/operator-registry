@@ -33,7 +33,7 @@ func TestRender(t *testing.T) {
 		assertion require.ErrorAssertionFunc
 	}
 
-	reg, err := newRegistry()
+	reg, err := newRegistry(t)
 	require.NoError(t, err)
 	foov1csv, err := bundleImageV1.ReadFile("testdata/foo-bundle-v0.1.0/manifests/foo.v0.1.0.csv.yaml")
 	require.NoError(t, err)
@@ -563,7 +563,7 @@ func TestAllowRefMask(t *testing.T) {
 		expectErr error
 	}
 
-	reg, err := newRegistry()
+	reg, err := newRegistry(t)
 	require.NoError(t, err)
 
 	dir := t.TempDir()
@@ -766,13 +766,13 @@ var bundleImageV2NoCSVRelatedImages embed.FS
 //go:embed testdata/foo-index-v0.2.0-declcfg/foo/*
 var declcfgImage embed.FS
 
-func newRegistry() (image.Registry, error) {
+func newRegistry(t *testing.T) (image.Registry, error) {
 	imageMap := map[image.Reference]string{
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
 	}
 
-	subSqliteImage, err := generateSqliteFS(imageMap)
+	subSqliteImage, err := generateSqliteFS(t, imageMap)
 	if err != nil {
 		return nil, err
 	}
@@ -828,12 +828,8 @@ func newRegistry() (image.Registry, error) {
 	}, nil
 }
 
-func generateSqliteFS(imageMap map[image.Reference]string) (fs.FS, error) {
-	dir, err := os.MkdirTemp("", "opm-render-test-")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(dir)
+func generateSqliteFS(t *testing.T, imageMap map[image.Reference]string) (fs.FS, error) {
+	dir := t.TempDir()
 
 	dbFile := filepath.Join(dir, "index.db")
 	if err := generateSqliteFile(dbFile, imageMap); err != nil {

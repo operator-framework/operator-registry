@@ -630,8 +630,7 @@ func TestCheckForBundles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			tmpdir, err := os.MkdirTemp(".", "tmpdir-*")
-			defer os.RemoveAll(tmpdir)
+			tmpdir := t.TempDir()
 			db, cleanup := CreateTestDb(t)
 			defer cleanup()
 			load, err := sqlite.NewSQLLiteLoader(db)

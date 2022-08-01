@@ -209,9 +209,7 @@ func TestFile_GetData(t *testing.T) {
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			dir, err := ioutil.TempDir("", "operator-registry-test-file-")
-			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			dir := t.TempDir()
 
 			if s.createFile != nil {
 				require.NoError(t, s.createFile(dir))

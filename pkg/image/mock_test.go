@@ -2,7 +2,6 @@ package image
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,9 +15,7 @@ func TestMockRegistry(t *testing.T) {
 	dne := SimpleReference("dne")
 	ctx := context.Background()
 
-	tmpDir, err := ioutil.TempDir("", "reg-test-mock-")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	r := MockRegistry{
 		RemoteImages: map[Reference]*MockImage{
@@ -44,7 +41,7 @@ func TestMockRegistry(t *testing.T) {
 
 	// Test unpack and labels of unpulled ref
 	require.Error(t, r.Unpack(ctx, exists, tmpDir))
-	_, err = r.Labels(ctx, exists)
+	_, err := r.Labels(ctx, exists)
 	require.Error(t, err)
 
 	// Test pull of existing ref
