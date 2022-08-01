@@ -41,14 +41,24 @@ func (s *SliceBundleSender) Send(b *api.Bundle) error {
 
 var _ GRPCQuery = &Querier{}
 
-func NewQuerier(fbcFS fs.FS, cacheDir string) (*Querier, error) {
+func NewQuerierFromFS(fbcFS fs.FS, cacheDir string) (*Querier, error) {
 	q := &Querier{}
 	var err error
-	q.cache, err = newCache(cacheDir)
+	q.cache, err = newCache(cacheDir, &fbcCacheModel{
+		FBC:   fbcFS,
+		Cache: os.DirFS(cacheDir),
+	})
 	if err != nil {
 		return q, err
 	}
-	if err := q.cache.load(fbcFS); err != nil {
+	return q, nil
+}
+
+func NewQuerier(m model.Model) (*Querier, error) {
+	q := &Querier{}
+	var err error
+	q.cache, err = newCache("", &nonDigestableModel{Model: m})
+	if err != nil {
 		return q, err
 	}
 	return q, nil
@@ -385,18 +395,20 @@ type cache struct {
 	apiBundles map[apiBundleKey]string
 }
 
-func newCache(baseDir string) (*cache, error) {
+func newCache(baseDir string, model digestableModel) (*cache, error) {
+	var (
+		qc  *cache
+		err error
+	)
 	if baseDir == "" {
-		return newEphemeralCache()
+		qc, err = newEphemeralCache()
+	} else {
+		qc, err = newPersistentCache(baseDir)
 	}
-	if err := os.MkdirAll(baseDir, 0700); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	qc := &cache{baseDir: baseDir, persist: true}
-	if digest, err := os.ReadFile(filepath.Join(baseDir, "digest")); err == nil {
-		qc.digest = strings.TrimSpace(string(digest))
-	}
-	return qc, nil
+	return qc, qc.load(model)
 }
 
 func (qc cache) close() error {
@@ -421,32 +433,31 @@ func newEphemeralCache() (*cache, error) {
 	}, nil
 }
 
-func (qc *cache) load(fbc fs.FS) error {
-	computedDigest, err := qc.computeHash(fbc)
-	if err != nil {
-		return fmt.Errorf("check stale: %v", err)
+func newPersistentCache(baseDir string) (*cache, error) {
+	if err := os.MkdirAll(baseDir, 0700); err != nil {
+		return nil, err
 	}
-	if qc.digest == computedDigest {
+	qc := &cache{baseDir: baseDir, persist: true}
+	if digest, err := os.ReadFile(filepath.Join(baseDir, "digest")); err == nil {
+		qc.digest = strings.TrimSpace(string(digest))
+	}
+	return qc, nil
+}
+
+func (qc *cache) load(model digestableModel) error {
+	computedDigest, err := model.GetDigest()
+	if err != nil && !errors.Is(err, errNonDigestable) {
+		return fmt.Errorf("compute digest: %v", err)
+	}
+	if err == nil && computedDigest == qc.digest {
 		err = qc.loadFromCache()
 		if err == nil {
 			return nil
 		}
-		fmt.Printf("repopulating cache due to cache load error: %v\n", err)
+		// if there _was_ an error loading from the cache,
+		// we'll drop down and repopulate from scratch.
 	}
-	return qc.repopulateCache(fbc)
-}
-
-func (qc cache) computeHash(fbc fs.FS) (string, error) {
-	computedHasher := fnv.New64a()
-	if err := fsToTar(computedHasher, fbc); err != nil {
-		return "", err
-	}
-	if cacheFS, err := fs.Sub(os.DirFS(qc.baseDir), "cache"); err == nil {
-		if err := fsToTar(computedHasher, cacheFS); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("compute hash: %v", err)
-		}
-	}
-	return fmt.Sprintf("%x", computedHasher.Sum(nil)), nil
+	return qc.repopulateCache(model)
 }
 
 func (qc *cache) loadFromCache() error {
@@ -469,12 +480,8 @@ func (qc *cache) loadFromCache() error {
 	return nil
 }
 
-func (qc *cache) repopulateCache(fbcFS fs.FS) error {
-	fbc, err := declcfg.LoadFS(fbcFS)
-	if err != nil {
-		return err
-	}
-	model, err := declcfg.ConvertToModel(*fbc)
+func (qc *cache) repopulateCache(model digestableModel) error {
+	m, err := model.GetModel()
 	if err != nil {
 		return err
 	}
@@ -491,7 +498,7 @@ func (qc *cache) repopulateCache(fbcFS fs.FS) error {
 		return err
 	}
 
-	qc.pkgs, err = packagesFromModel(model)
+	qc.pkgs, err = packagesFromModel(m)
 	if err != nil {
 		return err
 	}
@@ -505,7 +512,7 @@ func (qc *cache) repopulateCache(fbcFS fs.FS) error {
 	}
 
 	qc.apiBundles = map[apiBundleKey]string{}
-	for _, p := range model {
+	for _, p := range m {
 		for _, ch := range p.Channels {
 			for _, b := range ch.Bundles {
 				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
@@ -524,12 +531,13 @@ func (qc *cache) repopulateCache(fbcFS fs.FS) error {
 			}
 		}
 	}
-	computedHash, err := qc.computeHash(fbcFS)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(qc.baseDir, "digest"), []byte(computedHash), 0600); err != nil {
-		return err
+	computedHash, err := model.GetDigest()
+	if err == nil {
+		if err := os.WriteFile(filepath.Join(qc.baseDir, "digest"), []byte(computedHash), 0600); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, errNonDigestable) {
+		return fmt.Errorf("compute digest: %v", err)
 	}
 	return nil
 }
@@ -594,6 +602,51 @@ type cBundle struct {
 	Package  string   `json:"package"`
 	Channel  string   `json:"channel"`
 	Name     string   `json:"name"`
-	Replaces string   `json:"replaces""`
+	Replaces string   `json:"replaces"`
 	Skips    []string `json:"skips"`
+}
+
+type digestableModel interface {
+	GetModel() (model.Model, error)
+	GetDigest() (string, error)
+}
+
+type fbcCacheModel struct {
+	FBC   fs.FS
+	Cache fs.FS
+}
+
+func (m *fbcCacheModel) GetModel() (model.Model, error) {
+	fbc, err := declcfg.LoadFS(m.FBC)
+	if err != nil {
+		return nil, err
+	}
+	return declcfg.ConvertToModel(*fbc)
+}
+
+func (m *fbcCacheModel) GetDigest() (string, error) {
+	computedHasher := fnv.New64a()
+	if err := fsToTar(computedHasher, m.FBC); err != nil {
+		return "", err
+	}
+	if cacheFS, err := fs.Sub(m.Cache, "cache"); err == nil {
+		if err := fsToTar(computedHasher, cacheFS); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("compute hash: %v", err)
+		}
+	}
+	return fmt.Sprintf("%x", computedHasher.Sum(nil)), nil
+}
+
+var errNonDigestable = errors.New("cannot generate digest")
+
+type nonDigestableModel struct {
+	model.Model
+}
+
+func (m *nonDigestableModel) GetModel() (model.Model, error) {
+	return m.Model, nil
+}
+
+func (m *nonDigestableModel) GetDigest() (string, error) {
+	return "", errNonDigestable
 }

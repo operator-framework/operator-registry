@@ -47,7 +47,7 @@ FROM {{.BaseImage}}
 ENTRYPOINT ["/bin/opm"]
 CMD ["serve", "/configs", "--cache-dir=/tmp/cache"]
 
-# Copy declarative config root into image at /configs
+# Copy declarative config root into image at /configs and pre-populate serve cache
 ADD {{.IndexDir}} /configs
 RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
 

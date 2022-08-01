@@ -2,246 +2,268 @@ package registry
 
 import (
 	"context"
+	"io/fs"
 	"testing"
 	"testing/fstest"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 func TestQuerier_GetBundle(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	b, err := testModelQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
-	require.NoError(t, err)
-	require.Equal(t, b.PackageName, "etcd")
-	require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-	require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		b, err := testQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
+		require.NoError(t, err)
+		require.Equal(t, b.PackageName, "etcd")
+		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	}
 }
 
 func TestQuerier_GetBundleForChannel(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	b, err := testModelQuerier.GetBundleForChannel(context.TODO(), "etcd", "singlenamespace-alpha")
-	require.NoError(t, err)
-	require.NotNil(t, b)
-	require.Equal(t, b.PackageName, "etcd")
-	require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-	require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		b, err := testQuerier.GetBundleForChannel(context.TODO(), "etcd", "singlenamespace-alpha")
+		require.NoError(t, err)
+		require.NotNil(t, b)
+		require.Equal(t, b.PackageName, "etcd")
+		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	}
 }
 
 func TestQuerier_GetBundleThatProvides(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	b, err := testModelQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-	require.NoError(t, err)
-	require.NotNil(t, b)
-	require.Equal(t, b.PackageName, "etcd")
-	require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-	require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		b, err := testQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+		require.NoError(t, err)
+		require.NotNil(t, b)
+		require.Equal(t, b.PackageName, "etcd")
+		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	}
 }
 
 func TestQuerier_GetBundleThatReplaces(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	b, err := testModelQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
-	require.NoError(t, err)
-	require.NotNil(t, b)
-	require.Equal(t, b.PackageName, "etcd")
-	require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-	require.Equal(t, b.CsvName, "etcdoperator.v0.9.2")
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		b, err := testQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
+		require.NoError(t, err)
+		require.NotNil(t, b)
+		require.Equal(t, b.PackageName, "etcd")
+		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+		require.Equal(t, b.CsvName, "etcdoperator.v0.9.2")
+	}
 }
 
 func TestQuerier_GetChannelEntriesThatProvide(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	entries, err := testModelQuerier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-	require.NoError(t, err)
-	require.NotNil(t, entries)
-	require.ElementsMatch(t, []*ChannelEntry{
-		{
-			PackageName: "etcd",
-			ChannelName: "singlenamespace-alpha",
-			BundleName:  "etcdoperator.v0.9.0",
-			Replaces:    "",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "singlenamespace-alpha",
-			BundleName:  "etcdoperator.v0.9.4",
-			Replaces:    "etcdoperator.v0.9.2",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.0",
-			Replaces:    "",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.2-clusterwide",
-			Replaces:    "etcdoperator.v0.9.0",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.2-clusterwide",
-			Replaces:    "etcdoperator.v0.6.1",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.4-clusterwide",
-			Replaces:    "etcdoperator.v0.9.2-clusterwide",
-		},
-	}, entries)
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		entries, err := testQuerier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+		require.NoError(t, err)
+		require.NotNil(t, entries)
+		require.ElementsMatch(t, []*ChannelEntry{
+			{
+				PackageName: "etcd",
+				ChannelName: "singlenamespace-alpha",
+				BundleName:  "etcdoperator.v0.9.0",
+				Replaces:    "",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "singlenamespace-alpha",
+				BundleName:  "etcdoperator.v0.9.4",
+				Replaces:    "etcdoperator.v0.9.2",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.0",
+				Replaces:    "",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.2-clusterwide",
+				Replaces:    "etcdoperator.v0.9.0",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.2-clusterwide",
+				Replaces:    "etcdoperator.v0.6.1",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.4-clusterwide",
+				Replaces:    "etcdoperator.v0.9.2-clusterwide",
+			},
+		}, entries)
+	}
 }
 
 func TestQuerier_GetChannelEntriesThatReplace(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	entries, err := testModelQuerier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
-	require.NoError(t, err)
-	require.NotNil(t, entries)
-	require.ElementsMatch(t, []*ChannelEntry{
-		{
-			PackageName: "etcd",
-			ChannelName: "singlenamespace-alpha",
-			BundleName:  "etcdoperator.v0.9.2",
-			Replaces:    "etcdoperator.v0.9.0",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.2-clusterwide",
-			Replaces:    "etcdoperator.v0.9.0",
-		},
-	}, entries)
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		entries, err := testQuerier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
+		require.NoError(t, err)
+		require.NotNil(t, entries)
+		require.ElementsMatch(t, []*ChannelEntry{
+			{
+				PackageName: "etcd",
+				ChannelName: "singlenamespace-alpha",
+				BundleName:  "etcdoperator.v0.9.2",
+				Replaces:    "etcdoperator.v0.9.0",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.2-clusterwide",
+				Replaces:    "etcdoperator.v0.9.0",
+			},
+		}, entries)
+	}
 }
 
 func TestQuerier_GetLatestChannelEntriesThatProvide(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	entries, err := testModelQuerier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-	require.NoError(t, err)
-	require.NotNil(t, entries)
-	require.ElementsMatch(t, []*ChannelEntry{
-		{
-			PackageName: "etcd",
-			ChannelName: "singlenamespace-alpha",
-			BundleName:  "etcdoperator.v0.9.4",
-			Replaces:    "etcdoperator.v0.9.2",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "clusterwide-alpha",
-			BundleName:  "etcdoperator.v0.9.4-clusterwide",
-			Replaces:    "etcdoperator.v0.9.2-clusterwide",
-		},
-	}, entries)
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		entries, err := testQuerier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+		require.NoError(t, err)
+		require.NotNil(t, entries)
+		require.ElementsMatch(t, []*ChannelEntry{
+			{
+				PackageName: "etcd",
+				ChannelName: "singlenamespace-alpha",
+				BundleName:  "etcdoperator.v0.9.4",
+				Replaces:    "etcdoperator.v0.9.2",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "clusterwide-alpha",
+				BundleName:  "etcdoperator.v0.9.4-clusterwide",
+				Replaces:    "etcdoperator.v0.9.2-clusterwide",
+			},
+		}, entries)
+	}
 }
 
 func TestQuerier_GetPackage(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	p, err := testModelQuerier.GetPackage(context.TODO(), "etcd")
-	require.NoError(t, err)
-	require.NotNil(t, p)
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		p, err := testQuerier.GetPackage(context.TODO(), "etcd")
+		require.NoError(t, err)
+		require.NotNil(t, p)
 
-	expected := &PackageManifest{
-		PackageName:        "etcd",
-		DefaultChannelName: "singlenamespace-alpha",
-		Channels: []PackageChannel{
-			{
-				Name:           "singlenamespace-alpha",
-				CurrentCSVName: "etcdoperator.v0.9.4",
+		expected := &PackageManifest{
+			PackageName:        "etcd",
+			DefaultChannelName: "singlenamespace-alpha",
+			Channels: []PackageChannel{
+				{
+					Name:           "singlenamespace-alpha",
+					CurrentCSVName: "etcdoperator.v0.9.4",
+				},
+				{
+					Name:           "clusterwide-alpha",
+					CurrentCSVName: "etcdoperator.v0.9.4-clusterwide",
+				},
+				{
+					Name:           "alpha",
+					CurrentCSVName: "etcdoperator-community.v0.6.1",
+				},
 			},
-			{
-				Name:           "clusterwide-alpha",
-				CurrentCSVName: "etcdoperator.v0.9.4-clusterwide",
-			},
-			{
-				Name:           "alpha",
-				CurrentCSVName: "etcdoperator-community.v0.6.1",
-			},
-		},
+		}
+
+		require.ElementsMatch(t, expected.Channels, p.Channels)
+		expected.Channels, p.Channels = nil, nil
+		require.Equal(t, expected, p)
 	}
-
-	require.ElementsMatch(t, expected.Channels, p.Channels)
-	expected.Channels, p.Channels = nil, nil
-	require.Equal(t, expected, p)
 }
 
 func TestQuerier_ListBundles(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	bundles, err := testModelQuerier.ListBundles(context.TODO())
-	require.NoError(t, err)
-	require.NotNil(t, bundles)
-	require.Len(t, bundles, 12)
-	for _, b := range bundles {
-		require.Zero(t, b.CsvJson)
-		require.Zero(t, b.Object)
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		bundles, err := testQuerier.ListBundles(context.TODO())
+		require.NoError(t, err)
+		require.NotNil(t, bundles)
+		require.Len(t, bundles, 12)
+		for _, b := range bundles {
+			require.Zero(t, b.CsvJson)
+			require.Zero(t, b.Object)
+		}
 	}
 }
 
 func TestQuerier_ListPackages(t *testing.T) {
-	testModelQuerier := genTestModelQuerier(t)
-	defer testModelQuerier.Close()
-	packages, err := testModelQuerier.ListPackages(context.TODO())
-	require.NoError(t, err)
-	require.NotNil(t, packages)
-	require.Equal(t, 2, len(packages))
+	for _, testQuerier := range genTestQueriers(t, validFS) {
+		defer testQuerier.Close()
+		packages, err := testQuerier.ListPackages(context.TODO())
+		require.NoError(t, err)
+		require.NotNil(t, packages)
+		require.Equal(t, 2, len(packages))
+	}
 }
 
 func TestQuerier_BadBundleRaisesError(t *testing.T) {
 	t.Helper()
 
-	// Convert a good FS into a model
-	cfg, err := declcfg.LoadFS(validFS)
-	require.NoError(t, err)
+	t.Run("InvalidModel", func(t *testing.T) {
+		// Convert a good FS into a model (we need the model to validate
+		// in the declcfg.ConvertToModel step)
+		cfg, err := declcfg.LoadFS(validFS)
+		require.NoError(t, err)
 
-	m, err := declcfg.ConvertToModel(*cfg)
-	require.NoError(t, err)
+		m, err := declcfg.ConvertToModel(*cfg)
+		require.NoError(t, err)
 
-	// break the model by adding another package property
-	bundle := func() *model.Bundle {
-		for _, pkg := range m {
-			for _, ch := range pkg.Channels {
-				for _, bundle := range ch.Bundles {
-					return bundle
+		// break the model by adding another package property
+		bundle := func() *model.Bundle {
+			for _, pkg := range m {
+				for _, ch := range pkg.Channels {
+					for _, bundle := range ch.Bundles {
+						return bundle
+					}
 				}
 			}
-		}
-		return nil
-	}()
+			return nil
+		}()
 
-	bundle.Properties = append(bundle.Properties, property.Property{
-		Type:  PackageType,
-		Value: []byte("{\"packageName\": \"another-package\", \"version\": \"1.0.0\"}"),
+		bundle.Properties = append(bundle.Properties, property.Property{
+			Type:  PackageType,
+			Value: []byte("{\"packageName\": \"another-package\", \"version\": \"1.0.0\"}"),
+		})
+
+		_, err = NewQuerier(m)
+		require.EqualError(t, err, `parse properties: expected exactly 1 property of type "olm.package", found 2`)
 	})
 
-	_, err = NewQuerier(m)
-	require.EqualError(t, err, "parse properties: expected exactly 1 property of type \"olm.package\", found 2")
+	t.Run("InvalidFS", func(t *testing.T) {
+		_, err := NewQuerierFromFS(badBundleFS, t.TempDir())
+		require.EqualError(t, err, `package "cockroachdb" bundle "cockroachdb.v5.0.3" must have exactly 1 "olm.package" property, found 2`)
+	})
 }
 
-func genTestModelQuerier(t *testing.T) *Querier {
+func genTestQueriers(t *testing.T, fbcFS fs.FS) []*Querier {
 	t.Helper()
 
-	cfg, err := declcfg.LoadFS(validFS)
+	cfg, err := declcfg.LoadFS(fbcFS)
 	require.NoError(t, err)
 
 	m, err := declcfg.ConvertToModel(*cfg)
 	require.NoError(t, err)
 
-	reg, err := NewQuerier(m)
+	fromModel, err := NewQuerier(m)
 	require.NoError(t, err)
 
-	return reg
+	fromFS, err := NewQuerierFromFS(fbcFS, t.TempDir())
+	require.NoError(t, err)
+
+	return []*Querier{fromModel, fromFS}
 }
 
 var validFS = fstest.MapFS{
@@ -599,3 +621,45 @@ var validFS = fstest.MapFS{
 }`),
 	},
 }
+
+var badBundleFS = fstest.MapFS{
+	"cockroachdb.json": &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "cockroachdb",
+    "defaultChannel": "stable-5.x",
+    "icon": {
+        "base64data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMS44MiAzMiIgd2lkdGg9IjI0ODYiIGhlaWdodD0iMjUwMCI+PHRpdGxlPkNMPC90aXRsZT48cGF0aCBkPSJNMTkuNDIgOS4xN2ExNS4zOSAxNS4zOSAwIDAgMS0zLjUxLjQgMTUuNDYgMTUuNDYgMCAwIDEtMy41MS0uNCAxNS42MyAxNS42MyAwIDAgMSAzLjUxLTMuOTEgMTUuNzEgMTUuNzEgMCAwIDEgMy41MSAzLjkxek0zMCAuNTdBMTcuMjIgMTcuMjIgMCAwIDAgMjUuNTkgMGExNy40IDE3LjQgMCAwIDAtOS42OCAyLjkzQTE3LjM4IDE3LjM4IDAgMCAwIDYuMjMgMGExNy4yMiAxNy4yMiAwIDAgMC00LjQ0LjU3QTE2LjIyIDE2LjIyIDAgMCAwIDAgMS4xM2EuMDcuMDcgMCAwIDAgMCAuMDkgMTcuMzIgMTcuMzIgMCAwIDAgLjgzIDEuNTcuMDcuMDcgMCAwIDAgLjA4IDAgMTYuMzkgMTYuMzkgMCAwIDEgMS44MS0uNTQgMTUuNjUgMTUuNjUgMCAwIDEgMTEuNTkgMS44OCAxNy41MiAxNy41MiAwIDAgMC0zLjc4IDQuNDhjLS4yLjMyLS4zNy42NS0uNTUgMXMtLjIyLjQ1LS4zMy42OS0uMzEuNzItLjQ0IDEuMDhhMTcuNDYgMTcuNDYgMCAwIDAgNC4yOSAxOC43Yy4yNi4yNS41My40OS44MS43M3MuNDQuMzcuNjcuNTQuNTkuNDQuODkuNjRhLjA3LjA3IDAgMCAwIC4wOCAwYy4zLS4yMS42LS40Mi44OS0uNjRzLjQ1LS4zNS42Ny0uNTQuNTUtLjQ4LjgxLS43M2ExNy40NSAxNy40NSAwIDAgMCA1LjM4LTEyLjYxIDE3LjM5IDE3LjM5IDAgMCAwLTEuMDktNi4wOWMtLjE0LS4zNy0uMjktLjczLS40NS0xLjA5cy0uMjItLjQ3LS4zMy0uNjktLjM1LS42Ni0uNTUtMWExNy42MSAxNy42MSAwIDAgMC0zLjc4LTQuNDggMTUuNjUgMTUuNjUgMCAwIDEgMTEuNi0xLjg0IDE2LjEzIDE2LjEzIDAgMCAxIDEuODEuNTQuMDcuMDcgMCAwIDAgLjA4IDBxLjQ0LS43Ni44Mi0xLjU2YS4wNy4wNyAwIDAgMCAwLS4wOUExNi44OSAxNi44OSAwIDAgMCAzMCAuNTd6IiBmaWxsPSIjMTUxZjM0Ii8+PHBhdGggZD0iTTIxLjgyIDE3LjQ3YTE1LjUxIDE1LjUxIDAgMCAxLTQuMjUgMTAuNjkgMTUuNjYgMTUuNjYgMCAwIDEtLjcyLTQuNjggMTUuNSAxNS41IDAgMCAxIDQuMjUtMTAuNjkgMTUuNjIgMTUuNjIgMCAwIDEgLjcyIDQuNjgiIGZpbGw9IiMzNDg1NDAiLz48cGF0aCBkPSJNMTUgMjMuNDhhMTUuNTUgMTUuNTUgMCAwIDEtLjcyIDQuNjggMTUuNTQgMTUuNTQgMCAwIDEtMy41My0xNS4zN0ExNS41IDE1LjUgMCAwIDEgMTUgMjMuNDgiIGZpbGw9IiM3ZGJjNDIiLz48L3N2Zz4=",
+        "mediatype": "image/svg+xml"
+    }
+}
+{
+	"schema": "olm.channel",
+	"package": "cockroachdb",
+	"name": "stable-5.x",
+	"entries": [
+		{"name": "cockroachdb.v5.0.3"}
+	]
+}
+{
+    "schema": "olm.bundle",
+    "name": "cockroachdb.v5.0.3",
+    "package": "cockroachdb",
+    "image": "quay.io/openshift-community-operators/cockroachdb:v5.0.3",
+    "properties": [
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "cockroachdb",
+                "version": "5.0.3"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "other-package",
+                "version": "5.0.3"
+            }
+        }
+    ]
+}`)}}
