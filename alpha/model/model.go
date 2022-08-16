@@ -131,9 +131,10 @@ func (i *Icon) validateData() error {
 }
 
 type Channel struct {
-	Package *Package
-	Name    string
-	Bundles map[string]*Bundle
+	Package    *Package
+	Name       string
+	Bundles    map[string]*Bundle
+	Properties []property.Property
 }
 
 // TODO(joelanford): This function determines the channel head by finding the bundle that has 0

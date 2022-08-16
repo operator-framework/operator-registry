@@ -53,9 +53,10 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		mch := &model.Channel{
-			Package: mpkg,
-			Name:    c.Name,
-			Bundles: map[string]*model.Bundle{},
+			Package:    mpkg,
+			Name:       c.Name,
+			Bundles:    map[string]*model.Bundle{},
+			Properties: c.Properties,
 		}
 
 		cde := sets.NewString()

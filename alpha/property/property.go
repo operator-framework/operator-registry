@@ -39,6 +39,12 @@ type Package struct {
 	Version     string `json:"version"`
 }
 
+type Channel struct {
+	ChannelName string `json:"channelName"`
+	//Priority    string `json:"priority"`
+	Priority int `json:"priority"`
+}
+
 type PackageRequired struct {
 	PackageName  string `json:"packageName"`
 	VersionRange string `json:"versionRange"`
@@ -118,6 +124,7 @@ type Properties struct {
 	GVKs             []GVK             `hash:"set"`
 	GVKsRequired     []GVKRequired     `hash:"set"`
 	BundleObjects    []BundleObject    `hash:"set"`
+	Channels         []Channel         `hash:"set"`
 
 	Others []Property `hash:"set"`
 }
@@ -128,6 +135,7 @@ const (
 	TypeGVK             = "olm.gvk"
 	TypeGVKRequired     = "olm.gvk.required"
 	TypeBundleObject    = "olm.bundle.object"
+	TypeChannel         = "olm.channel"
 )
 
 func Parse(in []Property) (*Properties, error) {
@@ -164,6 +172,12 @@ func Parse(in []Property) (*Properties, error) {
 				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
 			}
 			out.BundleObjects = append(out.BundleObjects, p)
+		case TypeChannel:
+			var p Channel
+			if err := json.Unmarshal(prop.Value, &p); err != nil {
+				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
+			}
+			out.Channels = append(out.Channels, p)
 		default:
 			var p json.RawMessage
 			if err := json.Unmarshal(prop.Value, &p); err != nil {
@@ -264,4 +278,7 @@ func MustBuildBundleObjectRef(ref string) Property {
 }
 func MustBuildBundleObjectData(data []byte) Property {
 	return MustBuild(&BundleObject{File: File{data: data}})
+}
+func MustBuildChannelPriority(name string, priority int) Property {
+	return MustBuild(&Channel{ChannelName: name, Priority: priority})
 }

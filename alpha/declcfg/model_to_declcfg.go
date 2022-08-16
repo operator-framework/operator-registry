@@ -60,10 +60,11 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 	for _, ch := range mpkg.Channels {
 		// initialize channel
 		c := Channel{
-			Schema:  SchemaChannel,
-			Name:    ch.Name,
-			Package: ch.Package.Name,
-			Entries: []ChannelEntry{},
+			Schema:     SchemaChannel,
+			Name:       ch.Name,
+			Package:    ch.Package.Name,
+			Entries:    []ChannelEntry{},
+			Properties: ch.Properties,
 		}
 
 		for _, chb := range ch.Bundles {
