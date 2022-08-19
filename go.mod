@@ -19,7 +19,6 @@ require (
 	github.com/joelanford/ignore v0.0.0-20210607151042-0d25dc18b62d
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
-	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
 	github.com/opencontainers/go-digest v1.0.0
