@@ -50,6 +50,17 @@ $ opm render quay.io/operatorhubio/catalog:latest -o mermaid | \
     grep -Ev '^<!--.*$' | \
     docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -o /data/operatorhubio-catalog.svg
 
+# Note:  mermaid has a default maxTextSize of 30 000 characters.  To override this, generate a JSON-formatted initialization file for
+# mermaid like this (using 300 000 for the limit):
+$ cat << EOF > ./mermaid.json
+{ "maxTextSize": 300000 }
+EOF
+# and then pass the file for initialization configuration, via the '-c' option, like:
+$ opm render quay.io/operatorhubio/catalog:latest -o mermaid | \
+    grep -Ev '^<!--.*$' | \
+    docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -c /data/mermaid.json -o /data/operatorhubio-catalog.svg
+
+
 		`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
