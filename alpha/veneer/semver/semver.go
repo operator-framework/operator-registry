@@ -3,7 +3,7 @@ package semver
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"sort"
 
 	"github.com/blang/semver/v4"
@@ -18,8 +18,8 @@ import (
 
 // data passed into this module externally
 type Veneer struct {
-	Ref string
-	Reg image.Registry
+	Data     io.Reader
+	Registry image.Registry
 }
 
 // IO structs -- BEGIN
@@ -78,7 +78,7 @@ type semverRenderedChannelVersions map[string]map[string]semver.Version // e.g. 
 func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 
-	sv, err := readFile(v.Ref)
+	sv, err := readFile(v.Data)
 	if err != nil {
 		return nil, fmt.Errorf("semver-render: unable to read file: %v", err)
 	}
@@ -88,7 +88,7 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 		r := action.Render{
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b.Image},
-			Registry:       v.Reg,
+			Registry:       v.Registry,
 		}
 		c, err := r.Run(ctx)
 		if err != nil {
@@ -114,8 +114,8 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	return &out, nil
 }
 
-func readFile(ref string) (*semverVeneer, error) {
-	data, err := ioutil.ReadFile(ref)
+func readFile(data io.Reader) (*semverVeneer, error) {
+	fileData, err := io.ReadAll(data)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func readFile(ref string) (*semverVeneer, error) {
 		GenerateMinorChannels: true,
 		AvoidSkipPatch:        false,
 	}
-	if err := yaml.Unmarshal(data, &sv); err != nil {
+	if err := yaml.Unmarshal(fileData, &sv); err != nil {
 		return nil, err
 	}
 	return &sv, nil
