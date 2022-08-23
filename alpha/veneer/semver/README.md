@@ -56,9 +56,10 @@ In this example, `Candidate` has the entire version range of bundles,  `Fast` ha
 ```
 % ./bin/opm alpha render-veneer semver -h
 Generate a file-based catalog from a single 'semver veneer' file
+When FILE is '-' or not provided, the veneer is read from standard input
 
 Usage:
-  opm alpha render-veneer semver <filename> [flags]
+  opm alpha render-veneer semver [FILE] [flags]
 
 Flags:
   -h, --help            help for semver
@@ -68,6 +69,22 @@ Global Flags:
       --skip-tls-verify   skip TLS certificate verification for container image registries while pulling bundles
       --use-http          use plain HTTP for container image registries while pulling bundles
 ```
+
+Example command usage:
+```
+# Example with file argument passed in
+opm alpha render-veneer semver infile.semver.veneer.yaml
+
+# Example with no file argument passed in
+opm alpha render-veneer semver -o yaml < infile.semver.veneer.yaml > outfile.yaml
+
+# Example with "-" as the file argument passed in
+cat infile.semver.veneer.yaml | opm alpha render-veneer semver -o mermaid -
+```
+Note that if the command is called without a file argument and nothing passed in on standard input,
+the command will hang indefinitely. Either a file argument or file information passed 
+in on standard input is required by the command.
+
 With the veneer attribute `GenerateMajorChannels: true` resulting major channels from the command are (skipping the rendered bundle image output):
 ```yaml
 ---

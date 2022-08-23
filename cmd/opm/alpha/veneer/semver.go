@@ -18,16 +18,28 @@ import (
 func newSemverCmd() *cobra.Command {
 	output := ""
 	cmd := &cobra.Command{
-		Use:   "semver <filename>",
-		Short: "Generate a file-based catalog from a single 'semver veneer' file",
-		Long:  `Generate a file-based catalog from a single 'semver veneer' file`,
-		Args:  cobra.MinimumNArgs(1),
+		Use:   "semver [FILE]",
+		Short: "Generate a file-based catalog from a single 'semver veneer' file \nWhen FILE is '-' or not provided, the veneer is read from standard input",
+		Long:  "Generate a file-based catalog from a single 'semver veneer' file \nWhen FILE is '-' or not provided, the veneer is read from standard input",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref := args[0]
-
 			var (
-				err error
+				data io.Reader
+				err  error
 			)
+
+			// Handle different input argument types
+			if len(args) == 0 || args[0] == "-" {
+				// When no arguments or "-" is passed to the command,
+				// assume input is coming from stdin
+				data = cmd.InOrStdin()
+			} else {
+				// Otherwise open the file passed to the command
+				data, err = os.Open(args[0])
+				if err != nil {
+					return err
+				}
+			}
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
 			switch output {
@@ -53,12 +65,12 @@ func newSemverCmd() *cobra.Command {
 			defer reg.Destroy()
 
 			veneer := semver.Veneer{
-				Ref: ref,
-				Reg: reg,
+				Data:     data,
+				Registry: reg,
 			}
 			out, err := veneer.Render(cmd.Context())
 			if err != nil {
-				log.Fatalf("semver %q: %v", ref, err)
+				log.Fatalf("semver %q: %v", data, err)
 			}
 
 			if out != nil {
