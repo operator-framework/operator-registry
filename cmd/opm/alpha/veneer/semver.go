@@ -39,7 +39,10 @@ func newSemverCmd() *cobra.Command {
 			case "yaml":
 				write = declcfg.WriteYAML
 			case "mermaid":
-				write = declcfg.WriteMermaidChannels
+				write = func(cfg declcfg.DeclarativeConfig, writer io.Writer) error {
+					startVersion := ""
+					return declcfg.WriteMermaidChannels(cfg, writer, startVersion)
+				}
 			default:
 				return fmt.Errorf("invalid output format %q", output)
 			}
