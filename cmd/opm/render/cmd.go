@@ -35,7 +35,7 @@ $ opm render quay.io/operatorhubio/catalog:latest
 #
 # Output declarative configuration view of a bundle-image in YAML format
 #
-$ opm render quay.io/operatorhubio/ack-apigatewayv2-controller@sha256:14c507f2ecb4a64928bcfcf5897f4495d9988f4d7ff58f41e029359a9fe78c38
+$ opm render quay.io/operatorhubio/ack-apigatewayv2-controller@sha256:14c507f2ecb4a64928bcfcf5897f4495d9988f4d7ff58f41e029359a9fe78c38 -o yaml
 
 #
 # Output channel graph of a catalog in mermaid format
