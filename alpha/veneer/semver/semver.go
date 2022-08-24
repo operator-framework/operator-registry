@@ -128,8 +128,8 @@ func buildBundleList(bundles *[]semverVeneerBundleEntry, dict *map[string]struct
 	}
 }
 
-func readFile(data io.Reader) (*semverVeneer, error) {
-	fileData, err := io.ReadAll(data)
+func readFile(reader io.Reader) (*semverVeneer, error) {
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func readFile(data io.Reader) (*semverVeneer, error) {
 		GenerateMinorChannels: true,
 		AvoidSkipPatch:        false,
 	}
-	if err := yaml.Unmarshal(fileData, &sv); err != nil {
+	if err := yaml.Unmarshal(data, &sv); err != nil {
 		return nil, err
 	}
 	return &sv, nil

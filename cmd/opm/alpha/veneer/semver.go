@@ -23,22 +23,13 @@ func newSemverCmd() *cobra.Command {
 		Long:  "Generate a file-based catalog from a single 'semver veneer' file \nWhen FILE is '-' or not provided, the veneer is read from standard input",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var (
-				data io.Reader
-				err  error
-			)
-
 			// Handle different input argument types
-			if len(args) == 0 || args[0] == "-" {
-				// When no arguments or "-" is passed to the command,
-				// assume input is coming from stdin
-				data = cmd.InOrStdin()
-			} else {
-				// Otherwise open the file passed to the command
-				data, err = os.Open(args[0])
-				if err != nil {
-					return err
-				}
+			// When no arguments or "-" is passed to the command,
+			// assume input is coming from stdin
+			// Otherwise open the file passed to the command
+			data, err := openFileOrReadStdin(cmd, args)
+			if err != nil {
+				return err
 			}
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
@@ -85,4 +76,11 @@ func newSemverCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml|mermaid)")
 	return cmd
+}
+
+func openFileOrReadStdin(cmd *cobra.Command, args []string) (io.Reader, error) {
+	if len(args) == 0 || args[0] == "-" {
+		return cmd.InOrStdin(), nil
+	}
+	return os.Open(args[0])
 }
