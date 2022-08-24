@@ -84,10 +84,16 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	}
 
 	var cfgs []declcfg.DeclarativeConfig
-	for _, b := range sv.Candidate.Bundles {
+
+	bundleDict := make(map[string]struct{})
+	buildBundleList(&sv.Candidate.Bundles, &bundleDict)
+	buildBundleList(&sv.Fast.Bundles, &bundleDict)
+	buildBundleList(&sv.Stable.Bundles, &bundleDict)
+
+	for b, _ := range bundleDict {
 		r := action.Render{
 			AllowedRefMask: action.RefBundleImage,
-			Refs:           []string{b.Image},
+			Refs:           []string{b},
 			Registry:       v.Registry,
 		}
 		c, err := r.Run(ctx)
@@ -112,6 +118,14 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	out.Packages[0].DefaultChannel = sv.defaultChannel
 
 	return &out, nil
+}
+
+func buildBundleList(bundles *[]semverVeneerBundleEntry, dict *map[string]struct{}) {
+	for _, b := range *bundles {
+		if _, ok := (*dict)[b.Image]; !ok {
+			(*dict)[b.Image] = struct{}{}
+		}
+	}
 }
 
 func readFile(data io.Reader) (*semverVeneer, error) {
