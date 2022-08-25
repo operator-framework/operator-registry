@@ -24,7 +24,7 @@ func ConvertFromModel(mpkgs model.Model) DeclarativeConfig {
 			defaultChannel = mpkg.DefaultChannel.Name
 		}
 		cfg.Packages = append(cfg.Packages, Package{
-			Schema:         schemaPackage,
+			Schema:         SchemaPackage,
 			Name:           mpkg.Name,
 			DefaultChannel: defaultChannel,
 			Icon:           i,
@@ -60,7 +60,7 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 	for _, ch := range mpkg.Channels {
 		// initialize channel
 		c := Channel{
-			Schema:  schemaChannel,
+			Schema:  SchemaChannel,
 			Name:    ch.Name,
 			Package: ch.Package.Name,
 			Entries: []ChannelEntry{},
@@ -79,11 +79,11 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 			b, ok := bundleMap[chb.Name]
 			if !ok {
 				b = &Bundle{
-					Schema:        schemaBundle,
+					Schema:        SchemaBundle,
 					Name:          chb.Name,
 					Package:       chb.Package.Name,
 					Image:         chb.Image,
-					RelatedImages: modelRelatedImagesToRelatedImages(chb.RelatedImages),
+					RelatedImages: ModelRelatedImagesToRelatedImages(chb.RelatedImages),
 					CsvJSON:       chb.CsvJSON,
 					Objects:       chb.Objects,
 				}
@@ -115,7 +115,7 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 	return channels, bundles
 }
 
-func modelRelatedImagesToRelatedImages(relatedImages []model.RelatedImage) []RelatedImage {
+func ModelRelatedImagesToRelatedImages(relatedImages []model.RelatedImage) []RelatedImage {
 	var out []RelatedImage
 	for _, ri := range relatedImages {
 		out = append(out, RelatedImage{
