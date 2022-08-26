@@ -5,6 +5,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/list"
+	rendergraph "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-graph"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/veneer"
 )
 
@@ -19,6 +20,7 @@ func NewCmd() *cobra.Command {
 	runCmd.AddCommand(
 		bundle.NewCmd(),
 		list.NewCmd(),
+		rendergraph.NewCmd(),
 		veneer.NewCmd(),
 	)
 	return runCmd
