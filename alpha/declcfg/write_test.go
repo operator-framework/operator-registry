@@ -513,10 +513,11 @@ graph LR
 `,
 		},
 	}
+	startVersion := ""
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := WriteMermaidChannels(s.cfg, &buf)
+			err := WriteMermaidChannels(s.cfg, &buf, startVersion)
 			require.NoError(t, err)
 			require.Equal(t, s.expected, buf.String())
 		})
