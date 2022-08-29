@@ -134,6 +134,10 @@ type Channel struct {
 	Package *Package
 	Name    string
 	Bundles map[string]*Bundle
+	// NOTICE: The field Properties of the type Channel is for internal use only.
+	//   DO NOT use it for any public-facing functionalities.
+	//   This API is in alpha stage and it is subject to change.
+	Properties []property.Property
 }
 
 // TODO(joelanford): This function determines the channel head by finding the bundle that has 0
