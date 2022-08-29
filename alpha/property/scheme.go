@@ -12,6 +12,10 @@ func init() {
 		reflect.TypeOf(&GVK{}):             TypeGVK,
 		reflect.TypeOf(&GVKRequired{}):     TypeGVKRequired,
 		reflect.TypeOf(&BundleObject{}):    TypeBundleObject,
+		// NOTICE: The Channel properties are for internal use only.
+		//   DO NOT use it for any public-facing functionalities.
+		//   This API is in alpha stage and it is subject to change.
+		reflect.TypeOf(&Channel{}): TypeChannel,
 	}
 }
 
