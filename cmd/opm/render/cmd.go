@@ -26,42 +26,6 @@ func NewCmd() *cobra.Command {
 		Long: `Generate a declarative config blob from the provided index images, bundle images, and sqlite database files
 
 ` + sqlite.DeprecationMessage,
-		Example: `
-#
-# Output declarative configuration view of an index-image in JSON format
-#
-$ opm render quay.io/operatorhubio/catalog:latest
-
-#
-# Output declarative configuration view of a bundle-image in YAML format
-#
-$ opm render quay.io/operatorhubio/ack-apigatewayv2-controller@sha256:14c507f2ecb4a64928bcfcf5897f4495d9988f4d7ff58f41e029359a9fe78c38 -o yaml
-
-#
-# Output channel graph of a catalog in mermaid format
-#
-$ opm render quay.io/operatorhubio/catalog:latest -o mermaid
-
-#
-# Output channel graph of a catalog and generate a scaled vector graphic (SVG) representation
-# Note:  this pipeline filters out the comments about lacking skipRange support
-#
-$ opm render quay.io/operatorhubio/catalog:latest -o mermaid | \
-    grep -Ev '^<!--.*$' | \
-    docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -o /data/operatorhubio-catalog.svg
-
-# Note:  mermaid has a default maxTextSize of 30 000 characters.  To override this, generate a JSON-formatted initialization file for
-# mermaid like this (using 300 000 for the limit):
-$ cat << EOF > ./mermaid.json
-{ "maxTextSize": 300000 }
-EOF
-# and then pass the file for initialization configuration, via the '-c' option, like:
-$ opm render quay.io/operatorhubio/catalog:latest -o mermaid | \
-    grep -Ev '^<!--.*$' | \
-    docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -c /data/mermaid.json -o /data/operatorhubio-catalog.svg
-
-
-		`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			render.Refs = args
