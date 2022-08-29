@@ -39,6 +39,9 @@ type Package struct {
 	Version     string `json:"version"`
 }
 
+// NOTICE: The Channel properties are for internal use only.
+//   DO NOT use it for any public-facing functionalities.
+//   This API is in alpha stage and it is subject to change.
 type Channel struct {
 	ChannelName string `json:"channelName"`
 	//Priority    string `json:"priority"`
@@ -172,6 +175,9 @@ func Parse(in []Property) (*Properties, error) {
 				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
 			}
 			out.BundleObjects = append(out.BundleObjects, p)
+		// NOTICE: The Channel properties are for internal use only.
+		//   DO NOT use it for any public-facing functionalities.
+		//   This API is in alpha stage and it is subject to change.
 		case TypeChannel:
 			var p Channel
 			if err := json.Unmarshal(prop.Value, &p); err != nil {
@@ -279,6 +285,10 @@ func MustBuildBundleObjectRef(ref string) Property {
 func MustBuildBundleObjectData(data []byte) Property {
 	return MustBuild(&BundleObject{File: File{data: data}})
 }
+
+// NOTICE: The Channel properties are for internal use only.
+//   DO NOT use it for any public-facing functionalities.
+//   This API is in alpha stage and it is subject to change.
 func MustBuildChannelPriority(name string, priority int) Property {
 	return MustBuild(&Channel{ChannelName: name, Priority: priority})
 }

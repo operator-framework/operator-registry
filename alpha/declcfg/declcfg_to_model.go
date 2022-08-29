@@ -53,9 +53,12 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		mch := &model.Channel{
-			Package:    mpkg,
-			Name:       c.Name,
-			Bundles:    map[string]*model.Bundle{},
+			Package: mpkg,
+			Name:    c.Name,
+			Bundles: map[string]*model.Bundle{},
+			// NOTICE: The field Properties of the type Channel is for internal use only.
+			//   DO NOT use it for any public-facing functionalities.
+			//   This API is in alpha stage and it is subject to change.
 			Properties: c.Properties,
 		}
 

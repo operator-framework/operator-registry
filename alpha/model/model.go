@@ -131,9 +131,12 @@ func (i *Icon) validateData() error {
 }
 
 type Channel struct {
-	Package    *Package
-	Name       string
-	Bundles    map[string]*Bundle
+	Package *Package
+	Name    string
+	Bundles map[string]*Bundle
+	// NOTICE: The field Properties of the type Channel is for internal use only.
+	//   DO NOT use it for any public-facing functionalities.
+	//   This API is in alpha stage and it is subject to change.
 	Properties []property.Property
 }
 

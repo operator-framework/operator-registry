@@ -60,10 +60,13 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 	for _, ch := range mpkg.Channels {
 		// initialize channel
 		c := Channel{
-			Schema:     SchemaChannel,
-			Name:       ch.Name,
-			Package:    ch.Package.Name,
-			Entries:    []ChannelEntry{},
+			Schema:  SchemaChannel,
+			Name:    ch.Name,
+			Package: ch.Package.Name,
+			Entries: []ChannelEntry{},
+			// NOTICE: The field Properties of the type Channel is for internal use only.
+			//   DO NOT use it for any public-facing functionalities.
+			//   This API is in alpha stage and it is subject to change.
 			Properties: ch.Properties,
 		}
 
