@@ -423,7 +423,7 @@ func newEphemeralCache() (*cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(baseDir, "cache"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(baseDir, "cache"), 0750); err != nil {
 		return nil, err
 	}
 	return &cache{
@@ -434,7 +434,7 @@ func newEphemeralCache() (*cache, error) {
 }
 
 func newPersistentCache(baseDir string) (*cache, error) {
-	if err := os.MkdirAll(baseDir, 0700); err != nil {
+	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return nil, err
 	}
 	qc := &cache{baseDir: baseDir, persist: true}
@@ -481,6 +481,10 @@ func (qc *cache) loadFromCache() error {
 }
 
 func (qc *cache) repopulateCache(model digestableModel) error {
+	// ensure that generated cache is available to all future users
+	oldUmask := umask(000)
+	defer umask(oldUmask)
+
 	m, err := model.GetModel()
 	if err != nil {
 		return err
@@ -494,7 +498,7 @@ func (qc *cache) repopulateCache(model digestableModel) error {
 			return err
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(qc.baseDir, "cache"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(qc.baseDir, "cache"), 0750); err != nil {
 		return err
 	}
 
@@ -507,7 +511,7 @@ func (qc *cache) repopulateCache(model digestableModel) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(qc.baseDir, "cache", "packages.json"), packageJson, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(qc.baseDir, "cache", "packages.json"), packageJson, 0640); err != nil {
 		return err
 	}
 
@@ -524,7 +528,7 @@ func (qc *cache) repopulateCache(model digestableModel) error {
 					return err
 				}
 				filename := filepath.Join(qc.baseDir, "cache", fmt.Sprintf("%s_%s_%s.json", p.Name, ch.Name, b.Name))
-				if err := os.WriteFile(filename, jsonBundle, 0666); err != nil {
+				if err := os.WriteFile(filename, jsonBundle, 0640); err != nil {
 					return err
 				}
 				qc.apiBundles[apiBundleKey{p.Name, ch.Name, b.Name}] = filename
@@ -533,7 +537,7 @@ func (qc *cache) repopulateCache(model digestableModel) error {
 	}
 	computedHash, err := model.GetDigest()
 	if err == nil {
-		if err := os.WriteFile(filepath.Join(qc.baseDir, "digest"), []byte(computedHash), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(qc.baseDir, "digest"), []byte(computedHash), 0640); err != nil {
 			return err
 		}
 	} else if !errors.Is(err, errNonDigestable) {
