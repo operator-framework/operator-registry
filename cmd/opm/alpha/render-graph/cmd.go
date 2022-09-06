@@ -18,7 +18,7 @@ func NewCmd() *cobra.Command {
 		minEdge string
 	)
 	cmd := &cobra.Command{
-		Use:   "render-graph [index-image | fbc-dir | bundle-image]",
+		Use:   "render-graph [index-image | fbc-dir]",
 		Short: "Generate mermaid-formatted view of upgrade graph of operators in an index",
 		Long:  `Generate mermaid-formatted view of upgrade graphs of operators in an index`,
 		Args:  cobra.MinimumNArgs(1),
