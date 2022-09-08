@@ -27,7 +27,7 @@ func newSemverCmd() *cobra.Command {
 			// When no arguments or "-" is passed to the command,
 			// assume input is coming from stdin
 			// Otherwise open the file passed to the command
-			data, err := openFileOrReadStdin(cmd, args)
+			data, source, err := openFileOrReadStdin(cmd, args)
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func newSemverCmd() *cobra.Command {
 			}
 			out, err := veneer.Render(cmd.Context())
 			if err != nil {
-				log.Fatalf("semver %q: %v", data, err)
+				log.Fatalf("semver %q: %v", source, err)
 			}
 
 			if out != nil {
@@ -81,9 +81,17 @@ func newSemverCmd() *cobra.Command {
 	return cmd
 }
 
-func openFileOrReadStdin(cmd *cobra.Command, args []string) (io.Reader, error) {
+func openFileOrReadStdin(cmd *cobra.Command, args []string) (io.Reader, string, error) {
+	var err error = nil
+	var source string = ""
+	var reader io.Reader
+
 	if len(args) == 0 || args[0] == "-" {
-		return cmd.InOrStdin(), nil
+		reader = cmd.InOrStdin()
+		source = "stdin"
+	} else {
+		reader, err = os.Open(args[0])
+		source = args[0]
 	}
-	return os.Open(args[0])
+	return reader, source, err
 }
