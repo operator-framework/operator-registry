@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -14,17 +15,47 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type MermaidWriter struct {
+	MinEdgeName          string
+	SpecifiedPackageName string
+}
+
+type MermaidOption func(*MermaidWriter)
+
+func NewMermaidWriter(opts ...MermaidOption) *MermaidWriter {
+	const (
+		minEdgeName          = ""
+		specifiedPackageName = ""
+	)
+	m := &MermaidWriter{
+		MinEdgeName:          minEdgeName,
+		SpecifiedPackageName: specifiedPackageName,
+	}
+
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+func WithMinEdgeName(minEdgeName string) MermaidOption {
+	return func(o *MermaidWriter) {
+		o.MinEdgeName = minEdgeName
+	}
+}
+
+func WithSpecifiedPackageName(specifiedPackageName string) MermaidOption {
+	return func(o *MermaidWriter) {
+		o.SpecifiedPackageName = specifiedPackageName
+	}
+}
+
 // writes out the channel edges of the declarative config graph in a mermaid format capable of being pasted into
 // mermaid renderers like github, mermaid.live, etc.
 // output is sorted lexicographically by package name, and then by channel name
 // if provided, minEdgeName will be used as the lower bound for edges in the output graph
 //
-// NB:  Output has wrapper comments stating the skipRange edge caveat in HTML comment format, which cannot be parsed by mermaid renderers.
-//
-//	This is deliberate, and intended as an explicit acknowledgement of the limitations, instead of requiring the user to notice the missing edges upon inspection.
-//
 // Example output:
-// <!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
 // graph LR
 //
 //	  %% package "neuvector-certified-operator-rhmp"
@@ -40,8 +71,7 @@ import (
 //	  end
 //
 // end
-// <!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
-func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName string) error {
+func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer) error {
 	pkgs := map[string]*strings.Builder{}
 
 	sort.Slice(cfg.Channels, func(i, j int) bool {
@@ -53,14 +83,29 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 		return err
 	}
 
-	if _, ok := versionMap[minEdgeName]; !ok {
-		if minEdgeName != "" {
-			return fmt.Errorf("unknown minimum edge name: %q", minEdgeName)
+	// establish a 'floor' version, either specified by user or entirely open
+	minVersion := semver.Version{Major: 0, Minor: 0, Patch: 0}
+
+	if writer.MinEdgeName != "" {
+		if _, ok := versionMap[writer.MinEdgeName]; !ok {
+			return fmt.Errorf("unknown minimum edge name: %q", writer.MinEdgeName)
 		}
+		minVersion = versionMap[writer.MinEdgeName]
 	}
 
+	// build increasing-version-ordered bundle names, so we can meaningfully iterate over a range
+	orderedBundles := []string{}
+	for n, _ := range versionMap {
+		orderedBundles = append(orderedBundles, n)
+	}
+	sort.Slice(orderedBundles, func(i, j int) bool {
+		return versionMap[orderedBundles[i]].LT(versionMap[orderedBundles[j]])
+	})
+
+	minEdgePackage := writer.getMinEdgePackage(&cfg)
+
 	for _, c := range cfg.Channels {
-		filteredChannel := filterChannel(&c, versionMap, minEdgeName)
+		filteredChannel := writer.filterChannel(&c, versionMap, minVersion, minEdgePackage)
 		if filteredChannel != nil {
 			pkgBuilder, ok := pkgs[c.Package]
 			if !ok {
@@ -73,11 +118,10 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 			pkgBuilder.WriteString(fmt.Sprintf("    subgraph %s[%q]\n", channelID, filteredChannel.Name))
 
 			for _, ce := range filteredChannel.Entries {
-				if versionMap[ce.Name].GE(versionMap[minEdgeName]) {
+				if versionMap[ce.Name].GE(minVersion) {
 					entryId := fmt.Sprintf("%s-%s", channelID, ce.Name)
 					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]\n", entryId, ce.Name))
 
-					// no support for SkipRange yet
 					if len(ce.Replaces) > 0 {
 						replacesId := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
 						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", entryId, ce.Name, "replaces", replacesId, ce.Replaces))
@@ -88,13 +132,25 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", entryId, ce.Name, "skips", skipsId, s))
 						}
 					}
+					if len(ce.SkipRange) > 0 {
+						skipRange, err := semver.ParseRange(ce.SkipRange)
+						if err == nil {
+							for _, edgeName := range filteredChannel.Entries {
+								if skipRange(versionMap[edgeName.Name]) {
+									skipRangeId := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
+									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", entryId, ce.Name, "skipRange", ce.SkipRange, skipRangeId, edgeName.Name))
+								}
+							}
+						} else {
+							fmt.Fprintf(os.Stderr, "warning: ignoring invalid SkipRange for package/edge %q/%q: %v\n", c.Package, ce.Name, err)
+						}
+					}
 				}
 			}
 			pkgBuilder.WriteString("    end\n")
 		}
 	}
 
-	out.Write([]byte("<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->\n"))
 	out.Write([]byte("graph LR\n"))
 	pkgNames := []string{}
 	for pname, _ := range pkgs {
@@ -109,49 +165,86 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 		out.Write([]byte(pkgs[pkgName].String()))
 		out.Write([]byte("  end\n"))
 	}
-	out.Write([]byte("<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->\n"))
 
 	return nil
 }
 
 // filters the channel edges to include only those which are greater-than-or-equal to the edge named by startVersion
 // returns a nil channel if all edges are filtered out
-func filterChannel(c *Channel, versionMap map[string]semver.Version, minEdgeName string) *Channel {
-	// short-circuit if no specified startVersion
-	if minEdgeName == "" {
+func (writer *MermaidWriter) filterChannel(c *Channel, versionMap map[string]semver.Version, minVersion semver.Version, minEdgePackage string) *Channel {
+	// short-circuit if no active filters
+	if writer.MinEdgeName == "" && writer.SpecifiedPackageName == "" {
 		return c
 	}
-	// convert the edge name to the version so we don't have to duplicate the lookup
-	minVersion := versionMap[minEdgeName]
+
+	// short-circuit if channel's package doesn't match filter
+	if writer.SpecifiedPackageName != "" && c.Package != writer.SpecifiedPackageName {
+		return nil
+	}
+
+	// short-circuit if channel package is mismatch from filter
+	if minEdgePackage != "" && c.Package != minEdgePackage {
+		return nil
+	}
 
 	out := &Channel{Name: c.Name, Package: c.Package, Properties: c.Properties, Entries: []ChannelEntry{}}
 	for _, ce := range c.Entries {
 		filteredCe := ChannelEntry{Name: ce.Name}
-		// short-circuit to take the edge name (but no references to earlier versions)
-		if ce.Name == minEdgeName {
-			out.Entries = append(out.Entries, filteredCe)
-			continue
-		}
-		// if len(ce.SkipRange) > 0 {
-		// }
-		if len(ce.Replaces) > 0 {
-			if versionMap[ce.Replaces].GTE(minVersion) {
-				filteredCe.Replaces = ce.Replaces
-			}
-		}
-		if len(ce.Skips) > 0 {
-			filteredSkips := []string{}
-			for _, s := range ce.Skips {
-				if versionMap[s].GTE(minVersion) {
-					filteredSkips = append(filteredSkips, s)
+		if writer.MinEdgeName == "" {
+			// no minimum-edge specified
+			filteredCe.SkipRange = ce.SkipRange
+			filteredCe.Replaces = ce.Replaces
+			filteredCe.Skips = append(filteredCe.Skips, ce.Skips...)
+
+			// accumulate IFF there are any relevant skips/skipRange/replaces remaining or there never were any to begin with
+			// for the case where all skip/skipRange/replaces are retained, this is effectively the original edge with validated linkages
+			if len(filteredCe.Replaces) > 0 || len(filteredCe.Skips) > 0 || len(filteredCe.SkipRange) > 0 {
+				out.Entries = append(out.Entries, filteredCe)
+			} else {
+				if len(ce.Replaces) == 0 && len(ce.SkipRange) == 0 && len(ce.Skips) == 0 {
+					out.Entries = append(out.Entries, filteredCe)
 				}
 			}
-			if len(filteredSkips) > 0 {
-				filteredCe.Skips = filteredSkips
+		} else {
+			if ce.Name == writer.MinEdgeName {
+				// edge is the 'floor', meaning that since all references are "backward references", and we don't want any references from this edge
+				// accumulate w/o references
+				out.Entries = append(out.Entries, filteredCe)
+			} else {
+				// edge needs to be filtered to determine if it is below the floor (bad) or on/above (good)
+				if len(ce.Replaces) > 0 && versionMap[ce.Replaces].GTE(minVersion) {
+					filteredCe.Replaces = ce.Replaces
+				}
+				if len(ce.Skips) > 0 {
+					filteredSkips := []string{}
+					for _, s := range ce.Skips {
+						if versionMap[s].GTE(minVersion) {
+							filteredSkips = append(filteredSkips, s)
+						}
+					}
+					if len(filteredSkips) > 0 {
+						filteredCe.Skips = filteredSkips
+					}
+				}
+				if len(ce.SkipRange) > 0 {
+					skipRange, err := semver.ParseRange(ce.SkipRange)
+					// if skipRange can't be parsed, just don't filter based on it
+					if err == nil && skipRange(minVersion) {
+						// specified range includes our floor
+						filteredCe.SkipRange = ce.SkipRange
+					}
+				}
+				// accumulate IFF there are any relevant skips/skipRange/replaces remaining, or there never were any to begin with (NOP)
+				// but the edge name satisfies the minimum-edge constraint
+				// for the case where all skip/skipRange/replaces are retained, this is effectively `ce` but with validated linkages
+				if len(filteredCe.Replaces) > 0 || len(filteredCe.Skips) > 0 || len(filteredCe.SkipRange) > 0 {
+					out.Entries = append(out.Entries, filteredCe)
+				} else {
+					if len(ce.Replaces) == 0 && len(ce.SkipRange) == 0 && len(ce.Skips) == 0 && versionMap[filteredCe.Name].GTE(minVersion) {
+						out.Entries = append(out.Entries, filteredCe)
+					}
+				}
 			}
-		}
-		if len(filteredCe.Replaces) > 0 || len(filteredCe.Skips) > 0 {
-			out.Entries = append(out.Entries, filteredCe)
 		}
 	}
 
@@ -191,6 +284,22 @@ func getBundleVersions(cfg *DeclarativeConfig) (map[string]semver.Version, error
 	}
 
 	return entries, nil
+}
+
+func (writer *MermaidWriter) getMinEdgePackage(cfg *DeclarativeConfig) string {
+	if writer.MinEdgeName == "" {
+		return ""
+	}
+
+	for _, c := range cfg.Channels {
+		for _, ce := range c.Entries {
+			if writer.MinEdgeName == ce.Name {
+				return c.Package
+			}
+		}
+	}
+
+	return ""
 }
 
 func WriteJSON(cfg DeclarativeConfig, w io.Writer) error {
