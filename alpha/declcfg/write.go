@@ -19,12 +19,7 @@ import (
 // output is sorted lexicographically by package name, and then by channel name
 // if provided, minEdgeName will be used as the lower bound for edges in the output graph
 //
-// NB:  Output has wrapper comments stating the skipRange edge caveat in HTML comment format, which cannot be parsed by mermaid renderers.
-//
-//	This is deliberate, and intended as an explicit acknowledgement of the limitations, instead of requiring the user to notice the missing edges upon inspection.
-//
 // Example output:
-// <!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
 // graph LR
 //
 //	  %% package "neuvector-certified-operator-rhmp"
@@ -40,7 +35,6 @@ import (
 //	  end
 //
 // end
-// <!-- PLEASE NOTE:  skipRange edges are not currently displayed -->
 func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName string) error {
 	pkgs := map[string]*strings.Builder{}
 
@@ -58,6 +52,15 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 			return fmt.Errorf("unknown minimum edge name: %q", minEdgeName)
 		}
 	}
+
+	// build increasing-version-ordered bundle names, so we can meaningfully iterate over a range
+	orderedBundles := []string{}
+	for n, _ := range versionMap {
+		orderedBundles = append(orderedBundles, n)
+	}
+	sort.Slice(orderedBundles, func(i, j int) bool {
+		return versionMap[orderedBundles[i]].LT(versionMap[orderedBundles[j]])
+	})
 
 	for _, c := range cfg.Channels {
 		filteredChannel := filterChannel(&c, versionMap, minEdgeName)
@@ -88,13 +91,24 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", entryId, ce.Name, "skips", skipsId, s))
 						}
 					}
+					if len(ce.SkipRange) > 0 {
+						skipRange, err := semver.ParseRange(ce.SkipRange)
+						if err != nil {
+							return err
+						}
+						for _, bundleName := range orderedBundles {
+							if skipRange(versionMap[bundleName]) {
+								skipRangeId := fmt.Sprintf("%s-%s", channelID, bundleName)
+								pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", entryId, ce.Name, "skipRange", ce.SkipRange, skipRangeId, bundleName))
+							}
+						}
+					}
 				}
 			}
 			pkgBuilder.WriteString("    end\n")
 		}
 	}
 
-	out.Write([]byte("<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->\n"))
 	out.Write([]byte("graph LR\n"))
 	pkgNames := []string{}
 	for pname, _ := range pkgs {
@@ -109,7 +123,6 @@ func WriteMermaidChannels(cfg DeclarativeConfig, out io.Writer, minEdgeName stri
 		out.Write([]byte(pkgs[pkgName].String()))
 		out.Write([]byte("  end\n"))
 	}
-	out.Write([]byte("<!-- PLEASE NOTE:  skipRange edges are not currently displayed -->\n"))
 
 	return nil
 }
@@ -121,6 +134,20 @@ func filterChannel(c *Channel, versionMap map[string]semver.Version, minEdgeName
 	if minEdgeName == "" {
 		return c
 	}
+
+	// short-circuit where the minEdgeName is not in this channel
+	edgeNames := make(map[string]struct{})
+
+	for _, ce := range c.Entries {
+		if _, ok := edgeNames[ce.Name]; !ok {
+			edgeNames[ce.Name] = struct{}{}
+		}
+	}
+
+	if _, ok := edgeNames[minEdgeName]; !ok {
+		return nil
+	}
+
 	// convert the edge name to the version so we don't have to duplicate the lookup
 	minVersion := versionMap[minEdgeName]
 
@@ -132,8 +159,9 @@ func filterChannel(c *Channel, versionMap map[string]semver.Version, minEdgeName
 			out.Entries = append(out.Entries, filteredCe)
 			continue
 		}
-		// if len(ce.SkipRange) > 0 {
-		// }
+		if len(ce.SkipRange) > 0 {
+			filteredCe.SkipRange = ce.SkipRange
+		}
 		if len(ce.Replaces) > 0 {
 			if versionMap[ce.Replaces].GTE(minVersion) {
 				filteredCe.Replaces = ce.Replaces
