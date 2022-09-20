@@ -14,8 +14,9 @@ import (
 
 func NewCmd() *cobra.Command {
 	var (
-		render  action.Render
-		minEdge string
+		render               action.Render
+		minEdge              string
+		specifiedPackageName string
 	)
 	cmd := &cobra.Command{
 		Use:   "render-graph [index-image | fbc-dir]",
@@ -30,10 +31,8 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest
 
 #
 # Output channel graph of a catalog and generate a scaled vector graphic (SVG) representation
-# Note:  this pipeline filters out the comments about lacking skipRange support
 #
 $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
-    grep -Ev '^<!--.*$' | \
     docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -o /data/operatorhubio-catalog.svg
 
 # Note:  mermaid has a default maxTextSize of 30 000 characters.  To override this, generate a JSON-formatted initialization file for
@@ -43,7 +42,6 @@ $ cat << EOF > ./mermaid.json
 EOF
 # and then pass the file for initialization configuration, via the '-c' option, like:
 $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
-    grep -Ev '^<!--.*$' | \
     docker run --rm -i -v "$PWD":/data ghcr.io/mermaid-js/mermaid-cli/mermaid-cli -c /data/mermaid.json -o /data/operatorhubio-catalog.svg
 
 
@@ -68,11 +66,13 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 				log.Fatal(err)
 			}
 
-			if err := declcfg.WriteMermaidChannels(*cfg, os.Stdout, minEdge); err != nil {
+			writer := declcfg.NewMermaidWriter(declcfg.WithMinEdgeName(minEdge), declcfg.WithSpecifiedPackageName(specifiedPackageName))
+			if err := writer.WriteChannels(*cfg, os.Stdout); err != nil {
 				log.Fatal(err)
 			}
 		},
 	}
-	cmd.Flags().StringVar(&minEdge, "minimum-edge", "", "the channel edge to be used as the lower bound of the set of edges composing the upgrade graph")
+	cmd.Flags().StringVar(&minEdge, "minimum-edge", "", "the channel edge to be used as the lower bound of the set of edges composing the upgrade graph; default is to include all edges")
+	cmd.Flags().StringVarP(&specifiedPackageName, "package-name", "p", "", "a specific package name to filter output; default is to include all packages in reference")
 	return cmd
 }
