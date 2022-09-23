@@ -118,7 +118,9 @@ func extractCSV(objs []string) string {
 	return ""
 }
 
-func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
+// LoadReader reads yaml or json from the passed in io.Reader and unmarshals it into a DeclarativeConfig struct.
+// Path references will not be de-referenced so callers are responsible for de-referencing if necessary.
+func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
 	for {
@@ -173,7 +175,7 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 	defer file.Close()
 
-	cfg, err := readYAMLOrJSON(file)
+	cfg, err := LoadReader(file)
 	if err != nil {
 		return nil, err
 	}

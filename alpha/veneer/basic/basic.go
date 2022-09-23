@@ -2,9 +2,8 @@ package basic
 
 import (
 	"context"
-	"errors"
-	"os"
-	"path/filepath"
+	"fmt"
+	"io"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -15,30 +14,8 @@ type Veneer struct {
 	Registry image.Registry
 }
 
-func (v Veneer) Render(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
-	// only taking first argument as file
-	stat, serr := os.Stat(ref)
-	if serr != nil {
-		return nil, serr
-	}
-
-	if stat.IsDir() {
-		return nil, errors.New("cannot render veneers by directory reference")
-	}
-	return v.renderFile(ctx, ref)
-}
-
-func (v Veneer) renderFile(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
-	// xform any relative to absolute paths
-	abspath, err := filepath.Abs(ref)
-	if err != nil {
-		return nil, err
-	}
-	// xform to break apart dir/file elements
-	rpath, fname := filepath.Split(abspath)
-	root := os.DirFS(rpath)
-
-	cfg, err := declcfg.LoadFile(root, fname)
+func (v Veneer) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+	cfg, err := declcfg.LoadReader(reader)
 	if err != nil {
 		return cfg, err
 	}
@@ -52,8 +29,7 @@ func (v Veneer) renderFile(ctx context.Context, ref string) (*declcfg.Declarativ
 
 	for _, b := range cfg.Bundles {
 		if !isBundleVeneer(&b) {
-			outb = append(outb, b)
-			continue
+			return nil, fmt.Errorf("unexpected fields present in basic veneer bundle")
 		}
 		r.Refs = []string{b.Image}
 		contributor, err := r.Run(ctx)
@@ -67,7 +43,8 @@ func (v Veneer) renderFile(ctx context.Context, ref string) (*declcfg.Declarativ
 	return cfg, nil
 }
 
-// isBundleVeneer identifies loaded partial Bundle data from YAML/JSON veneer source as having no properties,
+// isBundleVeneer identifies a Bundle veneer source as having a Schema and Image defined
+// but no Properties, RelatedImages or Package defined
 func isBundleVeneer(b *declcfg.Bundle) bool {
-	return len(b.Properties) == 0
+	return b.Schema != "" && b.Image != "" && b.Package == "" && len(b.Properties) == 0 && len(b.RelatedImages) == 0
 }

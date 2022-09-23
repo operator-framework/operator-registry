@@ -14,7 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
-func TestReadYAMLOrJSON(t *testing.T) {
+func TestLoadReader(t *testing.T) {
 	type spec struct {
 		name              string
 		fsys              fs.FS
@@ -80,7 +80,7 @@ func TestReadYAMLOrJSON(t *testing.T) {
 			f, err := s.fsys.Open(s.path)
 			require.NoError(t, err)
 
-			cfg, err := readYAMLOrJSON(f)
+			cfg, err := LoadReader(f)
 			s.assertion(t, err)
 			if err == nil {
 				require.NotNil(t, cfg)
