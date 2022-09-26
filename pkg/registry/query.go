@@ -268,12 +268,13 @@ func (q Querier) GetChannelEntriesThatProvide(_ context.Context, group, version,
 }
 
 // TODO(joelanford): Need to review the expected functionality of this function. I ran
-//   some experiments with the sqlite version of this function and it seems to only return
-//   channel heads that provide the GVK (rather than searching down the graph if parent bundles
-//   don't provide the API). Based on that, this function currently looks at channel heads only.
-//   ---
-//   Separate, but possibly related, I noticed there are several channels in the channel entry
-//   table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
+//
+//	some experiments with the sqlite version of this function and it seems to only return
+//	channel heads that provide the GVK (rather than searching down the graph if parent bundles
+//	don't provide the API). Based on that, this function currently looks at channel heads only.
+//	---
+//	Separate, but possibly related, I noticed there are several channels in the channel entry
+//	table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
 func (q Querier) GetLatestChannelEntriesThatProvide(_ context.Context, group, version, kind string) ([]*ChannelEntry, error) {
 	var entries []*ChannelEntry
 

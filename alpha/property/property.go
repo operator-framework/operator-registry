@@ -40,8 +40,9 @@ type Package struct {
 }
 
 // NOTICE: The Channel properties are for internal use only.
-//   DO NOT use it for any public-facing functionalities.
-//   This API is in alpha stage and it is subject to change.
+//
+//	DO NOT use it for any public-facing functionalities.
+//	This API is in alpha stage and it is subject to change.
 type Channel struct {
 	ChannelName string `json:"channelName"`
 	//Priority    string `json:"priority"`
@@ -287,8 +288,9 @@ func MustBuildBundleObjectData(data []byte) Property {
 }
 
 // NOTICE: The Channel properties are for internal use only.
-//   DO NOT use it for any public-facing functionalities.
-//   This API is in alpha stage and it is subject to change.
+//
+//	DO NOT use it for any public-facing functionalities.
+//	This API is in alpha stage and it is subject to change.
 func MustBuildChannelPriority(name string, priority int) Property {
 	return MustBuild(&Channel{ChannelName: name, Priority: priority})
 }

@@ -141,8 +141,9 @@ type Channel struct {
 }
 
 // TODO(joelanford): This function determines the channel head by finding the bundle that has 0
-//   incoming edges, based on replaces and skips. It also expects to find exactly one such bundle.
-//   Is this the correct algorithm?
+//
+//	incoming edges, based on replaces and skips. It also expects to find exactly one such bundle.
+//	Is this the correct algorithm?
 func (c Channel) Head() (*Bundle, error) {
 	incoming := map[string]int{}
 	for _, b := range c.Bundles {
@@ -210,11 +211,11 @@ func (c *Channel) Validate() error {
 
 // validateReplacesChain checks the replaces chain of a channel.
 // Specifically the following rules must be followed:
-// 1. There must be exactly 1 channel head.
-// 2. Beginning at the head, the replaces chain must reach all non-skipped entries.
-//    Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
-// 3. There must be no cycles in the replaces chain.
-// 4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
+//  1. There must be exactly 1 channel head.
+//  2. Beginning at the head, the replaces chain must reach all non-skipped entries.
+//     Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
+//  3. There must be no cycles in the replaces chain.
+//  4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
 func (c *Channel) validateReplacesChain() error {
 	head, err := c.Head()
 	if err != nil {
