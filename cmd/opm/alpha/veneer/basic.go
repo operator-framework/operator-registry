@@ -20,11 +20,22 @@ func newBasicVeneerRenderCmd() *cobra.Command {
 		output string
 	)
 	cmd := &cobra.Command{
-		Use:   "basic basic-veneer-file",
-		Short: "Generate a declarative config blob from a single 'basic veneer' file",
-		Long:  `Generate a declarative config blob from a single 'basic veneer' file, typified as a declarative configuration file where olm.bundle objects have no properties`,
-		Args:  cobra.ExactArgs(1),
+		Use: "basic basic-veneer-file",
+		Short: `Generate a file-based catalog from a single 'basic veneer' file
+When FILE is '-' or not provided, the veneer is read from standard input`,
+		Long: `Generate a file-based catalog from a single 'basic veneer' file
+When FILE is '-' or not provided, the veneer is read from standard input`,
+		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
+			// Handle different input argument types
+			// When no arguments or "-" is passed to the command,
+			// assume input is coming from stdin
+			// Otherwise open the file passed to the command
+			data, source, err := openFileOrStdin(cmd, args)
+			if err != nil {
+				log.Fatalf("unable to open %q: %v", source, err)
+			}
+			defer data.Close()
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
 			switch output {
@@ -50,7 +61,7 @@ func newBasicVeneerRenderCmd() *cobra.Command {
 			veneer.Registry = reg
 
 			// only taking first file argument
-			cfg, err := veneer.Render(cmd.Context(), args[0])
+			cfg, err := veneer.Render(cmd.Context(), data)
 			if err != nil {
 				log.Fatal(err)
 			}

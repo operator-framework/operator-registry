@@ -18,19 +18,22 @@ import (
 func newSemverCmd() *cobra.Command {
 	output := ""
 	cmd := &cobra.Command{
-		Use:   "semver [FILE]",
-		Short: "Generate a file-based catalog from a single 'semver veneer' file \nWhen FILE is '-' or not provided, the veneer is read from standard input",
-		Long:  "Generate a file-based catalog from a single 'semver veneer' file \nWhen FILE is '-' or not provided, the veneer is read from standard input",
-		Args:  cobra.MaximumNArgs(1),
+		Use: "semver [FILE]",
+		Short: `Generate a file-based catalog from a single 'semver veneer' file
+When FILE is '-' or not provided, the veneer is read from standard input`,
+		Long: `Generate a file-based catalog from a single 'semver veneer' file
+When FILE is '-' or not provided, the veneer is read from standard input`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle different input argument types
 			// When no arguments or "-" is passed to the command,
 			// assume input is coming from stdin
 			// Otherwise open the file passed to the command
-			data, source, err := openFileOrReadStdin(cmd, args)
+			data, source, err := openFileOrStdin(cmd, args)
 			if err != nil {
 				return err
 			}
+			defer data.Close()
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
 			switch output {
@@ -79,19 +82,4 @@ func newSemverCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml|mermaid)")
 	return cmd
-}
-
-func openFileOrReadStdin(cmd *cobra.Command, args []string) (io.Reader, string, error) {
-	var err error = nil
-	var source string = ""
-	var reader io.Reader
-
-	if len(args) == 0 || args[0] == "-" {
-		reader = cmd.InOrStdin()
-		source = "stdin"
-	} else {
-		reader, err = os.Open(args[0])
-		source = args[0]
-	}
-	return reader, source, err
 }
