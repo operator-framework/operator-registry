@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/grokspawn/api/pkg/lib/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

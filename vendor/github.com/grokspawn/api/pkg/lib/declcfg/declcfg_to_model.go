@@ -6,8 +6,8 @@ import (
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/grokspawn/api/pkg/lib/model"
+	"github.com/grokspawn/api/pkg/lib/property"
 )
 
 func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {

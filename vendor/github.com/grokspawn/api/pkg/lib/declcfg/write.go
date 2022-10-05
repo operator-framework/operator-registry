@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/grokspawn/api/pkg/lib/property"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 )

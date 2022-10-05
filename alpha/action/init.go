@@ -7,7 +7,7 @@ import (
 
 	"github.com/h2non/filetype"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
 )
 
 type Init struct {

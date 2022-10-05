@@ -12,8 +12,8 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
+	"github.com/grokspawn/api/pkg/lib/model"
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 

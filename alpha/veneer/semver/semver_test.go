@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/blang/semver/v4"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
+	"github.com/grokspawn/api/pkg/lib/property"
 	"github.com/stretchr/testify/require"
 )
 

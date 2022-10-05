@@ -7,9 +7,9 @@ import (
 	"sort"
 
 	"github.com/blang/semver/v4"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
+	"github.com/grokspawn/api/pkg/lib/property"
 	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/grokspawn/api/pkg/lib/property"
 )
 
 func ObjectsAndPropertiesFromBundle(b *Bundle) ([]string, []property.Property, error) {

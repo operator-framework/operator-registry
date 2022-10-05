@@ -3,7 +3,7 @@ package config
 import (
 	"io/fs"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
 )
 
 // Validate takes a filesystem containing the declarative config file(s)

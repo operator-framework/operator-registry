@@ -13,17 +13,16 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.5.0
 	github.com/google/go-cmp v0.5.8
+	github.com/grokspawn/api v0.1.3
 	github.com/grpc-ecosystem/grpc-health-probe v0.4.11
-	github.com/h2non/filetype v1.1.1
-	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
-	github.com/joelanford/ignore v0.0.0-20210607151042-0d25dc18b62d
+	github.com/h2non/filetype v1.1.3
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
-	github.com/operator-framework/api v0.17.2-0.20220915200120-ff2dbc53d381
+	github.com/operator-framework/api v0.17.1
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
@@ -34,7 +33,7 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/sys v0.0.0-20220907062415-87db552b00fd
+	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec
 	google.golang.org/grpc v1.47.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200709232328-d8193ee9cc3e
 	google.golang.org/protobuf v1.28.0
@@ -102,9 +101,11 @@ require (
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
+	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
+	github.com/joelanford/ignore v0.0.0-20210610194209-63d4919d8fb2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect

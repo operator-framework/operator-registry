@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/grokspawn/api/pkg/lib/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/veneer/semver"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/spf13/cobra"

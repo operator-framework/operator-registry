@@ -13,7 +13,7 @@ import (
 	svg "github.com/h2non/go-is-svg"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/grokspawn/api/pkg/lib/property"
 )
 
 func init() {
