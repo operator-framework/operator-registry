@@ -178,7 +178,7 @@ github.com/docker/distribution/registry/storage/driver/inmemory
 github.com/docker/distribution/registry/storage/driver/middleware
 github.com/docker/distribution/uuid
 github.com/docker/distribution/version
-# github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
+# github.com/docker/docker v20.10.21+incompatible
 ## explicit
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/blkiodev

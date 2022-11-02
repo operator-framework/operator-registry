@@ -8,7 +8,7 @@ require (
 	github.com/containerd/containerd v1.5.13
 	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
+	github.com/docker/docker v20.10.21+incompatible 
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.6.2
 	github.com/golang/mock v1.5.0
