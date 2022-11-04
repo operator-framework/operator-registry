@@ -6,7 +6,7 @@ import (
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/list"
 	rendergraph "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-graph"
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/veneer"
+	renderveneer "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-veneer"
 )
 
 func NewCmd() *cobra.Command {
@@ -21,7 +21,7 @@ func NewCmd() *cobra.Command {
 		bundle.NewCmd(),
 		list.NewCmd(),
 		rendergraph.NewCmd(),
-		veneer.NewCmd(),
+		renderveneer.NewCmd(),
 	)
 	return runCmd
 }

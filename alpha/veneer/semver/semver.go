@@ -92,7 +92,7 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	buildBundleList(&sv.Fast.Bundles, &bundleDict)
 	buildBundleList(&sv.Stable.Bundles, &bundleDict)
 
-	for b, _ := range bundleDict {
+	for b := range bundleDict {
 		r := action.Render{
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b},
@@ -262,7 +262,7 @@ func (sv *semverVeneer) generateChannels(semverChannels *semverRenderedChannelVe
 	// sort the channelkinds in ascending order so we can traverse the bundles in order of
 	// their source channel's priority
 	var keysByPriority []string
-	for k, _ := range channelPriorities {
+	for k := range channelPriorities {
 		keysByPriority = append(keysByPriority, k)
 	}
 	sort.Sort(byChannelPriority(keysByPriority))
