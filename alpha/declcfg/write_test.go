@@ -491,16 +491,16 @@ func TestWriteMermaidChannels(t *testing.T) {
     subgraph anakin-dark["dark"]
       anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
       anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
-      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- replaces --> anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
-      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]-- replaces --> anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
-      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]-- skips --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
     end
     %% channel "light"
     subgraph anakin-light["light"]
       anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
       anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
-      anakin-light-anakin.v0.1.0["anakin.v0.1.0"]-- replaces --> anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
     end
   end
   %% package "boba-fett"
@@ -509,7 +509,7 @@ func TestWriteMermaidChannels(t *testing.T) {
     subgraph boba-fett-mando["mando"]
       boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
       boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
-      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]-- replaces --> boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
     end
   end
 `,
@@ -526,7 +526,7 @@ func TestWriteMermaidChannels(t *testing.T) {
     subgraph anakin-dark["dark"]
       anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
-      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]-- skips --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
     end
     %% channel "light"
     subgraph anakin-light["light"]
@@ -547,7 +547,7 @@ func TestWriteMermaidChannels(t *testing.T) {
     subgraph boba-fett-mando["mando"]
       boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
       boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
-      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]-- replaces --> boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
     end
   end
 `,

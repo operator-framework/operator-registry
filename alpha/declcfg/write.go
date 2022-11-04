@@ -124,12 +124,12 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 					if len(ce.Replaces) > 0 {
 						replacesId := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
-						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", entryId, ce.Name, "replaces", replacesId, ce.Replaces))
+						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", replacesId, ce.Replaces, "replace", entryId, ce.Name))
 					}
 					if len(ce.Skips) > 0 {
 						for _, s := range ce.Skips {
 							skipsId := fmt.Sprintf("%s-%s", channelID, s)
-							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", entryId, ce.Name, "skips", skipsId, s))
+							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", skipsId, s, "skip", entryId, ce.Name))
 						}
 					}
 					if len(ce.SkipRange) > 0 {
@@ -138,7 +138,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 							for _, edgeName := range filteredChannel.Entries {
 								if skipRange(versionMap[edgeName.Name]) {
 									skipRangeId := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
-									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", entryId, ce.Name, "skipRange", ce.SkipRange, skipRangeId, edgeName.Name))
+									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeId, edgeName.Name, "skipRange", ce.SkipRange, entryId, ce.Name))
 								}
 							}
 						} else {
