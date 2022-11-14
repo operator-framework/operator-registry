@@ -135,7 +135,7 @@ func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 
 		var in Meta
 		if err := json.Unmarshal(doc, &in); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal error: %s", resolveUnmarshalErr(doc, err))
 		}
 
 		switch in.Schema {
@@ -185,4 +185,26 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func resolveUnmarshalErr(data []byte, err error) string {
+	if e, ok := err.(*json.UnmarshalTypeError); ok {
+		sb := new(strings.Builder)
+		_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", e.Error(), e.Offset))
+		for i := 0; i < int(e.Offset); i++ {
+			_ = sb.WriteByte(data[i])
+		}
+		_, _ = sb.WriteString(" <==")
+		return sb.String()
+	}
+	if e, ok := err.(*json.UnmarshalFieldError); ok {
+		return e.Error()
+	}
+	if e, ok := err.(*json.InvalidUnmarshalError); ok {
+		return e.Error()
+	}
+	if e, ok := err.(*json.SyntaxError); ok {
+		return e.Error()
+	}
+	return err.Error()
 }
