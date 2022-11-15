@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -188,23 +189,45 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 }
 
 func resolveUnmarshalErr(data []byte, err error) string {
-	if e, ok := err.(*json.UnmarshalTypeError); ok {
-		sb := new(strings.Builder)
-		_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", e.Error(), e.Offset))
-		for i := 0; i < int(e.Offset); i++ {
-			_ = sb.WriteByte(data[i])
-		}
-		_, _ = sb.WriteString(" <==")
-		return sb.String()
+	var te *json.UnmarshalTypeError
+	if errors.As(err, &te) {
+		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
 	}
-	if e, ok := err.(*json.UnmarshalFieldError); ok {
-		return e.Error()
-	}
-	if e, ok := err.(*json.InvalidUnmarshalError); ok {
-		return e.Error()
-	}
-	if e, ok := err.(*json.SyntaxError); ok {
-		return e.Error()
+	var se *json.SyntaxError
+	if errors.As(err, &se) {
+		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
 	}
 	return err.Error()
+}
+
+func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
+	sb := new(strings.Builder)
+	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
+	// attempt to present the erroneous JSON in indented, human-readable format
+	// errors result in presenting the original, unformatted output
+	var pretty bytes.Buffer
+	err := json.Indent(&pretty, data, "", "    ")
+	if err == nil {
+		pString := pretty.String()
+		// calc the prettified string offset which correlates to the original string offset
+		var pOffset, origOffset int64
+		origOffset = 0
+		for origOffset = 0; origOffset < offset; {
+			pOffset++
+			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
+				origOffset++
+			}
+		}
+		_, _ = sb.WriteString(pString[:pOffset])
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.WriteString(pString[pOffset:])
+	} else {
+		for i := int64(0); i < offset; i++ {
+			_ = sb.WriteByte(data[i])
+		}
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.Write(data[offset:])
+	}
+
+	return sb.String()
 }
