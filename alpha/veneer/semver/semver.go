@@ -2,18 +2,20 @@ package semver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
 
 	"github.com/blang/semver/v4"
+	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
+
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // data passed into this module externally
@@ -140,7 +142,10 @@ func readFile(reader io.Reader) (*semverVeneer, error) {
 		GenerateMinorChannels: true,
 		AvoidSkipPatch:        false,
 	}
-	if err := yaml.Unmarshal(data, &sv); err != nil {
+	if err := yaml.Unmarshal(data, &sv, func(decoder *json.Decoder) *json.Decoder {
+		decoder.DisallowUnknownFields()
+		return decoder
+	}); err != nil {
 		return nil, err
 	}
 	return &sv, nil
