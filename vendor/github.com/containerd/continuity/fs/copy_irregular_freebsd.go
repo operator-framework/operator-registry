@@ -1,6 +1,3 @@
-//go:build !windows
-// +build !windows
-
 /*
    Copyright The containerd Authors.
 
@@ -20,15 +17,20 @@
 package fs
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 )
 
-func getLinkInfo(fi os.FileInfo) (uint64, bool) {
-	s, ok := fi.Sys().(*syscall.Stat_t)
+// copyIrregular covers devices, pipes, and sockets
+func copyIrregular(dst string, fi os.FileInfo) error {
+	st, ok := fi.Sys().(*syscall.Stat_t) // not *unix.Stat_t
 	if !ok {
-		return 0, false
+		return fmt.Errorf("unsupported stat type: %s: %v", dst, fi.Mode())
 	}
-
-	return uint64(s.Ino), !fi.IsDir() && s.Nlink > 1 //nolint: unconvert // ino is uint32 on bsd, uint64 on darwin/linux/solaris
+	var rDev uint64 // uint64 on FreeBSD, int on other unixen
+	if fi.Mode()&os.ModeDevice == os.ModeDevice {
+		rDev = st.Rdev
+	}
+	return syscall.Mknod(dst, uint32(st.Mode), rDev)
 }

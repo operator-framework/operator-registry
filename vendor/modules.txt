@@ -8,8 +8,8 @@ github.com/BurntSushi/toml
 # github.com/MakeNowJust/heredoc v1.0.0
 ## explicit; go 1.12
 github.com/MakeNowJust/heredoc
-# github.com/Microsoft/go-winio v0.4.17
-## explicit; go 1.12
+# github.com/Microsoft/go-winio v0.5.2
+## explicit; go 1.13
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/backuptar
 github.com/Microsoft/go-winio/pkg/guid
@@ -90,7 +90,7 @@ github.com/cespare/xxhash/v2
 # github.com/containerd/cgroups v1.0.3
 ## explicit; go 1.16
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.5.13
+# github.com/containerd/containerd v1.5.16
 ## explicit; go 1.17
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
@@ -120,8 +120,8 @@ github.com/containerd/containerd/remotes/errors
 github.com/containerd/containerd/snapshots
 github.com/containerd/containerd/sys
 github.com/containerd/containerd/version
-# github.com/containerd/continuity v0.1.0
-## explicit; go 1.13
+# github.com/containerd/continuity v0.3.0
+## explicit; go 1.17
 github.com/containerd/continuity/fs
 github.com/containerd/continuity/sysx
 # github.com/containerd/ttrpc v1.1.0
@@ -406,7 +406,7 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-sqlite3 v1.14.10
 ## explicit; go 1.12
 github.com/mattn/go-sqlite3
-# github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
+# github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
