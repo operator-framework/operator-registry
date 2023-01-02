@@ -27,7 +27,12 @@ type Querier struct {
 }
 
 func (q Querier) Close() error {
-	return q.cache.close()
+	if q.cache != nil {
+		if err := q.cache.close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type apiBundleKey struct {
@@ -47,26 +52,22 @@ func (s *SliceBundleSender) Send(b *api.Bundle) error {
 var _ GRPCQuery = &Querier{}
 
 func NewQuerierFromFS(fbcFS fs.FS, cacheDir string) (*Querier, error) {
-	q := &Querier{}
-	var err error
-	q.cache, err = newCache(cacheDir, &fbcCacheModel{
+	cache, err := newCache(cacheDir, &fbcCacheModel{
 		FBC:   fbcFS,
 		Cache: os.DirFS(cacheDir),
 	})
 	if err != nil {
-		return q, err
+		return nil, err
 	}
-	return q, nil
+	return &Querier{cache: cache}, nil
 }
 
 func NewQuerier(m model.Model) (*Querier, error) {
-	q := &Querier{}
-	var err error
-	q.cache, err = newCache("", &nonDigestableModel{Model: m})
+	cache, err := newCache("", &nonDigestableModel{Model: m})
 	if err != nil {
-		return q, err
+		return nil, err
 	}
-	return q, nil
+	return &Querier{cache: cache}, nil
 }
 
 func (q Querier) loadAPIBundle(k apiBundleKey) (*api.Bundle, error) {
@@ -414,7 +415,13 @@ func newCache(baseDir string, model digestableModel) (*cache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return qc, qc.load(model)
+	if err := qc.load(model); err != nil {
+		// try to clean up after ourselves by closing the cache (by cleaning
+		// up any temporary files/directories) before returning the error.
+		_ = qc.close()
+		return nil, err
+	}
+	return qc, nil
 }
 
 func (qc cache) close() error {
@@ -430,6 +437,9 @@ func newEphemeralCache() (*cache, error) {
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Join(baseDir, "cache"), cachePermissionDir); err != nil {
+		// try to clean up after ourselves, so we don't leave a directory around
+		// when returning an error.
+		_ = os.RemoveAll(baseDir)
 		return nil, err
 	}
 	return &cache{

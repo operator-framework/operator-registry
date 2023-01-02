@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"io/fs"
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -246,6 +247,45 @@ func TestQuerier_BadBundleRaisesError(t *testing.T) {
 		_, err := NewQuerierFromFS(badBundleFS, t.TempDir())
 		require.EqualError(t, err, `package "cockroachdb" bundle "cockroachdb.v5.0.3" must have exactly 1 "olm.package" property, found 2`)
 	})
+}
+
+func TestQuerier_NewQuerierFromFS_FailMkdir(t *testing.T) {
+	origTmpDir, tmpDirSet := os.LookupEnv("TMPDIR")
+	tmpDir := t.TempDir()
+	os.Chmod(tmpDir, 0444)
+	require.NoError(t, os.Setenv("TMPDIR", tmpDir))
+	defer func() {
+		if tmpDirSet {
+			require.NoError(t, os.Setenv("TMPDIR", origTmpDir))
+		} else {
+			os.Unsetenv("TMPDIR")
+		}
+	}()
+
+	q, err := NewQuerierFromFS(validFS, "")
+	require.Nil(t, q)
+	require.Error(t, err)
+}
+
+func TestQuerier_NewQuerierFromFS_FailCleanup(t *testing.T) {
+	origTmpDir, tmpDirSet := os.LookupEnv("TMPDIR")
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Setenv("TMPDIR", tmpDir))
+	defer func() {
+		if tmpDirSet {
+			require.NoError(t, os.Setenv("TMPDIR", origTmpDir))
+		} else {
+			os.Unsetenv("TMPDIR")
+		}
+	}()
+
+	q, err := NewQuerierFromFS(badBundleFS, "")
+	require.Nil(t, q)
+	require.Error(t, err)
+
+	tmpDirEntries, err := os.ReadDir(tmpDir)
+	require.Len(t, tmpDirEntries, 0)
+	require.NoError(t, err)
 }
 
 func genTestQueriers(t *testing.T, fbcFS fs.FS) []*Querier {

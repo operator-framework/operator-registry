@@ -103,10 +103,10 @@ func (s *serve) run(ctx context.Context) error {
 	s.logger = s.logger.WithFields(logrus.Fields{"configs": s.configDir, "port": s.port})
 
 	store, err := registry.NewQuerierFromFS(os.DirFS(s.configDir), s.cacheDir)
-	defer store.Close()
 	if err != nil {
 		return err
 	}
+	defer store.Close()
 	if s.cacheOnly {
 		return nil
 	}
