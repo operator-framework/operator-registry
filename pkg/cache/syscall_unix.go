@@ -1,7 +1,7 @@
 //go:build !windows
 // +build !windows
 
-package registry
+package cache
 
 import "golang.org/x/sys/unix"
 
