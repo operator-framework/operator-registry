@@ -2,45 +2,46 @@ package composite
 
 import (
 	"context"
-	"path"
-
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"fmt"
 )
 
 type BuilderMap map[string]Builder
 
-type CatalogBuilderMap map[string]BuilderConfig
-
-type BuilderConfig struct {
-	Builders        BuilderMap
-	ContainerConfig ContainerConfig
-}
+type CatalogBuilderMap map[string]BuilderMap
 
 type Veneer struct {
 	CatalogBuilders CatalogBuilderMap
 }
 
-// TODO: update this to use the new builder map
-
-func (v *Veneer) Render(ctx context.Context, config *CompositeConfig) (map[string]*declcfg.DeclarativeConfig, error) {
-	// this should probably return a mapping of output destination --> DeclarativeConfig
-	catalogs := map[string]*declcfg.DeclarativeConfig{}
+func (v *Veneer) Render(ctx context.Context, config *CompositeConfig, validate bool) error {
+	// TODO(everettraven): should we return aggregated errors?
 	for _, component := range config.Components {
-		if builderCfg, ok := v.CatalogBuilders[component.Name]; ok {
-
-			if builder, ok := builderCfg.Builders[component.Strategy.Veneer.Schema]; ok {
+		if builderMap, ok := v.CatalogBuilders[component.Name]; ok {
+			if builder, ok := builderMap[component.Strategy.Veneer.Schema]; ok {
 				// run the builder corresponding to the schema
-				bcfg, outPath, err := builder.Build(ctx, component.Strategy.Veneer, builderCfg.ContainerConfig)
+				err := builder.Build(component.Destination.Path, component.Strategy.Veneer)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
-				// append the config
-				catalogs[path.Join(component.Destination.Path, outPath)] = bcfg
+				if validate {
+					// run the validation for the builder
+					err = builder.Validate(component.Destination.Path)
+					if err != nil {
+						return err
+					}
+				}
+				// TODO(everettraven): Should we remove the built FBC if validation fails?
+			} else {
+				return fmt.Errorf("building component %q: no builder found for veneer schema %q", component.Name, component.Strategy.Veneer.Schema)
 			}
-			// TODO: Add error return
+		} else {
+			allowedComponents := []string{}
+			for k := range v.CatalogBuilders {
+				allowedComponents = append(allowedComponents, k)
+			}
+			return fmt.Errorf("building component %q: component does not exist in the catalog configuration. Available components are: %s", component.Name, allowedComponents)
 		}
-		// TODO: Add error return
 	}
-	return catalogs, nil
+	return nil
 }

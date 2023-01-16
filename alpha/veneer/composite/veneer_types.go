@@ -2,7 +2,7 @@ package composite
 
 import "encoding/json"
 
-type VeneerDef struct {
+type VeneerDefinition struct {
 	Schema string
 	Config json.RawMessage
 }
@@ -23,5 +23,6 @@ type RawVeneerConfig struct {
 }
 
 type CustomVeneerConfig struct {
-	Command []string
+	Command string
+	Args    []string
 }

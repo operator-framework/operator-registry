@@ -3,16 +3,12 @@ package veneer
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/veneer/composite"
 )
 
@@ -21,6 +17,8 @@ func newCompositeVeneerRenderCmd() *cobra.Command {
 		veneer        composite.Veneer
 		output        string
 		containerTool string
+		validate      bool
+		configFile    string
 	)
 	cmd := &cobra.Command{
 		Use: "composite composite-veneer-file",
@@ -53,28 +51,6 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 				log.Fatalf("unmarshalling catalog config: %s", err)
 			}
 
-			var write func(declcfg.DeclarativeConfig, io.Writer) error
-			switch output {
-			case "yaml":
-				write = declcfg.WriteYAML
-			case "json":
-				write = declcfg.WriteJSON
-			default:
-				log.Fatalf("invalid --output value %q, expected (json|yaml)", output)
-			}
-			// The bundle loading impl is somewhat verbose, even on the happy path,
-			// so discard all logrus default logger logs. Any important failures will be
-			// returned from veneer.Render and logged as fatal errors.
-			logrus.SetOutput(ioutil.Discard)
-
-			// reg, err := util.CreateCLIRegistry(cmd)
-			// if err != nil {
-			// 	log.Fatalf("creating containerd registry: %v", err)
-			// }
-			// defer reg.Destroy()
-
-			// veneer.Registry = reg
-
 			catalogBuilderMap := make(composite.CatalogBuilderMap)
 
 			// setup the builders for each catalog
@@ -82,29 +58,28 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 				if _, ok := catalogBuilderMap[catalog.Name]; !ok {
 					builderMap := make(composite.BuilderMap)
 					for _, schema := range catalog.Builders {
-						builder, err := builderForSchema(schema)
+						builder, err := builderForSchema(schema, composite.BuilderConfig{
+							ContainerCfg: composite.ContainerConfig{
+								ContainerTool: containerTool,
+								BaseImage:     catalog.Destination.BaseImage,
+								WorkingDir:    catalog.Destination.WorkingDir,
+							},
+							OutputType: output,
+						})
 						if err != nil {
-							// TODO: make this much more descriptive
-							log.Fatalf("getting builder: %s", err)
+							log.Fatalf("getting builder %q for catalog %q: %s", schema, catalog.Name, err)
 						}
 						builderMap[schema] = builder
 					}
-					catalogBuilderMap[catalog.Name] = composite.BuilderConfig{
-						Builders: builderMap,
-						ContainerConfig: composite.ContainerConfig{
-							ContainerTool: containerTool,
-							BaseImage:     catalog.Destination.BaseImage,
-							WorkingDir:    catalog.Destination.WorkingDir,
-						},
-					}
+					catalogBuilderMap[catalog.Name] = builderMap
 				}
 			}
 
 			veneer.CatalogBuilders = catalogBuilderMap
 
-			compositeData, err := os.Open("catalog/config.yaml")
+			compositeData, err := os.Open(configFile)
 			if err != nil {
-				log.Fatalf("opening catalog/config.yaml: %s", err)
+				log.Fatalf("opening config file %q: %s", configFile, err)
 			}
 
 			// parse data to composite config
@@ -120,41 +95,31 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 				log.Fatalf("unmarshalling composite config: %s", err)
 			}
 
-			// only taking first file argument
-			cfgs, err := veneer.Render(cmd.Context(), compositeConfig)
+			err = veneer.Render(cmd.Context(), compositeConfig, validate)
 			if err != nil {
 				log.Fatalf("rendering the composite veneer: %s", err)
-			}
-
-			for key, cfg := range cfgs {
-				// the key is the file to write to
-				file, err := os.Create(key)
-				if err != nil {
-					log.Fatalf("creating output file: %s", err)
-				}
-
-				// should the composite commmand be responsible for the actual write
-				// operations or should the builders be responsible for this?
-				if err := write(*cfg, file); err != nil {
-					log.Fatalf("writing to the output file: %s", err)
-				}
 			}
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
-	cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers")
+	// TODO: Should we lock this flag to either docker or podman?
+	cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
+	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
+	cmd.Flags().StringVarP(&configFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
 	return cmd
 }
 
-func builderForSchema(schema string) (composite.Builder, error) {
+func builderForSchema(schema string, builderCfg composite.BuilderConfig) (composite.Builder, error) {
 	var builder composite.Builder
 	switch schema {
 	case composite.BasicVeneerBuilderSchema:
-		builder = composite.NewBasicBuilder()
+		builder = composite.NewBasicBuilder(builderCfg)
 	case composite.SemverVeneerBuilderSchema:
-		builder = composite.NewSemverBuilder()
+		builder = composite.NewSemverBuilder(builderCfg)
 	case composite.RawVeneerBuilderSchema:
-		builder = composite.NewRawBuilder()
+		builder = composite.NewRawBuilder(builderCfg)
+	case composite.CustomVeneerBuilderSchema:
+		builder = composite.NewCustomBuilder(builderCfg)
 	default:
 		return nil, fmt.Errorf("unknown schema %q", schema)
 	}

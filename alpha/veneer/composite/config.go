@@ -22,7 +22,7 @@ type ComponentDestination struct {
 
 type BuildStrategy struct {
 	Name   string
-	Veneer VeneerDef
+	Veneer VeneerDefinition
 }
 
 type CatalogConfig struct {

@@ -2,9 +2,9 @@ package composite
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -18,6 +18,7 @@ const (
 	BasicVeneerBuilderSchema  = "olm.veneer.basic"
 	SemverVeneerBuilderSchema = "olm.veneer.semver"
 	RawVeneerBuilderSchema    = "olm.veneer.raw"
+	CustomVeneerBuilderSchema = "olm.veneer.custom"
 )
 
 type ContainerConfig struct {
@@ -26,156 +27,263 @@ type ContainerConfig struct {
 	WorkingDir    string
 }
 
-// TODO: update this to use docker ...
+type BuilderConfig struct {
+	ContainerCfg ContainerConfig
+	OutputType   string
+}
+
 type Builder interface {
-	Build(ctx context.Context, vd VeneerDef, containerCfg ContainerConfig) (*declcfg.DeclarativeConfig, string, error)
+	Build(dir string, vd VeneerDefinition) error
+	Validate(dir string) error
 }
 
 type BasicBuilder struct {
-	veneer basic.Veneer
+	veneer     basic.Veneer
+	builderCfg BuilderConfig
 }
 
 var _ Builder = &BasicBuilder{}
 
-func NewBasicBuilder() *BasicBuilder {
+func NewBasicBuilder(builderCfg BuilderConfig) *BasicBuilder {
 	return &BasicBuilder{
-		veneer: basic.Veneer{},
+		veneer:     basic.Veneer{},
+		builderCfg: builderCfg,
 	}
 }
 
-func (bb *BasicBuilder) Build(ctx context.Context, vd VeneerDef, containerCfg ContainerConfig) (*declcfg.DeclarativeConfig, string, error) {
+func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 	// Parse out the basic veneer configuration
 	basicConfig := &BasicVeneerConfig{}
 	err := json.Unmarshal(vd.Config, basicConfig)
 	if err != nil {
-		return nil, "", fmt.Errorf("unmarshalling basic veneer config: %w", err)
+		return fmt.Errorf("unmarshalling basic veneer config: %w", err)
 	}
 
 	// get the current working directory
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("getting current working directory: %w", err)
+		return fmt.Errorf("getting current working directory: %w", err)
 	}
 
 	// build the container command
-	containerCmd := exec.Command(containerCfg.ContainerTool,
+	containerCmd := exec.Command(bb.builderCfg.ContainerCfg.ContainerTool,
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, containerCfg.WorkingDir),
-		containerCfg.BaseImage,
+		fmt.Sprintf("%s:%s", wd, bb.builderCfg.ContainerCfg.WorkingDir),
+		bb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
 		"basic",
-		path.Join(containerCfg.WorkingDir, basicConfig.Input))
+		path.Join(bb.builderCfg.ContainerCfg.WorkingDir, basicConfig.Input))
 
-	out, err := containerCmd.Output()
+	return build(containerCmd, path.Join(dir, basicConfig.Output), bb.builderCfg.OutputType)
+}
+
+func (bb *BasicBuilder) Validate(dir string) error {
+	// get the current working directory
+	wd, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("running command %q | STDERR: %s", containerCmd.String(), err.(*exec.ExitError).Stderr)
+		return fmt.Errorf("getting current working directory: %w", err)
 	}
 
-	// parse out to dcfg
-	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
-	if err != nil {
-		return nil, "", fmt.Errorf("parsing basic veneer render output: %w", err)
-	}
-
-	return dcfg, basicConfig.Output, nil
+	return validate(bb.builderCfg.ContainerCfg, path.Join(wd, dir))
 }
 
 type SemverBuilder struct {
-	veneer semver.Veneer
+	veneer     semver.Veneer
+	builderCfg BuilderConfig
 }
 
 var _ Builder = &SemverBuilder{}
 
-func NewSemverBuilder() *SemverBuilder {
+func NewSemverBuilder(builderCfg BuilderConfig) *SemverBuilder {
 	return &SemverBuilder{
-		veneer: semver.Veneer{},
+		veneer:     semver.Veneer{},
+		builderCfg: builderCfg,
 	}
 }
 
-func (sb *SemverBuilder) Build(ctx context.Context, vd VeneerDef, containerCfg ContainerConfig) (*declcfg.DeclarativeConfig, string, error) {
+func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
 	// Parse out the semver veneer configuration
 	semverConfig := &SemverVeneerConfig{}
 	err := json.Unmarshal(vd.Config, semverConfig)
 	if err != nil {
-		return nil, "", fmt.Errorf("unmarshalling semver veneer config: %w", err)
+		return fmt.Errorf("unmarshalling semver veneer config: %w", err)
 	}
 
 	// get the current working directory
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("getting current working directory: %w", err)
+		return fmt.Errorf("getting current working directory: %w", err)
 	}
 
 	// build the container command
-	containerCmd := exec.Command(containerCfg.ContainerTool,
+	containerCmd := exec.Command(sb.builderCfg.ContainerCfg.ContainerTool,
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, containerCfg.WorkingDir),
-		containerCfg.BaseImage,
+		fmt.Sprintf("%s:%s", wd, sb.builderCfg.ContainerCfg.WorkingDir),
+		sb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
 		"semver",
-		path.Join(containerCfg.WorkingDir, semverConfig.Input))
+		path.Join(sb.builderCfg.ContainerCfg.WorkingDir, semverConfig.Input))
 
-	out, err := containerCmd.Output()
-	if err != nil {
-		return nil, "", fmt.Errorf("running command %q | STDERR: %s", containerCmd.String(), err.(*exec.ExitError).Stderr)
-	}
-
-	// parse out to dcfg
-	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
-	if err != nil {
-		return nil, "", fmt.Errorf("parsing semver veneer render output: %w", err)
-	}
-
-	return dcfg, semverConfig.Output, nil
+	return build(containerCmd, path.Join(dir, semverConfig.Output), sb.builderCfg.OutputType)
 }
 
-type RawBuilder struct{}
+func (sb *SemverBuilder) Validate(dir string) error {
+	// get the current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting current working directory: %w", err)
+	}
+
+	return validate(sb.builderCfg.ContainerCfg, path.Join(wd, dir))
+}
+
+type RawBuilder struct {
+	builderCfg BuilderConfig
+}
 
 var _ Builder = &RawBuilder{}
 
-func NewRawBuilder() *RawBuilder {
-	return &RawBuilder{}
+func NewRawBuilder(builderCfg BuilderConfig) *RawBuilder {
+	return &RawBuilder{
+		builderCfg: builderCfg,
+	}
 }
 
-func (rb *RawBuilder) Build(ctx context.Context, vd VeneerDef, containerCfg ContainerConfig) (*declcfg.DeclarativeConfig, string, error) {
-	// Parse out the basic veneer configuration
+func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
+	// Parse out the raw veneer configuration
 	rawConfig := &RawVeneerConfig{}
 	err := json.Unmarshal(vd.Config, rawConfig)
 	if err != nil {
-		return nil, "", fmt.Errorf("unmarshalling raw veneer config: %w", err)
+		return fmt.Errorf("unmarshalling raw veneer config: %w", err)
 	}
 	// get the current working directory
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("getting current working directory: %w", err)
+		return fmt.Errorf("getting current working directory: %w", err)
 	}
 
+	// build the container command
+	containerCmd := exec.Command(rb.builderCfg.ContainerCfg.ContainerTool,
+		"run",
+		"--rm",
+		"-v",
+		fmt.Sprintf("%s:%s", wd, rb.builderCfg.ContainerCfg.WorkingDir),
+		"--entrypoint=cat", // This assumes that the `cat` command is available in the container -- Should we also build a `... render-veneer raw` command to ensure consistent operation? Does OPM already have a way to render a raw FBC?
+		rb.builderCfg.ContainerCfg.BaseImage,
+		path.Join(rb.builderCfg.ContainerCfg.WorkingDir, rawConfig.Input))
+
+	return build(containerCmd, path.Join(dir, rawConfig.Output), rb.builderCfg.OutputType)
+}
+
+func (rb *RawBuilder) Validate(dir string) error {
+	// get the current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting current working directory: %w", err)
+	}
+
+	return validate(rb.builderCfg.ContainerCfg, path.Join(wd, dir))
+}
+
+type CustomBuilder struct {
+	builderCfg BuilderConfig
+}
+
+var _ Builder = &CustomBuilder{}
+
+func NewCustomBuilder(builderCfg BuilderConfig) *CustomBuilder {
+	return &CustomBuilder{
+		builderCfg: builderCfg,
+	}
+}
+
+func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
+	// Parse out the raw veneer configuration
+	customConfig := &CustomVeneerConfig{}
+	err := json.Unmarshal(vd.Config, customConfig)
+	if err != nil {
+		return fmt.Errorf("unmarshalling custom veneer config: %w", err)
+	}
+
+	// build the command to execute
+	cmd := exec.Command(customConfig.Command, customConfig.Args...)
+
+	// TODO: Should we capture the output here for any reason?
+	// Should the custom veneer output an FBC to STDOUT like the other veneer outputs?
+	_, err = cmd.Output()
+	if err != nil {
+		return fmt.Errorf("running command %q | STDERR: %s", cmd.String(), err.(*exec.ExitError).Stderr)
+	}
+
+	return nil
+}
+
+func (cb *CustomBuilder) Validate(dir string) error {
+	// get the current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting current working directory: %w", err)
+	}
+
+	return validate(cb.builderCfg.ContainerCfg, path.Join(wd, dir))
+}
+
+func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) error {
+	switch output {
+	case "yaml":
+		return declcfg.WriteYAML(dcfg, w)
+	case "json":
+		return declcfg.WriteJSON(dcfg, w)
+	default:
+		return fmt.Errorf("invalid --output value %q, expected (json|yaml)", output)
+	}
+}
+
+func validate(containerCfg ContainerConfig, dir string) error {
 	// build the container command
 	containerCmd := exec.Command(containerCfg.ContainerTool,
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, containerCfg.WorkingDir),
-		"--entrypoint=cat", // This assumes that the `cat` command is available in the container -- Should we also build a `... render-veneer raw` command to ensure consistent operation? Does OPM already have a way to render a raw FBC?
+		fmt.Sprintf("%s:%s", dir, containerCfg.WorkingDir),
 		containerCfg.BaseImage,
-		path.Join(containerCfg.WorkingDir, rawConfig.Input))
+		"validate",
+		containerCfg.WorkingDir)
 
-	out, err := containerCmd.Output()
+	_, err := containerCmd.Output()
 	if err != nil {
-		return nil, "", fmt.Errorf("running command %q | STDERR: %s", containerCmd.String(), err.(*exec.ExitError).Stderr)
+		return fmt.Errorf("running command %q | STDERR: %s", containerCmd.String(), err.(*exec.ExitError).Stderr)
+	}
+	return nil
+}
+
+func build(cmd *exec.Cmd, outPath string, outType string) error {
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("running command %q | STDERR: %s", cmd.String(), err.(*exec.ExitError).Stderr)
 	}
 
 	// parse out to dcfg
 	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
 	if err != nil {
-		return nil, "", fmt.Errorf("parsing raw veneer render output: %w", err)
+		return fmt.Errorf("parsing basic veneer render output: %w", err)
 	}
 
-	return dcfg, rawConfig.Output, nil
+	// write the dcfg
+	file, err := os.Create(outPath)
+	if err != nil {
+		return fmt.Errorf("creating output file %q: %w", outPath, err)
+	}
+	err = writeDeclCfg(*dcfg, file, outType)
+	if err != nil {
+		return fmt.Errorf("writing to output file %q: %w", outPath, err)
+	}
+
+	return nil
 }
