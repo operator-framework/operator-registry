@@ -22,8 +22,10 @@ func NewCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "render [index-image | bundle-image | sqlite-file]...",
-		Short: "Generate a declarative config blob from catalogs and bundles",
-		Long: `Generate a declarative config blob from the provided index images, bundle images, and sqlite database files
+		Short: "Generate a stream of file-based catalog objects from catalogs and bundles",
+		Long: `Generate a stream of file-based catalog objects to stdout from the provided
+catalog images, file-based catalog directories, bundle images, and sqlite
+database files.
 
 ` + sqlite.DeprecationMessage,
 		Args: cobra.MinimumNArgs(1),
@@ -63,7 +65,7 @@ func NewCmd() *cobra.Command {
 			}
 		},
 	}
-	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
+	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
 	return cmd
 }
 
