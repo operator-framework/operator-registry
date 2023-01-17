@@ -10,8 +10,6 @@ import (
 	"path"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/veneer/basic"
-	"github.com/operator-framework/operator-registry/alpha/veneer/semver"
 )
 
 const (
@@ -38,7 +36,6 @@ type Builder interface {
 }
 
 type BasicBuilder struct {
-	veneer     basic.Veneer
 	builderCfg BuilderConfig
 }
 
@@ -46,7 +43,6 @@ var _ Builder = &BasicBuilder{}
 
 func NewBasicBuilder(builderCfg BuilderConfig) *BasicBuilder {
 	return &BasicBuilder{
-		veneer:     basic.Veneer{},
 		builderCfg: builderCfg,
 	}
 }
@@ -58,6 +54,7 @@ func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 	if err != nil {
 		return fmt.Errorf("unmarshalling basic veneer config: %w", err)
 	}
+	// TODO: should we ensure that the schema matches and error if it does not?
 
 	// get the current working directory
 	wd, err := os.Getwd()
@@ -91,7 +88,6 @@ func (bb *BasicBuilder) Validate(dir string) error {
 }
 
 type SemverBuilder struct {
-	veneer     semver.Veneer
 	builderCfg BuilderConfig
 }
 
@@ -99,7 +95,6 @@ var _ Builder = &SemverBuilder{}
 
 func NewSemverBuilder(builderCfg BuilderConfig) *SemverBuilder {
 	return &SemverBuilder{
-		veneer:     semver.Veneer{},
 		builderCfg: builderCfg,
 	}
 }
@@ -212,13 +207,14 @@ func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
 	}
 
 	// build the command to execute
+	// TODO: should the command be run within the container?
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
 
 	// TODO: Should we capture the output here for any reason?
 	// Should the custom veneer output an FBC to STDOUT like the other veneer outputs?
 	_, err = cmd.Output()
 	if err != nil {
-		return fmt.Errorf("running command %q | STDERR: %s", cmd.String(), err.(*exec.ExitError).Stderr)
+		return fmt.Errorf("running command %q: %w", cmd.String(), err)
 	}
 
 	return nil
@@ -258,7 +254,7 @@ func validate(containerCfg ContainerConfig, dir string) error {
 
 	_, err := containerCmd.Output()
 	if err != nil {
-		return fmt.Errorf("running command %q | STDERR: %s", containerCmd.String(), err.(*exec.ExitError).Stderr)
+		return fmt.Errorf("running command %q: %w", containerCmd.String(), err)
 	}
 	return nil
 }
@@ -266,13 +262,13 @@ func validate(containerCfg ContainerConfig, dir string) error {
 func build(cmd *exec.Cmd, outPath string, outType string) error {
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("running command %q | STDERR: %s", cmd.String(), err.(*exec.ExitError).Stderr)
+		return fmt.Errorf("running command %q: %w", cmd.String(), err)
 	}
 
 	// parse out to dcfg
 	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
 	if err != nil {
-		return fmt.Errorf("parsing basic veneer render output: %w", err)
+		return fmt.Errorf("parsing builder output: %w", err)
 	}
 
 	// write the dcfg
@@ -280,6 +276,8 @@ func build(cmd *exec.Cmd, outPath string, outType string) error {
 	if err != nil {
 		return fmt.Errorf("creating output file %q: %w", outPath, err)
 	}
+	defer file.Close()
+
 	err = writeDeclCfg(*dcfg, file, outType)
 	if err != nil {
 		return fmt.Errorf("writing to output file %q: %w", outPath, err)
