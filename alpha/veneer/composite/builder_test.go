@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO: Figure out how to run these tests in CI
 // TODO: Should we consolidate all these tests into a singular test function?
 // It was intentional to keep them separate for now, but it would significantly reduce code replication to combine into one function
 func TestBasicBuilder(t *testing.T) {
@@ -172,6 +171,32 @@ func TestBasicBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("invalid --output value %q, expected (json|yaml)", "invalid"))
+			},
+		},
+		{
+			name:     "invalid schema",
+			validate: false,
+			basicBuilder: NewBasicBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/basic",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: "olm.invalid",
+				Config: []byte(`{
+					"input": "components/basic.yaml",
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{
+				"components/basic.yaml": basicYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the basic veneer builder schema %q", "olm.invalid", BasicVeneerBuilderSchema))
 			},
 		},
 	}
@@ -517,6 +542,32 @@ func TestSemverBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("invalid --output value %q, expected (json|yaml)", "invalid"))
+			},
+		},
+		{
+			name:     "invalid schema",
+			validate: false,
+			semverBuilder: NewSemverBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/semver",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: "olm.invalid",
+				Config: []byte(`{
+					"input": "components/semver.yaml",
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{
+				"components/semver.yaml": basicYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the semver veneer builder schema %q", "olm.invalid", SemverVeneerBuilderSchema))
 			},
 		},
 	}
@@ -873,6 +924,32 @@ func TestRawBuilder(t *testing.T) {
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("invalid --output value %q, expected (json|yaml)", "invalid"))
 			},
 		},
+		{
+			name:     "invalid schema",
+			validate: false,
+			rawBuilder: NewRawBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/raw",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: "olm.invalid",
+				Config: []byte(`{
+					"input": "components/raw.yaml",
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{
+				"components/semver.yaml": basicYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the raw veneer builder schema %q", "olm.invalid", RawVeneerBuilderSchema))
+			},
+		},
 	}
 
 	testDir := t.TempDir()
@@ -1184,6 +1261,32 @@ func TestCustomBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), "running command")
+			},
+		},
+		{
+			name:     "invalid schema",
+			validate: false,
+			customBuilder: NewCustomBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/custom",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: "olm.invalid",
+				Config: []byte(`{
+					"input": "components/custom.yaml",
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{
+				"components/custom.yaml": basicYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the custom veneer builder schema %q", "olm.invalid", CustomVeneerBuilderSchema))
 			},
 		},
 	}

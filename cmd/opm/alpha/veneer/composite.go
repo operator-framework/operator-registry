@@ -18,7 +18,8 @@ func newCompositeVeneerRenderCmd() *cobra.Command {
 		output        string
 		containerTool string
 		validate      bool
-		configFile    string
+		compositeFile string
+		catalogFile   string
 	)
 	cmd := &cobra.Command{
 		Use: "composite composite-veneer-file",
@@ -28,20 +29,17 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 When FILE is '-' or not provided, the veneer is read from standard input`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Handle different input argument types
-			// When no arguments or "-" is passed to the command,
-			// assume input is coming from stdin
-			// Otherwise open the file passed to the command
-			data, source, err := openFileOrStdin(cmd, args)
+
+			catalogData, err := os.Open(catalogFile)
 			if err != nil {
-				log.Fatalf("unable to open %q: %v", source, err)
+				log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
 			}
-			defer data.Close()
+			defer catalogData.Close()
 
 			// get catalog configurations
 			catalogConfig := &composite.CatalogConfig{}
 			catalogDoc := json.RawMessage{}
-			catalogDecoder := yaml.NewYAMLOrJSONDecoder(data, 4096)
+			catalogDecoder := yaml.NewYAMLOrJSONDecoder(catalogData, 4096)
 			err = catalogDecoder.Decode(&catalogDoc)
 			if err != nil {
 				log.Fatalf("decoding catalog config: %s", err)
@@ -49,6 +47,10 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 			err = json.Unmarshal(catalogDoc, catalogConfig)
 			if err != nil {
 				log.Fatalf("unmarshalling catalog config: %s", err)
+			}
+
+			if catalogConfig.Schema != composite.CatalogSchema {
+				log.Fatalf("catalog configuration file has unknown schema, should be %q", composite.CatalogSchema)
 			}
 
 			catalogBuilderMap := make(composite.CatalogBuilderMap)
@@ -77,10 +79,11 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 
 			veneer.CatalogBuilders = catalogBuilderMap
 
-			compositeData, err := os.Open(configFile)
+			compositeData, err := os.Open(compositeFile)
 			if err != nil {
-				log.Fatalf("opening config file %q: %s", configFile, err)
+				log.Fatalf("opening composite config file %q: %s", compositeFile, err)
 			}
+			defer compositeData.Close()
 
 			// parse data to composite config
 			compositeConfig := &composite.CompositeConfig{}
@@ -95,6 +98,10 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 				log.Fatalf("unmarshalling composite config: %s", err)
 			}
 
+			if compositeConfig.Schema != composite.CompositeSchema {
+				log.Fatalf("%q has unknown schema, should be %q", compositeFile, composite.CompositeSchema)
+			}
+
 			err = veneer.Render(cmd.Context(), compositeConfig, validate)
 			if err != nil {
 				log.Fatalf("rendering the composite veneer: %s", err)
@@ -105,7 +112,8 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 	// TODO: Should we lock this flag to either docker or podman?
 	cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
 	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
-	cmd.Flags().StringVarP(&configFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
+	cmd.Flags().StringVarP(&compositeFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
+	cmd.Flags().StringVarP(&catalogFile, "catalog-config", "f", "catalogs.yaml", "File to use as the catalog configuration file")
 	return cmd
 }
 

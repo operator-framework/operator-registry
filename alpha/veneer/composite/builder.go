@@ -48,13 +48,15 @@ func NewBasicBuilder(builderCfg BuilderConfig) *BasicBuilder {
 }
 
 func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
+	if vd.Schema != BasicVeneerBuilderSchema {
+		return fmt.Errorf("schema %q does not match the basic veneer builder schema %q", vd.Schema, BasicVeneerBuilderSchema)
+	}
 	// Parse out the basic veneer configuration
 	basicConfig := &BasicVeneerConfig{}
 	err := json.Unmarshal(vd.Config, basicConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshalling basic veneer config: %w", err)
 	}
-	// TODO: should we ensure that the schema matches and error if it does not?
 
 	// get the current working directory
 	wd, err := os.Getwd()
@@ -100,6 +102,9 @@ func NewSemverBuilder(builderCfg BuilderConfig) *SemverBuilder {
 }
 
 func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
+	if vd.Schema != SemverVeneerBuilderSchema {
+		return fmt.Errorf("schema %q does not match the semver veneer builder schema %q", vd.Schema, SemverVeneerBuilderSchema)
+	}
 	// Parse out the semver veneer configuration
 	semverConfig := &SemverVeneerConfig{}
 	err := json.Unmarshal(vd.Config, semverConfig)
@@ -151,6 +156,9 @@ func NewRawBuilder(builderCfg BuilderConfig) *RawBuilder {
 }
 
 func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
+	if vd.Schema != RawVeneerBuilderSchema {
+		return fmt.Errorf("schema %q does not match the raw veneer builder schema %q", vd.Schema, RawVeneerBuilderSchema)
+	}
 	// Parse out the raw veneer configuration
 	rawConfig := &RawVeneerConfig{}
 	err := json.Unmarshal(vd.Config, rawConfig)
@@ -199,6 +207,9 @@ func NewCustomBuilder(builderCfg BuilderConfig) *CustomBuilder {
 }
 
 func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
+	if vd.Schema != CustomVeneerBuilderSchema {
+		return fmt.Errorf("schema %q does not match the custom veneer builder schema %q", vd.Schema, CustomVeneerBuilderSchema)
+	}
 	// Parse out the raw veneer configuration
 	customConfig := &CustomVeneerConfig{}
 	err := json.Unmarshal(vd.Config, customConfig)
