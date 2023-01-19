@@ -32,7 +32,6 @@ func (v *Veneer) Render(ctx context.Context, config *CompositeConfig, validate b
 						return fmt.Errorf("validating component %q: %w", component.Name, err)
 					}
 				}
-				// TODO(everettraven): Should we remove the built FBC if validation fails?
 			} else {
 				return fmt.Errorf("building component %q: no builder found for veneer schema %q", component.Name, component.Strategy.Veneer.Schema)
 			}

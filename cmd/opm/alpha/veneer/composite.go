@@ -29,6 +29,7 @@ and a 'composite veneer' file`,
 and a 'composite veneer' file`,
 		Args: cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
+			containerTool = "docker"
 			catalogData, err := os.Open(catalogFile)
 			if err != nil {
 				log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
@@ -56,7 +57,7 @@ and a 'composite veneer' file`,
 
 			wd, err := os.Getwd()
 			if err != nil {
-				log.Fatalf("getting current working directory: %w", err)
+				log.Fatalf("getting current working directory: %s", err)
 			}
 
 			// setup the builders for each catalog
@@ -146,7 +147,7 @@ and a 'composite veneer' file`,
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 	// TODO: Investigate ways to do this without using a cli tool like docker/podman
-	cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
+	// cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
 	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
 	cmd.Flags().StringVarP(&compositeFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
 	cmd.Flags().StringVarP(&catalogFile, "catalog-config", "f", "catalogs.yaml", "File to use as the catalog configuration file")

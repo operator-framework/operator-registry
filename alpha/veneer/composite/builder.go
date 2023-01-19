@@ -242,7 +242,6 @@ func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
 	}
 
 	// build the command to execute
-	// TODO: should the command be run within the container?
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
 	cmd.Dir = cb.builderCfg.CurrentDirectory
 
