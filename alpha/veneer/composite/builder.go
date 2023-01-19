@@ -3,11 +3,13 @@ package composite
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
@@ -26,8 +28,9 @@ type ContainerConfig struct {
 }
 
 type BuilderConfig struct {
-	ContainerCfg ContainerConfig
-	OutputType   string
+	ContainerCfg     ContainerConfig
+	OutputType       string
+	CurrentDirectory string
 }
 
 type Builder interface {
@@ -58,10 +61,21 @@ func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 		return fmt.Errorf("unmarshalling basic veneer config: %w", err)
 	}
 
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
+	// validate the basic config fields
+	valid := true
+	validationErrs := []string{}
+	if basicConfig.Input == "" {
+		valid = false
+		validationErrs = append(validationErrs, "basic veneer config must have a non-empty input (veneerDefinition.config.input)")
+	}
+
+	if basicConfig.Output == "" {
+		valid = false
+		validationErrs = append(validationErrs, "basic veneer config must have a non-empty output (veneerDefinition.config.output)")
+	}
+
+	if !valid {
+		return fmt.Errorf("basic veneer configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
 	// build the container command
@@ -69,7 +83,7 @@ func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, bb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s", bb.builderCfg.CurrentDirectory, bb.builderCfg.ContainerCfg.WorkingDir),
 		bb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
@@ -80,13 +94,7 @@ func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 }
 
 func (bb *BasicBuilder) Validate(dir string) error {
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
-	}
-
-	return validate(bb.builderCfg.ContainerCfg, path.Join(wd, dir))
+	return validate(bb.builderCfg.ContainerCfg, path.Join(bb.builderCfg.CurrentDirectory, dir))
 }
 
 type SemverBuilder struct {
@@ -112,10 +120,21 @@ func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
 		return fmt.Errorf("unmarshalling semver veneer config: %w", err)
 	}
 
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
+	// validate the semver config fields
+	valid := true
+	validationErrs := []string{}
+	if semverConfig.Input == "" {
+		valid = false
+		validationErrs = append(validationErrs, "semver veneer config must have a non-empty input (veneerDefinition.config.input)")
+	}
+
+	if semverConfig.Output == "" {
+		valid = false
+		validationErrs = append(validationErrs, "semver veneer config must have a non-empty output (veneerDefinition.config.output)")
+	}
+
+	if !valid {
+		return fmt.Errorf("semver veneer configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
 	// build the container command
@@ -123,7 +142,7 @@ func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, sb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s", sb.builderCfg.CurrentDirectory, sb.builderCfg.ContainerCfg.WorkingDir),
 		sb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
@@ -134,13 +153,7 @@ func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
 }
 
 func (sb *SemverBuilder) Validate(dir string) error {
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
-	}
-
-	return validate(sb.builderCfg.ContainerCfg, path.Join(wd, dir))
+	return validate(sb.builderCfg.ContainerCfg, path.Join(sb.builderCfg.CurrentDirectory, dir))
 }
 
 type RawBuilder struct {
@@ -165,10 +178,22 @@ func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
 	if err != nil {
 		return fmt.Errorf("unmarshalling raw veneer config: %w", err)
 	}
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
+
+	// validate the raw config fields
+	valid := true
+	validationErrs := []string{}
+	if rawConfig.Input == "" {
+		valid = false
+		validationErrs = append(validationErrs, "raw veneer config must have a non-empty input (veneerDefinition.config.input)")
+	}
+
+	if rawConfig.Output == "" {
+		valid = false
+		validationErrs = append(validationErrs, "raw veneer config must have a non-empty output (veneerDefinition.config.output)")
+	}
+
+	if !valid {
+		return fmt.Errorf("raw veneer configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
 	// build the container command
@@ -176,7 +201,7 @@ func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", wd, rb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s", rb.builderCfg.CurrentDirectory, rb.builderCfg.ContainerCfg.WorkingDir),
 		"--entrypoint=cat", // This assumes that the `cat` command is available in the container -- Should we also build a `... render-veneer raw` command to ensure consistent operation? Does OPM already have a way to render a raw FBC?
 		rb.builderCfg.ContainerCfg.BaseImage,
 		path.Join(rb.builderCfg.ContainerCfg.WorkingDir, rawConfig.Input))
@@ -185,13 +210,7 @@ func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
 }
 
 func (rb *RawBuilder) Validate(dir string) error {
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
-	}
-
-	return validate(rb.builderCfg.ContainerCfg, path.Join(wd, dir))
+	return validate(rb.builderCfg.ContainerCfg, path.Join(rb.builderCfg.CurrentDirectory, dir))
 }
 
 type CustomBuilder struct {
@@ -217,9 +236,15 @@ func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
 		return fmt.Errorf("unmarshalling custom veneer config: %w", err)
 	}
 
+	// validate the custom config fields
+	if customConfig.Command == "" {
+		return errors.New("custom veneer configuration is invalid: custom veneer config must have a non-empty command (veneerDefinition.config.command)")
+	}
+
 	// build the command to execute
 	// TODO: should the command be run within the container?
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
+	cmd.Dir = cb.builderCfg.CurrentDirectory
 
 	// TODO: Should we capture the output here for any reason?
 	// Should the custom veneer output an FBC to STDOUT like the other veneer outputs?
@@ -232,13 +257,7 @@ func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
 }
 
 func (cb *CustomBuilder) Validate(dir string) error {
-	// get the current working directory
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting current working directory: %w", err)
-	}
-
-	return validate(cb.builderCfg.ContainerCfg, path.Join(wd, dir))
+	return validate(cb.builderCfg.ContainerCfg, path.Join(cb.builderCfg.CurrentDirectory, dir))
 }
 
 func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) error {

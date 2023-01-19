@@ -186,17 +186,84 @@ func TestBasicBuilder(t *testing.T) {
 			}),
 			veneerDefinition: VeneerDefinition{
 				Schema: "olm.invalid",
-				Config: []byte(`{
-					"input": "components/basic.yaml",
-					"output": "catalog.yaml"
-				}`),
 			},
-			files: map[string]string{
-				"components/basic.yaml": basicYaml,
-			},
+			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the basic veneer builder schema %q", "olm.invalid", BasicVeneerBuilderSchema))
+			},
+		},
+		{
+			name:     "veneer config has empty input",
+			validate: false,
+			basicBuilder: NewBasicBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/basic",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: BasicVeneerBuilderSchema,
+				Config: []byte(`{
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"basic veneer configuration is invalid: basic veneer config must have a non-empty input (veneerDefinition.config.input)")
+			},
+		},
+		{
+			name:     "veneer config has empty output",
+			validate: false,
+			basicBuilder: NewBasicBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/basic",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: BasicVeneerBuilderSchema,
+				Config: []byte(`{
+					"input": "components/basic.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"basic veneer configuration is invalid: basic veneer config must have a non-empty output (veneerDefinition.config.output)")
+			},
+		},
+		{
+			name:     "veneer config has empty input & output",
+			validate: false,
+			basicBuilder: NewBasicBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/basic",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: BasicVeneerBuilderSchema,
+				Config: []byte(`{}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"basic veneer configuration is invalid: basic veneer config must have a non-empty input (veneerDefinition.config.input),basic veneer config must have a non-empty output (veneerDefinition.config.output)")
 			},
 		},
 	}
@@ -204,6 +271,7 @@ func TestBasicBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
+		tc.basicBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("basic-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -219,14 +287,6 @@ func TestBasicBuilder(t *testing.T) {
 				_, err = file.WriteString(fileContents)
 				require.NoError(t, err)
 			}
-			// set the working directory to test dir
-			wd, err := os.Getwd()
-			require.NoError(t, err)
-			err = os.Chdir(testDir)
-			require.NoError(t, err)
-			defer func() {
-				os.Chdir(wd)
-			}()
 
 			buildErr := tc.basicBuilder.Build(outPath, tc.veneerDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
@@ -562,12 +622,83 @@ func TestSemverBuilder(t *testing.T) {
 					"output": "catalog.yaml"
 				}`),
 			},
-			files: map[string]string{
-				"components/semver.yaml": basicYaml,
-			},
+			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the semver veneer builder schema %q", "olm.invalid", SemverVeneerBuilderSchema))
+			},
+		},
+		{
+			name:     "veneer config has empty input",
+			validate: false,
+			semverBuilder: NewSemverBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/semver",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: SemverVeneerBuilderSchema,
+				Config: []byte(`{
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"semver veneer configuration is invalid: semver veneer config must have a non-empty input (veneerDefinition.config.input)")
+			},
+		},
+		{
+			name:     "veneer config has empty output",
+			validate: false,
+			semverBuilder: NewSemverBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/semver",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: SemverVeneerBuilderSchema,
+				Config: []byte(`{
+					"input": "components/semver.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"semver veneer configuration is invalid: semver veneer config must have a non-empty output (veneerDefinition.config.output)")
+			},
+		},
+		{
+			name:     "veneer config has empty input & output",
+			validate: false,
+			semverBuilder: NewSemverBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/semver",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: SemverVeneerBuilderSchema,
+				Config: []byte(`{}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"semver veneer configuration is invalid: semver veneer config must have a non-empty input (veneerDefinition.config.input),semver veneer config must have a non-empty output (veneerDefinition.config.output)")
 			},
 		},
 	}
@@ -575,6 +706,7 @@ func TestSemverBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
+		tc.semverBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("semver-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -590,14 +722,6 @@ func TestSemverBuilder(t *testing.T) {
 				_, err = file.WriteString(fileContents)
 				require.NoError(t, err)
 			}
-			// set the working directory to test dir
-			wd, err := os.Getwd()
-			require.NoError(t, err)
-			err = os.Chdir(testDir)
-			require.NoError(t, err)
-			defer func() {
-				os.Chdir(wd)
-			}()
 
 			buildErr := tc.semverBuilder.Build(outPath, tc.veneerDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
@@ -937,17 +1061,84 @@ func TestRawBuilder(t *testing.T) {
 			}),
 			veneerDefinition: VeneerDefinition{
 				Schema: "olm.invalid",
-				Config: []byte(`{
-					"input": "components/raw.yaml",
-					"output": "catalog.yaml"
-				}`),
 			},
-			files: map[string]string{
-				"components/semver.yaml": basicYaml,
-			},
+			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the raw veneer builder schema %q", "olm.invalid", RawVeneerBuilderSchema))
+			},
+		},
+		{
+			name:     "veneer config has empty input",
+			validate: false,
+			rawBuilder: NewRawBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/raw",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: RawVeneerBuilderSchema,
+				Config: []byte(`{
+					"output": "catalog.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"raw veneer configuration is invalid: raw veneer config must have a non-empty input (veneerDefinition.config.input)")
+			},
+		},
+		{
+			name:     "veneer config has empty output",
+			validate: false,
+			rawBuilder: NewRawBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/raw",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: RawVeneerBuilderSchema,
+				Config: []byte(`{
+					"input": "components/raw.yaml"
+				}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"raw veneer configuration is invalid: raw veneer config must have a non-empty output (veneerDefinition.config.output)")
+			},
+		},
+		{
+			name:     "veneer config has empty input & output",
+			validate: false,
+			rawBuilder: NewRawBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/raw",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: RawVeneerBuilderSchema,
+				Config: []byte(`{}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"raw veneer configuration is invalid: raw veneer config must have a non-empty input (veneerDefinition.config.input),raw veneer config must have a non-empty output (veneerDefinition.config.output)")
 			},
 		},
 	}
@@ -955,6 +1146,7 @@ func TestRawBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
+		tc.rawBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("raw-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -970,14 +1162,6 @@ func TestRawBuilder(t *testing.T) {
 				_, err = file.WriteString(fileContents)
 				require.NoError(t, err)
 			}
-			// set the working directory to test dir
-			wd, err := os.Getwd()
-			require.NoError(t, err)
-			err = os.Chdir(testDir)
-			require.NoError(t, err)
-			defer func() {
-				os.Chdir(wd)
-			}()
 
 			buildErr := tc.rawBuilder.Build(outPath, tc.veneerDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
@@ -1281,12 +1465,33 @@ func TestCustomBuilder(t *testing.T) {
 					"output": "catalog.yaml"
 				}`),
 			},
-			files: map[string]string{
-				"components/custom.yaml": basicYaml,
-			},
+			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the custom veneer builder schema %q", "olm.invalid", CustomVeneerBuilderSchema))
+			},
+		},
+		{
+			name:     "veneer config has empty command",
+			validate: false,
+			customBuilder: NewCustomBuilder(BuilderConfig{
+				ContainerCfg: ContainerConfig{
+					ContainerTool: "docker",
+					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					WorkingDir:    "/custom",
+				},
+				OutputType: "yaml",
+			}),
+			veneerDefinition: VeneerDefinition{
+				Schema: CustomVeneerBuilderSchema,
+				Config: []byte(`{}`),
+			},
+			files: map[string]string{},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.Error(t, buildErr)
+				require.Equal(t,
+					buildErr.Error(),
+					"custom veneer configuration is invalid: custom veneer config must have a non-empty command (veneerDefinition.config.command)")
 			},
 		},
 	}
@@ -1294,6 +1499,7 @@ func TestCustomBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
+		tc.customBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("custom-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1309,14 +1515,6 @@ func TestCustomBuilder(t *testing.T) {
 				_, err = file.WriteString(fileContents)
 				require.NoError(t, err)
 			}
-			// set the working directory to test dir
-			wd, err := os.Getwd()
-			require.NoError(t, err)
-			err = os.Chdir(testDir)
-			require.NoError(t, err)
-			defer func() {
-				os.Chdir(wd)
-			}()
 
 			buildErr := tc.customBuilder.Build(outPath, tc.veneerDefinition)
 			tc.buildAssertions(t, outPath, buildErr)

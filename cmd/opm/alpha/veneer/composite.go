@@ -22,14 +22,13 @@ func newCompositeVeneerRenderCmd() *cobra.Command {
 		catalogFile   string
 	)
 	cmd := &cobra.Command{
-		Use: "composite composite-veneer-file",
-		Short: `Generate a file-based catalog from a single 'composite veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
-		Long: `Generate a file-based catalog from a single 'composite veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
-		Args: cobra.MaximumNArgs(1),
+		Use: "composite",
+		Short: `Generate file-based catalogs from a catalog configuration file 
+and a 'composite veneer' file`,
+		Long: `Generate file-based catalogs from a catalog configuration file 
+and a 'composite veneer' file`,
+		Args: cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-
 			catalogData, err := os.Open(catalogFile)
 			if err != nil {
 				log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
@@ -55,8 +54,31 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 
 			catalogBuilderMap := make(composite.CatalogBuilderMap)
 
+			wd, err := os.Getwd()
+			if err != nil {
+				log.Fatalf("getting current working directory: %w", err)
+			}
+
 			// setup the builders for each catalog
+			setupFailed := false
+			setupErrors := map[string][]string{}
 			for _, catalog := range catalogConfig.Catalogs {
+				errs := []string{}
+				if catalog.Destination.BaseImage == "" {
+					errs = append(errs, "destination.baseImage must not be an empty string")
+				}
+
+				if catalog.Destination.WorkingDir == "" {
+					errs = append(errs, "destination.workingDir must not be an empty string")
+				}
+
+				// check for validation errors and skip builder creation if there are any errors
+				if len(errs) > 0 {
+					setupFailed = true
+					setupErrors[catalog.Name] = errs
+					continue
+				}
+
 				if _, ok := catalogBuilderMap[catalog.Name]; !ok {
 					builderMap := make(composite.BuilderMap)
 					for _, schema := range catalog.Builders {
@@ -66,7 +88,8 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 								BaseImage:     catalog.Destination.BaseImage,
 								WorkingDir:    catalog.Destination.WorkingDir,
 							},
-							OutputType: output,
+							OutputType:       output,
+							CurrentDirectory: wd,
 						})
 						if err != nil {
 							log.Fatalf("getting builder %q for catalog %q: %s", schema, catalog.Name, err)
@@ -75,6 +98,19 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 					}
 					catalogBuilderMap[catalog.Name] = builderMap
 				}
+			}
+
+			// if there were errors validating the catalog configuration then exit
+			if setupFailed {
+				//build the error message
+				var errMsg string
+				for cat, errs := range setupErrors {
+					errMsg += fmt.Sprintf("\nCatalog %s:\n", cat)
+					for _, err := range errs {
+						errMsg += fmt.Sprintf("  - %s\n", err)
+					}
+				}
+				log.Fatalf("catalog configuration file field validation failed: %s", errMsg)
 			}
 
 			veneer.CatalogBuilders = catalogBuilderMap
@@ -109,7 +145,7 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
-	// TODO: Should we lock this flag to either docker or podman?
+	// TODO: Investigate ways to do this without using a cli tool like docker/podman
 	cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
 	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
 	cmd.Flags().StringVarP(&compositeFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
