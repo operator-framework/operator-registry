@@ -3,7 +3,6 @@ package composite
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -237,22 +236,28 @@ func (cb *CustomBuilder) Build(dir string, vd VeneerDefinition) error {
 	}
 
 	// validate the custom config fields
+	valid := true
+	validationErrs := []string{}
 	if customConfig.Command == "" {
-		return errors.New("custom veneer configuration is invalid: custom veneer config must have a non-empty command (veneerDefinition.config.command)")
+		valid = false
+		validationErrs = append(validationErrs, "custom veneer config must have a non-empty command (veneerDefinition.config.command)")
 	}
 
+	if customConfig.Output == "" {
+		valid = false
+		validationErrs = append(validationErrs, "custom veneer config must have a non-empty output (veneerDefinition.config.output)")
+	}
+
+	if !valid {
+		return fmt.Errorf("custom veneer configuration is invalid: %s", strings.Join(validationErrs, ","))
+	}
 	// build the command to execute
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
 	cmd.Dir = cb.builderCfg.CurrentDirectory
 
-	// TODO: Should we capture the output here for any reason?
-	// Should the custom veneer output an FBC to STDOUT like the other veneer outputs?
-	_, err = cmd.Output()
-	if err != nil {
-		return fmt.Errorf("running command %q: %w", cmd.String(), err)
-	}
-
-	return nil
+	// custom veneer should output a valid FBC to STDOUT so we can
+	// build the FBC just like all the other veneers.
+	return build(cmd, path.Join(dir, customConfig.Output), cb.builderCfg.OutputType)
 }
 
 func (cb *CustomBuilder) Validate(dir string) error {

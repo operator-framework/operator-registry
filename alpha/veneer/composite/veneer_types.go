@@ -25,4 +25,5 @@ type RawVeneerConfig struct {
 type CustomVeneerConfig struct {
 	Command string
 	Args    []string
+	Output  string
 }
