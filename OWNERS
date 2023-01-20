@@ -1,27 +1,33 @@
 # approval == this is a good idea /approve
 approvers:
-  - ecordell
-  - njhale
+  - awgreene
   - dinhxuanvu
-  - kevinrizza
-  - benluddy
-  - joelanford
   - grokspawn
+  - joelanford
+  - kevinrizza
+  - njhale
+  - oceanc80
+  - perdasilva
 # review == this code is good /lgtm
 reviewers:
-  - ecordell
-  - njhale
-  - dinhxuanvu
-  - kevinrizza
-  - gallettilance
   - anik120
-  - exdx
+  - ankitathomas
   - awgreene
   - benluddy
-  - hasbro17
-  - ankitathomas
-  - joelanford
-  - jmrodri
+  - dinhxuanvu
+  - everettraven
+  - exdx
+  - gallettilance
   - grokspawn
+  - jmrodri
+  - joelanford
+  - kevinrizza
+  - njhale
+  - oceanc80
+  - perdasilva
+  - rashmigottipati
+  - theishshah
+  - timflannagan
+  - varshaprasad96
 # Bugzilla component
 component: "OLM"
