@@ -300,6 +300,9 @@ github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
+# github.com/golang/snappy v0.0.3
+## explicit
+github.com/golang/snappy
 # github.com/google/cel-go v0.12.4
 ## explicit; go 1.17
 github.com/google/cel-go/cel
@@ -388,11 +391,10 @@ github.com/json-iterator/go
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
-# github.com/klauspost/compress v1.11.13
+# github.com/klauspost/compress v1.12.3
 ## explicit; go 1.13
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
-github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/mailru/easyjson v0.7.6
@@ -694,7 +696,7 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20220907062415-87db552b00fd
+# golang.org/x/sys v0.0.0-20221010170243-090e33056c14
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
