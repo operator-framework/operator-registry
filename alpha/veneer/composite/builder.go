@@ -82,7 +82,7 @@ func (bb *BasicBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", bb.builderCfg.CurrentDirectory, bb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s:Z", bb.builderCfg.CurrentDirectory, bb.builderCfg.ContainerCfg.WorkingDir),
 		bb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
@@ -141,7 +141,7 @@ func (sb *SemverBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", sb.builderCfg.CurrentDirectory, sb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s:Z", sb.builderCfg.CurrentDirectory, sb.builderCfg.ContainerCfg.WorkingDir),
 		sb.builderCfg.ContainerCfg.BaseImage,
 		"alpha",
 		"render-veneer",
@@ -200,7 +200,7 @@ func (rb *RawBuilder) Build(dir string, vd VeneerDefinition) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", rb.builderCfg.CurrentDirectory, rb.builderCfg.ContainerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s:Z", rb.builderCfg.CurrentDirectory, rb.builderCfg.ContainerCfg.WorkingDir),
 		"--entrypoint=cat", // This assumes that the `cat` command is available in the container -- Should we also build a `... render-veneer raw` command to ensure consistent operation? Does OPM already have a way to render a raw FBC?
 		rb.builderCfg.ContainerCfg.BaseImage,
 		path.Join(rb.builderCfg.ContainerCfg.WorkingDir, rawConfig.Input))
@@ -281,7 +281,7 @@ func validate(containerCfg ContainerConfig, dir string) error {
 		"run",
 		"--rm",
 		"-v",
-		fmt.Sprintf("%s:%s", dir, containerCfg.WorkingDir),
+		fmt.Sprintf("%s:%s:Z", dir, containerCfg.WorkingDir),
 		containerCfg.BaseImage,
 		"validate",
 		containerCfg.WorkingDir)
