@@ -76,14 +76,11 @@ func populateModelChannels(ctx context.Context, pkgs model.Model, q *SQLQuerier)
 	if err != nil {
 		return err
 	}
-	deprecatedValue, err := json.Marshal(registry.DeprecatedProperty{})
-	if err != nil {
-		return err
-	}
+
 ConvertBundles:
 	for _, bundle := range bundles {
 		for _, prop := range bundle.Properties {
-			if prop.Type == registry.DeprecatedType && prop.Value == string(deprecatedValue) {
+			if prop.Type == registry.DeprecatedType {
 				// bundle contains `olm.Deprecated` property
 				// exclude this bundle from being rendered
 				continue ConvertBundles
