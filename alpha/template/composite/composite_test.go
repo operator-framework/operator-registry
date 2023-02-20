@@ -20,7 +20,7 @@ const validateErr = "TestBuilder Validate() error"
 
 var _ Builder = &TestBuilder{}
 
-func (tb *TestBuilder) Build(dir string, vd VeneerDefinition) error {
+func (tb *TestBuilder) Build(dir string, vd TemplateDefinition) error {
 	if tb.buildError {
 		return errors.New(buildErr)
 	}
@@ -36,21 +36,21 @@ func (tb *TestBuilder) Validate(dir string) error {
 
 func TestCompositeRender(t *testing.T) {
 	type testCase struct {
-		name            string
-		compositeVeneer Veneer
-		compositeCfg    CompositeConfig
-		validate        bool
-		assertions      func(t *testing.T, err error)
+		name              string
+		compositeTemplate Template
+		compositeCfg      CompositeConfig
+		validate          bool
+		assertions        func(t *testing.T, err error)
 	}
 
 	testCases := []testCase{
 		{
 			name:     "successful render",
 			validate: true,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{},
+						"olm.builder.test": &TestBuilder{},
 					},
 				},
 			},
@@ -64,8 +64,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.test",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.test",
 								Config: json.RawMessage{},
 							},
 						},
@@ -79,10 +79,10 @@ func TestCompositeRender(t *testing.T) {
 		{
 			name:     "component not in catalog config",
 			validate: true,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{},
+						"olm.builder.test": &TestBuilder{},
 					},
 				},
 			},
@@ -96,8 +96,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.test",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.test",
 								Config: json.RawMessage{},
 							},
 						},
@@ -113,10 +113,10 @@ func TestCompositeRender(t *testing.T) {
 		{
 			name:     "builder not in catalog config",
 			validate: true,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{},
+						"olm.builder.test": &TestBuilder{},
 					},
 				},
 			},
@@ -130,8 +130,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.invalid",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.invalid",
 								Config: json.RawMessage{},
 							},
 						},
@@ -140,17 +140,17 @@ func TestCompositeRender(t *testing.T) {
 			},
 			assertions: func(t *testing.T, err error) {
 				require.Error(t, err)
-				expectedErr := fmt.Sprintf("building component %q: no builder found for veneer schema %q", "testcatalog", "olm.veneer.invalid")
+				expectedErr := fmt.Sprintf("building component %q: no builder found for template schema %q", "testcatalog", "olm.builder.invalid")
 				require.Equal(t, expectedErr, err.Error())
 			},
 		},
 		{
 			name:     "build step error",
 			validate: true,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{buildError: true},
+						"olm.builder.test": &TestBuilder{buildError: true},
 					},
 				},
 			},
@@ -164,8 +164,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.test",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.test",
 								Config: json.RawMessage{},
 							},
 						},
@@ -181,10 +181,10 @@ func TestCompositeRender(t *testing.T) {
 		{
 			name:     "validate step error",
 			validate: true,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{validateError: true},
+						"olm.builder.test": &TestBuilder{validateError: true},
 					},
 				},
 			},
@@ -198,8 +198,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.test",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.test",
 								Config: json.RawMessage{},
 							},
 						},
@@ -215,10 +215,10 @@ func TestCompositeRender(t *testing.T) {
 		{
 			name:     "validation step skipped",
 			validate: false,
-			compositeVeneer: Veneer{
+			compositeTemplate: Template{
 				CatalogBuilders: CatalogBuilderMap{
 					"testcatalog": BuilderMap{
-						"olm.veneer.test": &TestBuilder{validateError: true},
+						"olm.builder.test": &TestBuilder{validateError: true},
 					},
 				},
 			},
@@ -232,8 +232,8 @@ func TestCompositeRender(t *testing.T) {
 						},
 						Strategy: BuildStrategy{
 							Name: "testbuild",
-							Veneer: VeneerDefinition{
-								Schema: "olm.veneer.test",
+							Template: TemplateDefinition{
+								Schema: "olm.builder.test",
 								Config: json.RawMessage{},
 							},
 						},
@@ -250,7 +250,7 @@ func TestCompositeRender(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.compositeVeneer.Render(context.Background(), &tc.compositeCfg, tc.validate)
+			err := tc.compositeTemplate.Render(context.Background(), &tc.compositeCfg, tc.validate)
 			tc.assertions(t, err)
 		})
 	}

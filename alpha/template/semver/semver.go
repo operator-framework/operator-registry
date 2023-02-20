@@ -19,27 +19,27 @@ import (
 )
 
 // data passed into this module externally
-type Veneer struct {
+type Template struct {
 	Data     io.Reader
 	Registry image.Registry
 }
 
 // IO structs -- BEGIN
-type semverVeneerBundleEntry struct {
+type semverTemplateBundleEntry struct {
 	Image string `json:"image,omitempty"`
 }
 
 type candidateBundles struct {
-	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
+	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
 }
 type fastBundles struct {
-	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
+	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
 }
 type stableBundles struct {
-	Bundles []semverVeneerBundleEntry `json:"bundles,omitempty"`
+	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
 }
 
-type semverVeneer struct {
+type semverTemplate struct {
 	Schema                string           `json:"schema"`
 	GenerateMajorChannels bool             `json:"generateMajorChannels,omitempty"`
 	GenerateMinorChannels bool             `json:"generateMinorChannels,omitempty"`
@@ -77,10 +77,10 @@ func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 // channels --> bundles --> version
 type semverRenderedChannelVersions map[string]map[string]semver.Version // e.g. d["stable-v1"]["example-operator/v1.0.0"] = 1.0.0
 
-func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
+func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 
-	sv, err := readFile(v.Data)
+	sv, err := readFile(t.Data)
 	if err != nil {
 		return nil, fmt.Errorf("semver-render: unable to read file: %v", err)
 	}
@@ -96,7 +96,7 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 		r := action.Render{
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b},
-			Registry:       v.Registry,
+			Registry:       t.Registry,
 		}
 		c, err := r.Run(ctx)
 		if err != nil {
@@ -122,7 +122,7 @@ func (v Veneer) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) 
 	return &out, nil
 }
 
-func buildBundleList(bundles *[]semverVeneerBundleEntry, dict *map[string]struct{}) {
+func buildBundleList(bundles *[]semverTemplateBundleEntry, dict *map[string]struct{}) {
 	for _, b := range *bundles {
 		if _, ok := (*dict)[b.Image]; !ok {
 			(*dict)[b.Image] = struct{}{}
@@ -130,14 +130,14 @@ func buildBundleList(bundles *[]semverVeneerBundleEntry, dict *map[string]struct
 	}
 }
 
-func readFile(reader io.Reader) (*semverVeneer, error) {
+func readFile(reader io.Reader) (*semverTemplate, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
 
 	// default behavior is to generate only minor channels and to use skips over replaces
-	sv := semverVeneer{
+	sv := semverTemplate{
 		GenerateMajorChannels: false,
 		GenerateMinorChannels: true,
 		AvoidSkipPatch:        false,
@@ -151,7 +151,7 @@ func readFile(reader io.Reader) (*semverVeneer, error) {
 	return &sv, nil
 }
 
-func (sv *semverVeneer) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig) (*semverRenderedChannelVersions, error) {
+func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig) (*semverRenderedChannelVersions, error) {
 	versions := semverRenderedChannelVersions{}
 
 	bdm, err := sv.getVersionsFromChannel(sv.Candidate.Bundles, cfg)
@@ -184,15 +184,15 @@ func (sv *semverVeneer) getVersionsFromStandardChannels(cfg *declcfg.Declarative
 	return &versions, nil
 }
 
-func (sv *semverVeneer) getVersionsFromChannel(semverBundles []semverVeneerBundleEntry, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
+func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateBundleEntry, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
 	entries := make(map[string]semver.Version)
 
-	// we iterate over the channel bundles from the veneer, to:
+	// we iterate over the channel bundles from the template, to:
 	// - identify if any required bundles for the channel are missing/not rendered/otherwise unavailable
-	// - maintain the channel-bundle relationship as we map from un-rendered semver veneer bundles to rendered bundles in `entries` which is accumulated by the caller
+	// - maintain the channel-bundle relationship as we map from un-rendered semver template bundles to rendered bundles in `entries` which is accumulated by the caller
 	//   in a per-channel structure to which we can safely refer when generating/linking channels
 	for _, semverBundle := range semverBundles {
-		// test if the bundle specified in the veneer is present in the successfully-rendered bundles
+		// test if the bundle specified in the template is present in the successfully-rendered bundles
 		index := 0
 		for index < len(cfg.Bundles) {
 			if cfg.Bundles[index].Image == semverBundle.Image {
@@ -252,11 +252,11 @@ func (h *highwaterChannel) gt(ih *highwaterChannel) bool {
 	return (channelPriorities[h.kind] > channelPriorities[ih.kind]) || (h.version.GT(ih.version))
 }
 
-// generates an unlinked channel for each channel as per the input veneer config (major || minor), then link up the edges of the set of channels so that:
+// generates an unlinked channel for each channel as per the input template config (major || minor), then link up the edges of the set of channels so that:
 // - (for major channels) iterating to a new minor version channel (traversing between Y-streams) creates a 'replaces' edge between the predecessor and successor bundles
-// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser minor versions of the bundle enumerated in the veneer.
+// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser minor versions of the bundle enumerated in the template.
 // along the way, uses a highwaterChannel marker to identify the "most stable" channel head to be used as the default channel for the generated package
-func (sv *semverVeneer) generateChannels(semverChannels *semverRenderedChannelVersions) []declcfg.Channel {
+func (sv *semverTemplate) generateChannels(semverChannels *semverRenderedChannelVersions) []declcfg.Channel {
 	outChannels := []declcfg.Channel{}
 
 	// sort the channelkinds in ascending order so we can traverse the bundles in order of
@@ -339,7 +339,7 @@ func (sv *semverVeneer) generateChannels(semverChannels *semverRenderedChannelVe
 }
 
 // all channels that come to linkChannels MUST have the same prefix. This adds replaces edges of minor versions of the largest major version.
-func (sv *semverVeneer) linkChannels(unlinkedChannels map[string]*declcfg.Channel, pkg string, semverChannels *semverRenderedChannelVersions, channelMapping *map[string]string) []declcfg.Channel {
+func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, pkg string, semverChannels *semverRenderedChannelVersions, channelMapping *map[string]string) []declcfg.Channel {
 	channels := []declcfg.Channel{}
 
 	for channelName, channel := range unlinkedChannels {

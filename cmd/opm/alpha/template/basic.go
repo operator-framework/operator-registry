@@ -1,4 +1,4 @@
-package veneer
+package template
 
 import (
 	"io"
@@ -10,21 +10,21 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/veneer/basic"
+	"github.com/operator-framework/operator-registry/alpha/template/basic"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 )
 
-func newBasicVeneerRenderCmd() *cobra.Command {
+func newBasicTemplateCmd() *cobra.Command {
 	var (
-		veneer basic.Veneer
-		output string
+		template basic.Template
+		output   string
 	)
 	cmd := &cobra.Command{
-		Use: "basic basic-veneer-file",
-		Short: `Generate a file-based catalog from a single 'basic veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
-		Long: `Generate a file-based catalog from a single 'basic veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
+		Use: "basic basic-template-file",
+		Short: `Generate a file-based catalog from a single 'basic template' file
+When FILE is '-' or not provided, the template is read from standard input`,
+		Long: `Generate a file-based catalog from a single 'basic template' file
+When FILE is '-' or not provided, the template is read from standard input`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Handle different input argument types
@@ -49,7 +49,7 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 
 			// The bundle loading impl is somewhat verbose, even on the happy path,
 			// so discard all logrus default logger logs. Any important failures will be
-			// returned from veneer.Render and logged as fatal errors.
+			// returned from template.Render and logged as fatal errors.
 			logrus.SetOutput(ioutil.Discard)
 
 			reg, err := util.CreateCLIRegistry(cmd)
@@ -58,10 +58,10 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 			}
 			defer reg.Destroy()
 
-			veneer.Registry = reg
+			template.Registry = reg
 
 			// only taking first file argument
-			cfg, err := veneer.Render(cmd.Context(), data)
+			cfg, err := template.Render(cmd.Context(), data)
 			if err != nil {
 				log.Fatal(err)
 			}

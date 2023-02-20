@@ -368,7 +368,7 @@ func TestLinkChannels(t *testing.T) {
 			for c, e := range tt.unlinkedChannels {
 				unlinkedChannels[c] = e
 			}
-			sv := &semverVeneer{AvoidSkipPatch: tt.avoidSkipPatch, GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels}
+			sv := &semverTemplate{AvoidSkipPatch: tt.avoidSkipPatch, GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels}
 			require.ElementsMatch(t, tt.out, sv.linkChannels(unlinkedChannels, "a", &channelOperatorVersions, &channelNameToKind))
 		})
 	}
@@ -488,7 +488,7 @@ func TestGenerateChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := &semverVeneer{AvoidSkipPatch: tt.avoidSkipPatch, GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a"}
+			sv := &semverTemplate{AvoidSkipPatch: tt.avoidSkipPatch, GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a"}
 			require.ElementsMatch(t, tt.out, sv.generateChannels(&channelOperatorVersions))
 		})
 	}
@@ -497,15 +497,15 @@ func TestGenerateChannels(t *testing.T) {
 func TestGetVersionsFromStandardChannel(t *testing.T) {
 	tests := []struct {
 		name        string
-		sv          semverVeneer
+		sv          semverTemplate
 		outVersions semverRenderedChannelVersions
 		dc          declcfg.DeclarativeConfig
 	}{
 		{
 			name: "sunny day case",
-			sv: semverVeneer{
+			sv: semverTemplate{
 				Stable: stableBundles{
-					[]semverVeneerBundleEntry{
+					[]semverTemplateBundleEntry{
 						{Image: "repo/origin/a-v0.1.0"},
 						{Image: "repo/origin/a-v0.1.1"},
 						{Image: "repo/origin/a-v1.1.0"},
@@ -570,9 +570,9 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 }
 
 func TestBailOnVersionBuildMetadata(t *testing.T) {
-	sv := semverVeneer{
+	sv := semverTemplate{
 		Stable: stableBundles{
-			[]semverVeneerBundleEntry{
+			[]semverTemplateBundleEntry{
 				{Image: "repo/origin/a-v0.1.0"},
 				{Image: "repo/origin/a-v0.1.1"},
 				{Image: "repo/origin/a-v1.1.0"},
@@ -622,7 +622,7 @@ func TestReadFile(t *testing.T) {
 	type testCase struct {
 		name       string
 		input      string
-		assertions func(*testing.T, *semverVeneer, error)
+		assertions func(*testing.T, *semverTemplate, error)
 	}
 	testCases := []testCase{
 		{
@@ -655,8 +655,8 @@ stable:
     bundles:
         - image: quay.io/foo/olm:testoperator.v1.0.1
 `,
-			assertions: func(t *testing.T, veneer *semverVeneer, err error) {
-				require.NotNil(t, veneer)
+			assertions: func(t *testing.T, template *semverTemplate, err error) {
+				require.NotNil(t, template)
 				require.NoError(t, err)
 			},
 		},
@@ -693,8 +693,8 @@ invalid:
     bundles:
         - image: quay.io/foo/olm:testoperator.v1.0.1
 `,
-			assertions: func(t *testing.T, veneer *semverVeneer, err error) {
-				require.Nil(t, veneer)
+			assertions: func(t *testing.T, template *semverTemplate, err error) {
+				require.Nil(t, template)
 				require.EqualError(t, err, `error unmarshaling JSON: while decoding JSON: json: unknown field "invalid"`)
 			},
 		},

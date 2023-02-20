@@ -1,4 +1,4 @@
-package veneer
+package template
 
 import (
 	"fmt"
@@ -10,19 +10,19 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/veneer/semver"
+	"github.com/operator-framework/operator-registry/alpha/template/semver"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/spf13/cobra"
 )
 
-func newSemverCmd() *cobra.Command {
+func newSemverTemplateCmd() *cobra.Command {
 	output := ""
 	cmd := &cobra.Command{
 		Use: "semver [FILE]",
-		Short: `Generate a file-based catalog from a single 'semver veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
-		Long: `Generate a file-based catalog from a single 'semver veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input`,
+		Short: `Generate a file-based catalog from a single 'semver template' file
+When FILE is '-' or not provided, the template is read from standard input`,
+		Long: `Generate a file-based catalog from a single 'semver template' file
+When FILE is '-' or not provided, the template is read from standard input`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle different input argument types
@@ -52,7 +52,7 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 
 			// The bundle loading impl is somewhat verbose, even on the happy path,
 			// so discard all logrus default logger logs. Any important failures will be
-			// returned from veneer.Render and logged as fatal errors.
+			// returned from template.Render and logged as fatal errors.
 			logrus.SetOutput(ioutil.Discard)
 
 			reg, err := util.CreateCLIRegistry(cmd)
@@ -61,11 +61,11 @@ When FILE is '-' or not provided, the veneer is read from standard input`,
 			}
 			defer reg.Destroy()
 
-			veneer := semver.Veneer{
+			template := semver.Template{
 				Data:     data,
 				Registry: reg,
 			}
-			out, err := veneer.Render(cmd.Context())
+			out, err := template.Render(cmd.Context())
 			if err != nil {
 				log.Fatalf("semver %q: %v", source, err)
 			}

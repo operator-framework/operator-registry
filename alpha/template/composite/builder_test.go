@@ -17,7 +17,7 @@ func TestBasicBuilder(t *testing.T) {
 		name               string
 		validate           bool
 		basicBuilder       *BasicBuilder
-		veneerDefinition   VeneerDefinition
+		templateDefinition TemplateDefinition
 		files              map[string]string
 		buildAssertions    func(t *testing.T, dir string, buildErr error)
 		validateAssertions func(t *testing.T, validateErr error)
@@ -35,8 +35,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"input": "components/basic.yaml",
 					"output": "catalog.yaml"
@@ -73,8 +73,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "json",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"input": "components/basic.yaml",
 					"output": "catalog.json"
@@ -101,7 +101,7 @@ func TestBasicBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "invalid veneer configuration",
+			name:     "invalid template configuration",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -111,8 +111,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"invalid": "components/basic.yaml",
 				}`),
@@ -120,7 +120,7 @@ func TestBasicBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "unmarshalling basic veneer config:")
+				require.Contains(t, buildErr.Error(), "unmarshalling basic template config:")
 			},
 		},
 		{
@@ -134,8 +134,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"input": "components/basic.yaml",
 					"output": "catalog.yaml"
@@ -158,8 +158,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "invalid",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"input": "components/basic.yaml",
 					"output": "catalog.yaml"
@@ -184,17 +184,17 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
+			templateDefinition: TemplateDefinition{
 				Schema: "olm.invalid",
 			},
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the basic veneer builder schema %q", "olm.invalid", BasicVeneerBuilderSchema))
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the basic template builder schema %q", "olm.invalid", BasicBuilderSchema))
 			},
 		},
 		{
-			name:     "veneer config has empty input",
+			name:     "template config has empty input",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -204,8 +204,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"output": "catalog.yaml"
 				}`),
@@ -215,11 +215,11 @@ func TestBasicBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"basic veneer configuration is invalid: basic veneer config must have a non-empty input (veneerDefinition.config.input)")
+					"basic template configuration is invalid: basic template config must have a non-empty input (templateDefinition.config.input)")
 			},
 		},
 		{
-			name:     "veneer config has empty output",
+			name:     "template config has empty output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -229,8 +229,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{
 					"input": "components/basic.yaml"
 				}`),
@@ -240,11 +240,11 @@ func TestBasicBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"basic veneer configuration is invalid: basic veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"basic template configuration is invalid: basic template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 		{
-			name:     "veneer config has empty input & output",
+			name:     "template config has empty input & output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -254,8 +254,8 @@ func TestBasicBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: BasicVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
 				Config: []byte(`{}`),
 			},
 			files: map[string]string{},
@@ -263,7 +263,7 @@ func TestBasicBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"basic veneer configuration is invalid: basic veneer config must have a non-empty input (veneerDefinition.config.input),basic veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"basic template configuration is invalid: basic template config must have a non-empty input (templateDefinition.config.input),basic template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 	}
@@ -288,7 +288,7 @@ func TestBasicBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.basicBuilder.Build(outPath, tc.veneerDefinition)
+			buildErr := tc.basicBuilder.Build(outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -448,7 +448,7 @@ func TestSemverBuilder(t *testing.T) {
 		name               string
 		validate           bool
 		semverBuilder      *SemverBuilder
-		veneerDefinition   VeneerDefinition
+		templateDefinition TemplateDefinition
 		files              map[string]string
 		buildAssertions    func(t *testing.T, dir string, buildErr error)
 		validateAssertions func(t *testing.T, validateErr error)
@@ -466,8 +466,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"input": "components/semver.yaml",
 					"output": "catalog.yaml"
@@ -504,8 +504,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "json",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"input": "components/semver.yaml",
 					"output": "catalog.json"
@@ -532,7 +532,7 @@ func TestSemverBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "invalid veneer configuration",
+			name:     "invalid template configuration",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -542,8 +542,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"invalid": "components/semver.yaml",
 				}`),
@@ -551,7 +551,7 @@ func TestSemverBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "unmarshalling semver veneer config:")
+				require.Contains(t, buildErr.Error(), "unmarshalling semver template config:")
 			},
 		},
 		{
@@ -565,8 +565,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"input": "components/semver.yaml",
 					"output": "catalog.yaml"
@@ -589,8 +589,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "invalid",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"input": "components/semver.yaml",
 					"output": "catalog.yaml"
@@ -615,7 +615,7 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
+			templateDefinition: TemplateDefinition{
 				Schema: "olm.invalid",
 				Config: []byte(`{
 					"input": "components/semver.yaml",
@@ -625,11 +625,11 @@ func TestSemverBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the semver veneer builder schema %q", "olm.invalid", SemverVeneerBuilderSchema))
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the semver template builder schema %q", "olm.invalid", SemverBuilderSchema))
 			},
 		},
 		{
-			name:     "veneer config has empty input",
+			name:     "template config has empty input",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -639,8 +639,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"output": "catalog.yaml"
 				}`),
@@ -650,11 +650,11 @@ func TestSemverBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"semver veneer configuration is invalid: semver veneer config must have a non-empty input (veneerDefinition.config.input)")
+					"semver template configuration is invalid: semver template config must have a non-empty input (templateDefinition.config.input)")
 			},
 		},
 		{
-			name:     "veneer config has empty output",
+			name:     "template config has empty output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -664,8 +664,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{
 					"input": "components/semver.yaml"
 				}`),
@@ -675,11 +675,11 @@ func TestSemverBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"semver veneer configuration is invalid: semver veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"semver template configuration is invalid: semver template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 		{
-			name:     "veneer config has empty input & output",
+			name:     "template config has empty input & output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -689,8 +689,8 @@ func TestSemverBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: SemverVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
 				Config: []byte(`{}`),
 			},
 			files: map[string]string{},
@@ -698,7 +698,7 @@ func TestSemverBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"semver veneer configuration is invalid: semver veneer config must have a non-empty input (veneerDefinition.config.input),semver veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"semver template configuration is invalid: semver template config must have a non-empty input (templateDefinition.config.input),semver template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 	}
@@ -723,7 +723,7 @@ func TestSemverBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.semverBuilder.Build(outPath, tc.veneerDefinition)
+			buildErr := tc.semverBuilder.Build(outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -892,7 +892,7 @@ func TestRawBuilder(t *testing.T) {
 		name               string
 		validate           bool
 		rawBuilder         *RawBuilder
-		veneerDefinition   VeneerDefinition
+		templateDefinition TemplateDefinition
 		files              map[string]string
 		buildAssertions    func(t *testing.T, dir string, buildErr error)
 		validateAssertions func(t *testing.T, validateErr error)
@@ -910,8 +910,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"input": "components/raw.yaml",
 					"output": "catalog.yaml"
@@ -948,8 +948,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "json",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"input": "components/raw.yaml",
 					"output": "catalog.json"
@@ -976,7 +976,7 @@ func TestRawBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "invalid veneer configuration",
+			name:     "invalid template configuration",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -986,8 +986,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"invalid": "components/raw.yaml",
 				}`),
@@ -995,7 +995,7 @@ func TestRawBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "unmarshalling raw veneer config:")
+				require.Contains(t, buildErr.Error(), "unmarshalling raw template config:")
 			},
 		},
 		{
@@ -1009,8 +1009,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"input": "components/raw.yaml",
 					"output": "catalog.yaml"
@@ -1033,8 +1033,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "invalid",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"input": "components/raw.yaml",
 					"output": "catalog.yaml"
@@ -1059,17 +1059,17 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
+			templateDefinition: TemplateDefinition{
 				Schema: "olm.invalid",
 			},
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the raw veneer builder schema %q", "olm.invalid", RawVeneerBuilderSchema))
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the raw template builder schema %q", "olm.invalid", RawBuilderSchema))
 			},
 		},
 		{
-			name:     "veneer config has empty input",
+			name:     "template config has empty input",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1079,8 +1079,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"output": "catalog.yaml"
 				}`),
@@ -1090,11 +1090,11 @@ func TestRawBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"raw veneer configuration is invalid: raw veneer config must have a non-empty input (veneerDefinition.config.input)")
+					"raw template configuration is invalid: raw template config must have a non-empty input (templateDefinition.config.input)")
 			},
 		},
 		{
-			name:     "veneer config has empty output",
+			name:     "template config has empty output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1104,8 +1104,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{
 					"input": "components/raw.yaml"
 				}`),
@@ -1115,11 +1115,11 @@ func TestRawBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"raw veneer configuration is invalid: raw veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"raw template configuration is invalid: raw template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 		{
-			name:     "veneer config has empty input & output",
+			name:     "template config has empty input & output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1129,8 +1129,8 @@ func TestRawBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: RawVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
 				Config: []byte(`{}`),
 			},
 			files: map[string]string{},
@@ -1138,7 +1138,7 @@ func TestRawBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"raw veneer configuration is invalid: raw veneer config must have a non-empty input (veneerDefinition.config.input),raw veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"raw template configuration is invalid: raw template config must have a non-empty input (templateDefinition.config.input),raw template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 	}
@@ -1163,7 +1163,7 @@ func TestRawBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.rawBuilder.Build(outPath, tc.veneerDefinition)
+			buildErr := tc.rawBuilder.Build(outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -1355,7 +1355,7 @@ func TestCustomBuilder(t *testing.T) {
 		name               string
 		validate           bool
 		customBuilder      *CustomBuilder
-		veneerDefinition   VeneerDefinition
+		templateDefinition TemplateDefinition
 		files              map[string]string
 		buildAssertions    func(t *testing.T, dir string, buildErr error)
 		validateAssertions func(t *testing.T, validateErr error)
@@ -1373,8 +1373,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"command": "cat",
 					"args": ["components/custom.yaml"],
@@ -1412,8 +1412,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "json",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"command": "cat",
 					"args": ["components/custom.yaml"],
@@ -1441,7 +1441,7 @@ func TestCustomBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "invalid veneer configuration",
+			name:     "invalid template configuration",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1451,8 +1451,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"invalid": "components/custom.yaml",
 				}`),
@@ -1460,7 +1460,7 @@ func TestCustomBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "unmarshalling custom veneer config:")
+				require.Contains(t, buildErr.Error(), "unmarshalling custom template config:")
 			},
 		},
 		{
@@ -1474,8 +1474,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"command": "thiscommanddoesnotexist",
                     "args": [],
@@ -1499,7 +1499,7 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
+			templateDefinition: TemplateDefinition{
 				Schema: "olm.invalid",
 				Config: []byte(`{
 					"input": "components/custom.yaml",
@@ -1509,11 +1509,11 @@ func TestCustomBuilder(t *testing.T) {
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the custom veneer builder schema %q", "olm.invalid", CustomVeneerBuilderSchema))
+				require.Contains(t, buildErr.Error(), fmt.Sprintf("schema %q does not match the custom template builder schema %q", "olm.invalid", CustomBuilderSchema))
 			},
 		},
 		{
-			name:     "veneer config has empty command",
+			name:     "template config has empty command",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1523,8 +1523,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"output": "catalog.yaml"
 				}`),
@@ -1534,11 +1534,11 @@ func TestCustomBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"custom veneer configuration is invalid: custom veneer config must have a non-empty command (veneerDefinition.config.command)")
+					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command)")
 			},
 		},
 		{
-			name:     "veneer config has empty output",
+			name:     "template config has empty output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1548,8 +1548,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{
 					"command": "ls"
 				}`),
@@ -1559,11 +1559,11 @@ func TestCustomBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"custom veneer configuration is invalid: custom veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"custom ventemplateeer configuration is invalid: custom template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 		{
-			name:     "veneer config has empty command & output",
+			name:     "template config has empty command & output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
@@ -1573,8 +1573,8 @@ func TestCustomBuilder(t *testing.T) {
 				},
 				OutputType: "yaml",
 			}),
-			veneerDefinition: VeneerDefinition{
-				Schema: CustomVeneerBuilderSchema,
+			templateDefinition: TemplateDefinition{
+				Schema: CustomBuilderSchema,
 				Config: []byte(`{}`),
 			},
 			files: map[string]string{},
@@ -1582,7 +1582,7 @@ func TestCustomBuilder(t *testing.T) {
 				require.Error(t, buildErr)
 				require.Equal(t,
 					buildErr.Error(),
-					"custom veneer configuration is invalid: custom veneer config must have a non-empty command (veneerDefinition.config.command),custom veneer config must have a non-empty output (veneerDefinition.config.output)")
+					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command),custom template config must have a non-empty output (templateDefinition.config.output)")
 			},
 		},
 	}
@@ -1607,7 +1607,7 @@ func TestCustomBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.customBuilder.Build(outPath, tc.veneerDefinition)
+			buildErr := tc.customBuilder.Build(outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
