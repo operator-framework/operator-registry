@@ -76,7 +76,16 @@ func populateModelChannels(ctx context.Context, pkgs model.Model, q *SQLQuerier)
 	if err != nil {
 		return err
 	}
+
+ConvertBundles:
 	for _, bundle := range bundles {
+		for _, prop := range bundle.Properties {
+			if prop.Type == registry.DeprecatedType {
+				// bundle contains `olm.Deprecated` property
+				// exclude this bundle from being rendered
+				continue ConvertBundles
+			}
+		}
 		pkg, ok := pkgs[bundle.PackageName]
 		if !ok {
 			return fmt.Errorf("unknown package %q for bundle %q", bundle.PackageName, bundle.CsvName)
