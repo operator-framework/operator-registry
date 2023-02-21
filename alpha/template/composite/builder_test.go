@@ -1533,8 +1533,9 @@ func TestCustomBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Equal(t,
+					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command)",
 					buildErr.Error(),
-					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command)")
+				)
 			},
 		},
 		{
@@ -1558,8 +1559,9 @@ func TestCustomBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Equal(t,
+					"custom template configuration is invalid: custom template config must have a non-empty output (templateDefinition.config.output)",
 					buildErr.Error(),
-					"custom ventemplateeer configuration is invalid: custom template config must have a non-empty output (templateDefinition.config.output)")
+				)
 			},
 		},
 		{
@@ -1581,8 +1583,9 @@ func TestCustomBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Equal(t,
+					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command),custom template config must have a non-empty output (templateDefinition.config.output)",
 					buildErr.Error(),
-					"custom template configuration is invalid: custom template config must have a non-empty command (templateDefinition.config.command),custom template config must have a non-empty output (templateDefinition.config.output)")
+				)
 			},
 		},
 	}

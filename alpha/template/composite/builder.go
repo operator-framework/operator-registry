@@ -2,13 +2,14 @@ package composite
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+
+	"sigs.k8s.io/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
@@ -55,7 +56,7 @@ func (bb *BasicBuilder) Build(dir string, td TemplateDefinition) error {
 	}
 	// Parse out the basic template configuration
 	basicConfig := &BasicConfig{}
-	err := json.Unmarshal(td.Config, basicConfig)
+	err := yaml.UnmarshalStrict(td.Config, basicConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshalling basic template config: %w", err)
 	}
@@ -114,7 +115,7 @@ func (sb *SemverBuilder) Build(dir string, td TemplateDefinition) error {
 	}
 	// Parse out the semver template configuration
 	semverConfig := &SemverConfig{}
-	err := json.Unmarshal(td.Config, semverConfig)
+	err := yaml.UnmarshalStrict(td.Config, semverConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshalling semver template config: %w", err)
 	}
@@ -173,7 +174,7 @@ func (rb *RawBuilder) Build(dir string, td TemplateDefinition) error {
 	}
 	// Parse out the raw template configuration
 	rawConfig := &RawConfig{}
-	err := json.Unmarshal(td.Config, rawConfig)
+	err := yaml.UnmarshalStrict(td.Config, rawConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshalling raw template config: %w", err)
 	}
@@ -230,7 +231,7 @@ func (cb *CustomBuilder) Build(dir string, td TemplateDefinition) error {
 	}
 	// Parse out the raw template configuration
 	customConfig := &CustomConfig{}
-	err := json.Unmarshal(td.Config, customConfig)
+	err := yaml.UnmarshalStrict(td.Config, customConfig)
 	if err != nil {
 		return fmt.Errorf("unmarshalling custom template config: %w", err)
 	}
@@ -298,6 +299,7 @@ func build(cmd *exec.Cmd, outPath string, outType string) error {
 	if err != nil {
 		return fmt.Errorf("running command %q: %w", cmd.String(), err)
 	}
+	fmt.Printf(">>> build result: %q\n", out)
 
 	// parse out to dcfg
 	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
