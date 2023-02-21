@@ -299,7 +299,6 @@ func build(cmd *exec.Cmd, outPath string, outType string) error {
 	if err != nil {
 		return fmt.Errorf("running command %q: %w", cmd.String(), err)
 	}
-	fmt.Printf(">>> build result: %q\n", out)
 
 	// parse out to dcfg
 	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
