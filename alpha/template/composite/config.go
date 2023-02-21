@@ -21,8 +21,8 @@ type ComponentDestination struct {
 }
 
 type BuildStrategy struct {
-	Name   string
-	Veneer VeneerDefinition
+	Name     string
+	Template TemplateDefinition
 }
 
 type CatalogConfig struct {

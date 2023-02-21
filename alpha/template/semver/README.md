@@ -1,23 +1,23 @@
-## Semver Veneer:
+## Semver Template:
 
-Since a `veneer` is identified as an input schema which may be processed to generate a valid FBC, we can define a `semver veneer` as a schema which uses channel conventions to facilitate the auto-generation of channels along `semver` delimiters.  
+Since a `catalog template` is identified as an input schema which may be processed to generate a valid FBC, we can define a `semver template` as a schema which uses channel conventions to facilitate the auto-generation of channels along `semver` delimiters.  
 
-[**DISCLAIMER:** since version build metadata [MUST be ignored when determining version precedence](https://semver.org) when using semver, it cannot be used in any bundle included in the `semver veneer` and will result in a fatal error.]
+[**DISCLAIMER:** since version build metadata [MUST be ignored when determining version precedence](https://semver.org) when using semver, it cannot be used in any bundle included in the `semver template` and will result in a fatal error.]
 
 ### Schema Goals
-The `semver veneer` must have:
+The `semver template` must have:
 - terse grammar to minimize creation/maintenance effort
 - deterministic output
 - simple channel promotion for maturing bundles
 - demonstration of a common type of channel maturity model
 - minor-version (Y-stream), major-version (X-stream) versioning optionality
 
-The resulting FBC must clearly indicate how generated channels relate to veneer entities
+The resulting FBC must clearly indicate how generated channels relate to template entities
 
 ### Schema Anatomy
-For convenience and simplicity, this veneer currently supports hard-coded channel names `Candidate`, `Fast`, and `Stable`, in order of increasing channel stability.  We leverage this relationship to calculate the default channel for the package. 
+For convenience and simplicity, this template currently supports hard-coded channel names `Candidate`, `Fast`, and `Stable`, in order of increasing channel stability.  We leverage this relationship to calculate the default channel for the package. 
 
-`GenerateMajorChannels` and `GenerateMinorChannels` dictate whether this veneer will generate X-stream or Y-stream channels (attributes can be set independently).  If omitted, only minor (Y-stream) channels will be generated.  
+`GenerateMajorChannels` and `GenerateMinorChannels` dictate whether this template will generate X-stream or Y-stream channels (attributes can be set independently).  If omitted, only minor (Y-stream) channels will be generated.  
 
 Under each channel are a list of bundle image references which contribute to that channel.  
 
@@ -54,12 +54,12 @@ In this example, `Candidate` has the entire version range of bundles,  `Fast` ha
 
 ### CLI Tool Usage
 ```
-% ./bin/opm alpha render-veneer semver -h
-Generate a file-based catalog from a single 'semver veneer' file
-When FILE is '-' or not provided, the veneer is read from standard input
+% ./bin/opm alpha render-template semver -h
+Generate a file-based catalog from a single 'semver template' file
+When FILE is '-' or not provided, the template is read from standard input
 
 Usage:
-  opm alpha render-veneer semver [FILE] [flags]
+  opm alpha render-template semver [FILE] [flags]
 
 Flags:
   -h, --help            help for semver
@@ -73,19 +73,19 @@ Global Flags:
 Example command usage:
 ```
 # Example with file argument passed in
-opm alpha render-veneer semver infile.semver.veneer.yaml
+opm alpha render-template semver infile.semver.template.yaml
 
 # Example with no file argument passed in
-opm alpha render-veneer semver -o yaml < infile.semver.veneer.yaml > outfile.yaml
+opm alpha render-template semver -o yaml < infile.semver.template.yaml > outfile.yaml
 
 # Example with "-" as the file argument passed in
-cat infile.semver.veneer.yaml | opm alpha render-veneer semver -o mermaid -
+cat infile.semver.template.yaml | opm alpha render-template semver -o mermaid -
 ```
 Note that if the command is called without a file argument and nothing passed in on standard input,
 the command will hang indefinitely. Either a file argument or file information passed 
 in on standard input is required by the command.
 
-With the veneer attribute `GenerateMajorChannels: true` resulting major channels from the command are (skipping the rendered bundle image output):
+With the template attribute `GenerateMajorChannels: true` resulting major channels from the command are (skipping the rendered bundle image output):
 ```yaml
 ---
 defaultChannel: stable-v1
@@ -151,10 +151,10 @@ package: testoperator
 schema: olm.channel
 ```
 
-We generated a channel for each veneer channel entity corresponding to each of the 0.\#.\#, 1.\#.\# major version ranges with skips to the head of the highest semver in a channel.  We also generated a replaces edge to traverse across minor version transitions within each major channel.  Finally, we generated an `olm.package` object, setting as default the most-stable channel head we created.  This process will prefer `Stable` channel over `Fast`, over `Candidate` and then a higher bundle version over a lower version.   
+We generated a channel for each template channel entity corresponding to each of the 0.\#.\#, 1.\#.\# major version ranges with skips to the head of the highest semver in a channel.  We also generated a replaces edge to traverse across minor version transitions within each major channel.  Finally, we generated an `olm.package` object, setting as default the most-stable channel head we created.  This process will prefer `Stable` channel over `Fast`, over `Candidate` and then a higher bundle version over a lower version.   
 (Please note that the naming of the generated channels indicates the digits of significance for that channel.  For example, `fast-v1` is a decomposed channel of the `fast` type which contains only major versions of contributing bundles matching `v1`.)  
 
-For contrast, with the veneer attribute `GenerateMinorChannels: true` and running the command again (again skipping rendered bundle image output) we get a bunch more channels:
+For contrast, with the template attribute `GenerateMinorChannels: true` and running the command again (again skipping rendered bundle image output) we get a bunch more channels:
 ```yaml
 ---
 defaultChannel: stable-v1.0
@@ -245,7 +245,7 @@ package: testoperator
 schema: olm.channel
 
 ```
-Here, a channel is generated for each veneer channel which differs by minor version, and each channel has a `replaces` edge from the predecessor channel to the next-lesser minor bundle version.  Please note that at no time do we transgress across major-version boundaries with the channels, to be consistent with [the semver convention](https://semver.org/) for major versions, where the purpose is to make incompatible API changes.
+Here, a channel is generated for each template channel which differs by minor version, and each channel has a `replaces` edge from the predecessor channel to the next-lesser minor bundle version.  Please note that at no time do we transgress across major-version boundaries with the channels, to be consistent with [the semver convention](https://semver.org/) for major versions, where the purpose is to make incompatible API changes.
 
 
 ### DEMOS

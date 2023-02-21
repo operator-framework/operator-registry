@@ -6,7 +6,7 @@ import (
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/list"
 	rendergraph "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-graph"
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/veneer"
+	"github.com/operator-framework/operator-registry/cmd/opm/alpha/template"
 )
 
 func NewCmd() *cobra.Command {
@@ -15,13 +15,14 @@ func NewCmd() *cobra.Command {
 		Use:    "alpha",
 		Short:  "Run an alpha subcommand",
 		Args:   cobra.NoArgs,
+		Run:    func(_ *cobra.Command, _ []string) {}, // adding an empty function here to preserve non-zero exit status for misstated subcommands/flags for the command hierarchy
 	}
 
 	runCmd.AddCommand(
 		bundle.NewCmd(),
 		list.NewCmd(),
 		rendergraph.NewCmd(),
-		veneer.NewCmd(),
+		template.NewCmd(),
 	)
 	return runCmd
 }

@@ -1,4 +1,4 @@
-package veneer
+package template
 
 import (
 	"encoding/json"
@@ -9,12 +9,12 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/veneer/composite"
+	"github.com/operator-framework/operator-registry/alpha/template/composite"
 )
 
-func newCompositeVeneerRenderCmd() *cobra.Command {
+func newCompositeTemplateCmd() *cobra.Command {
 	var (
-		veneer        composite.Veneer
+		template      composite.Template
 		output        string
 		containerTool string
 		validate      bool
@@ -24,9 +24,9 @@ func newCompositeVeneerRenderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "composite",
 		Short: `Generate file-based catalogs from a catalog configuration file 
-and a 'composite veneer' file`,
+and a 'composite template' file`,
 		Long: `Generate file-based catalogs from a catalog configuration file 
-and a 'composite veneer' file`,
+and a 'composite template' file`,
 		Args: cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			containerTool = "docker"
@@ -114,7 +114,7 @@ and a 'composite veneer' file`,
 				log.Fatalf("catalog configuration file field validation failed: %s", errMsg)
 			}
 
-			veneer.CatalogBuilders = catalogBuilderMap
+			template.CatalogBuilders = catalogBuilderMap
 
 			compositeData, err := os.Open(compositeFile)
 			if err != nil {
@@ -139,15 +139,15 @@ and a 'composite veneer' file`,
 				log.Fatalf("%q has unknown schema, should be %q", compositeFile, composite.CompositeSchema)
 			}
 
-			err = veneer.Render(cmd.Context(), compositeConfig, validate)
+			err = template.Render(cmd.Context(), compositeConfig, validate)
 			if err != nil {
-				log.Fatalf("rendering the composite veneer: %s", err)
+				log.Fatalf("rendering the composite template: %s", err)
 			}
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 	// TODO: Investigate ways to do this without using a cli tool like docker/podman
-	// cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering veneers (should be an equivalent replacement to docker - similar to podman)")
+	// cmd.Flags().StringVar(&containerTool, "container-tool", "docker", "container tool to be used when rendering templates (should be an equivalent replacement to docker - similar to podman)")
 	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
 	cmd.Flags().StringVarP(&compositeFile, "composite-config", "c", "catalog/config.yaml", "File to use as the composite configuration file")
 	cmd.Flags().StringVarP(&catalogFile, "catalog-config", "f", "catalogs.yaml", "File to use as the catalog configuration file")
@@ -157,13 +157,13 @@ and a 'composite veneer' file`,
 func builderForSchema(schema string, builderCfg composite.BuilderConfig) (composite.Builder, error) {
 	var builder composite.Builder
 	switch schema {
-	case composite.BasicVeneerBuilderSchema:
+	case composite.BasicBuilderSchema:
 		builder = composite.NewBasicBuilder(builderCfg)
-	case composite.SemverVeneerBuilderSchema:
+	case composite.SemverBuilderSchema:
 		builder = composite.NewSemverBuilder(builderCfg)
-	case composite.RawVeneerBuilderSchema:
+	case composite.RawBuilderSchema:
 		builder = composite.NewRawBuilder(builderCfg)
-	case composite.CustomVeneerBuilderSchema:
+	case composite.CustomBuilderSchema:
 		builder = composite.NewCustomBuilder(builderCfg)
 	default:
 		return nil, fmt.Errorf("unknown schema %q", schema)

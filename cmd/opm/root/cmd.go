@@ -28,6 +28,7 @@ func NewCmd() *cobra.Command {
 			return nil
 		},
 		Args: cobra.NoArgs,
+		Run:  func(_ *cobra.Command, _ []string) {}, // adding an empty function here to preserve non-zero exit status for misstated subcommands/flags for the command hierarchy
 	}
 
 	cmd.PersistentFlags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")

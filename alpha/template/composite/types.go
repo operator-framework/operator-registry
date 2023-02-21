@@ -2,27 +2,27 @@ package composite
 
 import "encoding/json"
 
-type VeneerDefinition struct {
+type TemplateDefinition struct {
 	Schema string
 	Config json.RawMessage
 }
 
-type BasicVeneerConfig struct {
+type BasicConfig struct {
 	Input  string
 	Output string
 }
 
-type SemverVeneerConfig struct {
+type SemverConfig struct {
 	Input  string
 	Output string
 }
 
-type RawVeneerConfig struct {
+type RawConfig struct {
 	Input  string
 	Output string
 }
 
-type CustomVeneerConfig struct {
+type CustomConfig struct {
 	Command string
 	Args    []string
 	Output  string

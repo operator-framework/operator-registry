@@ -1,4 +1,4 @@
-package veneer
+package template
 
 import (
 	"io"
@@ -9,14 +9,14 @@ import (
 
 func NewCmd() *cobra.Command {
 	runCmd := &cobra.Command{
-		Use:   "render-veneer",
-		Short: "Render a veneer type",
+		Use:   "render-template",
+		Short: "Render a catalog template type",
 		Args:  cobra.NoArgs,
 	}
 
-	runCmd.AddCommand(newBasicVeneerRenderCmd())
-	runCmd.AddCommand(newSemverCmd())
-	runCmd.AddCommand(newCompositeVeneerRenderCmd())
+	runCmd.AddCommand(newBasicTemplateCmd())
+	runCmd.AddCommand(newSemverTemplateCmd())
+	runCmd.AddCommand(newCompositeTemplateCmd())
 
 	return runCmd
 }
