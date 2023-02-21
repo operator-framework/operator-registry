@@ -21,18 +21,16 @@ func TestBasicBuilder(t *testing.T) {
 		files              map[string]string
 		buildAssertions    func(t *testing.T, dir string, buildErr error)
 		validateAssertions func(t *testing.T, validateErr error)
-		skipme             bool
 	}
 
 	testCases := []testCase{
 		{
-			skipme:   true,
 			name:     "successful basic build yaml output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -65,13 +63,12 @@ func TestBasicBuilder(t *testing.T) {
 			},
 		},
 		{
-			skipme:   true,
 			name:     "successful basic build json output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "json",
@@ -109,7 +106,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -132,7 +129,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "basic",
 				},
 				OutputType: "yaml",
@@ -151,13 +148,12 @@ func TestBasicBuilder(t *testing.T) {
 			},
 		},
 		{
-			skipme:   true,
 			name:     "invalid output type",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "invalid",
@@ -183,7 +179,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -203,7 +199,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -228,7 +224,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -253,7 +249,7 @@ func TestBasicBuilder(t *testing.T) {
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/basic",
 				},
 				OutputType: "yaml",
@@ -275,9 +271,6 @@ func TestBasicBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
-		if tc.skipme == true {
-			t.Skipf("skipping %q", tc.name)
-		}
 		tc.basicBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("basic-%d", i)
@@ -452,7 +445,6 @@ const basicBuiltFbcJson = `{
 
 func TestSemverBuilder(t *testing.T) {
 	type testCase struct {
-		skipme             bool
 		name               string
 		validate           bool
 		semverBuilder      *SemverBuilder
@@ -464,13 +456,12 @@ func TestSemverBuilder(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			skipme:   true,
 			name:     "successful semver build yaml output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -503,13 +494,12 @@ func TestSemverBuilder(t *testing.T) {
 			},
 		},
 		{
-			skipme:   true,
 			name:     "successful semver build json output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "json",
@@ -547,7 +537,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -570,7 +560,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "semver",
 				},
 				OutputType: "yaml",
@@ -589,13 +579,12 @@ func TestSemverBuilder(t *testing.T) {
 			},
 		},
 		{
-			skipme:   true,
 			name:     "invalid output type",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "invalid",
@@ -621,7 +610,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -645,7 +634,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -670,7 +659,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -695,7 +684,7 @@ func TestSemverBuilder(t *testing.T) {
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/semver",
 				},
 				OutputType: "yaml",
@@ -717,9 +706,6 @@ func TestSemverBuilder(t *testing.T) {
 	testDir := t.TempDir()
 
 	for i, tc := range testCases {
-		if tc.skipme == true {
-			t.Skipf("skipping %q", tc.name)
-		}
 		tc.semverBuilder.builderCfg.CurrentDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("semver-%d", i)
@@ -919,7 +905,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -957,7 +943,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "json",
@@ -995,7 +981,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -1018,7 +1004,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "raw",
 				},
 				OutputType: "yaml",
@@ -1042,7 +1028,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "invalid",
@@ -1068,7 +1054,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -1088,7 +1074,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -1113,7 +1099,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -1138,7 +1124,7 @@ func TestRawBuilder(t *testing.T) {
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/raw",
 				},
 				OutputType: "yaml",
@@ -1382,7 +1368,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1421,7 +1407,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "json",
@@ -1460,7 +1446,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1483,7 +1469,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1508,7 +1494,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1532,7 +1518,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1558,7 +1544,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
@@ -1584,7 +1570,7 @@ func TestCustomBuilder(t *testing.T) {
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:v1.26",
+					BaseImage:     "quay.io/operator-framework/opm:latest",
 					WorkingDir:    "/custom",
 				},
 				OutputType: "yaml",
