@@ -14,6 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var _ Cache = &JSON{}
@@ -58,8 +59,19 @@ func (q *JSON) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 
 func (q *JSON) SendBundles(_ context.Context, s registry.BundleSender) error {
 	for _, pkg := range q.packageIndex {
-		for _, ch := range pkg.Channels {
-			for _, b := range ch.Bundles {
+		cList := sets.NewString()
+		for chName, _ := range pkg.Channels {
+			cList.Insert(chName)
+		}
+		for _, chName := range cList.List() {
+			ch := pkg.Channels[chName]
+
+			bList := sets.NewString()
+			for bName, _ := range ch.Bundles {
+				bList.Insert(bName)
+			}
+			for _, bName := range bList.List() {
+				b := ch.Bundles[bName]
 				apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, b.Name})
 				if err != nil {
 					return fmt.Errorf("convert bundle %q: %v", b.Name, err)
