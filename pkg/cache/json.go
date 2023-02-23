@@ -60,14 +60,14 @@ func (q *JSON) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 func (q *JSON) SendBundles(_ context.Context, s registry.BundleSender) error {
 	for _, pkg := range q.packageIndex {
 		cList := sets.NewString()
-		for chName, _ := range pkg.Channels {
+		for chName := range pkg.Channels {
 			cList.Insert(chName)
 		}
 		for _, chName := range cList.List() {
 			ch := pkg.Channels[chName]
 
 			bList := sets.NewString()
-			for bName, _ := range ch.Bundles {
+			for bName := range ch.Bundles {
 				bList.Insert(bName)
 			}
 			for _, bName := range bList.List() {

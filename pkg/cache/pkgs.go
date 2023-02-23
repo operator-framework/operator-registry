@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
@@ -34,6 +35,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 			CurrentCSVName: ch.Head,
 		})
 	}
+	sort.Slice(channels, func(i, j int) bool { return strings.Compare(channels[i].Name, channels[j].Name) < 0 })
 	return &registry.PackageManifest{
 		PackageName:        pkg.Name,
 		Channels:           channels,
