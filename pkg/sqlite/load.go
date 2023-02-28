@@ -88,13 +88,13 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 
 	addImage, err := tx.Prepare("insert into related_image(image, operatorbundle_name) values(?,?)")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to insert related image: %s", err)
 	}
 	defer addImage.Close()
 
 	csvName, bundleImage, csvBytes, bundleBytes, _, err := bundle.Serialize()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to serialize the bundle : %s", err)
 	}
 
 	if csvName == "" {
@@ -103,23 +103,23 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 
 	version, err := bundle.Version()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain bundle version : %s", err)
 	}
 	skiprange, err := bundle.SkipRange()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain skipRange : %s", err)
 	}
 	replaces, err := bundle.Replaces()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain replaces : %s", err)
 	}
 	skips, err := bundle.Skips()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain skips : %s", err)
 	}
 	substitutesFor, err := bundle.SubstitutesFor()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain substitutes : %s", err)
 	}
 
 	if substitutesFor != "" && !s.enableAlpha {
@@ -132,7 +132,7 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 
 	imgs, err := bundle.Images()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to obtain images : %s", err)
 	}
 	for img := range imgs {
 		if _, err := addImage.Exec(img, csvName); err != nil {
@@ -143,18 +143,18 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 	// Add dependencies information
 	err = s.addDependencies(tx, bundle)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add dependencies : %s", err)
 	}
 
 	err = s.addBundleProperties(tx, bundle)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add properties : %s", err)
 	}
 
 	if s.enableAlpha {
 		err = s.addSubstitutesFor(tx, bundle)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to add substitutes : %s", err)
 		}
 	}
 
@@ -191,19 +191,19 @@ func (s *sqlLoader) addSubstitutesFor(tx *sql.Tx, bundle *registry.Bundle) error
 
 	replaces, err := bundle.Replaces()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to obtain replaces : %s", err)
 	}
 	skips, err := bundle.Skips()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to obtain skips : %s", err)
 	}
 	version, err := bundle.Version()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to obtain version : %s", err)
 	}
 	substitutesFor, err := bundle.SubstitutesFor()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to obtain substitutes : %s", err)
 	}
 	if substitutesFor != "" {
 		// Update any replaces that reference the substituted-for bundle
@@ -404,7 +404,7 @@ func (s *sqlLoader) appendSkips(tx *sql.Tx, skips []string, csvName string) erro
 func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to start a transaction: %s", err)
 	}
 	defer func() {
 		tx.Rollback()
@@ -424,7 +424,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 	}
 
 	if err := updateDefaultChannel(tx, graph.DefaultChannel, graph.Name); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("the default channel (%s) does not exist: %s", graph.DefaultChannel, err))
 	}
 
 	// update each channel's graph
@@ -507,7 +507,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 				// If the number of nodes is 5 and the startDepth is 3, the expected depth is 7 (3, 4, 5, 6, 7)
 				expectedDepth := len(channel.Nodes) + startDepth - 1
 				if expectedDepth != depth {
-					err := fmt.Errorf("Invalid graph: some (non-bottom) nodes defined in the graph were not mentioned as replacements of any node")
+					err := fmt.Errorf("Invalid graph: some (non-bottom) nodes defined in the graph were not mentioned as replacements of any node (%d != %d)", expectedDepth, depth)
 					errs = append(errs, err)
 				}
 				break
@@ -530,7 +530,7 @@ func (s *sqlLoader) AddPackageChannelsFromGraph(graph *registry.Package) error {
 func (s *sqlLoader) AddPackageChannels(manifest registry.PackageManifest) error {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to start a transaction: %s", err)
 	}
 	defer func() {
 		tx.Rollback()
@@ -1087,7 +1087,7 @@ func (s *sqlLoader) rmPackage(tx *sql.Tx, pkg string) error {
 	defer deletePkg.Close()
 	_, err = deletePkg.Exec(pkg)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to delete the package %s: %s", pkg, err)
 	}
 
 	deleteChan, err := tx.Prepare("DELETE FROM channel WHERE package_name = ?")
@@ -1098,7 +1098,7 @@ func (s *sqlLoader) rmPackage(tx *sql.Tx, pkg string) error {
 	defer deleteChan.Close()
 	_, err = deleteChan.Exec(pkg)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to delete channel: %s", err)
 	}
 
 	deleteChannelEntries, err := tx.Prepare("DELETE FROM channel_entry WHERE package_name = ?")

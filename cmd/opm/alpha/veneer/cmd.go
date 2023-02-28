@@ -1,17 +1,11 @@
 package veneer
 
 import (
-	"io/ioutil"
+	"io"
+	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
-
-func nullLogger() *logrus.Entry {
-	logger := logrus.New()
-	logger.SetOutput(ioutil.Discard)
-	return logrus.NewEntry(logger)
-}
 
 func NewCmd() *cobra.Command {
 	runCmd := &cobra.Command{
@@ -21,6 +15,16 @@ func NewCmd() *cobra.Command {
 	}
 
 	runCmd.AddCommand(newBasicVeneerRenderCmd())
+	runCmd.AddCommand(newSemverCmd())
+	runCmd.AddCommand(newCompositeVeneerRenderCmd())
 
 	return runCmd
+}
+
+func openFileOrStdin(cmd *cobra.Command, args []string) (io.ReadCloser, string, error) {
+	if len(args) == 0 || args[0] == "-" {
+		return io.NopCloser(cmd.InOrStdin()), "stdin", nil
+	}
+	reader, err := os.Open(args[0])
+	return reader, args[0], err
 }

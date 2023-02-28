@@ -11,8 +11,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/sirupsen/logrus"
@@ -88,7 +87,7 @@ var _ = Describe("Launch bundle", func() {
 	initImage := dockerHost + "/olmtest/init-operator-manifest:test"
 
 	Context("Deploy bundle job", func() {
-		table.DescribeTable("should populate specified configmap", func(bundleName, bundleDirectory string, gzip bool) {
+		DescribeTable("should populate specified configmap", func(bundleName, bundleDirectory string, gzip bool) {
 			// these permissions are only necessary for the e2e (and not OLM using the feature)
 			By("configuring configmap service account")
 			kubeclient, err := kubernetes.NewForConfig(ctx.Ctx().RESTConfig())
@@ -228,8 +227,8 @@ var _ = Describe("Launch bundle", func() {
 			Expect(err).NotTo(HaveOccurred())
 		},
 
-			table.Entry("Small bundle, uncompressed", "kiali.1.4.2", "testdata/bundles/kiali.1.4.2", false),
-			table.Entry("Large bundle, compressed", "redis.0.4.0", "testdata/bundles/redis.0.4.0", true),
+			Entry("Small bundle, uncompressed", "kiali.1.4.2", "testdata/bundles/kiali.1.4.2", false),
+			Entry("Large bundle, compressed", "redis.0.4.0", "testdata/bundles/redis.0.4.0", true),
 		)
 	})
 })

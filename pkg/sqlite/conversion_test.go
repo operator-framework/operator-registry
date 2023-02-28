@@ -2,8 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,11 +10,7 @@ import (
 )
 
 func TestToModel(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "server_test-")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	db, err := Open(dbPath)

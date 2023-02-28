@@ -30,6 +30,13 @@ func NewCmd() *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
+	cmd.PersistentFlags().Bool("skip-tls", false, "skip TLS certificate verification for container image registries while pulling bundles or index")
+	cmd.PersistentFlags().Bool("skip-tls-verify", false, "skip TLS certificate verification for container image registries while pulling bundles")
+	cmd.PersistentFlags().Bool("use-http", false, "use plain HTTP for container image registries while pulling bundles")
+	if err := cmd.PersistentFlags().MarkDeprecated("skip-tls", "use --use-http and --skip-tls-verify instead"); err != nil {
+		logrus.Panic(err.Error())
+	}
+
 	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd(), generate.NewCmd())
 	index.AddCommand(cmd)
 	version.AddCommand(cmd)

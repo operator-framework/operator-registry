@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-GO := GOFLAGS="-mod=vendor" go
+GO := GOFLAGS="-mod=vendor" CGO_ENABLED=1 GOOS=linux GOARCH=<arch> go
 CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
@@ -36,12 +36,12 @@ endif
 all: clean test build
 
 $(CMDS):
-	$(extra_env) $(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
+	$(extra_env) $(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/opm
 
 .PHONY: $(OPM)
 $(OPM): opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 $(OPM):
-	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
+	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/opm
 
 .PHONY: build
 build: clean $(CMDS) $(OPM)
@@ -115,9 +115,8 @@ clean:
 	@rm -rf ./bin
 
 .PHONY: e2e
-e2e:
-	$(GO) run github.com/onsi/ginkgo/ginkgo --v --randomizeAllSpecs --randomizeSuites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
-
+e2e: ginkgo
+	$(GINKGO) --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
 
 .PHONY: release
 export OPM_IMAGE_REPO ?= quay.io/operator-framework/opm
@@ -138,8 +137,8 @@ export LATEST_IMAGE_OR_EMPTY ?= $(shell \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 release: RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(shell go env GOOS).yaml
-release:
-	./scripts/fetch goreleaser 1.4.1 && ./bin/goreleaser $(RELEASE_ARGS)
+release: goreleaser
+	$(GORELEASER) $(RELEASE_ARGS)
 
 # tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
@@ -151,3 +150,32 @@ $(shell \
 	&& git describe --tags --exact-match HEAD >/dev/null 2>&1 \
 	&& echo "$(OPM_IMAGE_REPO):$(1)" || echo "" )
 endef
+
+################
+# Hack / Tools #
+################
+
+GO_INSTALL_OPTS ?= "-mod=mod"
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Binaries
+GORELEASER ?= $(LOCALBIN)/goreleaser
+GINKGO ?= $(LOCALBIN)/ginkgo
+
+## Tool Versions
+GORELEASER_VERSION ?= v1.8.3
+GINKGO_VERSION ?= v2.1.3
+
+.PHONY: goreleaser
+goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
+$(GORELEASER): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
+
+.PHONY: ginkgo
+ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
+$(GINKGO): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)

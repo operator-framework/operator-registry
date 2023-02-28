@@ -21,6 +21,10 @@ func NewCmd() *cobra.Command {
 		Short: "Migrate a sqlite-based index image or database file to a file-based catalog",
 		Long: `Migrate a sqlite-based index image or database file to a file-based catalog.
 
+NOTE: the --output=json format produces streamable, concatenated JSON files.
+These are suitable to opm and jq, but may not be supported by arbitrary JSON
+parsers that assume that a file contains exactly one valid JSON object.
+
 ` + sqlite.DeprecationMessage,
 		Args: cobra.ExactArgs(2),
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {

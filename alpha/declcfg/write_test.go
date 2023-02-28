@@ -469,3 +469,97 @@ func removeJSONWhitespace(cfg *DeclarativeConfig) {
 		cfg.Others[io].Blob = buf.Bytes()
 	}
 }
+
+func TestWriteMermaidChannels(t *testing.T) {
+	type spec struct {
+		name          string
+		cfg           DeclarativeConfig
+		startEdge     string
+		packageFilter string
+		expected      string
+	}
+	specs := []spec{
+		{
+			name:          "SuccessNoFilters",
+			cfg:           buildValidDeclarativeConfig(true),
+			startEdge:     "",
+			packageFilter: "",
+			expected: `graph LR
+  %% package "anakin"
+  subgraph "anakin"
+    %% channel "dark"
+    subgraph anakin-dark["dark"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+    end
+    %% channel "light"
+    subgraph anakin-light["light"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
+    end
+  end
+  %% package "boba-fett"
+  subgraph "boba-fett"
+    %% channel "mando"
+    subgraph boba-fett-mando["mando"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+    end
+  end
+`,
+		},
+		{
+			name:          "SuccessMinEdgeFilter",
+			cfg:           buildValidDeclarativeConfig(true),
+			startEdge:     "anakin.v0.1.0",
+			packageFilter: "",
+			expected: `graph LR
+  %% package "anakin"
+  subgraph "anakin"
+    %% channel "dark"
+    subgraph anakin-dark["dark"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+    end
+    %% channel "light"
+    subgraph anakin-light["light"]
+      anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
+    end
+  end
+`,
+		},
+		{
+			name:          "SuccessPackageNameFilter",
+			cfg:           buildValidDeclarativeConfig(true),
+			startEdge:     "",
+			packageFilter: "boba-fett",
+			expected: `graph LR
+  %% package "boba-fett"
+  subgraph "boba-fett"
+    %% channel "mando"
+    subgraph boba-fett-mando["mando"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
+      boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+    end
+  end
+`,
+		},
+	}
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			writer := NewMermaidWriter(WithMinEdgeName(s.startEdge), WithSpecifiedPackageName(s.packageFilter))
+			err := writer.WriteChannels(s.cfg, &buf)
+			require.NoError(t, err)
+			require.Equal(t, s.expected, buf.String())
+		})
+	}
+}

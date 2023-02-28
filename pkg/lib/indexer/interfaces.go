@@ -9,6 +9,7 @@ import (
 
 // IndexAdder allows the creation of index container images from scratch or
 // based on previous index images
+//
 //counterfeiter:generate . IndexAdder
 type IndexAdder interface {
 	AddToIndex(AddToIndexRequest) error
@@ -29,6 +30,7 @@ func NewIndexAdder(buildTool, pullTool containertools.ContainerTool, logger *log
 
 // IndexDeleter takes indexes and deletes all references to an operator
 // from them
+//
 //counterfeiter:generate . IndexDeleter
 type IndexDeleter interface {
 	DeleteFromIndex(DeleteFromIndexRequest) error

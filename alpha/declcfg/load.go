@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -118,7 +119,9 @@ func extractCSV(objs []string) string {
 	return ""
 }
 
-func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
+// LoadReader reads yaml or json from the passed in io.Reader and unmarshals it into a DeclarativeConfig struct.
+// Path references will not be de-referenced so callers are responsible for de-referencing if necessary.
+func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
 	for {
@@ -133,23 +136,23 @@ func readYAMLOrJSON(r io.Reader) (*DeclarativeConfig, error) {
 
 		var in Meta
 		if err := json.Unmarshal(doc, &in); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal error: %s", resolveUnmarshalErr(doc, err))
 		}
 
 		switch in.Schema {
-		case schemaPackage:
+		case SchemaPackage:
 			var p Package
 			if err := json.Unmarshal(doc, &p); err != nil {
 				return nil, fmt.Errorf("parse package: %v", err)
 			}
 			cfg.Packages = append(cfg.Packages, p)
-		case schemaChannel:
+		case SchemaChannel:
 			var c Channel
 			if err := json.Unmarshal(doc, &c); err != nil {
 				return nil, fmt.Errorf("parse channel: %v", err)
 			}
 			cfg.Channels = append(cfg.Channels, c)
-		case schemaBundle:
+		case SchemaBundle:
 			var b Bundle
 			if err := json.Unmarshal(doc, &b); err != nil {
 				return nil, fmt.Errorf("parse bundle: %v", err)
@@ -173,7 +176,7 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 	defer file.Close()
 
-	cfg, err := readYAMLOrJSON(file)
+	cfg, err := LoadReader(file)
 	if err != nil {
 		return nil, err
 	}
@@ -183,4 +186,48 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func resolveUnmarshalErr(data []byte, err error) string {
+	var te *json.UnmarshalTypeError
+	if errors.As(err, &te) {
+		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
+	}
+	var se *json.SyntaxError
+	if errors.As(err, &se) {
+		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
+	}
+	return err.Error()
+}
+
+func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
+	sb := new(strings.Builder)
+	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
+	// attempt to present the erroneous JSON in indented, human-readable format
+	// errors result in presenting the original, unformatted output
+	var pretty bytes.Buffer
+	err := json.Indent(&pretty, data, "", "    ")
+	if err == nil {
+		pString := pretty.String()
+		// calc the prettified string offset which correlates to the original string offset
+		var pOffset, origOffset int64
+		origOffset = 0
+		for origOffset = 0; origOffset < offset; {
+			pOffset++
+			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
+				origOffset++
+			}
+		}
+		_, _ = sb.WriteString(pString[:pOffset])
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.WriteString(pString[pOffset:])
+	} else {
+		for i := int64(0); i < offset; i++ {
+			_ = sb.WriteByte(data[i])
+		}
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.Write(data[offset:])
+	}
+
+	return sb.String()
 }

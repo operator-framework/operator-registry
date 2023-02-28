@@ -11,3 +11,5 @@ spec:
     singular: etcdbackup
   scope: Namespaced
   version: v1beta2
+  preserveUnknownFields: false
+

@@ -1065,8 +1065,15 @@ func (s *SQLQuerier) SendBundles(ctx context.Context, stream registry.BundleSend
 	return nil
 }
 
+type sliceBundleSender []*api.Bundle
+
+func (s *sliceBundleSender) Send(b *api.Bundle) error {
+	*s = append(*s, b)
+	return nil
+}
+
 func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
-	var bundleSender registry.SliceBundleSender
+	var bundleSender sliceBundleSender
 	err := s.SendBundles(ctx, &bundleSender)
 	if err != nil {
 		return nil, err

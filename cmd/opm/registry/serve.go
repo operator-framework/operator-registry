@@ -115,7 +115,7 @@ func serveFunc(cmd *cobra.Command, _ []string) error {
 
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Fatalf("failed to listen: %s", err)
+		return fmt.Errorf("failed to listen: %s", err)
 	}
 
 	timeout, err := cmd.Flags().GetString("timeout-seconds")

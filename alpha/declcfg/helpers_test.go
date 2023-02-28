@@ -110,7 +110,7 @@ func withNoBundleData() func(*Bundle) {
 func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 	csvJson := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
 	b := Bundle{
-		Schema:  schemaBundle,
+		Schema:  SchemaBundle,
 		Name:    testBundleName(packageName, version),
 		Package: packageName,
 		Image:   testBundleImage(packageName, version),
@@ -150,7 +150,7 @@ const (
 
 func newTestPackage(packageName, defaultChannel, svgData string) Package {
 	p := Package{
-		Schema:         schemaPackage,
+		Schema:         SchemaPackage,
 		Name:           packageName,
 		DefaultChannel: defaultChannel,
 		Icon:           &Icon{Data: []byte(svgData), MediaType: "image/svg+xml"},
@@ -166,7 +166,7 @@ func addPackageProperties(in Package, p []property.Property) Package {
 
 func newTestChannel(packageName, channelName string, entries ...ChannelEntry) Channel {
 	return Channel{
-		Schema:  schemaChannel,
+		Schema:  SchemaChannel,
 		Name:    channelName,
 		Package: packageName,
 		Entries: entries,

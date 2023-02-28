@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -14,13 +15,16 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/pkg/cache"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -31,7 +35,7 @@ func fakeBundlePathFromName(name string) string {
 	return fmt.Sprintf("%s-path", name)
 }
 
-func newQuerier(t *testing.T, bundles []*model.Bundle) *registry.Querier {
+func newCache(t *testing.T, bundles []*model.Bundle) cache.Cache {
 	t.Helper()
 	pkgs := map[string]*model.Package{}
 	channels := map[string]map[string]*model.Channel{}
@@ -77,7 +81,7 @@ func newQuerier(t *testing.T, bundles []*model.Bundle) *registry.Querier {
 		if !pkgPropertyFound {
 			pkgJson, _ := json.Marshal(property.Package{
 				PackageName: b.Package.Name,
-				Version:     b.Name,
+				Version:     b.Version.String(),
 			})
 			b.Properties = append(b.Properties, property.Property{
 				Type:  property.TypePackage,
@@ -85,8 +89,22 @@ func newQuerier(t *testing.T, bundles []*model.Bundle) *registry.Querier {
 			})
 		}
 	}
-	reg, err := registry.NewQuerier(pkgs)
+	fbc := declcfg.ConvertFromModel(pkgs)
+
+	fbcDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	fbcFile, err := os.Create(filepath.Join(fbcDir, "catalog.json"))
 	require.NoError(t, err)
+	require.NoError(t, declcfg.WriteJSON(fbc, fbcFile))
+	require.NoError(t, fbcFile.Close())
+
+	reg, err := cache.New(cacheDir)
+	require.NoError(t, err)
+
+	require.NoError(t, reg.Build(os.DirFS(fbcDir)))
+	require.NoError(t, reg.Load())
+
 	return reg
 }
 
@@ -105,16 +123,18 @@ func TestCheckForBundlePaths(t *testing.T) {
 	}{
 		{
 			description: "BundleListPresent",
-			querier: newQuerier(t, []*model.Bundle{
+			querier: newCache(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
 					Name:    "csv-a",
+					Version: semver.MustParse("1.0.0"),
 				},
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "alpha"},
 					Name:    "csv-b",
+					Version: semver.MustParse("2.0.0"),
 				},
 			}),
 			checkPaths: []string{
@@ -128,16 +148,18 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "BundleListPartiallyMissing",
-			querier: newQuerier(t, []*model.Bundle{
+			querier: newCache(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
 					Name:    "csv-a",
+					Version: semver.MustParse("1.0.0"),
 				},
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "alpha"},
 					Name:    "csv-b",
+					Version: semver.MustParse("2.0.0"),
 				},
 			}),
 			checkPaths: []string{
@@ -152,7 +174,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "EmptyRegistry",
-			querier:     newQuerier(t, nil),
+			querier:     newCache(t, nil),
 			checkPaths: []string{
 				fakeBundlePathFromName("missing"),
 			},
@@ -163,11 +185,12 @@ func TestCheckForBundlePaths(t *testing.T) {
 		},
 		{
 			description: "EmptyDeprecateList",
-			querier: newQuerier(t, []*model.Bundle{
+			querier: newCache(t, []*model.Bundle{
 				{
 					Package: &model.Package{Name: "pkg-0"},
 					Channel: &model.Channel{Name: "stable"},
 					Name:    "csv-a",
+					Version: semver.MustParse("1.0.0"),
 				},
 			}),
 			checkPaths: []string{},
@@ -191,7 +214,7 @@ func TestCheckForBundlePaths(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			found, missing, err := checkForBundlePaths(tt.querier, tt.checkPaths)
-			if qc, ok := tt.querier.(*registry.Querier); ok {
+			if qc, ok := tt.querier.(io.Closer); ok {
 				defer qc.Close()
 			}
 			if tt.expected.err != nil {
@@ -406,7 +429,7 @@ func TestCheckForBundles(t *testing.T) {
 						},
 					},
 					action:  actionAdd,
-					wantErr: fmt.Errorf("add prunes bundle newPruned-1.2.0-1 (newPruned-1.2.0-1) from package testpkg, channel alpha: this may be due to incorrect channel head (newPruned-1.2.0, skips/replaces [newPruned-1.1.0])"),
+					wantErr: fmt.Errorf("add prunes bundle newPruned-1.2.0-1 (newPruned-1.2.0-1) from package testpkg, channel alpha: this may be due to incorrect channel head (newPruned-1.2.0, skips/replaces [newPruned-1.1.0]). Be aware that the head of the channel alpha where you are trying to add the newPruned-1.2.0-1 is newPruned-1.2.0. Upgrade graphs follows the Semantic Versioning 2.0.0 (https://semver.org/) which means that is not possible add new versions lower then the head of the channel"),
 				},
 			},
 		},
@@ -622,7 +645,7 @@ func TestCheckForBundles(t *testing.T) {
 						},
 					},
 					action:  actionOverwrite,
-					wantErr: fmt.Errorf("add prunes bundle withOverwrite-1.1.0 (withOverwrite-1.1.0-overwrite) from package testpkg, channel stable: this may be due to incorrect channel head (withOverwrite-1.0.0, skips/replaces [])"),
+					wantErr: fmt.Errorf("add prunes bundle withOverwrite-1.1.0 (withOverwrite-1.1.0-overwrite) from package testpkg, channel stable: this may be due to incorrect channel head (withOverwrite-1.0.0, skips/replaces []). Be aware that the head of the channel stable where you are trying to add the withOverwrite-1.1.0 is withOverwrite-1.0.0. Upgrade graphs follows the Semantic Versioning 2.0.0 (https://semver.org/) which means that is not possible add new versions lower then the head of the channel"),
 				},
 			},
 		},
@@ -630,8 +653,7 @@ func TestCheckForBundles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			tmpdir, err := os.MkdirTemp(".", "tmpdir-*")
-			defer os.RemoveAll(tmpdir)
+			tmpdir := t.TempDir()
 			db, cleanup := CreateTestDb(t)
 			defer cleanup()
 			load, err := sqlite.NewSQLLiteLoader(db)

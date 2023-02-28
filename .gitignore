@@ -469,3 +469,7 @@ test/e2e/index_tmp*
 
 # don't check in the certs directory
 certs/*
+
+# ignore temp artifacts of building images
+pkg/lib/indexer/index.Dockerfile*
+

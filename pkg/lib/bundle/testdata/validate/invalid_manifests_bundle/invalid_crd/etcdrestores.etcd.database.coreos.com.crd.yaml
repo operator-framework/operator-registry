@@ -17,3 +17,4 @@ spec:
   - name: v1beta2
     served: true
     storage: false
+  preserveUnknownFields: false
