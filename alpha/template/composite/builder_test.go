@@ -1,12 +1,14 @@
 package composite
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"testing"
 
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,7 +290,16 @@ func TestBasicBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.basicBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.basicBuilder.Build(context.Background(), reg, outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -723,7 +734,16 @@ func TestSemverBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.semverBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.semverBuilder.Build(context.Background(), reg, outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -1163,7 +1183,16 @@ func TestRawBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.rawBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.rawBuilder.Build(context.Background(), reg, outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -1610,7 +1639,16 @@ func TestCustomBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.customBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.customBuilder.Build(context.Background(), reg, outPath, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {

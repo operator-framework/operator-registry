@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/template/composite"
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 )
 
 func newCompositeTemplateCmd() *cobra.Command {
@@ -115,6 +116,14 @@ and a 'composite template' file`,
 			}
 
 			template.CatalogBuilders = catalogBuilderMap
+
+			reg, err := util.CreateCLIRegistry(cmd)
+			if err != nil {
+				log.Fatalf("creating containerd registry: %v", err)
+			}
+			defer reg.Destroy()
+
+			template.Registry = reg
 
 			compositeData, err := os.Open(compositeFile)
 			if err != nil {

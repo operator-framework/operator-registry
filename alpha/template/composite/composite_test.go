@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +21,7 @@ const validateErr = "TestBuilder Validate() error"
 
 var _ Builder = &TestBuilder{}
 
-func (tb *TestBuilder) Build(dir string, vd TemplateDefinition) error {
+func (tb *TestBuilder) Build(ctx context.Context, reg image.Registry, dir string, vd TemplateDefinition) error {
 	if tb.buildError {
 		return errors.New(buildErr)
 	}

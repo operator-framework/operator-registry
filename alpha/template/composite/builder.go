@@ -2,6 +2,7 @@ package composite
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	basictemplate "github.com/operator-framework/operator-registry/alpha/template/basic"
+	semvertemplate "github.com/operator-framework/operator-registry/alpha/template/semver"
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 const (
@@ -34,7 +38,7 @@ type BuilderConfig struct {
 }
 
 type Builder interface {
-	Build(dir string, td TemplateDefinition) error
+	Build(ctx context.Context, reg image.Registry, dir string, td TemplateDefinition) error
 	Validate(dir string) error
 }
 
@@ -50,7 +54,7 @@ func NewBasicBuilder(builderCfg BuilderConfig) *BasicBuilder {
 	}
 }
 
-func (bb *BasicBuilder) Build(dir string, td TemplateDefinition) error {
+func (bb *BasicBuilder) Build(ctx context.Context, reg image.Registry, dir string, td TemplateDefinition) error {
 	if td.Schema != BasicBuilderSchema {
 		return fmt.Errorf("schema %q does not match the basic template builder schema %q", td.Schema, BasicBuilderSchema)
 	}
@@ -78,19 +82,21 @@ func (bb *BasicBuilder) Build(dir string, td TemplateDefinition) error {
 		return fmt.Errorf("basic template configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
-	// build the container command
-	containerCmd := exec.Command(bb.builderCfg.ContainerCfg.ContainerTool,
-		"run",
-		"--rm",
-		"-v",
-		fmt.Sprintf("%s:%s:Z", bb.builderCfg.CurrentDirectory, bb.builderCfg.ContainerCfg.WorkingDir),
-		bb.builderCfg.ContainerCfg.BaseImage,
-		"alpha",
-		"render-template",
-		"basic",
-		path.Join(bb.builderCfg.ContainerCfg.WorkingDir, basicConfig.Input))
+	b := basictemplate.Template{Registry: reg}
+	reader, err := os.Open(basicConfig.Input)
+	defer reader.Close()
+	if err != nil {
+		return fmt.Errorf("error reading basic template: %v", err)
+	}
 
-	return build(containerCmd, path.Join(dir, basicConfig.Output), bb.builderCfg.OutputType)
+	dcfg, err := b.Render(ctx, reader)
+	if err != nil {
+		return fmt.Errorf("error rendering basic template: %v", err)
+	}
+
+	destPath := path.Join(bb.builderCfg.ContainerCfg.WorkingDir, basicConfig.Input)
+
+	return build(dcfg, destPath, bb.builderCfg.OutputType)
 }
 
 func (bb *BasicBuilder) Validate(dir string) error {
@@ -109,7 +115,7 @@ func NewSemverBuilder(builderCfg BuilderConfig) *SemverBuilder {
 	}
 }
 
-func (sb *SemverBuilder) Build(dir string, td TemplateDefinition) error {
+func (sb *SemverBuilder) Build(ctx context.Context, reg image.Registry, dir string, td TemplateDefinition) error {
 	if td.Schema != SemverBuilderSchema {
 		return fmt.Errorf("schema %q does not match the semver template builder schema %q", td.Schema, SemverBuilderSchema)
 	}
@@ -137,19 +143,22 @@ func (sb *SemverBuilder) Build(dir string, td TemplateDefinition) error {
 		return fmt.Errorf("semver template configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
-	// build the container command
-	containerCmd := exec.Command(sb.builderCfg.ContainerCfg.ContainerTool,
-		"run",
-		"--rm",
-		"-v",
-		fmt.Sprintf("%s:%s:Z", sb.builderCfg.CurrentDirectory, sb.builderCfg.ContainerCfg.WorkingDir),
-		sb.builderCfg.ContainerCfg.BaseImage,
-		"alpha",
-		"render-template",
-		"semver",
-		path.Join(sb.builderCfg.ContainerCfg.WorkingDir, semverConfig.Input))
+	reader, err := os.Open(semverConfig.Input)
+	if err != nil {
+		return fmt.Errorf("error reading semver template: %v", err)
+	}
+	defer reader.Close()
 
-	return build(containerCmd, path.Join(dir, semverConfig.Output), sb.builderCfg.OutputType)
+	s := semvertemplate.Template{Registry: reg, Data: reader}
+
+	dcfg, err := s.Render(ctx)
+	if err != nil {
+		return fmt.Errorf("error rendering semver template: %v", err)
+	}
+
+	destPath := path.Join(sb.builderCfg.ContainerCfg.WorkingDir, semverConfig.Input)
+
+	return build(dcfg, destPath, sb.builderCfg.OutputType)
 }
 
 func (sb *SemverBuilder) Validate(dir string) error {
@@ -168,7 +177,7 @@ func NewRawBuilder(builderCfg BuilderConfig) *RawBuilder {
 	}
 }
 
-func (rb *RawBuilder) Build(dir string, td TemplateDefinition) error {
+func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, td TemplateDefinition) error {
 	if td.Schema != RawBuilderSchema {
 		return fmt.Errorf("schema %q does not match the raw template builder schema %q", td.Schema, RawBuilderSchema)
 	}
@@ -196,17 +205,28 @@ func (rb *RawBuilder) Build(dir string, td TemplateDefinition) error {
 		return fmt.Errorf("raw template configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
-	// build the container command
-	containerCmd := exec.Command(rb.builderCfg.ContainerCfg.ContainerTool,
-		"run",
-		"--rm",
-		"-v",
-		fmt.Sprintf("%s:%s:Z", rb.builderCfg.CurrentDirectory, rb.builderCfg.ContainerCfg.WorkingDir),
-		"--entrypoint=cat", // This assumes that the `cat` command is available in the container -- Should we also build a `... render-template raw` command to ensure consistent operation? Does OPM already have a way to render a raw FBC?
-		rb.builderCfg.ContainerCfg.BaseImage,
-		path.Join(rb.builderCfg.ContainerCfg.WorkingDir, rawConfig.Input))
+	istat, err := os.Stat(rawConfig.Input)
+	if err != nil {
+		return fmt.Errorf("raw template input file does not exist: %s, %v", rawConfig.Input, err)
+	}
+	if !istat.Mode().IsRegular() {
+		return fmt.Errorf("raw template input file is not a normal file: %s, %v", rawConfig.Input, err)
+	}
 
-	return build(containerCmd, path.Join(dir, rawConfig.Output), rb.builderCfg.OutputType)
+	reader, err := os.Open(rawConfig.Input)
+	if err != nil {
+		return fmt.Errorf("error reading raw input file: %s, %v", rawConfig.Input, err)
+	}
+	defer reader.Close()
+
+	dcfg, err := declcfg.LoadReader(reader)
+	if err != nil {
+		return fmt.Errorf("error parsing raw input file: %s, %v", rawConfig.Input, err)
+	}
+
+	destPath := path.Join(dir, rawConfig.Output)
+
+	return build(dcfg, destPath, rb.builderCfg.OutputType)
 }
 
 func (rb *RawBuilder) Validate(dir string) error {
@@ -225,7 +245,7 @@ func NewCustomBuilder(builderCfg BuilderConfig) *CustomBuilder {
 	}
 }
 
-func (cb *CustomBuilder) Build(dir string, td TemplateDefinition) error {
+func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir string, td TemplateDefinition) error {
 	if td.Schema != CustomBuilderSchema {
 		return fmt.Errorf("schema %q does not match the custom template builder schema %q", td.Schema, CustomBuilderSchema)
 	}
@@ -258,7 +278,23 @@ func (cb *CustomBuilder) Build(dir string, td TemplateDefinition) error {
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
-	return build(cmd, path.Join(dir, customConfig.Output), cb.builderCfg.OutputType)
+	v, err := cmd.Output()
+	reader := bytes.NewReader(v)
+
+	dcfg, err := declcfg.LoadReader(reader)
+	cmdString := []string{customConfig.Command}
+	cmdString = append(cmdString, customConfig.Args...)
+	if err != nil {
+		return fmt.Errorf("error parsing custom command output: %s, %v", strings.Join(cmdString, "'"), err)
+	}
+
+	destPath := path.Join(dir, customConfig.Output)
+
+	return build(dcfg, destPath, cb.builderCfg.OutputType)
+
+	// custom template should output a valid FBC to STDOUT so we can
+	// build the FBC just like all the other templates.
+	return build(dcfg, destPath, cb.builderCfg.OutputType)
 }
 
 func (cb *CustomBuilder) Validate(dir string) error {
@@ -294,18 +330,7 @@ func validate(containerCfg ContainerConfig, dir string) error {
 	return nil
 }
 
-func build(cmd *exec.Cmd, outPath string, outType string) error {
-	out, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("running command %q: %w", cmd.String(), err)
-	}
-
-	// parse out to dcfg
-	dcfg, err := declcfg.LoadReader(bytes.NewReader(out))
-	if err != nil {
-		return fmt.Errorf("parsing builder output: %w", err)
-	}
-
+func build(dcfg *declcfg.DeclarativeConfig, outPath string, outType string) error {
 	// write the dcfg
 	file, err := os.Create(outPath)
 	if err != nil {
