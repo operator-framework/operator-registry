@@ -1089,7 +1089,6 @@ func (f *FlagSet) parseArgs(args []string, fn parseFunc) (err error) {
 	for len(args) > 0 {
 		s := args[0]
 		args = args[1:]
-
 		if len(s) == 0 || s[0] != '-' || len(s) == 1 {
 			if !f.interspersed {
 				f.args = append(f.args, s)
@@ -1106,7 +1105,6 @@ func (f *FlagSet) parseArgs(args []string, fn parseFunc) (err error) {
 				f.args = append(f.args, args...)
 				break
 			}
-
 			args, err = f.parseLongArg(s, args, fn)
 		} else {
 			args, err = f.parseShortArg(s, args, fn)
@@ -1146,6 +1144,7 @@ func (f *FlagSet) Parse(arguments []string) error {
 		case ContinueOnError:
 			return err
 		case ExitOnError:
+			fmt.Println(err)
 			os.Exit(2)
 		case PanicOnError:
 			panic(err)
