@@ -36,12 +36,12 @@ endif
 all: clean test build
 
 $(CMDS):
-	$(extra_env) $(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/opm
+	$(extra_env) $(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: $(OPM)
 $(OPM): opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 $(OPM):
-	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/opm
+	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: build
 build: clean $(CMDS) $(OPM)
