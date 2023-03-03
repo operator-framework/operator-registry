@@ -19,23 +19,17 @@ type semverTemplateBundleEntry struct {
 	Image string `json:"image,omitempty"`
 }
 
-type candidateBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
-}
-type fastBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
-}
-type stableBundles struct {
+type semverTemplateChannelBundles struct {
 	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
 }
 
 type semverTemplate struct {
-	Schema                string           `json:"schema"`
-	GenerateMajorChannels bool             `json:"generateMajorChannels,omitempty"`
-	GenerateMinorChannels bool             `json:"generateMinorChannels,omitempty"`
-	Candidate             candidateBundles `json:"candidate,omitempty"`
-	Fast                  fastBundles      `json:"fast,omitempty"`
-	Stable                stableBundles    `json:"stable,omitempty"`
+	Schema                string                       `json:"schema"`
+	GenerateMajorChannels bool                         `json:"generateMajorChannels,omitempty"`
+	GenerateMinorChannels bool                         `json:"generateMinorChannels,omitempty"`
+	Candidate             semverTemplateChannelBundles `json:"candidate,omitempty"`
+	Fast                  semverTemplateChannelBundles `json:"fast,omitempty"`
+	Stable                semverTemplateChannelBundles `json:"stable,omitempty"`
 
 	pkg            string `json:"-"` // the derived package name
 	defaultChannel string `json:"-"` // detected "most stable" channel head
@@ -49,13 +43,13 @@ const schema string = "olm.semver"
 type channelArchetype string
 
 const (
-	candidateChannelName channelArchetype = "candidate"
-	fastChannelName      channelArchetype = "fast"
-	stableChannelName    channelArchetype = "stable"
+	candidateChannelArchetype channelArchetype = "candidate"
+	fastChannelArchetype      channelArchetype = "fast"
+	stableChannelArchetype    channelArchetype = "stable"
 )
 
 // mapping channel name --> stability, where higher values indicate greater stability
-var channelPriorities = map[channelArchetype]int{candidateChannelName: 0, fastChannelName: 1, stableChannelName: 2}
+var channelPriorities = map[channelArchetype]int{candidateChannelArchetype: 0, fastChannelArchetype: 1, stableChannelArchetype: 2}
 
 // sorting capability for a slice according to the assigned channelPriorities
 type byChannelPriority []channelArchetype
@@ -68,10 +62,10 @@ func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 type streamType string
 
-const minorKey streamType = "minor"
-const majorKey streamType = "major"
+const minorStreamType streamType = "minor"
+const majorStreamType streamType = "major"
 
-var streamTypePriorities = map[streamType]int{minorKey: 0, majorKey: 1}
+var streamTypePriorities = map[streamType]int{minorStreamType: 0, majorStreamType: 1}
 
 // map of archetypes --> bundles --> bundle-version from the input file
 type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv["stable"]["example-operator.v1.0.0"] = 1.0.0
@@ -100,5 +94,3 @@ type entryTuple struct {
 func (t entryTuple) String() string {
 	return fmt.Sprintf("{ arch: %q, kind: %q, name: %q, parent: %q, index: %d, version: %v }", t.arch, t.kind, t.name, t.parent, t.index, t.version.String())
 }
-
-type entryList []entryTuple

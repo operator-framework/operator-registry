@@ -99,7 +99,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[candidateChannelName] = bdm
+	versions[candidateChannelArchetype] = bdm
 
 	bdm, err = sv.getVersionsFromChannel(sv.Fast.Bundles, cfg)
 	if err != nil {
@@ -108,7 +108,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[fastChannelName] = bdm
+	versions[fastChannelArchetype] = bdm
 
 	bdm, err = sv.getVersionsFromChannel(sv.Stable.Bundles, cfg)
 	if err != nil {
@@ -117,7 +117,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[stableChannelName] = bdm
+	versions[stableChannelArchetype] = bdm
 
 	return &versions, nil
 }
@@ -178,10 +178,10 @@ func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateB
 	return entries, nil
 }
 
-// generates an unlinked channel for each channel as per the input veneer config (major || minor), then link up the edges of the set of channels so that:
+// generates an unlinked channel for each channel as per the input template config (major || minor), then link up the edges of the set of channels so that:
 // - for minor version increase, the new edge replaces the previous
 // - (for major channels) iterating to a new minor version channel (traversing between Y-streams) creates a 'replaces' edge between the predecessor and successor bundles
-// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser Y.Z versions of the bundle enumerated in the veneer.
+// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser Y.Z versions of the bundle enumerated in the template.
 // along the way, uses a highwaterChannel marker to identify the "most stable" channel head to be used as the default channel for the generated package
 
 func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []declcfg.Channel {
@@ -199,7 +199,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
 
 	unlinkedChannels := make(map[string]*declcfg.Channel)
-	unassociatedEdges := entryList{}
+	unassociatedEdges := []entryTuple{}
 
 	for _, archetype := range archetypesByPriority {
 		bundles := (*semverChannels)[archetype]
@@ -228,10 +228,10 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 			// we need to associate by kind so we can partition the resulting entries
 			channelNameKeys := make(map[streamType]string)
 			if sv.GenerateMajorChannels {
-				channelNameKeys[majorKey] = channelNameFromMajor(archetype, bundles[bundleName])
+				channelNameKeys[majorStreamType] = channelNameFromMajor(archetype, bundles[bundleName])
 			}
 			if sv.GenerateMinorChannels {
-				channelNameKeys[minorKey] = channelNameFromMinor(archetype, bundles[bundleName])
+				channelNameKeys[minorStreamType] = channelNameFromMinor(archetype, bundles[bundleName])
 			}
 
 			for cKey, cName := range channelNameKeys {
@@ -260,7 +260,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	return outChannels
 }
 
-func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries entryList) []declcfg.Channel {
+func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries []entryTuple) []declcfg.Channel {
 	channels := []declcfg.Channel{}
 
 	// sort to force partitioning by archetype --> kind --> semver

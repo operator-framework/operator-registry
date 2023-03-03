@@ -20,20 +20,20 @@ func TestLinkChannels(t *testing.T) {
 	// 	index   int
 	// 	version semver.Version
 	// }
-	
-	majorChannelEntries := entryList{
-		{arch: "stable", kind: "major", name: "a-v0.1.0", parent: "stable-v0", index: 0, version: semver.MustParse("0.1.0")},
-		{arch: "stable", kind: "major", name: "a-v0.1.1", parent: "stable-v0", index: 1, version: semver.MustParse("0.1.1")},
-		{arch: "stable", kind: "major", name: "a-v1.1.0", parent: "stable-v1", index: 0, version: semver.MustParse("1.1.0")},
-		{arch: "stable", kind: "major", name: "a-v1.2.1", parent: "stable-v1", index: 1, version: semver.MustParse("1.2.1")},
-		{arch: "stable", kind: "major", name: "a-v1.3.1", parent: "stable-v1", index: 2, version: semver.MustParse("1.3.1")},
-		{arch: "stable", kind: "major", name: "a-v2.1.0", parent: "stable-v2", index: 0, version: semver.MustParse("2.1.0")},
-		{arch: "stable", kind: "major", name: "a-v2.1.1", parent: "stable-v2", index: 1, version: semver.MustParse("2.1.1")},
-		{arch: "stable", kind: "major", name: "a-v2.3.1", parent: "stable-v2", index: 2, version: semver.MustParse("2.3.1")},
-		{arch: "stable", kind: "major", name: "a-v2.3.2", parent: "stable-v2", index: 3, version: semver.MustParse("2.3.2")},
+
+	majorChannelEntries := []entryTuple{
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v0.1.0", parent: "stable-v0", index: 0, version: semver.MustParse("0.1.0")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v0.1.1", parent: "stable-v0", index: 1, version: semver.MustParse("0.1.1")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v1.1.0", parent: "stable-v1", index: 0, version: semver.MustParse("1.1.0")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v1.2.1", parent: "stable-v1", index: 1, version: semver.MustParse("1.2.1")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v1.3.1", parent: "stable-v1", index: 2, version: semver.MustParse("1.3.1")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v2.1.0", parent: "stable-v2", index: 0, version: semver.MustParse("2.1.0")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v2.1.1", parent: "stable-v2", index: 1, version: semver.MustParse("2.1.1")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v2.3.1", parent: "stable-v2", index: 2, version: semver.MustParse("2.3.1")},
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v2.3.2", parent: "stable-v2", index: 3, version: semver.MustParse("2.3.2")},
 	}
 
-	majorGeneratedUnlinkedChannels := map[string]*declcfg.Channel {
+	majorGeneratedUnlinkedChannels := map[string]*declcfg.Channel{
 		"stable-v0": {
 			Schema:  "olm.channel",
 			Name:    "stable-v0",
@@ -249,7 +249,7 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 		{
 			name: "sunny day case",
 			sv: semverTemplate{
-				Stable: stableBundles{
+				Stable: semverTemplateChannelBundles{
 					[]semverTemplateBundleEntry{
 						{Image: "repo/origin/a-v0.1.0"},
 						{Image: "repo/origin/a-v0.1.1"},
@@ -316,7 +316,7 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 
 func TestBailOnVersionBuildMetadata(t *testing.T) {
 	sv := semverTemplate{
-		Stable: stableBundles{
+		Stable: semverTemplateChannelBundles{
 			[]semverTemplateBundleEntry{
 				{Image: "repo/origin/a-v0.1.0"},
 				{Image: "repo/origin/a-v0.1.1"},
