@@ -2,7 +2,7 @@
 
 Since a `catalog template` is identified as an input schema which may be processed to generate a valid FBC, we can define a `semver template` as a schema which uses channel conventions to facilitate the auto-generation of channels along `semver` delimiters.  
 
-[**DISCLAIMER:** since version build metadata [MUST be ignored when determining version precedence](https://semver.org) when using semver, it cannot be used in any bundle included in the `semver template` and will result in a fatal error.]
+[**DISCLAIMER:** since version build metadata [MUST be ignored when determining version precedence](https://semver.org) when using semver, rendering the template will result in an error if two bundles differ only by the build metadata.]
 
 ### Schema Goals
 The `semver template` must have:
@@ -85,7 +85,7 @@ Note that if the command is called without a file argument and nothing passed in
 the command will hang indefinitely. Either a file argument or file information passed 
 in on standard input is required by the command.
 
-With the template attribute `GenerateMajorChannels: true` resulting major channels from the command are (skipping the rendered bundle image output):
+With the template attribute `GenerateMajorChannels: true` resulting major channels from the command are (filtering out `olm.bundle` content):
 ```yaml
 ---
 defaultChannel: stable-v1
@@ -93,59 +93,73 @@ name: testoperator
 schema: olm.package
 ---
 entries:
-- name: testoperator.v0.1.0
-- name: testoperator.v0.1.1
-- name: testoperator.v0.1.2
-- name: testoperator.v0.1.3
-  skips:
-  - testoperator.v0.1.0
-  - testoperator.v0.1.1
-  - testoperator.v0.1.2
-- name: testoperator.v0.2.0
-- name: testoperator.v0.2.1
-- name: testoperator.v0.2.2
-  replaces: testoperator.v0.1.3
-  skips:
-  - testoperator.v0.2.0
-  - testoperator.v0.2.1
-- name: testoperator.v0.3.0
-  replaces: testoperator.v0.2.2
+  - name: testoperator.v0.1.0
+  - name: testoperator.v0.1.1
+  - name: testoperator.v0.1.2
+  - name: testoperator.v0.1.3
+    skips:
+      - testoperator.v0.1.0
+      - testoperator.v0.1.1
+      - testoperator.v0.1.2
+  - name: testoperator.v0.2.0
+  - name: testoperator.v0.2.1
+  - name: testoperator.v0.2.2
+    replaces: testoperator.v0.1.3
+    skips:
+      - testoperator.v0.1.0
+      - testoperator.v0.1.1
+      - testoperator.v0.1.2
+      - testoperator.v0.2.0
+      - testoperator.v0.2.1
+  - name: testoperator.v0.3.0
+    replaces: testoperator.v0.2.2
+    skips:
+      - testoperator.v0.1.0
+      - testoperator.v0.1.1
+      - testoperator.v0.1.2
+      - testoperator.v0.1.3
+      - testoperator.v0.2.0
+      - testoperator.v0.2.1
 name: candidate-v0
 package: testoperator
 schema: olm.channel
 ---
 entries:
-- name: testoperator.v1.0.0
-- name: testoperator.v1.0.1
-  skips:
-  - testoperator.v1.0.0
-- name: testoperator.v1.1.0
-  replaces: testoperator.v1.0.1
+  - name: testoperator.v1.0.0
+  - name: testoperator.v1.0.1
+    skips:
+      - testoperator.v1.0.0
+  - name: testoperator.v1.1.0
+    replaces: testoperator.v1.0.1
+    skips:
+      - testoperator.v1.0.0
 name: candidate-v1
 package: testoperator
 schema: olm.channel
 ---
 entries:
-- name: testoperator.v0.2.1
-- name: testoperator.v0.2.2
-  skips:
-  - testoperator.v0.2.1
-- name: testoperator.v0.3.0
-  replaces: testoperator.v0.2.2
+  - name: testoperator.v0.2.1
+  - name: testoperator.v0.2.2
+    skips:
+      - testoperator.v0.2.1
+  - name: testoperator.v0.3.0
+    replaces: testoperator.v0.2.2
+    skips:
+      - testoperator.v0.2.1
 name: fast-v0
 package: testoperator
 schema: olm.channel
 ---
 entries:
-- name: testoperator.v1.0.1
-- name: testoperator.v1.1.0
-  replaces: testoperator.v1.0.1
+  - name: testoperator.v1.0.1
+  - name: testoperator.v1.1.0
+    replaces: testoperator.v1.0.1
 name: fast-v1
 package: testoperator
 schema: olm.channel
 ---
 entries:
-- name: testoperator.v1.0.1
+  - name: testoperator.v1.0.1
 name: stable-v1
 package: testoperator
 schema: olm.channel
@@ -180,6 +194,9 @@ entries:
   - name: testoperator.v0.2.2
     replaces: testoperator.v0.1.3
     skips:
+      - testoperator.v0.1.0
+      - testoperator.v0.1.1
+      - testoperator.v0.1.2
       - testoperator.v0.2.0
       - testoperator.v0.2.1
 name: candidate-v0.2
@@ -189,6 +206,13 @@ schema: olm.channel
 entries:
   - name: testoperator.v0.3.0
     replaces: testoperator.v0.2.2
+    skips:
+      - testoperator.v0.1.0
+      - testoperator.v0.1.1
+      - testoperator.v0.1.2
+      - testoperator.v0.1.3
+      - testoperator.v0.2.0
+      - testoperator.v0.2.1
 name: candidate-v0.3
 package: testoperator
 schema: olm.channel
@@ -205,6 +229,8 @@ schema: olm.channel
 entries:
   - name: testoperator.v1.1.0
     replaces: testoperator.v1.0.1
+    skips:
+      - testoperator.v1.0.0
 name: candidate-v1.1
 package: testoperator
 schema: olm.channel
@@ -221,6 +247,8 @@ schema: olm.channel
 entries:
   - name: testoperator.v0.3.0
     replaces: testoperator.v0.2.2
+    skips:
+      - testoperator.v0.2.1
 name: fast-v0.3
 package: testoperator
 schema: olm.channel
@@ -243,9 +271,8 @@ entries:
 name: stable-v1.0
 package: testoperator
 schema: olm.channel
-
 ```
-Here, a channel is generated for each template channel which differs by minor version, and each channel has a `replaces` edge from the predecessor channel to the next-lesser minor bundle version.  Please note that at no time do we transgress across major-version boundaries with the channels, to be consistent with [the semver convention](https://semver.org/) for major versions, where the purpose is to make incompatible API changes.
+Here, a channel is generated for each template channel which differs by minor version, each channel has a `replaces` edge from the highest version entry in the predecessor channel, and the highest version entry in each channel also has a skips list composed of all lower version entries within the same minor (Y).  Please note that at no time do we transgress across major-version boundaries with the channels, to be consistent with [the semver convention](https://semver.org/) for major versions, where the purpose is to make incompatible API changes.
 
 
 ### DEMOS

@@ -172,7 +172,7 @@ func (rb *RawBuilder) Build(dir string, td TemplateDefinition) error {
 	if td.Schema != RawBuilderSchema {
 		return fmt.Errorf("schema %q does not match the raw template builder schema %q", td.Schema, RawBuilderSchema)
 	}
-	// Parse out the raw template configuration
+	// Parse out the raw veneer configuration
 	rawConfig := &RawConfig{}
 	err := yaml.UnmarshalStrict(td.Config, rawConfig)
 	if err != nil {
