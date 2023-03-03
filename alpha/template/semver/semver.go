@@ -2,7 +2,6 @@ package semver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -15,74 +14,14 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/operator-framework/operator-registry/pkg/image"
 )
-
-// data passed into this module externally
-type Template struct {
-	Data     io.Reader
-	Registry image.Registry
-}
-
-// IO structs -- BEGIN
-type semverTemplateBundleEntry struct {
-	Image string `json:"image,omitempty"`
-}
-
-type candidateBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
-}
-type fastBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
-}
-type stableBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
-}
-
-type semverTemplate struct {
-	Schema                string           `json:"schema"`
-	GenerateMajorChannels bool             `json:"generateMajorChannels,omitempty"`
-	GenerateMinorChannels bool             `json:"generateMinorChannels,omitempty"`
-	AvoidSkipPatch        bool             `json:"avoidSkipPatch,omitempty"`
-	Candidate             candidateBundles `json:"candidate,omitempty"`
-	Fast                  fastBundles      `json:"fast,omitempty"`
-	Stable                stableBundles    `json:"stable,omitempty"`
-
-	pkg            string `json:"-"` // the derived package name
-	defaultChannel string `json:"-"` // detected "most stable" channel head
-}
-
-// IO structs -- END
-
-// channel "kinds", restricted in this iteration to just these
-const (
-	candidateChannelName string = "candidate"
-	fastChannelName      string = "fast"
-	stableChannelName    string = "stable"
-)
-
-// mapping channel name --> stability, where higher values indicate greater stability
-var channelPriorities = map[string]int{candidateChannelName: 0, fastChannelName: 1, stableChannelName: 2}
-
-// sorting capability for a slice according to the assigned channelPriorities
-type byChannelPriority []string
-
-func (b byChannelPriority) Len() int { return len(b) }
-func (b byChannelPriority) Less(i, j int) bool {
-	return channelPriorities[b[i]] < channelPriorities[b[j]]
-}
-func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-
-// map of channels : bundles : bundle-version
-// channels --> bundles --> version
-type semverRenderedChannelVersions map[string]map[string]semver.Version // e.g. d["stable-v1"]["example-operator/v1.0.0"] = 1.0.0
 
 func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 
 	sv, err := readFile(t.Data)
 	if err != nil {
-		return nil, fmt.Errorf("semver-render: unable to read file: %v", err)
+		return nil, fmt.Errorf("render: unable to read file: %v", err)
 	}
 
 	var cfgs []declcfg.DeclarativeConfig
@@ -92,7 +31,7 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 	buildBundleList(&sv.Fast.Bundles, &bundleDict)
 	buildBundleList(&sv.Stable.Bundles, &bundleDict)
 
-	for b, _ := range bundleDict {
+	for b := range bundleDict {
 		r := action.Render{
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b},
@@ -107,12 +46,12 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 	out = *combineConfigs(cfgs)
 
 	if len(out.Bundles) == 0 {
-		return nil, fmt.Errorf("semver-render: no bundles specified or no bundles could be rendered")
+		return nil, fmt.Errorf("render: no bundles specified or no bundles could be rendered")
 	}
 
 	channelBundleVersions, err := sv.getVersionsFromStandardChannels(&out)
 	if err != nil {
-		return nil, fmt.Errorf("semver-render: unable to post-process bundle info: %v", err)
+		return nil, fmt.Errorf("render: unable to post-process bundle info: %v", err)
 	}
 
 	channels := sv.generateChannels(channelBundleVersions)
@@ -136,23 +75,22 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 		return nil, err
 	}
 
-	// default behavior is to generate only minor channels and to use skips over replaces
+	// default behavior is to generate only minor channels
 	sv := semverTemplate{
 		GenerateMajorChannels: false,
 		GenerateMinorChannels: true,
-		AvoidSkipPatch:        false,
 	}
-	if err := yaml.Unmarshal(data, &sv, func(decoder *json.Decoder) *json.Decoder {
-		decoder.DisallowUnknownFields()
-		return decoder
-	}); err != nil {
+	if err := yaml.UnmarshalStrict(data, &sv); err != nil {
 		return nil, err
+	}
+	if sv.Schema != schema {
+		return nil, fmt.Errorf("readFile: input file has unknown schema, should be %q", schema)
 	}
 	return &sv, nil
 }
 
-func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig) (*semverRenderedChannelVersions, error) {
-	versions := semverRenderedChannelVersions{}
+func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig) (*bundleVersions, error) {
+	versions := bundleVersions{}
 
 	bdm, err := sv.getVersionsFromChannel(sv.Candidate.Bundles, cfg)
 	if err != nil {
@@ -161,7 +99,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[candidateChannelName] = bdm
+	versions[candidateChannelArchetype] = bdm
 
 	bdm, err = sv.getVersionsFromChannel(sv.Fast.Bundles, cfg)
 	if err != nil {
@@ -170,7 +108,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[fastChannelName] = bdm
+	versions[fastChannelArchetype] = bdm
 
 	bdm, err = sv.getVersionsFromChannel(sv.Stable.Bundles, cfg)
 	if err != nil {
@@ -179,7 +117,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	if err = validateVersions(&bdm); err != nil {
 		return nil, err
 	}
-	versions[stableChannelName] = bdm
+	versions[stableChannelArchetype] = bdm
 
 	return &versions, nil
 }
@@ -240,42 +178,31 @@ func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateB
 	return entries, nil
 }
 
-// the "high-water channel" struct functions as a freely-rising indicator of the "most stable" channel head, so we can use that
-// later as the package's defaultChannel attribute
-type highwaterChannel struct {
-	kind    string
-	version semver.Version
-	name    string
-}
-
-func (h *highwaterChannel) gt(ih *highwaterChannel) bool {
-	return (channelPriorities[h.kind] > channelPriorities[ih.kind]) || (h.version.GT(ih.version))
-}
-
 // generates an unlinked channel for each channel as per the input template config (major || minor), then link up the edges of the set of channels so that:
+// - for minor version increase, the new edge replaces the previous
 // - (for major channels) iterating to a new minor version channel (traversing between Y-streams) creates a 'replaces' edge between the predecessor and successor bundles
-// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser minor versions of the bundle enumerated in the template.
+// - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser Y.Z versions of the bundle enumerated in the template.
 // along the way, uses a highwaterChannel marker to identify the "most stable" channel head to be used as the default channel for the generated package
-func (sv *semverTemplate) generateChannels(semverChannels *semverRenderedChannelVersions) []declcfg.Channel {
+
+func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []declcfg.Channel {
 	outChannels := []declcfg.Channel{}
 
-	// sort the channelkinds in ascending order so we can traverse the bundles in order of
+	// sort the channel archetypes in ascending order so we can traverse the bundles in order of
 	// their source channel's priority
-	var keysByPriority []string
-	for k, _ := range channelPriorities {
-		keysByPriority = append(keysByPriority, k)
+	var archetypesByPriority []channelArchetype
+	for k := range channelPriorities {
+		archetypesByPriority = append(archetypesByPriority, k)
 	}
-	sort.Sort(byChannelPriority(keysByPriority))
+	sort.Sort(byChannelPriority(archetypesByPriority))
 
 	// set to the least-priority channel
-	hwc := highwaterChannel{kind: keysByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
+	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
 
-	// mapping the generated channel name to the original semver name (i.e. channel kind), so we can do generated-channel-name --> original-semver-name --> version mapping, later
-	channelMapping := map[string]string{}
+	unlinkedChannels := make(map[string]*declcfg.Channel)
+	unassociatedEdges := []entryTuple{}
 
-	for _, k := range keysByPriority {
-		bundles := (*semverChannels)[k]
-
+	for _, archetype := range archetypesByPriority {
+		bundles := (*semverChannels)[archetype]
 		// skip channel if empty
 		if len(bundles) == 0 {
 			continue
@@ -290,116 +217,128 @@ func (sv *semverTemplate) generateChannels(semverChannels *semverRenderedChannel
 			return bundles[bundleNamesByVersion[i]].LT(bundles[bundleNamesByVersion[j]])
 		})
 
-		majors := map[string]*declcfg.Channel{}
-		minors := map[string]*declcfg.Channel{}
-
-		for _, b := range bundleNamesByVersion {
+		// for each bundle (by version):
+		//   for each of Major/Minor setting (since they're independent)
+		//     retrieve the existing channel object, or create a channel (by criteria major/minor) if one doesn't exist
+		//     add a new edge entry based on the bundle name
+		//     save the channel name --> channel archetype mapping
+		//     test the channel object for 'more stable' than previous best
+		for _, bundleName := range bundleNamesByVersion {
+			// a dodge to avoid duplicating channel processing body; accumulate a map of the channels which need creating from the bundle
+			// we need to associate by kind so we can partition the resulting entries
+			channelNameKeys := make(map[streamType]string)
 			if sv.GenerateMajorChannels {
-				testChannelName := channelNameFromMajor(k, bundles[b])
-				ch, ok := majors[testChannelName]
-				if !ok {
-					ch = newChannel(sv.pkg, testChannelName)
-					majors[testChannelName] = ch
-				}
-				ch.Entries = append(ch.Entries, declcfg.ChannelEntry{Name: b})
-
-				channelMapping[testChannelName] = k
-
-				hwcCandidate := highwaterChannel{kind: k, version: bundles[b], name: testChannelName}
-				if hwcCandidate.gt(&hwc) {
-					hwc = hwcCandidate
-				}
+				channelNameKeys[majorStreamType] = channelNameFromMajor(archetype, bundles[bundleName])
 			}
 			if sv.GenerateMinorChannels {
-				testChannelName := channelNameFromMinor(k, bundles[b])
-				ch, ok := minors[testChannelName]
+				channelNameKeys[minorStreamType] = channelNameFromMinor(archetype, bundles[bundleName])
+			}
+
+			for cKey, cName := range channelNameKeys {
+				ch, ok := unlinkedChannels[cName]
 				if !ok {
-					ch = newChannel(sv.pkg, testChannelName)
-					minors[testChannelName] = ch
-				}
-				ch.Entries = append(ch.Entries, declcfg.ChannelEntry{Name: b})
+					ch = newChannel(sv.pkg, cName)
 
-				channelMapping[testChannelName] = k
+					unlinkedChannels[cName] = ch
 
-				hwcCandidate := highwaterChannel{kind: k, version: bundles[b], name: testChannelName}
-				if hwcCandidate.gt(&hwc) {
-					hwc = hwcCandidate
+					hwcCandidate := highwaterChannel{archetype: archetype, version: bundles[bundleName], name: cName}
+					if hwcCandidate.gt(&hwc) {
+						hwc = hwcCandidate
+					}
 				}
+				ch.Entries = append(ch.Entries, declcfg.ChannelEntry{Name: bundleName})
+				unassociatedEdges = append(unassociatedEdges, entryTuple{arch: archetype, kind: cKey, parent: cName, name: bundleName, version: bundles[bundleName], index: len(ch.Entries) - 1})
 			}
 		}
-
-		outChannels = append(outChannels, sv.linkChannels(majors, sv.pkg, semverChannels, &channelMapping)...)
-		outChannels = append(outChannels, sv.linkChannels(minors, sv.pkg, semverChannels, &channelMapping)...)
 	}
 
 	// save off the name of the high-water-mark channel for the default for this package
 	sv.defaultChannel = hwc.name
 
+	outChannels = append(outChannels, sv.linkChannels(unlinkedChannels, unassociatedEdges)...)
+
 	return outChannels
 }
 
-// all channels that come to linkChannels MUST have the same prefix. This adds replaces edges of minor versions of the largest major version.
-func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, pkg string, semverChannels *semverRenderedChannelVersions, channelMapping *map[string]string) []declcfg.Channel {
+func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries []entryTuple) []declcfg.Channel {
 	channels := []declcfg.Channel{}
 
-	for channelName, channel := range unlinkedChannels {
-		// sort the channel entries in ascending order, according to the corresponding bundle versions for the channelName stored in the semverRenderedChannelVersions
-		// convenience function, to make this more clear
-		versionLookup := func(generatedChannelName string, channelEdgeIndex int) semver.Version {
-			channelKind := (*channelMapping)[generatedChannelName]
-			bundleVersions := (*semverChannels)[channelKind]
-			bundleName := channel.Entries[channelEdgeIndex].Name
-			return bundleVersions[bundleName]
+	// sort to force partitioning by archetype --> kind --> semver
+	sort.Slice(entries, func(i, j int) bool {
+		if channelPriorities[entries[i].arch] != channelPriorities[entries[j].arch] {
+			return channelPriorities[entries[i].arch] < channelPriorities[entries[j].arch]
+		}
+		if streamTypePriorities[entries[i].kind] != streamTypePriorities[entries[j].kind] {
+			return streamTypePriorities[entries[i].kind] < streamTypePriorities[entries[j].kind]
+		}
+		return entries[i].version.LT(entries[j].version)
+	})
+
+	prevZMax := ""
+	var curSkips sets.String = sets.NewString()
+
+	for index := 1; index < len(entries); index++ {
+		prevTuple := entries[index-1]
+		curTuple := entries[index]
+		prevX := getMajorVersion(prevTuple.version)
+		prevY := getMinorVersion(prevTuple.version)
+		curX := getMajorVersion(curTuple.version)
+		curY := getMinorVersion(curTuple.version)
+
+		archChange := curTuple.arch != prevTuple.arch
+		kindChange := curTuple.kind != prevTuple.kind
+		xChange := !prevX.EQ(curX)
+		yChange := !prevY.EQ(curY)
+
+		if archChange || kindChange || xChange || yChange {
+			// if we passed any kind of change besides Z, then we need to set skips/replaces for previous max-Z
+			prevChannel := unlinkedChannels[prevTuple.parent]
+			finalEntry := &prevChannel.Entries[prevTuple.index]
+			finalEntry.Replaces = prevZMax
+			// don't include replaces in skips list, but they are accumulated in discrete cycles (and maybe useful for later channels) so remove here
+			if curSkips.Has(finalEntry.Replaces) {
+				finalEntry.Skips = curSkips.Difference(sets.NewString(finalEntry.Replaces)).List()
+			} else {
+				finalEntry.Skips = curSkips.List()
+			}
 		}
 
-		sort.Slice(channel.Entries, func(i, j int) bool {
-			return versionLookup(channelName, i).LT(versionLookup(channelName, j))
-		})
-
-		// link up the edges according to config
-		if sv.AvoidSkipPatch {
-			for i := 1; i < len(channel.Entries); i++ {
-				channel.Entries[i] = declcfg.ChannelEntry{
-					Name:     channel.Entries[i].Name,
-					Replaces: channel.Entries[i-1].Name,
-				}
-			}
+		if archChange || kindChange || xChange {
+			// we don't maintain skips/replaces over these transitions
+			curSkips = sets.NewString()
+			prevZMax = ""
 		} else {
-			curIndex := len(channel.Entries) - 1
-			curMinor := getMinorVersion((*semverChannels)[(*channelMapping)[channelName]][channel.Entries[curIndex].Name])
-			curSkips := sets.NewString()
-			for i := len(channel.Entries) - 2; i >= 0; i-- {
-				thisName := channel.Entries[i].Name
-				thisMinor := getMinorVersion((*semverChannels)[(*channelMapping)[channelName]][thisName])
-				if thisMinor.EQ(curMinor) {
-					channel.Entries[i] = declcfg.ChannelEntry{Name: thisName}
-					curSkips = curSkips.Insert(thisName)
-				} else {
-					channel.Entries[curIndex] = declcfg.ChannelEntry{
-						Name:     channel.Entries[curIndex].Name,
-						Replaces: thisName,
-						Skips:    curSkips.List(),
-					}
-					curSkips = sets.NewString()
-					curIndex = i
-					curMinor = thisMinor
-				}
+			if yChange {
+				prevZMax = prevTuple.name
 			}
-			channel.Entries[curIndex] = declcfg.ChannelEntry{
-				Name:  channel.Entries[curIndex].Name,
-				Skips: curSkips.List(),
-			}
+			curSkips.Insert(prevTuple.name)
 		}
-		channels = append(channels, *channel)
 	}
+
+	// last entry accumulation
+	lastTuple := entries[len(entries)-1]
+	prevChannel := unlinkedChannels[lastTuple.parent]
+	finalEntry := &prevChannel.Entries[lastTuple.index]
+	finalEntry.Replaces = prevZMax
+	// don't include replaces in skips list, but they are accumulated in discrete cycles (and maybe useful for later channels) so remove here
+	if curSkips.Has(finalEntry.Replaces) {
+		finalEntry.Skips = curSkips.Difference(sets.NewString(finalEntry.Replaces)).List()
+	} else {
+		finalEntry.Skips = curSkips.List()
+	}
+
+	for _, ch := range unlinkedChannels {
+		channels = append(channels, *ch)
+	}
+
 	return channels
 }
 
-func channelNameFromMinor(prefix string, version semver.Version) string {
+func channelNameFromMinor(prefix channelArchetype, version semver.Version) string {
 	return fmt.Sprintf("%s-v%d.%d", prefix, version.Major, version.Minor)
 }
 
-func channelNameFromMajor(prefix string, version semver.Version) string {
+func channelNameFromMajor(prefix channelArchetype, version semver.Version) string {
 	return fmt.Sprintf("%s-v%d", prefix, version.Major)
 }
 
@@ -435,6 +374,12 @@ func getMinorVersion(v semver.Version) semver.Version {
 	return semver.Version{
 		Major: v.Major,
 		Minor: v.Minor,
+	}
+}
+
+func getMajorVersion(v semver.Version) semver.Version {
+	return semver.Version{
+		Major: v.Major,
 	}
 }
 

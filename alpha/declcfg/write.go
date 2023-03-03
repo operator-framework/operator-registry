@@ -95,7 +95,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 	// build increasing-version-ordered bundle names, so we can meaningfully iterate over a range
 	orderedBundles := []string{}
-	for n, _ := range versionMap {
+	for n := range versionMap {
 		orderedBundles = append(orderedBundles, n)
 	}
 	sort.Slice(orderedBundles, func(i, j int) bool {
@@ -153,7 +153,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 	out.Write([]byte("graph LR\n"))
 	pkgNames := []string{}
-	for pname, _ := range pkgs {
+	for pname := range pkgs {
 		pkgNames = append(pkgNames, pname)
 	}
 	sort.Slice(pkgNames, func(i, j int) bool {
