@@ -33,7 +33,7 @@ func TestLinkChannels(t *testing.T) {
 		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v2.3.2", parent: "stable-v2", index: 3, version: semver.MustParse("2.3.2")},
 	}
 
-	majorGeneratedUnlinkedChannels := map[string]*declcfg.Channel {
+	majorGeneratedUnlinkedChannels := map[string]*declcfg.Channel{
 		"stable-v0": {
 			Schema:  "olm.channel",
 			Name:    "stable-v0",
