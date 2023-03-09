@@ -90,8 +90,9 @@ and a 'composite template' file`,
 								BaseImage:     catalog.Destination.BaseImage,
 								WorkingDir:    catalog.Destination.WorkingDir,
 							},
-							OutputType:       output,
-							CurrentDirectory: wd,
+							OutputType: output,
+							// BUGBUG: JEK: This is a strong assumption that input is always local to execution which we need to eliminate in a later PR
+							InputDirectory: wd,
 						})
 						if err != nil {
 							log.Fatalf("getting builder %q for catalog %q: %s", schema, catalog.Name, err)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -16,6 +17,7 @@ import (
 	basictemplate "github.com/operator-framework/operator-registry/alpha/template/basic"
 	semvertemplate "github.com/operator-framework/operator-registry/alpha/template/semver"
 	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/lib/config"
 )
 
 const (
@@ -32,9 +34,9 @@ type ContainerConfig struct {
 }
 
 type BuilderConfig struct {
-	ContainerCfg     ContainerConfig
-	OutputType       string
-	CurrentDirectory string
+	ContainerCfg   ContainerConfig
+	OutputType     string
+	InputDirectory string
 }
 
 type Builder interface {
@@ -84,23 +86,23 @@ func (bb *BasicBuilder) Build(ctx context.Context, reg image.Registry, dir strin
 
 	b := basictemplate.Template{Registry: reg}
 	reader, err := os.Open(basicConfig.Input)
-	defer reader.Close()
 	if err != nil {
 		return fmt.Errorf("error reading basic template: %v", err)
 	}
+	defer reader.Close()
 
 	dcfg, err := b.Render(ctx, reader)
 	if err != nil {
 		return fmt.Errorf("error rendering basic template: %v", err)
 	}
 
-	destPath := path.Join(bb.builderCfg.ContainerCfg.WorkingDir, basicConfig.Input)
+	destPath := path.Join(bb.builderCfg.ContainerCfg.WorkingDir, dir, basicConfig.Output)
 
 	return build(dcfg, destPath, bb.builderCfg.OutputType)
 }
 
 func (bb *BasicBuilder) Validate(dir string) error {
-	return validate(bb.builderCfg.ContainerCfg, path.Join(bb.builderCfg.CurrentDirectory, dir))
+	return validate(bb.builderCfg.ContainerCfg, dir)
 }
 
 type SemverBuilder struct {
@@ -156,13 +158,13 @@ func (sb *SemverBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 		return fmt.Errorf("error rendering semver template: %v", err)
 	}
 
-	destPath := path.Join(sb.builderCfg.ContainerCfg.WorkingDir, semverConfig.Input)
+	destPath := path.Join(sb.builderCfg.ContainerCfg.WorkingDir, dir, semverConfig.Output)
 
 	return build(dcfg, destPath, sb.builderCfg.OutputType)
 }
 
 func (sb *SemverBuilder) Validate(dir string) error {
-	return validate(sb.builderCfg.ContainerCfg, path.Join(sb.builderCfg.CurrentDirectory, dir))
+	return validate(sb.builderCfg.ContainerCfg, dir)
 }
 
 type RawBuilder struct {
@@ -205,14 +207,6 @@ func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, t
 		return fmt.Errorf("raw template configuration is invalid: %s", strings.Join(validationErrs, ","))
 	}
 
-	istat, err := os.Stat(rawConfig.Input)
-	if err != nil {
-		return fmt.Errorf("raw template input file does not exist: %s, %v", rawConfig.Input, err)
-	}
-	if !istat.Mode().IsRegular() {
-		return fmt.Errorf("raw template input file is not a normal file: %s, %v", rawConfig.Input, err)
-	}
-
 	reader, err := os.Open(rawConfig.Input)
 	if err != nil {
 		return fmt.Errorf("error reading raw input file: %s, %v", rawConfig.Input, err)
@@ -224,13 +218,13 @@ func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, t
 		return fmt.Errorf("error parsing raw input file: %s, %v", rawConfig.Input, err)
 	}
 
-	destPath := path.Join(dir, rawConfig.Output)
+	destPath := path.Join(rb.builderCfg.ContainerCfg.WorkingDir, dir, rawConfig.Output)
 
 	return build(dcfg, destPath, rb.builderCfg.OutputType)
 }
 
 func (rb *RawBuilder) Validate(dir string) error {
-	return validate(rb.builderCfg.ContainerCfg, path.Join(rb.builderCfg.CurrentDirectory, dir))
+	return validate(rb.builderCfg.ContainerCfg, dir)
 }
 
 type CustomBuilder struct {
@@ -274,11 +268,15 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 	}
 	// build the command to execute
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
-	cmd.Dir = cb.builderCfg.CurrentDirectory
+	cmd.Dir = cb.builderCfg.ContainerCfg.WorkingDir
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
 	v, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("running command %q: %v", cmd.String(), err)
+	}
+
 	reader := bytes.NewReader(v)
 
 	dcfg, err := declcfg.LoadReader(reader)
@@ -288,9 +286,7 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 		return fmt.Errorf("error parsing custom command output: %s, %v", strings.Join(cmdString, "'"), err)
 	}
 
-	destPath := path.Join(dir, customConfig.Output)
-
-	return build(dcfg, destPath, cb.builderCfg.OutputType)
+	destPath := path.Join(cb.builderCfg.ContainerCfg.WorkingDir, dir, customConfig.Output)
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
@@ -298,7 +294,7 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 }
 
 func (cb *CustomBuilder) Validate(dir string) error {
-	return validate(cb.builderCfg.ContainerCfg, path.Join(cb.builderCfg.CurrentDirectory, dir))
+	return validate(cb.builderCfg.ContainerCfg, dir)
 }
 
 func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) error {
@@ -313,34 +309,40 @@ func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) er
 }
 
 func validate(containerCfg ContainerConfig, dir string) error {
-	// build the container command
-	containerCmd := exec.Command(containerCfg.ContainerTool,
-		"run",
-		"--rm",
-		"-v",
-		fmt.Sprintf("%s:%s:Z", dir, containerCfg.WorkingDir),
-		containerCfg.BaseImage,
-		"validate",
-		containerCfg.WorkingDir)
 
-	_, err := containerCmd.Output()
+	path := path.Join(containerCfg.WorkingDir, dir)
+	s, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("running command %q: %w", containerCmd.String(), err)
+		return fmt.Errorf("directory not found. validation path needs to be composed of ContainerConfig.WorkingDir+Component[].Destination.Path: %q: %v", path, err)
+	}
+	if !s.IsDir() {
+		return fmt.Errorf("%q is not a directory", path)
+	}
+
+	if err := config.Validate(os.DirFS(path)); err != nil {
+		return fmt.Errorf("validation failure in path %q: %v", path, err)
 	}
 	return nil
 }
 
 func build(dcfg *declcfg.DeclarativeConfig, outPath string, outType string) error {
+	// create the destination for output, if it does not exist
+	outDir := filepath.Dir(outPath)
+	err := os.MkdirAll(outDir, 0o777)
+	if err != nil {
+		return fmt.Errorf("creating output directory %q: %v", outPath, err)
+	}
+
 	// write the dcfg
 	file, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("creating output file %q: %w", outPath, err)
+		return fmt.Errorf("creating output file %q: %v", outPath, err)
 	}
 	defer file.Close()
 
 	err = writeDeclCfg(*dcfg, file, outType)
 	if err != nil {
-		return fmt.Errorf("writing to output file %q: %w", outPath, err)
+		return fmt.Errorf("writing to output file %q: %v", outPath, err)
 	}
 
 	return nil
