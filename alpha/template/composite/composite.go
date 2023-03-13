@@ -3,6 +3,8 @@ package composite
 import (
 	"context"
 	"fmt"
+
+	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 type BuilderMap map[string]Builder
@@ -11,6 +13,7 @@ type CatalogBuilderMap map[string]BuilderMap
 
 type Template struct {
 	CatalogBuilders CatalogBuilderMap
+	Registry        image.Registry
 }
 
 // TODO(everettraven): do we need the context here? If so, how should it be used?
@@ -20,7 +23,7 @@ func (t *Template) Render(ctx context.Context, config *CompositeConfig, validate
 		if builderMap, ok := t.CatalogBuilders[component.Name]; ok {
 			if builder, ok := builderMap[component.Strategy.Template.Schema]; ok {
 				// run the builder corresponding to the schema
-				err := builder.Build(component.Destination.Path, component.Strategy.Template)
+				err := builder.Build(ctx, t.Registry, component.Destination.Path, component.Strategy.Template)
 				if err != nil {
 					return fmt.Errorf("building component %q: %w", component.Name, err)
 				}

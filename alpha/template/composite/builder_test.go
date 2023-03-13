@@ -1,12 +1,14 @@
 package composite
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"testing"
 
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,6 +25,12 @@ func TestBasicBuilder(t *testing.T) {
 		validateAssertions func(t *testing.T, validateErr error)
 	}
 
+	testDir := t.TempDir()
+	validConfigTemplate := `{
+		"input": "%s",
+		"output": "%s"
+	}`
+
 	testCases := []testCase{
 		{
 			name:     "successful basic build yaml output",
@@ -31,16 +39,13 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: BasicBuilderSchema,
-				Config: []byte(`{
-					"input": "components/basic.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/basic.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/basic.yaml": basicYaml,
@@ -69,16 +74,13 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: BasicBuilderSchema,
-				Config: []byte(`{
-					"input": "components/basic.yaml",
-					"output": "catalog.json"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/basic.yaml"), "catalog.json")),
 			},
 			files: map[string]string{
 				"components/basic.yaml": basicYaml,
@@ -107,7 +109,7 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -124,46 +126,19 @@ func TestBasicBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "builder command failure",
-			validate: false,
-			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "basic",
-				},
-				OutputType: "yaml",
-			}),
-			templateDefinition: TemplateDefinition{
-				Schema: BasicBuilderSchema,
-				Config: []byte(`{
-					"input": "components/basic.yaml",
-					"output": "catalog.yaml"
-				}`),
-			},
-			files: map[string]string{},
-			buildAssertions: func(t *testing.T, dir string, buildErr error) {
-				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "running command")
-			},
-		},
-		{
 			name:     "invalid output type",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: BasicBuilderSchema,
-				Config: []byte(`{
-					"input": "components/basic.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/basic.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/basic.yaml": basicYaml,
@@ -180,7 +155,7 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -200,7 +175,7 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -225,7 +200,7 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -250,7 +225,7 @@ func TestBasicBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/basic",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -268,10 +243,8 @@ func TestBasicBuilder(t *testing.T) {
 		},
 	}
 
-	testDir := t.TempDir()
-
 	for i, tc := range testCases {
-		tc.basicBuilder.builderCfg.CurrentDirectory = testDir
+		tc.basicBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("basic-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -288,7 +261,16 @@ func TestBasicBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.basicBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.basicBuilder.Build(context.Background(), reg, outDir, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -454,6 +436,12 @@ func TestSemverBuilder(t *testing.T) {
 		validateAssertions func(t *testing.T, validateErr error)
 	}
 
+	testDir := t.TempDir()
+	validConfigTemplate := `{
+		"input": "%s",
+		"output": "%s"
+	}`
+
 	testCases := []testCase{
 		{
 			name:     "successful semver build yaml output",
@@ -462,16 +450,13 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: SemverBuilderSchema,
-				Config: []byte(`{
-					"input": "components/semver.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/semver.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/semver.yaml": semverYaml,
@@ -500,16 +485,13 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: SemverBuilderSchema,
-				Config: []byte(`{
-					"input": "components/semver.yaml",
-					"output": "catalog.json"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/semver.yaml"), "catalog.json")),
 			},
 			files: map[string]string{
 				"components/semver.yaml": semverYaml,
@@ -538,7 +520,7 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -555,46 +537,19 @@ func TestSemverBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "builder command failure",
-			validate: false,
-			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "semver",
-				},
-				OutputType: "yaml",
-			}),
-			templateDefinition: TemplateDefinition{
-				Schema: SemverBuilderSchema,
-				Config: []byte(`{
-					"input": "components/semver.yaml",
-					"output": "catalog.yaml"
-				}`),
-			},
-			files: map[string]string{},
-			buildAssertions: func(t *testing.T, dir string, buildErr error) {
-				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "running command")
-			},
-		},
-		{
 			name:     "invalid output type",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: SemverBuilderSchema,
-				Config: []byte(`{
-					"input": "components/semver.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/semver.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/semver.yaml": semverYaml,
@@ -611,16 +566,13 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: "olm.invalid",
-				Config: []byte(`{
-					"input": "components/semver.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/semver.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{},
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
@@ -635,7 +587,7 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -660,7 +612,7 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -685,7 +637,7 @@ func TestSemverBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/semver",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -703,10 +655,8 @@ func TestSemverBuilder(t *testing.T) {
 		},
 	}
 
-	testDir := t.TempDir()
-
 	for i, tc := range testCases {
-		tc.semverBuilder.builderCfg.CurrentDirectory = testDir
+		tc.semverBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("semver-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -721,9 +671,19 @@ func TestSemverBuilder(t *testing.T) {
 				require.NoError(t, err)
 				_, err = file.WriteString(fileContents)
 				require.NoError(t, err)
+				// fmt.Printf("wrote file: %q\n", path.Join(testDir, fileName))
 			}
 
-			buildErr := tc.semverBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.semverBuilder.Build(context.Background(), reg, outDir, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -898,6 +858,12 @@ func TestRawBuilder(t *testing.T) {
 		validateAssertions func(t *testing.T, validateErr error)
 	}
 
+	testDir := t.TempDir()
+	validConfigTemplate := `{
+		"input": "%s",
+		"output": "%s"
+	}`
+
 	testCases := []testCase{
 		{
 			name:     "successful raw build yaml output",
@@ -906,16 +872,13 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: RawBuilderSchema,
-				Config: []byte(`{
-					"input": "components/raw.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/raw.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/raw.yaml": rawYaml,
@@ -944,16 +907,13 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: RawBuilderSchema,
-				Config: []byte(`{
-					"input": "components/raw.yaml",
-					"output": "catalog.json"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/raw.yaml"), "catalog.json")),
 			},
 			files: map[string]string{
 				"components/raw.yaml": rawYaml,
@@ -982,7 +942,7 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -999,46 +959,19 @@ func TestRawBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "builder command failure",
-			validate: false,
-			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "raw",
-				},
-				OutputType: "yaml",
-			}),
-			templateDefinition: TemplateDefinition{
-				Schema: RawBuilderSchema,
-				Config: []byte(`{
-					"input": "components/raw.yaml",
-					"output": "catalog.yaml"
-				}`),
-			},
-			files: map[string]string{},
-			buildAssertions: func(t *testing.T, dir string, buildErr error) {
-				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "running command")
-			},
-		},
-		{
 			name:     "invalid output type",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: RawBuilderSchema,
-				Config: []byte(`{
-					"input": "components/raw.yaml",
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validConfigTemplate, path.Join(testDir, "components/raw.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/raw.yaml": semverYaml,
@@ -1055,7 +988,7 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1075,7 +1008,7 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1100,7 +1033,7 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1125,7 +1058,7 @@ func TestRawBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/raw",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1143,10 +1076,8 @@ func TestRawBuilder(t *testing.T) {
 		},
 	}
 
-	testDir := t.TempDir()
-
 	for i, tc := range testCases {
-		tc.rawBuilder.builderCfg.CurrentDirectory = testDir
+		tc.rawBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("raw-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1163,7 +1094,16 @@ func TestRawBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.rawBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.rawBuilder.Build(context.Background(), reg, outDir, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -1361,6 +1301,13 @@ func TestCustomBuilder(t *testing.T) {
 		validateAssertions func(t *testing.T, validateErr error)
 	}
 
+	testDir := t.TempDir()
+	validTemplateConfig := `{
+		"command": "%s",
+		"args": ["%s"],
+		"output": "%s"
+	}`
+
 	testCases := []testCase{
 		{
 			name:     "successful custom build yaml output",
@@ -1369,17 +1316,13 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: CustomBuilderSchema,
-				Config: []byte(`{
-					"command": "cat",
-					"args": ["components/custom.yaml"],
-					"output": "catalog.yaml"
-				}`),
+				Config: []byte(fmt.Sprintf(validTemplateConfig, "cat", path.Join(testDir, "components/custom.yaml"), "catalog.yaml")),
 			},
 			files: map[string]string{
 				"components/custom.yaml": customYaml,
@@ -1408,17 +1351,13 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
 				Schema: CustomBuilderSchema,
-				Config: []byte(`{
-					"command": "cat",
-					"args": ["components/custom.yaml"],
-					"output": "catalog.json"
-				}`),
+				Config: []byte(fmt.Sprintf(validTemplateConfig, "cat", path.Join(testDir, "components/custom.yaml"), "catalog.json")),
 			},
 			files: map[string]string{
 				"components/custom.yaml": customYaml,
@@ -1447,7 +1386,7 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1464,38 +1403,13 @@ func TestCustomBuilder(t *testing.T) {
 			},
 		},
 		{
-			name:     "builder command failure",
-			validate: false,
-			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
-				},
-				OutputType: "yaml",
-			}),
-			templateDefinition: TemplateDefinition{
-				Schema: CustomBuilderSchema,
-				Config: []byte(`{
-					"command": "thiscommanddoesnotexist",
-                    "args": [],
-					"output": "catalog.yaml"
-				}`),
-			},
-			files: map[string]string{},
-			buildAssertions: func(t *testing.T, dir string, buildErr error) {
-				require.Error(t, buildErr)
-				require.Contains(t, buildErr.Error(), "running command")
-			},
-		},
-		{
 			name:     "invalid schema",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1519,7 +1433,7 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1545,7 +1459,7 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1571,7 +1485,7 @@ func TestCustomBuilder(t *testing.T) {
 				ContainerCfg: ContainerConfig{
 					ContainerTool: "docker",
 					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    "/custom",
+					WorkingDir:    testDir,
 				},
 				OutputType: "yaml",
 			}),
@@ -1590,10 +1504,8 @@ func TestCustomBuilder(t *testing.T) {
 		},
 	}
 
-	testDir := t.TempDir()
-
 	for i, tc := range testCases {
-		tc.customBuilder.builderCfg.CurrentDirectory = testDir
+		tc.customBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("custom-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1610,7 +1522,16 @@ func TestCustomBuilder(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			buildErr := tc.customBuilder.Build(outPath, tc.templateDefinition)
+			cacheDir, err := os.MkdirTemp("", "opm-registry-")
+			require.NoError(t, err)
+
+			reg, err := containerdregistry.NewRegistry(
+				containerdregistry.WithCacheDir(cacheDir),
+			)
+			defer reg.Destroy()
+			require.NoError(t, err)
+
+			buildErr := tc.customBuilder.Build(context.Background(), reg, outDir, tc.templateDefinition)
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
@@ -1800,5 +1721,5 @@ const customBuiltFbcJson = `{
 func TestValidateFailure(t *testing.T) {
 	err := validate(ContainerConfig{}, "")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "running command")
+	require.Contains(t, err.Error(), "no such file or directory")
 }

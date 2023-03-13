@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/template/composite"
+	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 )
 
 func newCompositeTemplateCmd() *cobra.Command {
@@ -89,8 +90,9 @@ and a 'composite template' file`,
 								BaseImage:     catalog.Destination.BaseImage,
 								WorkingDir:    catalog.Destination.WorkingDir,
 							},
-							OutputType:       output,
-							CurrentDirectory: wd,
+							OutputType: output,
+							// BUGBUG: JEK: This is a strong assumption that input is always local to execution which we need to eliminate in a later PR
+							InputDirectory: wd,
 						})
 						if err != nil {
 							log.Fatalf("getting builder %q for catalog %q: %s", schema, catalog.Name, err)
@@ -115,6 +117,14 @@ and a 'composite template' file`,
 			}
 
 			template.CatalogBuilders = catalogBuilderMap
+
+			reg, err := util.CreateCLIRegistry(cmd)
+			if err != nil {
+				log.Fatalf("creating containerd registry: %v", err)
+			}
+			defer reg.Destroy()
+
+			template.Registry = reg
 
 			compositeData, err := os.Open(compositeFile)
 			if err != nil {
