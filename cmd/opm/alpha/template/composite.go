@@ -3,7 +3,10 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,11 +34,23 @@ and a 'composite template' file`,
 		Args: cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			containerTool = "docker"
-			catalogData, err := os.Open(catalogFile)
+			var tempCatalog io.ReadCloser
+			catalogURI, err := url.ParseRequestURI(catalogFile)
 			if err != nil {
-				log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
+				tempCatalog, err = os.Open(catalogFile)
+				if err != nil {
+					log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
+				}
+				defer tempCatalog.Close()
+			} else {
+				tempResp, err := http.Get(catalogURI.Path)
+				tempCatalog = tempResp.Body
+				if err != nil {
+					log.Fatalf("fetching remote catalog config file %q: %s", catalogFile, err)
+				}
+				defer tempCatalog.Close()
 			}
-			defer catalogData.Close()
+			catalogData := tempCatalog
 
 			// get catalog configurations
 			catalogConfig := &composite.CatalogConfig{}
