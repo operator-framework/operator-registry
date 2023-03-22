@@ -43,7 +43,7 @@ and a 'composite template' file`,
 				}
 				defer tempCatalog.Close()
 			} else {
-				tempResp, err := http.Get(catalogURI.Path)
+				tempResp, err := http.Get(catalogURI.String())
 				tempCatalog = tempResp.Body
 				if err != nil {
 					log.Fatalf("fetching remote catalog config file %q: %s", catalogFile, err)
