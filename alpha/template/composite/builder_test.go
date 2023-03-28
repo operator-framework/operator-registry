@@ -244,7 +244,6 @@ func TestBasicBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.basicBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("basic-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -656,7 +655,6 @@ func TestSemverBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.semverBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("semver-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1077,7 +1075,6 @@ func TestRawBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.rawBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("raw-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1505,7 +1502,6 @@ func TestCustomBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.customBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("custom-%d", i)
 			outPath := path.Join(testDir, outDir)

@@ -36,7 +36,6 @@ type ContainerConfig struct {
 type BuilderConfig struct {
 	ContainerCfg   ContainerConfig
 	OutputType     string
-	InputDirectory string
 }
 
 type Builder interface {
