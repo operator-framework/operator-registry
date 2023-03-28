@@ -3,7 +3,10 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,11 +34,23 @@ and a 'composite template' file`,
 		Args: cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
 			containerTool = "docker"
-			catalogData, err := os.Open(catalogFile)
+			var tempCatalog io.ReadCloser
+			catalogURI, err := url.ParseRequestURI(catalogFile)
 			if err != nil {
-				log.Fatalf("opening catalog config file %q: %s", catalogFile, err)
+				tempCatalog, err = os.Open(catalogFile)
+				if err != nil {
+					log.Fatalf("opening catalog config file %q: %v", catalogFile, err)
+				}
+				defer tempCatalog.Close()
+			} else {
+				tempResp, err := http.Get(catalogURI.String())
+				if err != nil {
+					log.Fatalf("fetching remote catalog config file %q: %v", catalogFile, err)
+				}
+				tempCatalog = tempResp.Body
+				defer tempCatalog.Close()
 			}
-			defer catalogData.Close()
+			catalogData := tempCatalog
 
 			// get catalog configurations
 			catalogConfig := &composite.CatalogConfig{}
@@ -43,11 +58,11 @@ and a 'composite template' file`,
 			catalogDecoder := yaml.NewYAMLOrJSONDecoder(catalogData, 4096)
 			err = catalogDecoder.Decode(&catalogDoc)
 			if err != nil {
-				log.Fatalf("decoding catalog config: %s", err)
+				log.Fatalf("decoding catalog config: %v", err)
 			}
 			err = json.Unmarshal(catalogDoc, catalogConfig)
 			if err != nil {
-				log.Fatalf("unmarshalling catalog config: %s", err)
+				log.Fatalf("unmarshalling catalog config: %v", err)
 			}
 
 			if catalogConfig.Schema != composite.CatalogSchema {
@@ -58,7 +73,7 @@ and a 'composite template' file`,
 
 			wd, err := os.Getwd()
 			if err != nil {
-				log.Fatalf("getting current working directory: %s", err)
+				log.Fatalf("getting current working directory: %v", err)
 			}
 
 			// setup the builders for each catalog
@@ -95,7 +110,7 @@ and a 'composite template' file`,
 							InputDirectory: wd,
 						})
 						if err != nil {
-							log.Fatalf("getting builder %q for catalog %q: %s", schema, catalog.Name, err)
+							log.Fatalf("getting builder %q for catalog %q: %v", schema, catalog.Name, err)
 						}
 						builderMap[schema] = builder
 					}
@@ -108,9 +123,9 @@ and a 'composite template' file`,
 				//build the error message
 				var errMsg string
 				for cat, errs := range setupErrors {
-					errMsg += fmt.Sprintf("\nCatalog %s:\n", cat)
+					errMsg += fmt.Sprintf("\nCatalog %v:\n", cat)
 					for _, err := range errs {
-						errMsg += fmt.Sprintf("  - %s\n", err)
+						errMsg += fmt.Sprintf("  - %v\n", err)
 					}
 				}
 				log.Fatalf("catalog configuration file field validation failed: %s", errMsg)
@@ -128,7 +143,7 @@ and a 'composite template' file`,
 
 			compositeData, err := os.Open(compositeFile)
 			if err != nil {
-				log.Fatalf("opening composite config file %q: %s", compositeFile, err)
+				log.Fatalf("opening composite config file %q: %v", compositeFile, err)
 			}
 			defer compositeData.Close()
 
@@ -138,11 +153,11 @@ and a 'composite template' file`,
 			compositeDecoder := yaml.NewYAMLOrJSONDecoder(compositeData, 4096)
 			err = compositeDecoder.Decode(&compositeDoc)
 			if err != nil {
-				log.Fatalf("decoding composite config: %s", err)
+				log.Fatalf("decoding composite config: %v", err)
 			}
 			err = json.Unmarshal(compositeDoc, compositeConfig)
 			if err != nil {
-				log.Fatalf("unmarshalling composite config: %s", err)
+				log.Fatalf("unmarshalling composite config: %v", err)
 			}
 
 			if compositeConfig.Schema != composite.CompositeSchema {
@@ -151,7 +166,7 @@ and a 'composite template' file`,
 
 			err = template.Render(cmd.Context(), compositeConfig, validate)
 			if err != nil {
-				log.Fatalf("rendering the composite template: %s", err)
+				log.Fatalf("rendering the composite template: %v", err)
 			}
 		},
 	}
