@@ -34,8 +34,8 @@ type ContainerConfig struct {
 }
 
 type BuilderConfig struct {
-	ContainerCfg   ContainerConfig
-	OutputType     string
+	ContainerCfg ContainerConfig
+	OutputType   string
 }
 
 type Builder interface {
@@ -267,13 +267,12 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 	}
 	// build the command to execute
 	cmd := exec.Command(customConfig.Command, customConfig.Args...)
-	cmd.Dir = cb.builderCfg.ContainerCfg.WorkingDir
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
-	v, err := cmd.Output()
+	v, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("running command %q: %v", cmd.String(), err)
+		return fmt.Errorf("running command %q: %v: %v", cmd.String(), err, v)
 	}
 
 	reader := bytes.NewReader(v)
