@@ -63,11 +63,8 @@ func (q *JSON) SendBundles(_ context.Context, s registry.BundleSender) error {
 		for _, chName := range sets.List(channels) {
 			ch := pkg.Channels[chName]
 
-			bList := sets.NewString()
-			for bName := range ch.Bundles {
-				bList.Insert(bName)
-			}
-			for _, bName := range bList.List() {
+			bundles := sets.KeySet(ch.Bundles)
+			for _, bName := range sets.List(bundles) {
 				b := ch.Bundles[bName]
 				apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, b.Name})
 				if err != nil {
