@@ -14,21 +14,23 @@
    limitations under the License.
 */
 
-package version
+package fs
 
-import "runtime"
-
-var (
-	// Package is filled at linking time
-	Package = "github.com/containerd/containerd"
-
-	// Version holds the complete version number. Filled in at linking time.
-	Version = "1.5.18+unknown"
-
-	// Revision is filled with the VCS (e.g. git) revision being used to build
-	// the program at linking time.
-	Revision = ""
-
-	// GoVersion is Go tree's version.
-	GoVersion = runtime.Version()
+import (
+	"fmt"
+	"os"
+	"syscall"
 )
+
+// copyIrregular covers devices, pipes, and sockets
+func copyIrregular(dst string, fi os.FileInfo) error {
+	st, ok := fi.Sys().(*syscall.Stat_t) // not *unix.Stat_t
+	if !ok {
+		return fmt.Errorf("unsupported stat type: %s: %v", dst, fi.Mode())
+	}
+	var rDev uint64 // uint64 on FreeBSD, int on other unixen
+	if fi.Mode()&os.ModeDevice == os.ModeDevice {
+		rDev = st.Rdev
+	}
+	return syscall.Mknod(dst, uint32(st.Mode), rDev)
+}
