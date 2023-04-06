@@ -43,11 +43,11 @@ var (
 	indexTag2  = rand.String(6)
 	indexTag3  = rand.String(6)
 
-	bundleImage = dockerHost + "/olmtest/e2e-bundle"
-	indexImage  = dockerHost + "/olmtest/e2e-index"
-	indexImage1 = dockerHost + "/olmtest/e2e-index:" + indexTag1
-	indexImage2 = dockerHost + "/olmtest/e2e-index:" + indexTag2
-	indexImage3 = dockerHost + "/olmtest/e2e-index:" + indexTag3
+	bundleImage string
+	indexImage  string
+	indexImage1 string
+	indexImage2 string
+	indexImage3 string
 
 	fbcIndexImageTag = dockerHost + "/olmtest/e2e-fbc"
 	fbcPackageName   = "webhook-operator"
@@ -269,6 +269,15 @@ func initialize() error {
 	loader := sqlite.NewSQLLoaderForDirectory(dbLoader, "downloaded")
 	return loader.Populate()
 }
+
+var _ = BeforeEach(func() {
+	bundleImage = imageRegistry + "/e2e-bundle"
+	indexImage = imageRegistry + "/e2e-index"
+	indexImage1 = imageRegistry + "/e2e-index:" + indexTag1
+	indexImage2 = imageRegistry + "/e2e-index:" + indexTag2
+	indexImage3 = imageRegistry + "/e2e-index:" + indexTag3
+
+})
 
 var _ = Describe("opm", func() {
 	IncludeSharedSpecs := func(containerTool string) {

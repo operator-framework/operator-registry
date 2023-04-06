@@ -53,7 +53,7 @@ var _ = Describe("opm alpha bundle", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create a bundle ref using the local registry host name and the namespace/name of a bundle we already know the content of
-			bundleRef = host + "/olmtest/kiali@sha256:a1bec450c104ceddbb25b252275eb59f1f1e6ca68e0ced76462042f72f7057d8"
+			bundleRef = host + "/" + imageDomain + "/kiali@sha256:a1bec450c104ceddbb25b252275eb59f1f1e6ca68e0ced76462042f72f7057d8"
 
 			// Generate a checksum of the expected content for the bundle under test
 			bundleChecksum, err = dirhash.HashDir(filepath.Join(goldenFiles, "bundles/kiali"), "", dirhash.DefaultHash)
