@@ -27,14 +27,8 @@ const (
 	CustomBuilderSchema = "olm.builder.custom"
 )
 
-type ContainerConfig struct {
-	ContainerTool string
-	BaseImage     string
-	WorkingDir    string
-}
-
 type BuilderConfig struct {
-	ContainerCfg ContainerConfig
+	WorkingDir    string
 	OutputType   string
 }
 
@@ -95,13 +89,13 @@ func (bb *BasicBuilder) Build(ctx context.Context, reg image.Registry, dir strin
 		return fmt.Errorf("error rendering basic template: %v", err)
 	}
 
-	destPath := path.Join(bb.builderCfg.ContainerCfg.WorkingDir, dir, basicConfig.Output)
+	destPath := path.Join(bb.builderCfg.WorkingDir, dir, basicConfig.Output)
 
 	return build(dcfg, destPath, bb.builderCfg.OutputType)
 }
 
 func (bb *BasicBuilder) Validate(dir string) error {
-	return validate(bb.builderCfg.ContainerCfg, dir)
+	return validate(bb.builderCfg, dir)
 }
 
 type SemverBuilder struct {
@@ -157,13 +151,13 @@ func (sb *SemverBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 		return fmt.Errorf("error rendering semver template: %v", err)
 	}
 
-	destPath := path.Join(sb.builderCfg.ContainerCfg.WorkingDir, dir, semverConfig.Output)
+	destPath := path.Join(sb.builderCfg.WorkingDir, dir, semverConfig.Output)
 
 	return build(dcfg, destPath, sb.builderCfg.OutputType)
 }
 
 func (sb *SemverBuilder) Validate(dir string) error {
-	return validate(sb.builderCfg.ContainerCfg, dir)
+	return validate(sb.builderCfg, dir)
 }
 
 type RawBuilder struct {
@@ -217,13 +211,13 @@ func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, t
 		return fmt.Errorf("error parsing raw input file: %s, %v", rawConfig.Input, err)
 	}
 
-	destPath := path.Join(rb.builderCfg.ContainerCfg.WorkingDir, dir, rawConfig.Output)
+	destPath := path.Join(rb.builderCfg.WorkingDir, dir, rawConfig.Output)
 
 	return build(dcfg, destPath, rb.builderCfg.OutputType)
 }
 
 func (rb *RawBuilder) Validate(dir string) error {
-	return validate(rb.builderCfg.ContainerCfg, dir)
+	return validate(rb.builderCfg, dir)
 }
 
 type CustomBuilder struct {
@@ -284,7 +278,7 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 		return fmt.Errorf("error parsing custom command output: %s, %v", strings.Join(cmdString, "'"), err)
 	}
 
-	destPath := path.Join(cb.builderCfg.ContainerCfg.WorkingDir, dir, customConfig.Output)
+	destPath := path.Join(cb.builderCfg.WorkingDir, dir, customConfig.Output)
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
@@ -292,7 +286,7 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 }
 
 func (cb *CustomBuilder) Validate(dir string) error {
-	return validate(cb.builderCfg.ContainerCfg, dir)
+	return validate(cb.builderCfg, dir)
 }
 
 func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) error {
@@ -306,12 +300,12 @@ func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) er
 	}
 }
 
-func validate(containerCfg ContainerConfig, dir string) error {
+func validate(builderCfg BuilderConfig, dir string) error {
 
-	path := path.Join(containerCfg.WorkingDir, dir)
+	path := path.Join(builderCfg.WorkingDir, dir)
 	s, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("directory not found. validation path needs to be composed of ContainerConfig.WorkingDir+Component[].Destination.Path: %q: %v", path, err)
+		return fmt.Errorf("directory not found. validation path needs to be composed of BuilderConfig.WorkingDir+Component[].Destination.Path: %q: %v", path, err)
 	}
 	if !s.IsDir() {
 		return fmt.Errorf("%q is not a directory", path)

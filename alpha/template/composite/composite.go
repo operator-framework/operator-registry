@@ -187,10 +187,6 @@ func (t *Template) newCatalogBuilderMap(catalogs []Catalog, outputType string) (
 			builderMap := make(BuilderMap)
 			for _, schema := range catalog.Builders {
 				builder, err := builderForSchema(schema, BuilderConfig{
-					ContainerCfg: ContainerConfig{
-						BaseImage:  catalog.Destination.BaseImage,
-						WorkingDir: catalog.Destination.WorkingDir,
-					},
 					OutputType: outputType,
 				})
 				if err != nil {

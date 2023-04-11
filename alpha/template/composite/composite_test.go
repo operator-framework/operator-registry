@@ -251,7 +251,7 @@ func TestCompositeRender(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.compositeTemplate.Render(context.Background(), &tc.compositeCfg, tc.validate)
+			err := tc.compositeTemplate.Render(context.Background(), tc.validate)
 			tc.assertions(t, err)
 		})
 	}
