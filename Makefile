@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-GO := GOFLAGS="-mod=vendor" go
+GO := go
 CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
@@ -74,23 +74,14 @@ sanity-check:
 	docker run --rm -it -v "$(shell pwd)"/pkg/lib/indexer/testdata/:/database sanity-container \
 		./bin/opm registry serve --database /database/bundles.db --timeout-seconds 1
 
-.PHONY: image
-image:
-	docker build .
 
 .PHONY: image-upstream
 image-upstream:
 	docker build -f upstream-example.Dockerfile .
 
-.PHONY: vendor
-vendor:
-	$(GO) mod tidy
-	$(GO) mod vendor
-	$(GO) mod verify
-
 .PHONY: lint
 lint:
-	find . -name '*.go' -not -path "./vendor/*" | xargs goimports -w
+	find . -name '*.go' | xargs goimports -w
 
 .PHONY: codegen
 codegen:
@@ -98,13 +89,6 @@ codegen:
 	protoc -I pkg/api/ --go-grpc_out=pkg/api pkg/api/*.proto
 	protoc -I pkg/api/grpc_health_v1 --go_out=pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
 	protoc -I pkg/api/grpc_health_v1 --go-grpc_out=pkg/api/grpc_health_v1 pkg/api/grpc_health_v1/*.proto
-
-.PHONY: container-codegen
-container-codegen:
-	docker build -t operator-registry:codegen -f codegen.Dockerfile .
-	docker run --name temp-codegen operator-registry:codegen /bin/true
-	docker cp temp-codegen:/codegen/pkg/api/. ./pkg/api
-	docker rm temp-codegen
 
 .PHONY: generate-fakes
 generate-fakes:
