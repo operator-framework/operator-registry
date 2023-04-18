@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
-	"os"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -18,8 +15,8 @@ type BuilderMap map[string]Builder
 type CatalogBuilderMap map[string]BuilderMap
 
 type Template struct {
-	CatalogFile      string
-	ContributionFile string
+	CatalogFile      io.Reader
+	ContributionFile io.Reader
 	Validate         bool
 	OutputType       string
 	Registry         image.Registry
@@ -93,29 +90,12 @@ func builderForSchema(schema string, builderCfg BuilderConfig) (Builder, error) 
 }
 
 func (t *Template) parseCatalogsSpec() (*CatalogConfig, error) {
-	var tempCatalog io.ReadCloser
-	catalogURI, err := url.ParseRequestURI(t.CatalogFile)
-	if err != nil {
-		tempCatalog, err = os.Open(t.CatalogFile)
-		if err != nil {
-			return nil, fmt.Errorf("opening catalog config file %q: %v", t.CatalogFile, err)
-		}
-		defer tempCatalog.Close()
-	} else {
-		tempResp, err := http.Get(catalogURI.String())
-		if err != nil {
-			return nil, fmt.Errorf("fetching remote catalog config file %q: %v", t.CatalogFile, err)
-		}
-		tempCatalog = tempResp.Body
-		defer tempCatalog.Close()
-	}
-	catalogData := tempCatalog
 
 	// get catalog configurations
 	catalogConfig := &CatalogConfig{}
 	catalogDoc := json.RawMessage{}
-	catalogDecoder := yaml.NewYAMLOrJSONDecoder(catalogData, 4096)
-	err = catalogDecoder.Decode(&catalogDoc)
+	catalogDecoder := yaml.NewYAMLOrJSONDecoder(t.CatalogFile, 4096)
+	err := catalogDecoder.Decode(&catalogDoc)
 	if err != nil {
 		return nil, fmt.Errorf("decoding catalog config: %v", err)
 	}
@@ -133,17 +113,11 @@ func (t *Template) parseCatalogsSpec() (*CatalogConfig, error) {
 
 func (t *Template) parseContributionSpec() (*CompositeConfig, error) {
 
-	compositeData, err := os.Open(t.ContributionFile)
-	if err != nil {
-		return nil, fmt.Errorf("opening composite config file %q: %v", t.ContributionFile, err)
-	}
-	defer compositeData.Close()
-
 	// parse data to composite config
 	compositeConfig := &CompositeConfig{}
 	compositeDoc := json.RawMessage{}
-	compositeDecoder := yaml.NewYAMLOrJSONDecoder(compositeData, 4096)
-	err = compositeDecoder.Decode(&compositeDoc)
+	compositeDecoder := yaml.NewYAMLOrJSONDecoder(t.ContributionFile, 4096)
+	err := compositeDecoder.Decode(&compositeDoc)
 	if err != nil {
 		return nil, fmt.Errorf("decoding composite config: %v", err)
 	}
