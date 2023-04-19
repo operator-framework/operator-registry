@@ -36,7 +36,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "successful basic build yaml output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -67,7 +67,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "successful basic build json output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -98,7 +98,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -117,7 +117,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -136,7 +136,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -152,7 +152,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -173,7 +173,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -194,7 +194,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -414,7 +414,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "successful semver build yaml output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -445,7 +445,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "successful semver build json output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -476,7 +476,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -495,7 +495,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -514,7 +514,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -531,7 +531,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -552,7 +552,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -573,7 +573,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -803,7 +803,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "successful raw build yaml output",
 			validate: true,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -834,7 +834,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "successful raw build json output",
 			validate: true,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -865,7 +865,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -884,7 +884,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -903,7 +903,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -919,7 +919,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -940,7 +940,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -961,7 +961,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1214,7 +1214,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "successful custom build yaml output",
 			validate: true,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1245,7 +1245,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "successful custom build json output",
 			validate: true,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1276,7 +1276,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1295,7 +1295,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1315,7 +1315,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty command",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1337,7 +1337,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1359,7 +1359,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty command & output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				WorkingDir:    testDir,
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{

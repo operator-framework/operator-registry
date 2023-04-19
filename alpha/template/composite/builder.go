@@ -28,8 +28,8 @@ const (
 )
 
 type BuilderConfig struct {
-	WorkingDir    string
-	OutputType   string
+	WorkingDir string
+	OutputType string
 }
 
 type Builder interface {
