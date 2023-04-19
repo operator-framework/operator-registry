@@ -1,10 +1,8 @@
 package template
 
 import (
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -52,29 +50,18 @@ and a 'composite template' file`,
 			defer compositeReader.Close()
 
 			// catalog maintainer's 'catalogs.yaml' file
-			var tempCatalog io.ReadCloser
-			catalogURI, err := url.ParseRequestURI(catalogFile)
+			tempCatalog, err := composite.FetchCatalogConfig(catalogFile, http.DefaultClient)
 			if err != nil {
-				tempCatalog, err = os.Open(catalogFile)
-				if err != nil {
-					log.Fatalf("opening catalog config file %q: %v", catalogFile, err)
-				}
-				defer tempCatalog.Close()
-			} else {
-				tempResp, err := http.Get(catalogURI.String())
-				if err != nil {
-					log.Fatalf("fetching remote catalog config file %q: %v", catalogFile, err)
-				}
-				tempCatalog = tempResp.Body
-				defer tempCatalog.Close()
+				log.Fatalf(err.Error())
 			}
+			defer tempCatalog.Close()
 
-			template := composite.Template{
-				Registry:         reg,
-				CatalogFile:      tempCatalog,
-				ContributionFile: compositeReader,
-				OutputType:       output,
-			}
+			template := composite.NewTemplate(
+				composite.WithCatalogFile(tempCatalog),
+				composite.WithContributionFile(compositeReader),
+				composite.WithOutputType(output),
+				composite.WithRegistry(reg),
+			)
 
 			err = template.Render(cmd.Context(), validate)
 			if err != nil {

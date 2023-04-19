@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"os"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -14,12 +17,91 @@ type BuilderMap map[string]Builder
 
 type CatalogBuilderMap map[string]BuilderMap
 
+type builderFunc func(BuilderConfig) Builder
+
 type Template struct {
-	CatalogFile      io.Reader
-	ContributionFile io.Reader
-	Validate         bool
-	OutputType       string
-	Registry         image.Registry
+	catalogFile        io.Reader
+	contributionFile   io.Reader
+	validate           bool
+	outputType         string
+	registry           image.Registry
+	registeredBuilders map[string]builderFunc
+}
+
+type TemplateOption func(t *Template)
+
+func WithCatalogFile(catalogFile io.Reader) TemplateOption {
+	return func(t *Template) {
+		t.catalogFile = catalogFile
+	}
+}
+
+func WithContributionFile(contribFile io.Reader) TemplateOption {
+	return func(t *Template) {
+		t.contributionFile = contribFile
+	}
+}
+
+func WithOutputType(outputType string) TemplateOption {
+	return func(t *Template) {
+		t.outputType = outputType
+	}
+}
+
+func WithRegistry(reg image.Registry) TemplateOption {
+	return func(t *Template) {
+		t.registry = reg
+	}
+}
+
+func WithValidate(validate bool) TemplateOption {
+	return func(t *Template) {
+		t.validate = validate
+	}
+}
+
+func NewTemplate(opts ...TemplateOption) *Template {
+	temp := &Template{
+		// Default registered builders when creating a new Template
+		registeredBuilders: map[string]builderFunc{
+			BasicBuilderSchema:  func(bc BuilderConfig) Builder { return NewBasicBuilder(bc) },
+			SemverBuilderSchema: func(bc BuilderConfig) Builder { return NewSemverBuilder(bc) },
+			RawBuilderSchema:    func(bc BuilderConfig) Builder { return NewRawBuilder(bc) },
+			CustomBuilderSchema: func(bc BuilderConfig) Builder { return NewCustomBuilder(bc) },
+		},
+	}
+
+	for _, opt := range opts {
+		opt(temp)
+	}
+
+	return temp
+}
+
+type HttpGetter interface {
+	Get(url string) (*http.Response, error)
+}
+
+// FetchCatalogConfig will fetch the catalog configuration file from the given path.
+// The path can be a local file path OR a URL that returns the raw contents of the catalog
+// configuration file.
+func FetchCatalogConfig(path string, httpGetter HttpGetter) (io.ReadCloser, error) {
+	var tempCatalog io.ReadCloser
+	catalogURI, err := url.ParseRequestURI(path)
+	if err != nil {
+		tempCatalog, err = os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("opening catalog config file %q: %v", path, err)
+		}
+	} else {
+		tempResp, err := httpGetter.Get(catalogURI.String())
+		if err != nil {
+			return nil, fmt.Errorf("fetching remote catalog config file %q: %v", path, err)
+		}
+		tempCatalog = tempResp.Body
+	}
+
+	return tempCatalog, nil
 }
 
 // TODO(everettraven): do we need the context here? If so, how should it be used?
@@ -35,7 +117,7 @@ func (t *Template) Render(ctx context.Context, validate bool) error {
 		return err
 	}
 
-	catalogBuilderMap, err := t.newCatalogBuilderMap(catalogFile.Catalogs, t.OutputType)
+	catalogBuilderMap, err := t.newCatalogBuilderMap(catalogFile.Catalogs, t.outputType)
 	if err != nil {
 		return err
 	}
@@ -45,7 +127,7 @@ func (t *Template) Render(ctx context.Context, validate bool) error {
 		if builderMap, ok := (*catalogBuilderMap)[component.Name]; ok {
 			if builder, ok := builderMap[component.Strategy.Template.Schema]; ok {
 				// run the builder corresponding to the schema
-				err := builder.Build(ctx, t.Registry, component.Destination.Path, component.Strategy.Template)
+				err := builder.Build(ctx, t.registry, component.Destination.Path, component.Strategy.Template)
 				if err != nil {
 					return fmt.Errorf("building component %q: %w", component.Name, err)
 				}
@@ -62,7 +144,7 @@ func (t *Template) Render(ctx context.Context, validate bool) error {
 			}
 		} else {
 			allowedComponents := []string{}
-			for k := range builderMap {
+			for k := range *catalogBuilderMap {
 				allowedComponents = append(allowedComponents, k)
 			}
 			return fmt.Errorf("building component %q: component does not exist in the catalog configuration. Available components are: %s", component.Name, allowedComponents)
@@ -71,22 +153,13 @@ func (t *Template) Render(ctx context.Context, validate bool) error {
 	return nil
 }
 
-func builderForSchema(schema string, builderCfg BuilderConfig) (Builder, error) {
-	var builder Builder
-	switch schema {
-	case BasicBuilderSchema:
-		builder = NewBasicBuilder(builderCfg)
-	case SemverBuilderSchema:
-		builder = NewSemverBuilder(builderCfg)
-	case RawBuilderSchema:
-		builder = NewRawBuilder(builderCfg)
-	case CustomBuilderSchema:
-		builder = NewCustomBuilder(builderCfg)
-	default:
+func (t *Template) builderForSchema(schema string, builderCfg BuilderConfig) (Builder, error) {
+	builderFunc, ok := t.registeredBuilders[schema]
+	if !ok {
 		return nil, fmt.Errorf("unknown schema %q", schema)
 	}
 
-	return builder, nil
+	return builderFunc(builderCfg), nil
 }
 
 func (t *Template) parseCatalogsSpec() (*CatalogConfig, error) {
@@ -94,7 +167,7 @@ func (t *Template) parseCatalogsSpec() (*CatalogConfig, error) {
 	// get catalog configurations
 	catalogConfig := &CatalogConfig{}
 	catalogDoc := json.RawMessage{}
-	catalogDecoder := yaml.NewYAMLOrJSONDecoder(t.CatalogFile, 4096)
+	catalogDecoder := yaml.NewYAMLOrJSONDecoder(t.catalogFile, 4096)
 	err := catalogDecoder.Decode(&catalogDoc)
 	if err != nil {
 		return nil, fmt.Errorf("decoding catalog config: %v", err)
@@ -116,7 +189,7 @@ func (t *Template) parseContributionSpec() (*CompositeConfig, error) {
 	// parse data to composite config
 	compositeConfig := &CompositeConfig{}
 	compositeDoc := json.RawMessage{}
-	compositeDecoder := yaml.NewYAMLOrJSONDecoder(t.ContributionFile, 4096)
+	compositeDecoder := yaml.NewYAMLOrJSONDecoder(t.contributionFile, 4096)
 	err := compositeDecoder.Decode(&compositeDoc)
 	if err != nil {
 		return nil, fmt.Errorf("decoding composite config: %v", err)
@@ -127,7 +200,7 @@ func (t *Template) parseContributionSpec() (*CompositeConfig, error) {
 	}
 
 	if compositeConfig.Schema != CompositeSchema {
-		return nil, fmt.Errorf("%q has unknown schema, should be %q", t.ContributionFile, CompositeSchema)
+		return nil, fmt.Errorf("composite configuration file has unknown schema, should be %q", CompositeSchema)
 	}
 
 	return compositeConfig, nil
@@ -160,7 +233,7 @@ func (t *Template) newCatalogBuilderMap(catalogs []Catalog, outputType string) (
 		if _, ok := catalogBuilderMap[catalog.Name]; !ok {
 			builderMap := make(BuilderMap)
 			for _, schema := range catalog.Builders {
-				builder, err := builderForSchema(schema, BuilderConfig{
+				builder, err := t.builderForSchema(schema, BuilderConfig{
 					OutputType: outputType,
 				})
 				if err != nil {
