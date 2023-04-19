@@ -17,6 +17,8 @@ func newCompositeTemplateCmd() *cobra.Command {
 		validate      bool
 		compositeFile string
 		catalogFile   string
+		dockerfileDir string
+		devfileDir    string
 	)
 	cmd := &cobra.Command{
 		Use: "composite",
@@ -73,5 +75,7 @@ and a 'composite template' file`,
 	cmd.Flags().BoolVar(&validate, "validate", true, "whether or not the created FBC should be validated (i.e 'opm validate')")
 	cmd.Flags().StringVarP(&compositeFile, "composite-config", "c", "composite.yaml", "File to use as the composite configuration file")
 	cmd.Flags().StringVarP(&catalogFile, "catalog-config", "f", "catalogs.yaml", "File to use as the catalog configuration file")
+	cmd.Flags().StringVar(&dockerfileDir, "dockerfile", "", "Generates a Dockerfile in the provided directory")
+	cmd.Flags().StringVar(&devfileDir, "devfile", "", "Generates a Devfile in the provided directory")
 	return cmd
 }
