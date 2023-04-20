@@ -32,7 +32,7 @@ running even after the test suite has completed.
 make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
+   go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
    ```
 
 ## Kind with SSL
@@ -59,7 +59,7 @@ make file and use `--dry-run` with `--focus` and see if the regex would trigger 
 make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
+   go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1,kind ./test/e2e
    ```
 
 ## Minikube (or other type) using kubeconfig without SSL
@@ -94,7 +94,7 @@ make file and use `--dry-run` with `--focus` and see if the regex would trigger 
 make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
+   go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
    ```
 
 TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind" > /tmp/kindconfig` and set `KUBECONFIG="/tmp/kindconfig"`
@@ -131,7 +131,7 @@ TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind"
 make file and use `--dry-run` with `--focus` and see if the regex would trigger your specific test(s).
 
    ```bash
-   GOFLAGS="-mod=vendor" go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
+   go run github.com/onsi/ginkgo/v2/ginkgo --v --randomize-all --randomize-suites --race --dry-run --focus 'builds and manipulates bundle and index images' -tags=json1 ./test/e2e
    ```
 
 TIP: use a non-dynamic `kind` server by using `kind get kubeconfig --name "kind" > /tmp/kindconfig` and set `KUBECONFIG="/tmp/kindconfig"`

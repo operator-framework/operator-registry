@@ -30,7 +30,7 @@ files=""
 save_to=""
 direct_file_upload=""
 cacert="$CODECOV_CA_BUNDLE"
-gcov_ignore="-not -path './bower_components/**' -not -path './node_modules/**' -not -path './vendor/**'"
+gcov_ignore="-not -path './bower_components/**' -not -path './node_modules/**'"
 gcov_include=""
 
 ft_gcov="1"
@@ -1661,7 +1661,6 @@ then
     # skip empty lines, comments, and brackets
     cd "$git_root" && \
       find . -type f \
-             -not -path '*/vendor/*' \
              -not -path '*/caches/*' \
              -name '*.go' \
              -exec \
@@ -1697,7 +1696,6 @@ then
     # skip empty lines, comments, and brackets
     cd "$git_root" && \
       find . -type f \
-             -not -path "*/vendor/*" \
              -name '*.php' \
              -exec \
       grep -nIHE \
