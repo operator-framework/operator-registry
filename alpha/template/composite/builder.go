@@ -264,7 +264,7 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 
 	// custom template should output a valid FBC to STDOUT so we can
 	// build the FBC just like all the other templates.
-	v, err := cmd.CombinedOutput()
+	v, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("running command %q: %v: %v", cmd.String(), err, v)
 	}
