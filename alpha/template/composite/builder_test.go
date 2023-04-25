@@ -36,11 +36,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "successful basic build yaml output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -71,11 +67,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "successful basic build json output",
 			validate: true,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -106,11 +98,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -129,11 +117,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -152,11 +136,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -172,11 +152,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -197,11 +173,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -222,11 +194,7 @@ func TestBasicBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			basicBuilder: NewBasicBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -244,7 +212,6 @@ func TestBasicBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.basicBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("basic-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -447,11 +414,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "successful semver build yaml output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -482,11 +445,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "successful semver build json output",
 			validate: true,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -517,11 +476,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -540,11 +495,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -563,11 +514,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -584,11 +531,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -609,11 +552,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -634,11 +573,7 @@ func TestSemverBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			semverBuilder: NewSemverBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -656,7 +591,6 @@ func TestSemverBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.semverBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("semver-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -869,11 +803,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "successful raw build yaml output",
 			validate: true,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -904,11 +834,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "successful raw build json output",
 			validate: true,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -939,11 +865,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -962,11 +884,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid output type",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "invalid",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -985,11 +903,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1005,11 +919,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty input",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1030,11 +940,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1055,11 +961,7 @@ func TestRawBuilder(t *testing.T) {
 			name:     "template config has empty input & output",
 			validate: false,
 			rawBuilder: NewRawBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1077,7 +979,6 @@ func TestRawBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.rawBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("raw-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1313,11 +1214,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "successful custom build yaml output",
 			validate: true,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1348,11 +1245,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "successful custom build json output",
 			validate: true,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "json",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1383,11 +1276,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "invalid template configuration",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1406,11 +1295,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "invalid schema",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1430,11 +1315,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty command",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1456,11 +1337,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1482,11 +1359,7 @@ func TestCustomBuilder(t *testing.T) {
 			name:     "template config has empty command & output",
 			validate: false,
 			customBuilder: NewCustomBuilder(BuilderConfig{
-				ContainerCfg: ContainerConfig{
-					ContainerTool: "docker",
-					BaseImage:     "quay.io/operator-framework/opm:latest",
-					WorkingDir:    testDir,
-				},
+				WorkingDir: testDir,
 				OutputType: "yaml",
 			}),
 			templateDefinition: TemplateDefinition{
@@ -1505,7 +1378,6 @@ func TestCustomBuilder(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc.customBuilder.builderCfg.InputDirectory = testDir
 		t.Run(tc.name, func(t *testing.T) {
 			outDir := fmt.Sprintf("custom-%d", i)
 			outPath := path.Join(testDir, outDir)
@@ -1719,7 +1591,7 @@ const customBuiltFbcJson = `{
 `
 
 func TestValidateFailure(t *testing.T) {
-	err := validate(ContainerConfig{}, "")
+	err := validate(BuilderConfig{}, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no such file or directory")
 }
