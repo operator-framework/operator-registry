@@ -1,7 +1,13 @@
 package declcfg
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"go4.org/bytereplacer"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -94,6 +100,8 @@ func (m Meta) MarshalJSON() ([]byte, error) {
 }
 
 func (m *Meta) UnmarshalJSON(blob []byte) error {
+	blob = bytereplacer.New(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(blob)
+
 	type tmp struct {
 		Schema     string              `json:"schema"`
 		Package    string              `json:"package,omitempty"`
@@ -102,11 +110,58 @@ func (m *Meta) UnmarshalJSON(blob []byte) error {
 	}
 	var t tmp
 	if err := json.Unmarshal(blob, &t); err != nil {
-		return err
+		// TODO: return an error that includes the the full JSON message,
+		//    the offset of the error, and the error message. Let callers
+		//    decide how to format it.
+		return errors.New(resolveUnmarshalErr(blob, err))
 	}
 	m.Schema = t.Schema
 	m.Package = t.Package
 	m.Name = t.Name
 	m.Blob = blob
 	return nil
+}
+
+func resolveUnmarshalErr(data []byte, err error) string {
+	var te *json.UnmarshalTypeError
+	if errors.As(err, &te) {
+		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
+	}
+	var se *json.SyntaxError
+	if errors.As(err, &se) {
+		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
+	}
+	return err.Error()
+}
+
+func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
+	sb := new(strings.Builder)
+	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
+	// attempt to present the erroneous JSON in indented, human-readable format
+	// errors result in presenting the original, unformatted output
+	var pretty bytes.Buffer
+	err := json.Indent(&pretty, data, "", "    ")
+	if err == nil {
+		pString := pretty.String()
+		// calc the prettified string offset which correlates to the original string offset
+		var pOffset, origOffset int64
+		origOffset = 0
+		for origOffset = 0; origOffset < offset; {
+			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
+				origOffset++
+			}
+			pOffset++
+		}
+		_, _ = sb.WriteString(pString[:pOffset])
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.WriteString(pString[pOffset:])
+	} else {
+		for i := int64(0); i < offset; i++ {
+			_ = sb.WriteByte(data[i])
+		}
+		_, _ = sb.WriteString(" <== ")
+		_, _ = sb.Write(data[offset:])
+	}
+
+	return sb.String()
 }

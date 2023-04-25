@@ -1,14 +1,12 @@
 package declcfg
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
-	"strings"
 
 	"github.com/joelanford/ignore"
 	"github.com/operator-framework/api/pkg/operators"
@@ -47,18 +45,12 @@ type WalkMetasReaderFunc func(meta *Meta, err error) error
 func WalkMetasReader(r io.Reader, walkFn WalkMetasReaderFunc) error {
 	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
 	for {
-		doc := json.RawMessage{}
-		if err := dec.Decode(&doc); err != nil {
+		var in Meta
+		if err := dec.Decode(&in); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			return walkFn(nil, err)
-		}
-		doc = []byte(strings.NewReplacer(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(string(doc)))
-
-		var in Meta
-		if err := json.Unmarshal(doc, &in); err != nil {
-			return walkFn(nil, fmt.Errorf("unmarshal error: %s", resolveUnmarshalErr(doc, err)))
 		}
 
 		if err := walkFn(&in, nil); err != nil {
@@ -234,48 +226,4 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 
 	return cfg, nil
-}
-
-func resolveUnmarshalErr(data []byte, err error) string {
-	var te *json.UnmarshalTypeError
-	if errors.As(err, &te) {
-		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
-	}
-	var se *json.SyntaxError
-	if errors.As(err, &se) {
-		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
-	}
-	return err.Error()
-}
-
-func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
-	sb := new(strings.Builder)
-	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
-	// attempt to present the erroneous JSON in indented, human-readable format
-	// errors result in presenting the original, unformatted output
-	var pretty bytes.Buffer
-	err := json.Indent(&pretty, data, "", "    ")
-	if err == nil {
-		pString := pretty.String()
-		// calc the prettified string offset which correlates to the original string offset
-		var pOffset, origOffset int64
-		origOffset = 0
-		for origOffset = 0; origOffset < offset; {
-			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
-				origOffset++
-			}
-			pOffset++
-		}
-		_, _ = sb.WriteString(pString[:pOffset])
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.WriteString(pString[pOffset:])
-	} else {
-		for i := int64(0); i < offset; i++ {
-			_ = sb.WriteByte(data[i])
-		}
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.Write(data[offset:])
-	}
-
-	return sb.String()
 }
