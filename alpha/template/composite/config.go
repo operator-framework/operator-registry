@@ -37,6 +37,6 @@ type Catalog struct {
 }
 
 type CatalogDestination struct {
-	BaseImage  string
+	// BaseImage  string
 	WorkingDir string
 }

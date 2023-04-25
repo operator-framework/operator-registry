@@ -463,7 +463,7 @@ func TestNewCatalogBuilderMap(t *testing.T) {
 					Name: "test-catalog",
 					Destination: CatalogDestination{
 						WorkingDir: "/",
-						BaseImage:  "base",
+						// BaseImage:  "base",
 					},
 					Builders: []string{
 						BasicBuilderSchema,
@@ -482,7 +482,7 @@ func TestNewCatalogBuilderMap(t *testing.T) {
 					Name: "test-catalog",
 					Destination: CatalogDestination{
 						WorkingDir: "/",
-						BaseImage:  "base",
+						// BaseImage:  "base",
 					},
 					Builders: []string{
 						"invalid",
