@@ -215,9 +215,9 @@ func (t *Template) newCatalogBuilderMap(catalogs []Catalog, outputType string) (
 	setupErrors := map[string][]string{}
 	for _, catalog := range catalogs {
 		errs := []string{}
-		if catalog.Destination.BaseImage == "" {
-			errs = append(errs, "destination.baseImage must not be an empty string")
-		}
+		// if catalog.Destination.BaseImage == "" {
+		// 	errs = append(errs, "destination.baseImage must not be an empty string")
+		// }
 
 		if catalog.Destination.WorkingDir == "" {
 			errs = append(errs, "destination.workingDir must not be an empty string")

@@ -42,7 +42,6 @@ schema: olm.composite.catalogs
 catalogs:
   - name: first-catalog
     destination:
-      baseImage: quay.io/operator-framework/opm:latest
       workingDir: contributions/first-catalog
     builders:
       - olm.builder.test
@@ -298,20 +297,17 @@ schema: olm.composite.catalogs
 catalogs:
   - name: first-catalog
     destination:
-      baseImage: quay.io/operator-framework/opm:latest
       workingDir: contributions/first-catalog
     builders:
       - olm.builder.semver
       - olm.builder.basic
   - name: second-catalog
     destination:
-      baseImage: quay.io/operator-framework/opm:latest
       workingDir: contributions/second-catalog
     builders:
       - olm.builder.semver
   - name: test-catalog
     destination:
-      baseImage: quay.io/operator-framework/opm:latest
       workingDir: contributions/test-catalog
     builders:
       - olm.builder.custom`
@@ -325,7 +321,6 @@ schema: invalid
 catalogs:
   - name: first-catalog
     destination:
-      baseImage: quay.io/operator-framework/opm:latest
       workingDir: contributions/first-catalog
     builders:
       - olm.builder.semver
@@ -463,7 +458,7 @@ func TestNewCatalogBuilderMap(t *testing.T) {
 					Name: "test-catalog",
 					Destination: CatalogDestination{
 						WorkingDir: "/",
-						BaseImage:  "base",
+						// BaseImage:  "base",
 					},
 					Builders: []string{
 						BasicBuilderSchema,
@@ -482,7 +477,7 @@ func TestNewCatalogBuilderMap(t *testing.T) {
 					Name: "test-catalog",
 					Destination: CatalogDestination{
 						WorkingDir: "/",
-						BaseImage:  "base",
+						// BaseImage:  "base",
 					},
 					Builders: []string{
 						"invalid",
@@ -494,22 +489,22 @@ func TestNewCatalogBuilderMap(t *testing.T) {
 				require.Equal(t, "getting builder \"invalid\" for catalog \"test-catalog\": unknown schema \"invalid\"", err.Error())
 			},
 		},
-		{
-			name: "BaseImage+WorkingDir invalid",
-			catalogs: []Catalog{
-				{
-					Name:        "test-catalog",
-					Destination: CatalogDestination{},
-					Builders: []string{
-						BasicBuilderSchema,
-					},
-				},
-			},
-			assertions: func(t *testing.T, builderMap *CatalogBuilderMap, err error) {
-				require.Error(t, err)
-				require.Equal(t, "catalog configuration file field validation failed: \nCatalog test-catalog:\n  - destination.baseImage must not be an empty string\n  - destination.workingDir must not be an empty string\n", err.Error())
-			},
-		},
+		// {
+		// 	name: "BaseImage+WorkingDir invalid",
+		// 	catalogs: []Catalog{
+		// 		{
+		// 			Name:        "test-catalog",
+		// 			Destination: CatalogDestination{},
+		// 			Builders: []string{
+		// 				BasicBuilderSchema,
+		// 			},
+		// 		},
+		// 	},
+		// 	assertions: func(t *testing.T, builderMap *CatalogBuilderMap, err error) {
+		// 		require.Error(t, err)
+		// 		require.Equal(t, "catalog configuration file field validation failed: \nCatalog test-catalog:\n  - destination.baseImage must not be an empty string\n  - destination.workingDir must not be an empty string\n", err.Error())
+		// 	},
+		// },
 	}
 
 	for _, tc := range testCases {
