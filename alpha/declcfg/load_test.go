@@ -92,6 +92,73 @@ func TestLoadReader(t *testing.T) {
 	}
 }
 
+func TestWalkMetasFS(t *testing.T) {
+	type spec struct {
+		name              string
+		fsys              fs.FS
+		assertion         require.ErrorAssertionFunc
+		expectNumPackages int
+		expectNumChannels int
+		expectNumBundles  int
+		expectNumOthers   int
+	}
+	specs := []spec{
+		{
+			name:      "Error/NilFS",
+			fsys:      nil,
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/NonExistentDir",
+			fsys:      os.DirFS("non/existent/dir/"),
+			assertion: require.Error,
+		},
+		{
+			name:      "Error/Invalid",
+			fsys:      invalidFS,
+			assertion: require.Error,
+		},
+		{
+			name:              "Success/ValidDir",
+			fsys:              validFS,
+			assertion:         require.NoError,
+			expectNumPackages: 3,
+			expectNumChannels: 0,
+			expectNumBundles:  12,
+			expectNumOthers:   1,
+		},
+	}
+
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			numPackages, numChannels, numBundles, numOthers := 0, 0, 0, 0
+			err := WalkMetasFS(s.fsys, func(path string, meta *Meta, err error) error {
+				if err != nil {
+					return err
+				}
+				switch meta.Schema {
+				case SchemaPackage:
+					numPackages++
+				case SchemaChannel:
+					numChannels++
+				case SchemaBundle:
+					numBundles++
+				default:
+					numOthers++
+				}
+				return nil
+			})
+			s.assertion(t, err)
+			if err == nil {
+				assert.Equal(t, s.expectNumPackages, numPackages, "unexpected package count")
+				assert.Equal(t, s.expectNumChannels, numChannels, "unexpected channel count")
+				assert.Equal(t, s.expectNumBundles, numBundles, "unexpected bundle count")
+				assert.Equal(t, s.expectNumOthers, numOthers, "unexpected others count")
+			}
+		})
+	}
+}
+
 func TestLoadFS(t *testing.T) {
 	type spec struct {
 		name      string

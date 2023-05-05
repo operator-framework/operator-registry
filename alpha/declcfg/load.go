@@ -1,14 +1,12 @@
 package declcfg
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
-	"strings"
 
 	"github.com/joelanford/ignore"
 	"github.com/operator-framework/api/pkg/operators"
@@ -22,6 +20,46 @@ const (
 	indexIgnoreFilename = ".indexignore"
 )
 
+type WalkMetasFSFunc func(path string, meta *Meta, err error) error
+
+func WalkMetasFS(root fs.FS, walkFn WalkMetasFSFunc) error {
+	return walkFiles(root, func(root fs.FS, path string, err error) error {
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+
+		f, err := root.Open(path)
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+		defer f.Close()
+
+		return WalkMetasReader(f, func(meta *Meta, err error) error {
+			return walkFn(path, meta, err)
+		})
+	})
+}
+
+type WalkMetasReaderFunc func(meta *Meta, err error) error
+
+func WalkMetasReader(r io.Reader, walkFn WalkMetasReaderFunc) error {
+	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
+	for {
+		var in Meta
+		if err := dec.Decode(&in); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return walkFn(nil, err)
+		}
+
+		if err := walkFn(&in, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type WalkFunc func(path string, cfg *DeclarativeConfig, err error) error
 
 // WalkFS walks root using a gitignore-style filename matcher to skip files
@@ -29,6 +67,21 @@ type WalkFunc func(path string, cfg *DeclarativeConfig, err error) error
 // It calls walkFn for each declarative config file it finds. If WalkFS encounters
 // an error loading or parsing any file, the error will be immediately returned.
 func WalkFS(root fs.FS, walkFn WalkFunc) error {
+	return walkFiles(root, func(root fs.FS, path string, err error) error {
+		if err != nil {
+			return walkFn(path, nil, err)
+		}
+
+		cfg, err := LoadFile(root, path)
+		if err != nil {
+			return walkFn(path, cfg, err)
+		}
+
+		return walkFn(path, cfg, nil)
+	})
+}
+
+func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) error {
 	if root == nil {
 		return fmt.Errorf("no declarative config filesystem provided")
 	}
@@ -40,7 +93,7 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 
 	return fs.WalkDir(root, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
-			return walkFn(path, nil, err)
+			return fn(root, path, err)
 		}
 		// avoid validating a directory, an .indexignore file, or any file that matches
 		// an ignore pattern outlined in a .indexignore file.
@@ -48,12 +101,7 @@ func WalkFS(root fs.FS, walkFn WalkFunc) error {
 			return nil
 		}
 
-		cfg, err := LoadFile(root, path)
-		if err != nil {
-			return walkFn(path, cfg, err)
-		}
-
-		return walkFn(path, cfg, err)
+		return fn(root, path, nil)
 	})
 }
 
@@ -123,46 +171,38 @@ func extractCSV(objs []string) string {
 // Path references will not be de-referenced so callers are responsible for de-referencing if necessary.
 func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
-	dec := yaml.NewYAMLOrJSONDecoder(r, 4096)
-	for {
-		doc := json.RawMessage{}
-		if err := dec.Decode(&doc); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		doc = []byte(strings.NewReplacer(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(string(doc)))
 
-		var in Meta
-		if err := json.Unmarshal(doc, &in); err != nil {
-			return nil, fmt.Errorf("unmarshal error: %s", resolveUnmarshalErr(doc, err))
+	if err := WalkMetasReader(r, func(in *Meta, err error) error {
+		if err != nil {
+			return err
 		}
-
 		switch in.Schema {
 		case SchemaPackage:
 			var p Package
-			if err := json.Unmarshal(doc, &p); err != nil {
-				return nil, fmt.Errorf("parse package: %v", err)
+			if err := json.Unmarshal(in.Blob, &p); err != nil {
+				return fmt.Errorf("parse package: %v", err)
 			}
 			cfg.Packages = append(cfg.Packages, p)
 		case SchemaChannel:
 			var c Channel
-			if err := json.Unmarshal(doc, &c); err != nil {
-				return nil, fmt.Errorf("parse channel: %v", err)
+			if err := json.Unmarshal(in.Blob, &c); err != nil {
+				return fmt.Errorf("parse channel: %v", err)
 			}
 			cfg.Channels = append(cfg.Channels, c)
 		case SchemaBundle:
 			var b Bundle
-			if err := json.Unmarshal(doc, &b); err != nil {
-				return nil, fmt.Errorf("parse bundle: %v", err)
+			if err := json.Unmarshal(in.Blob, &b); err != nil {
+				return fmt.Errorf("parse bundle: %v", err)
 			}
 			cfg.Bundles = append(cfg.Bundles, b)
 		case "":
-			return nil, fmt.Errorf("object '%s' is missing root schema field", string(doc))
+			return fmt.Errorf("object '%s' is missing root schema field", string(in.Blob))
 		default:
-			cfg.Others = append(cfg.Others, in)
+			cfg.Others = append(cfg.Others, *in)
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return cfg, nil
 }
@@ -186,48 +226,4 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	}
 
 	return cfg, nil
-}
-
-func resolveUnmarshalErr(data []byte, err error) string {
-	var te *json.UnmarshalTypeError
-	if errors.As(err, &te) {
-		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
-	}
-	var se *json.SyntaxError
-	if errors.As(err, &se) {
-		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
-	}
-	return err.Error()
-}
-
-func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
-	sb := new(strings.Builder)
-	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
-	// attempt to present the erroneous JSON in indented, human-readable format
-	// errors result in presenting the original, unformatted output
-	var pretty bytes.Buffer
-	err := json.Indent(&pretty, data, "", "    ")
-	if err == nil {
-		pString := pretty.String()
-		// calc the prettified string offset which correlates to the original string offset
-		var pOffset, origOffset int64
-		origOffset = 0
-		for origOffset = 0; origOffset < offset; {
-			pOffset++
-			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
-				origOffset++
-			}
-		}
-		_, _ = sb.WriteString(pString[:pOffset])
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.WriteString(pString[pOffset:])
-	} else {
-		for i := int64(0); i < offset; i++ {
-			_ = sb.WriteByte(data[i])
-		}
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.Write(data[offset:])
-	}
-
-	return sb.String()
 }
