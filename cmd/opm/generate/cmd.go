@@ -87,6 +87,56 @@ value of each duplicate key will be added to the generated Dockerfile.
 	return cmd
 }
 
+func newDevfileCmd() *cobra.Command {
+	var (
+		baseImage string
+	)
+	cmd := &cobra.Command{
+		Use:   "devfile <dcRootDir>",
+		Args:  cobra.ExactArgs(1),
+		Short: "Generate a Devfile for a declarative config index",
+		Long: `Generate a Devfile for a declarative config index.
+
+This command creates a Devfile in the same directory as the <dcRootDir>
+(named <dcDirName>.Dockerfile) that can be used to build the index. If a
+Devfile with the same name already exists, this command will fail.
+`,
+		RunE: func(_ *cobra.Command, args []string) error {
+			fromDir := filepath.Clean(args[0])
+
+			dir, indexName := filepath.Split(fromDir)
+			dockerfilePath := filepath.Join(dir, fmt.Sprintf("%s.Devfile", indexName))
+
+			if err := ensureNotExist(dockerfilePath); err != nil {
+				logrus.Fatal(err)
+			}
+
+			if s, err := os.Stat(fromDir); err != nil {
+				return err
+			} else if !s.IsDir() {
+				return fmt.Errorf("provided root path %q is not a directory", fromDir)
+			}
+
+			f, err := os.OpenFile(dockerfilePath, os.O_CREATE|os.O_WRONLY, 0666)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+			defer f.Close()
+
+			gen := action.GenerateDevfile{
+				IndexDir: indexName,
+				Writer:   f,
+			}
+			if err := gen.Run(); err != nil {
+				log.Fatal(err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&baseImage, "binary-image", "i", containertools.DefaultBinarySourceImage, "Image in which to build catalog.")
+	return cmd
+}
+
 func parseLabels(labelStrs []string) (map[string]string, error) {
 	labels := map[string]string{}
 	for _, l := range labelStrs {
