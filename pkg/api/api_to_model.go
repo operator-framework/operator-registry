@@ -106,8 +106,14 @@ func convertAPIBundleToModelProperties(b *Bundle) ([]property.Property, error) {
 		out = append(out, property.MustBuildGVKRequired(p.Group, p.Version, p.Kind))
 	}
 
-	for _, obj := range b.Object {
-		out = append(out, property.MustBuildBundleObjectData([]byte(obj)))
+	// If there is a bundle image reference, only create a bundle object property for the CSV.
+	// Otherwise, create a bundle object property for each object in the bundle.
+	if b.BundlePath != "" {
+		out = append(out, property.MustBuildBundleObjectData([]byte(b.CsvJson)))
+	} else {
+		for _, obj := range b.Object {
+			out = append(out, property.MustBuildBundleObjectData([]byte(obj)))
+		}
 	}
 
 	sort.Slice(out, func(i, j int) bool {
