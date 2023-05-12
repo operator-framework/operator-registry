@@ -82,7 +82,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("render reference %q: %w", ref, err)
 		}
-		renderBundleObjects(cfg)
+		moveBundleObjectsToEndOfPropertySlices(cfg)
 
 		for _, b := range cfg.Bundles {
 			sort.Slice(b.RelatedImages, func(i, j int) bool {
@@ -304,6 +304,7 @@ func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.DeclarativeConfig, error
 	if err != nil {
 		return nil, fmt.Errorf("get related images for bundle %q: %v", bundle.Name, err)
 	}
+
 	var csvJson []byte
 	for _, obj := range bundle.Objects {
 		if obj.GetKind() == "ClusterServiceVersion" {
@@ -376,19 +377,21 @@ func getRelatedImages(b *registry.Bundle) ([]declcfg.RelatedImage, error) {
 	return relatedImages, nil
 }
 
-func renderBundleObjects(cfg *declcfg.DeclarativeConfig) {
+func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 	for bi, b := range cfg.Bundles {
-		props := b.Properties[:0]
+		var (
+			others []property.Property
+			objs   []property.Property
+		)
 		for _, p := range b.Properties {
-			if p.Type != property.TypeBundleObject {
-				props = append(props, p)
+			switch p.Type {
+			case property.TypeBundleObject:
+				objs = append(objs, p)
+			default:
+				others = append(others, p)
 			}
 		}
-
-		for _, obj := range b.Objects {
-			props = append(props, property.MustBuildBundleObjectData([]byte(obj)))
-		}
-		cfg.Bundles[bi].Properties = props
+		cfg.Bundles[bi].Properties = append(others, objs...)
 	}
 }
 
