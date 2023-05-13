@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,7 +18,7 @@ func TestObjectsAndPropertiesFromBundle(t *testing.T) {
 	actualObjs, actualProps, err := ObjectsAndPropertiesFromBundle(registryBundle)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, testExpectedObjects(), actualObjs)
-	assert.ElementsMatch(t, testExpectedProperties(), actualProps)
+	assert.ElementsMatch(t, testExpectedProperties(t), actualProps)
 }
 
 const testBundleDir = "../../bundles/etcd.0.9.2"
@@ -39,7 +40,12 @@ func testExpectedObjects() []string {
 	}
 }
 
-func testExpectedProperties() []property.Property {
+func testExpectedProperties(t *testing.T) []property.Property {
+	t.Helper()
+	var csv v1alpha1.ClusterServiceVersion
+	if err := json.Unmarshal([]byte(expectedCSV), &csv); err != nil {
+		t.Fatalf("failed to unmarshal CSV: %v", err)
+	}
 	props := []property.Property{
 		property.MustBuildPackage("etcd", "0.9.2"),
 		property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
@@ -51,7 +57,7 @@ func testExpectedProperties() []property.Property {
 			Type:  "olm.constraint",
 			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
 		},
-		property.MustBuildBundleObjectData([]byte(expectedCSV)),
+		property.MustBuildCSVMetadata(csv),
 	}
 	return props
 }

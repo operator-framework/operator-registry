@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,7 +14,7 @@ import (
 
 func TestConvertAPIBundleToModelBundle(t *testing.T) {
 	apiBundle := testAPIBundle()
-	expected := testModelBundle()
+	expected := testModelBundle(t)
 
 	actual, err := ConvertAPIBundleToModelBundle(&apiBundle)
 	require.NoError(t, err)
@@ -20,7 +22,7 @@ func TestConvertAPIBundleToModelBundle(t *testing.T) {
 }
 
 func TestConvertModelBundleToAPIBundle(t *testing.T) {
-	modelBundle := testModelBundle()
+	modelBundle := testModelBundle(t)
 	modelBundle.Package = &model.Package{Name: "etcd"}
 	modelBundle.Channel = &model.Channel{Name: "singlenamespace-alpha"}
 	expected := testAPIBundle()
@@ -41,7 +43,12 @@ const (
 	crdrestores = `{"apiVersion":"apiextensions.k8s.io/v1beta1","kind":"CustomResourceDefinition","metadata":{"name":"etcdrestores.etcd.database.coreos.com"},"spec":{"group":"etcd.database.coreos.com","names":{"kind":"EtcdRestore","listKind":"EtcdRestoreList","plural":"etcdrestores","singular":"etcdrestore"},"scope":"Namespaced","version":"v1beta2"}}`
 )
 
-func testModelBundle() model.Bundle {
+func testModelBundle(t *testing.T) model.Bundle {
+	t.Helper()
+	var csv v1alpha1.ClusterServiceVersion
+	if err := json.Unmarshal([]byte(csvJson), &csv); err != nil {
+		t.Fatalf("failed to unmarshal csv json: %v", err)
+	}
 	b := model.Bundle{
 		Name:     "etcdoperator.v0.9.4",
 		Image:    "quay.io/operatorhubio/etcd:v0.9.4",
@@ -52,7 +59,7 @@ func testModelBundle() model.Bundle {
 			property.MustBuildPackageRequired("test", ">=1.2.3 <2.0.0-0"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "Testapi"),
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
-			property.MustBuildBundleObjectData([]byte(csvJson)),
+			property.MustBuildCSVMetadata(csv),
 		},
 		CsvJSON: csvJson,
 		Objects: []string{

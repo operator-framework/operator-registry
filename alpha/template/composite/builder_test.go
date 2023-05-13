@@ -58,6 +58,7 @@ func TestBasicBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
+				fmt.Println(string(fileData))
 				require.Equal(t, string(fileData), basicBuiltFbcYaml)
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
@@ -89,6 +90,7 @@ func TestBasicBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
+				fmt.Println(string(fileData))
 				require.Equal(t, string(fileData), basicBuiltFbcJson)
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
@@ -294,9 +296,55 @@ properties:
   value:
     packageName: webhook-operator
     version: 0.0.1
-- type: olm.bundle.object
+- type: olm.csv.metadata
   value:
-    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsiYWxtLWV4YW1wbGVzIjoiW1xuICB7XG4gICAgXCJhcGlWZXJzaW9uXCI6IFwid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvL3YxXCIsXG4gICAgXCJraW5kXCI6IFwiV2ViaG9va1Rlc3RcIixcbiAgICBcIm1ldGFkYXRhXCI6IHtcbiAgICAgIFwibmFtZVwiOiBcIndlYmhvb2t0ZXN0LXNhbXBsZVwiLFxuICAgICAgXCJuYW1lc3BhY2VcIjogXCJ3ZWJob29rLW9wZXJhdG9yLXN5c3RlbVwiXG4gICAgfSxcbiAgICBcInNwZWNcIjoge1xuICAgICAgXCJ2YWxpZFwiOiB0cnVlXG4gICAgfVxuICB9XG5dIiwiY2FwYWJpbGl0aWVzIjoiQmFzaWMgSW5zdGFsbCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9idWlsZGVyIjoib3BlcmF0b3Itc2RrLXYxLjAuMCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9wcm9qZWN0X2xheW91dCI6ImdvIn0sIm5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLnYwLjAuMSIsIm5hbWVzcGFjZSI6InBsYWNlaG9sZGVyIn0sInNwZWMiOnsiYXBpc2VydmljZWRlZmluaXRpb25zIjp7fSwiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3sia2luZCI6IldlYmhvb2tUZXN0IiwibmFtZSI6IndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iLCJ2ZXJzaW9uIjoidjEifV19LCJkZXNjcmlwdGlvbiI6IldlYmhvb2sgT3BlcmF0b3IgZGVzY3JpcHRpb24uIFRPRE8uIiwiZGlzcGxheU5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwiaWNvbiI6W3siYmFzZTY0ZGF0YSI6IiIsIm1lZGlhdHlwZSI6IiJ9XSwiaW5zdGFsbCI6eyJzcGVjIjp7ImNsdXN0ZXJQZXJtaXNzaW9ucyI6W3sicnVsZXMiOlt7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cyJdLCJ2ZXJicyI6WyJjcmVhdGUiLCJkZWxldGUiLCJnZXQiLCJsaXN0IiwicGF0Y2giLCJ1cGRhdGUiLCJ3YXRjaCJdfSx7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cy9zdGF0dXMiXSwidmVyYnMiOlsiZ2V0IiwicGF0Y2giLCJ1cGRhdGUiXX0seyJhcGlHcm91cHMiOlsiYXV0aGVudGljYXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJ0b2tlbnJldmlld3MiXSwidmVyYnMiOlsiY3JlYXRlIl19LHsiYXBpR3JvdXBzIjpbImF1dGhvcml6YXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJzdWJqZWN0YWNjZXNzcmV2aWV3cyJdLCJ2ZXJicyI6WyJjcmVhdGUiXX1dLCJzZXJ2aWNlQWNjb3VudE5hbWUiOiJkZWZhdWx0In1dLCJkZXBsb3ltZW50cyI6W3sibmFtZSI6IndlYmhvb2stb3BlcmF0b3Itd2ViaG9vayIsInNwZWMiOnsicmVwbGljYXMiOjEsInNlbGVjdG9yIjp7Im1hdGNoTGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInN0cmF0ZWd5Ijp7fSwidGVtcGxhdGUiOnsibWV0YWRhdGEiOnsibGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInNwZWMiOnsiY29udGFpbmVycyI6W3siYXJncyI6WyItLXNlY3VyZS1saXN0ZW4tYWRkcmVzcz0wLjAuMC4wOjg0NDMiLCItLXVwc3RyZWFtPWh0dHA6Ly8xMjcuMC4wLjE6ODA4MC8iLCItLWxvZ3Rvc3RkZXJyPXRydWUiLCItLXY9MTAiXSwiaW1hZ2UiOiJnY3IuaW8va3ViZWJ1aWxkZXIva3ViZS1yYmFjLXByb3h5OnYwLjUuMCIsIm5hbWUiOiJrdWJlLXJiYWMtcHJveHkiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6ODQ0MywibmFtZSI6Imh0dHBzIn1dLCJyZXNvdXJjZXMiOnt9fSx7ImFyZ3MiOlsiLS1tZXRyaWNzLWFkZHI9MTI3LjAuMC4xOjgwODAiLCItLWVuYWJsZS1sZWFkZXItZWxlY3Rpb24iXSwiY29tbWFuZCI6WyIvbWFuYWdlciJdLCJpbWFnZSI6InF1YXkuaW8vb2xtdGVzdC93ZWJob29rLW9wZXJhdG9yOjAuMC4zIiwibmFtZSI6Im1hbmFnZXIiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6OTQ0MywibmFtZSI6IndlYmhvb2stc2VydmVyIiwicHJvdG9jb2wiOiJUQ1AifV0sInJlc291cmNlcyI6eyJsaW1pdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjMwTWkifSwicmVxdWVzdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjIwTWkifX19XSwidGVybWluYXRpb25HcmFjZVBlcmlvZFNlY29uZHMiOjEwfX19fV0sInBlcm1pc3Npb25zIjpbeyJydWxlcyI6W3siYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiY29uZmlnbWFwcyJdLCJ2ZXJicyI6WyJnZXQiLCJsaXN0Iiwid2F0Y2giLCJjcmVhdGUiLCJ1cGRhdGUiLCJwYXRjaCIsImRlbGV0ZSJdfSx7ImFwaUdyb3VwcyI6WyIiXSwicmVzb3VyY2VzIjpbImNvbmZpZ21hcHMvc3RhdHVzIl0sInZlcmJzIjpbImdldCIsInVwZGF0ZSIsInBhdGNoIl19LHsiYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiZXZlbnRzIl0sInZlcmJzIjpbImNyZWF0ZSJdfV0sInNlcnZpY2VBY2NvdW50TmFtZSI6ImRlZmF1bHQifV19LCJzdHJhdGVneSI6ImRlcGxveW1lbnQifSwiaW5zdGFsbE1vZGVzIjpbeyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiT3duTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiU2luZ2xlTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiTXVsdGlOYW1lc3BhY2UifSx7InN1cHBvcnRlZCI6dHJ1ZSwidHlwZSI6IkFsbE5hbWVzcGFjZXMifV0sImtleXdvcmRzIjpbIndlYmhvb2stb3BlcmF0b3IiXSwibGlua3MiOlt7Im5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwidXJsIjoiaHR0cHM6Ly93ZWJob29rLW9wZXJhdG9yLmRvbWFpbiJ9XSwibWFpbnRhaW5lcnMiOlt7ImVtYWlsIjoieW91ckBlbWFpbC5jb20iLCJuYW1lIjoiTWFpbnRhaW5lciBOYW1lIn1dLCJtYXR1cml0eSI6ImFscGhhIiwicHJvdmlkZXIiOnsibmFtZSI6IlByb3ZpZGVyIE5hbWUiLCJ1cmwiOiJodHRwczovL3lvdXIuZG9tYWluIn0sInZlcnNpb24iOiIwLjAuMSIsIndlYmhvb2tkZWZpbml0aW9ucyI6W3siYWRtaXNzaW9uUmV2aWV3VmVyc2lvbnMiOlsidjFiZXRhMSIsInYxIl0sImNvbnRhaW5lclBvcnQiOjQ0MywiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6InZ3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiVmFsaWRhdGluZ0FkbWlzc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii92YWxpZGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImRlcGxveW1lbnROYW1lIjoid2ViaG9vay1vcGVyYXRvci13ZWJob29rIiwiZmFpbHVyZVBvbGljeSI6IkZhaWwiLCJnZW5lcmF0ZU5hbWUiOiJtd2ViaG9va3Rlc3Qua2IuaW8iLCJydWxlcyI6W3siYXBpR3JvdXBzIjpbIndlYmhvb2sub3BlcmF0b3JzLmNvcmVvcy5pbyJdLCJhcGlWZXJzaW9ucyI6WyJ2MSJdLCJvcGVyYXRpb25zIjpbIkNSRUFURSIsIlVQREFURSJdLCJyZXNvdXJjZXMiOlsid2ViaG9va3Rlc3RzIl19XSwic2lkZUVmZmVjdHMiOiJOb25lIiwidGFyZ2V0UG9ydCI6NDM0MywidHlwZSI6Ik11dGF0aW5nQWRtaXNzaW9uV2ViaG9vayIsIndlYmhvb2tQYXRoIjoiL211dGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImNvbnZlcnNpb25DUkRzIjpbIndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6ImN3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiQ29udmVyc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii9jb252ZXJ0In1dfX0=
+    annotations:
+      alm-examples: |-
+        [
+          {
+            "apiVersion": "webhook.operators.coreos.io/v1",
+            "kind": "WebhookTest",
+            "metadata": {
+              "name": "webhooktest-sample",
+              "namespace": "webhook-operator-system"
+            },
+            "spec": {
+              "valid": true
+            }
+          }
+        ]
+      capabilities: Basic Install
+      operators.operatorframework.io/builder: operator-sdk-v1.0.0
+      operators.operatorframework.io/project_layout: go
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: WebhookTest
+        name: webhooktests.webhook.operators.coreos.io
+        version: v1
+    description: Webhook Operator description. TODO.
+    displayName: Webhook Operator
+    installModes:
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+    keywords:
+    - webhook-operator
+    links:
+    - name: Webhook Operator
+      url: https://webhook-operator.domain
+    maintainers:
+    - email: your@email.com
+      name: Maintainer Name
+    maturity: alpha
+    provider:
+      name: Provider Name
+      url: https://your.domain
 relatedImages:
 - image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
   name: ""
@@ -352,9 +400,64 @@ const basicBuiltFbcJson = `{
             }
         },
         {
-            "type": "olm.bundle.object",
+            "type": "olm.csv.metadata",
             "value": {
-                "data": "eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsiYWxtLWV4YW1wbGVzIjoiW1xuICB7XG4gICAgXCJhcGlWZXJzaW9uXCI6IFwid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvL3YxXCIsXG4gICAgXCJraW5kXCI6IFwiV2ViaG9va1Rlc3RcIixcbiAgICBcIm1ldGFkYXRhXCI6IHtcbiAgICAgIFwibmFtZVwiOiBcIndlYmhvb2t0ZXN0LXNhbXBsZVwiLFxuICAgICAgXCJuYW1lc3BhY2VcIjogXCJ3ZWJob29rLW9wZXJhdG9yLXN5c3RlbVwiXG4gICAgfSxcbiAgICBcInNwZWNcIjoge1xuICAgICAgXCJ2YWxpZFwiOiB0cnVlXG4gICAgfVxuICB9XG5dIiwiY2FwYWJpbGl0aWVzIjoiQmFzaWMgSW5zdGFsbCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9idWlsZGVyIjoib3BlcmF0b3Itc2RrLXYxLjAuMCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9wcm9qZWN0X2xheW91dCI6ImdvIn0sIm5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLnYwLjAuMSIsIm5hbWVzcGFjZSI6InBsYWNlaG9sZGVyIn0sInNwZWMiOnsiYXBpc2VydmljZWRlZmluaXRpb25zIjp7fSwiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3sia2luZCI6IldlYmhvb2tUZXN0IiwibmFtZSI6IndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iLCJ2ZXJzaW9uIjoidjEifV19LCJkZXNjcmlwdGlvbiI6IldlYmhvb2sgT3BlcmF0b3IgZGVzY3JpcHRpb24uIFRPRE8uIiwiZGlzcGxheU5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwiaWNvbiI6W3siYmFzZTY0ZGF0YSI6IiIsIm1lZGlhdHlwZSI6IiJ9XSwiaW5zdGFsbCI6eyJzcGVjIjp7ImNsdXN0ZXJQZXJtaXNzaW9ucyI6W3sicnVsZXMiOlt7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cyJdLCJ2ZXJicyI6WyJjcmVhdGUiLCJkZWxldGUiLCJnZXQiLCJsaXN0IiwicGF0Y2giLCJ1cGRhdGUiLCJ3YXRjaCJdfSx7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cy9zdGF0dXMiXSwidmVyYnMiOlsiZ2V0IiwicGF0Y2giLCJ1cGRhdGUiXX0seyJhcGlHcm91cHMiOlsiYXV0aGVudGljYXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJ0b2tlbnJldmlld3MiXSwidmVyYnMiOlsiY3JlYXRlIl19LHsiYXBpR3JvdXBzIjpbImF1dGhvcml6YXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJzdWJqZWN0YWNjZXNzcmV2aWV3cyJdLCJ2ZXJicyI6WyJjcmVhdGUiXX1dLCJzZXJ2aWNlQWNjb3VudE5hbWUiOiJkZWZhdWx0In1dLCJkZXBsb3ltZW50cyI6W3sibmFtZSI6IndlYmhvb2stb3BlcmF0b3Itd2ViaG9vayIsInNwZWMiOnsicmVwbGljYXMiOjEsInNlbGVjdG9yIjp7Im1hdGNoTGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInN0cmF0ZWd5Ijp7fSwidGVtcGxhdGUiOnsibWV0YWRhdGEiOnsibGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInNwZWMiOnsiY29udGFpbmVycyI6W3siYXJncyI6WyItLXNlY3VyZS1saXN0ZW4tYWRkcmVzcz0wLjAuMC4wOjg0NDMiLCItLXVwc3RyZWFtPWh0dHA6Ly8xMjcuMC4wLjE6ODA4MC8iLCItLWxvZ3Rvc3RkZXJyPXRydWUiLCItLXY9MTAiXSwiaW1hZ2UiOiJnY3IuaW8va3ViZWJ1aWxkZXIva3ViZS1yYmFjLXByb3h5OnYwLjUuMCIsIm5hbWUiOiJrdWJlLXJiYWMtcHJveHkiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6ODQ0MywibmFtZSI6Imh0dHBzIn1dLCJyZXNvdXJjZXMiOnt9fSx7ImFyZ3MiOlsiLS1tZXRyaWNzLWFkZHI9MTI3LjAuMC4xOjgwODAiLCItLWVuYWJsZS1sZWFkZXItZWxlY3Rpb24iXSwiY29tbWFuZCI6WyIvbWFuYWdlciJdLCJpbWFnZSI6InF1YXkuaW8vb2xtdGVzdC93ZWJob29rLW9wZXJhdG9yOjAuMC4zIiwibmFtZSI6Im1hbmFnZXIiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6OTQ0MywibmFtZSI6IndlYmhvb2stc2VydmVyIiwicHJvdG9jb2wiOiJUQ1AifV0sInJlc291cmNlcyI6eyJsaW1pdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjMwTWkifSwicmVxdWVzdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjIwTWkifX19XSwidGVybWluYXRpb25HcmFjZVBlcmlvZFNlY29uZHMiOjEwfX19fV0sInBlcm1pc3Npb25zIjpbeyJydWxlcyI6W3siYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiY29uZmlnbWFwcyJdLCJ2ZXJicyI6WyJnZXQiLCJsaXN0Iiwid2F0Y2giLCJjcmVhdGUiLCJ1cGRhdGUiLCJwYXRjaCIsImRlbGV0ZSJdfSx7ImFwaUdyb3VwcyI6WyIiXSwicmVzb3VyY2VzIjpbImNvbmZpZ21hcHMvc3RhdHVzIl0sInZlcmJzIjpbImdldCIsInVwZGF0ZSIsInBhdGNoIl19LHsiYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiZXZlbnRzIl0sInZlcmJzIjpbImNyZWF0ZSJdfV0sInNlcnZpY2VBY2NvdW50TmFtZSI6ImRlZmF1bHQifV19LCJzdHJhdGVneSI6ImRlcGxveW1lbnQifSwiaW5zdGFsbE1vZGVzIjpbeyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiT3duTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiU2luZ2xlTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiTXVsdGlOYW1lc3BhY2UifSx7InN1cHBvcnRlZCI6dHJ1ZSwidHlwZSI6IkFsbE5hbWVzcGFjZXMifV0sImtleXdvcmRzIjpbIndlYmhvb2stb3BlcmF0b3IiXSwibGlua3MiOlt7Im5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwidXJsIjoiaHR0cHM6Ly93ZWJob29rLW9wZXJhdG9yLmRvbWFpbiJ9XSwibWFpbnRhaW5lcnMiOlt7ImVtYWlsIjoieW91ckBlbWFpbC5jb20iLCJuYW1lIjoiTWFpbnRhaW5lciBOYW1lIn1dLCJtYXR1cml0eSI6ImFscGhhIiwicHJvdmlkZXIiOnsibmFtZSI6IlByb3ZpZGVyIE5hbWUiLCJ1cmwiOiJodHRwczovL3lvdXIuZG9tYWluIn0sInZlcnNpb24iOiIwLjAuMSIsIndlYmhvb2tkZWZpbml0aW9ucyI6W3siYWRtaXNzaW9uUmV2aWV3VmVyc2lvbnMiOlsidjFiZXRhMSIsInYxIl0sImNvbnRhaW5lclBvcnQiOjQ0MywiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6InZ3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiVmFsaWRhdGluZ0FkbWlzc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii92YWxpZGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImRlcGxveW1lbnROYW1lIjoid2ViaG9vay1vcGVyYXRvci13ZWJob29rIiwiZmFpbHVyZVBvbGljeSI6IkZhaWwiLCJnZW5lcmF0ZU5hbWUiOiJtd2ViaG9va3Rlc3Qua2IuaW8iLCJydWxlcyI6W3siYXBpR3JvdXBzIjpbIndlYmhvb2sub3BlcmF0b3JzLmNvcmVvcy5pbyJdLCJhcGlWZXJzaW9ucyI6WyJ2MSJdLCJvcGVyYXRpb25zIjpbIkNSRUFURSIsIlVQREFURSJdLCJyZXNvdXJjZXMiOlsid2ViaG9va3Rlc3RzIl19XSwic2lkZUVmZmVjdHMiOiJOb25lIiwidGFyZ2V0UG9ydCI6NDM0MywidHlwZSI6Ik11dGF0aW5nQWRtaXNzaW9uV2ViaG9vayIsIndlYmhvb2tQYXRoIjoiL211dGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImNvbnZlcnNpb25DUkRzIjpbIndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6ImN3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiQ29udmVyc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii9jb252ZXJ0In1dfX0="
+                "annotations": {
+                    "alm-examples": "[\n  {\n    \"apiVersion\": \"webhook.operators.coreos.io/v1\",\n    \"kind\": \"WebhookTest\",\n    \"metadata\": {\n      \"name\": \"webhooktest-sample\",\n      \"namespace\": \"webhook-operator-system\"\n    },\n    \"spec\": {\n      \"valid\": true\n    }\n  }\n]",
+                    "capabilities": "Basic Install",
+                    "operators.operatorframework.io/builder": "operator-sdk-v1.0.0",
+                    "operators.operatorframework.io/project_layout": "go"
+                },
+                "apiServiceDefinitions": {},
+                "crdDescriptions": {
+                    "owned": [
+                        {
+                            "name": "webhooktests.webhook.operators.coreos.io",
+                            "version": "v1",
+                            "kind": "WebhookTest"
+                        }
+                    ]
+                },
+                "description": "Webhook Operator description. TODO.",
+                "displayName": "Webhook Operator",
+                "installModes": [
+                    {
+                        "type": "OwnNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "SingleNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "MultiNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "AllNamespaces",
+                        "supported": true
+                    }
+                ],
+                "keywords": [
+                    "webhook-operator"
+                ],
+                "links": [
+                    {
+                        "name": "Webhook Operator",
+                        "url": "https://webhook-operator.domain"
+                    }
+                ],
+                "maintainers": [
+                    {
+                        "name": "Maintainer Name",
+                        "email": "your@email.com"
+                    }
+                ],
+                "maturity": "alpha",
+                "provider": {
+                    "name": "Provider Name",
+                    "url": "https://your.domain"
+                }
             }
         }
     ],
@@ -656,9 +759,55 @@ properties:
   value:
     packageName: webhook-operator
     version: 0.0.1
-- type: olm.bundle.object
+- type: olm.csv.metadata
   value:
-    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsiYWxtLWV4YW1wbGVzIjoiW1xuICB7XG4gICAgXCJhcGlWZXJzaW9uXCI6IFwid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvL3YxXCIsXG4gICAgXCJraW5kXCI6IFwiV2ViaG9va1Rlc3RcIixcbiAgICBcIm1ldGFkYXRhXCI6IHtcbiAgICAgIFwibmFtZVwiOiBcIndlYmhvb2t0ZXN0LXNhbXBsZVwiLFxuICAgICAgXCJuYW1lc3BhY2VcIjogXCJ3ZWJob29rLW9wZXJhdG9yLXN5c3RlbVwiXG4gICAgfSxcbiAgICBcInNwZWNcIjoge1xuICAgICAgXCJ2YWxpZFwiOiB0cnVlXG4gICAgfVxuICB9XG5dIiwiY2FwYWJpbGl0aWVzIjoiQmFzaWMgSW5zdGFsbCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9idWlsZGVyIjoib3BlcmF0b3Itc2RrLXYxLjAuMCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9wcm9qZWN0X2xheW91dCI6ImdvIn0sIm5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLnYwLjAuMSIsIm5hbWVzcGFjZSI6InBsYWNlaG9sZGVyIn0sInNwZWMiOnsiYXBpc2VydmljZWRlZmluaXRpb25zIjp7fSwiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3sia2luZCI6IldlYmhvb2tUZXN0IiwibmFtZSI6IndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iLCJ2ZXJzaW9uIjoidjEifV19LCJkZXNjcmlwdGlvbiI6IldlYmhvb2sgT3BlcmF0b3IgZGVzY3JpcHRpb24uIFRPRE8uIiwiZGlzcGxheU5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwiaWNvbiI6W3siYmFzZTY0ZGF0YSI6IiIsIm1lZGlhdHlwZSI6IiJ9XSwiaW5zdGFsbCI6eyJzcGVjIjp7ImNsdXN0ZXJQZXJtaXNzaW9ucyI6W3sicnVsZXMiOlt7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cyJdLCJ2ZXJicyI6WyJjcmVhdGUiLCJkZWxldGUiLCJnZXQiLCJsaXN0IiwicGF0Y2giLCJ1cGRhdGUiLCJ3YXRjaCJdfSx7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cy9zdGF0dXMiXSwidmVyYnMiOlsiZ2V0IiwicGF0Y2giLCJ1cGRhdGUiXX0seyJhcGlHcm91cHMiOlsiYXV0aGVudGljYXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJ0b2tlbnJldmlld3MiXSwidmVyYnMiOlsiY3JlYXRlIl19LHsiYXBpR3JvdXBzIjpbImF1dGhvcml6YXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJzdWJqZWN0YWNjZXNzcmV2aWV3cyJdLCJ2ZXJicyI6WyJjcmVhdGUiXX1dLCJzZXJ2aWNlQWNjb3VudE5hbWUiOiJkZWZhdWx0In1dLCJkZXBsb3ltZW50cyI6W3sibmFtZSI6IndlYmhvb2stb3BlcmF0b3Itd2ViaG9vayIsInNwZWMiOnsicmVwbGljYXMiOjEsInNlbGVjdG9yIjp7Im1hdGNoTGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInN0cmF0ZWd5Ijp7fSwidGVtcGxhdGUiOnsibWV0YWRhdGEiOnsibGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInNwZWMiOnsiY29udGFpbmVycyI6W3siYXJncyI6WyItLXNlY3VyZS1saXN0ZW4tYWRkcmVzcz0wLjAuMC4wOjg0NDMiLCItLXVwc3RyZWFtPWh0dHA6Ly8xMjcuMC4wLjE6ODA4MC8iLCItLWxvZ3Rvc3RkZXJyPXRydWUiLCItLXY9MTAiXSwiaW1hZ2UiOiJnY3IuaW8va3ViZWJ1aWxkZXIva3ViZS1yYmFjLXByb3h5OnYwLjUuMCIsIm5hbWUiOiJrdWJlLXJiYWMtcHJveHkiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6ODQ0MywibmFtZSI6Imh0dHBzIn1dLCJyZXNvdXJjZXMiOnt9fSx7ImFyZ3MiOlsiLS1tZXRyaWNzLWFkZHI9MTI3LjAuMC4xOjgwODAiLCItLWVuYWJsZS1sZWFkZXItZWxlY3Rpb24iXSwiY29tbWFuZCI6WyIvbWFuYWdlciJdLCJpbWFnZSI6InF1YXkuaW8vb2xtdGVzdC93ZWJob29rLW9wZXJhdG9yOjAuMC4zIiwibmFtZSI6Im1hbmFnZXIiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6OTQ0MywibmFtZSI6IndlYmhvb2stc2VydmVyIiwicHJvdG9jb2wiOiJUQ1AifV0sInJlc291cmNlcyI6eyJsaW1pdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjMwTWkifSwicmVxdWVzdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjIwTWkifX19XSwidGVybWluYXRpb25HcmFjZVBlcmlvZFNlY29uZHMiOjEwfX19fV0sInBlcm1pc3Npb25zIjpbeyJydWxlcyI6W3siYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiY29uZmlnbWFwcyJdLCJ2ZXJicyI6WyJnZXQiLCJsaXN0Iiwid2F0Y2giLCJjcmVhdGUiLCJ1cGRhdGUiLCJwYXRjaCIsImRlbGV0ZSJdfSx7ImFwaUdyb3VwcyI6WyIiXSwicmVzb3VyY2VzIjpbImNvbmZpZ21hcHMvc3RhdHVzIl0sInZlcmJzIjpbImdldCIsInVwZGF0ZSIsInBhdGNoIl19LHsiYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiZXZlbnRzIl0sInZlcmJzIjpbImNyZWF0ZSJdfV0sInNlcnZpY2VBY2NvdW50TmFtZSI6ImRlZmF1bHQifV19LCJzdHJhdGVneSI6ImRlcGxveW1lbnQifSwiaW5zdGFsbE1vZGVzIjpbeyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiT3duTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiU2luZ2xlTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiTXVsdGlOYW1lc3BhY2UifSx7InN1cHBvcnRlZCI6dHJ1ZSwidHlwZSI6IkFsbE5hbWVzcGFjZXMifV0sImtleXdvcmRzIjpbIndlYmhvb2stb3BlcmF0b3IiXSwibGlua3MiOlt7Im5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwidXJsIjoiaHR0cHM6Ly93ZWJob29rLW9wZXJhdG9yLmRvbWFpbiJ9XSwibWFpbnRhaW5lcnMiOlt7ImVtYWlsIjoieW91ckBlbWFpbC5jb20iLCJuYW1lIjoiTWFpbnRhaW5lciBOYW1lIn1dLCJtYXR1cml0eSI6ImFscGhhIiwicHJvdmlkZXIiOnsibmFtZSI6IlByb3ZpZGVyIE5hbWUiLCJ1cmwiOiJodHRwczovL3lvdXIuZG9tYWluIn0sInZlcnNpb24iOiIwLjAuMSIsIndlYmhvb2tkZWZpbml0aW9ucyI6W3siYWRtaXNzaW9uUmV2aWV3VmVyc2lvbnMiOlsidjFiZXRhMSIsInYxIl0sImNvbnRhaW5lclBvcnQiOjQ0MywiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6InZ3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiVmFsaWRhdGluZ0FkbWlzc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii92YWxpZGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImRlcGxveW1lbnROYW1lIjoid2ViaG9vay1vcGVyYXRvci13ZWJob29rIiwiZmFpbHVyZVBvbGljeSI6IkZhaWwiLCJnZW5lcmF0ZU5hbWUiOiJtd2ViaG9va3Rlc3Qua2IuaW8iLCJydWxlcyI6W3siYXBpR3JvdXBzIjpbIndlYmhvb2sub3BlcmF0b3JzLmNvcmVvcy5pbyJdLCJhcGlWZXJzaW9ucyI6WyJ2MSJdLCJvcGVyYXRpb25zIjpbIkNSRUFURSIsIlVQREFURSJdLCJyZXNvdXJjZXMiOlsid2ViaG9va3Rlc3RzIl19XSwic2lkZUVmZmVjdHMiOiJOb25lIiwidGFyZ2V0UG9ydCI6NDM0MywidHlwZSI6Ik11dGF0aW5nQWRtaXNzaW9uV2ViaG9vayIsIndlYmhvb2tQYXRoIjoiL211dGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImNvbnZlcnNpb25DUkRzIjpbIndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6ImN3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiQ29udmVyc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii9jb252ZXJ0In1dfX0=
+    annotations:
+      alm-examples: |-
+        [
+          {
+            "apiVersion": "webhook.operators.coreos.io/v1",
+            "kind": "WebhookTest",
+            "metadata": {
+              "name": "webhooktest-sample",
+              "namespace": "webhook-operator-system"
+            },
+            "spec": {
+              "valid": true
+            }
+          }
+        ]
+      capabilities: Basic Install
+      operators.operatorframework.io/builder: operator-sdk-v1.0.0
+      operators.operatorframework.io/project_layout: go
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: WebhookTest
+        name: webhooktests.webhook.operators.coreos.io
+        version: v1
+    description: Webhook Operator description. TODO.
+    displayName: Webhook Operator
+    installModes:
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+    keywords:
+    - webhook-operator
+    links:
+    - name: Webhook Operator
+      url: https://webhook-operator.domain
+    maintainers:
+    - email: your@email.com
+      name: Maintainer Name
+    maturity: alpha
+    provider:
+      name: Provider Name
+      url: https://your.domain
 relatedImages:
 - image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
   name: ""
@@ -724,9 +873,64 @@ const semverBuiltFbcJson = `{
             }
         },
         {
-            "type": "olm.bundle.object",
+            "type": "olm.csv.metadata",
             "value": {
-                "data": "eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsiYWxtLWV4YW1wbGVzIjoiW1xuICB7XG4gICAgXCJhcGlWZXJzaW9uXCI6IFwid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvL3YxXCIsXG4gICAgXCJraW5kXCI6IFwiV2ViaG9va1Rlc3RcIixcbiAgICBcIm1ldGFkYXRhXCI6IHtcbiAgICAgIFwibmFtZVwiOiBcIndlYmhvb2t0ZXN0LXNhbXBsZVwiLFxuICAgICAgXCJuYW1lc3BhY2VcIjogXCJ3ZWJob29rLW9wZXJhdG9yLXN5c3RlbVwiXG4gICAgfSxcbiAgICBcInNwZWNcIjoge1xuICAgICAgXCJ2YWxpZFwiOiB0cnVlXG4gICAgfVxuICB9XG5dIiwiY2FwYWJpbGl0aWVzIjoiQmFzaWMgSW5zdGFsbCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9idWlsZGVyIjoib3BlcmF0b3Itc2RrLXYxLjAuMCIsIm9wZXJhdG9ycy5vcGVyYXRvcmZyYW1ld29yay5pby9wcm9qZWN0X2xheW91dCI6ImdvIn0sIm5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLnYwLjAuMSIsIm5hbWVzcGFjZSI6InBsYWNlaG9sZGVyIn0sInNwZWMiOnsiYXBpc2VydmljZWRlZmluaXRpb25zIjp7fSwiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3sia2luZCI6IldlYmhvb2tUZXN0IiwibmFtZSI6IndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iLCJ2ZXJzaW9uIjoidjEifV19LCJkZXNjcmlwdGlvbiI6IldlYmhvb2sgT3BlcmF0b3IgZGVzY3JpcHRpb24uIFRPRE8uIiwiZGlzcGxheU5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwiaWNvbiI6W3siYmFzZTY0ZGF0YSI6IiIsIm1lZGlhdHlwZSI6IiJ9XSwiaW5zdGFsbCI6eyJzcGVjIjp7ImNsdXN0ZXJQZXJtaXNzaW9ucyI6W3sicnVsZXMiOlt7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cyJdLCJ2ZXJicyI6WyJjcmVhdGUiLCJkZWxldGUiLCJnZXQiLCJsaXN0IiwicGF0Y2giLCJ1cGRhdGUiLCJ3YXRjaCJdfSx7ImFwaUdyb3VwcyI6WyJ3ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwicmVzb3VyY2VzIjpbIndlYmhvb2t0ZXN0cy9zdGF0dXMiXSwidmVyYnMiOlsiZ2V0IiwicGF0Y2giLCJ1cGRhdGUiXX0seyJhcGlHcm91cHMiOlsiYXV0aGVudGljYXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJ0b2tlbnJldmlld3MiXSwidmVyYnMiOlsiY3JlYXRlIl19LHsiYXBpR3JvdXBzIjpbImF1dGhvcml6YXRpb24uazhzLmlvIl0sInJlc291cmNlcyI6WyJzdWJqZWN0YWNjZXNzcmV2aWV3cyJdLCJ2ZXJicyI6WyJjcmVhdGUiXX1dLCJzZXJ2aWNlQWNjb3VudE5hbWUiOiJkZWZhdWx0In1dLCJkZXBsb3ltZW50cyI6W3sibmFtZSI6IndlYmhvb2stb3BlcmF0b3Itd2ViaG9vayIsInNwZWMiOnsicmVwbGljYXMiOjEsInNlbGVjdG9yIjp7Im1hdGNoTGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInN0cmF0ZWd5Ijp7fSwidGVtcGxhdGUiOnsibWV0YWRhdGEiOnsibGFiZWxzIjp7ImNvbnRyb2wtcGxhbmUiOiJjb250cm9sbGVyLW1hbmFnZXIifX0sInNwZWMiOnsiY29udGFpbmVycyI6W3siYXJncyI6WyItLXNlY3VyZS1saXN0ZW4tYWRkcmVzcz0wLjAuMC4wOjg0NDMiLCItLXVwc3RyZWFtPWh0dHA6Ly8xMjcuMC4wLjE6ODA4MC8iLCItLWxvZ3Rvc3RkZXJyPXRydWUiLCItLXY9MTAiXSwiaW1hZ2UiOiJnY3IuaW8va3ViZWJ1aWxkZXIva3ViZS1yYmFjLXByb3h5OnYwLjUuMCIsIm5hbWUiOiJrdWJlLXJiYWMtcHJveHkiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6ODQ0MywibmFtZSI6Imh0dHBzIn1dLCJyZXNvdXJjZXMiOnt9fSx7ImFyZ3MiOlsiLS1tZXRyaWNzLWFkZHI9MTI3LjAuMC4xOjgwODAiLCItLWVuYWJsZS1sZWFkZXItZWxlY3Rpb24iXSwiY29tbWFuZCI6WyIvbWFuYWdlciJdLCJpbWFnZSI6InF1YXkuaW8vb2xtdGVzdC93ZWJob29rLW9wZXJhdG9yOjAuMC4zIiwibmFtZSI6Im1hbmFnZXIiLCJwb3J0cyI6W3siY29udGFpbmVyUG9ydCI6OTQ0MywibmFtZSI6IndlYmhvb2stc2VydmVyIiwicHJvdG9jb2wiOiJUQ1AifV0sInJlc291cmNlcyI6eyJsaW1pdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjMwTWkifSwicmVxdWVzdHMiOnsiY3B1IjoiMTAwbSIsIm1lbW9yeSI6IjIwTWkifX19XSwidGVybWluYXRpb25HcmFjZVBlcmlvZFNlY29uZHMiOjEwfX19fV0sInBlcm1pc3Npb25zIjpbeyJydWxlcyI6W3siYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiY29uZmlnbWFwcyJdLCJ2ZXJicyI6WyJnZXQiLCJsaXN0Iiwid2F0Y2giLCJjcmVhdGUiLCJ1cGRhdGUiLCJwYXRjaCIsImRlbGV0ZSJdfSx7ImFwaUdyb3VwcyI6WyIiXSwicmVzb3VyY2VzIjpbImNvbmZpZ21hcHMvc3RhdHVzIl0sInZlcmJzIjpbImdldCIsInVwZGF0ZSIsInBhdGNoIl19LHsiYXBpR3JvdXBzIjpbIiJdLCJyZXNvdXJjZXMiOlsiZXZlbnRzIl0sInZlcmJzIjpbImNyZWF0ZSJdfV0sInNlcnZpY2VBY2NvdW50TmFtZSI6ImRlZmF1bHQifV19LCJzdHJhdGVneSI6ImRlcGxveW1lbnQifSwiaW5zdGFsbE1vZGVzIjpbeyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiT3duTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiU2luZ2xlTmFtZXNwYWNlIn0seyJzdXBwb3J0ZWQiOmZhbHNlLCJ0eXBlIjoiTXVsdGlOYW1lc3BhY2UifSx7InN1cHBvcnRlZCI6dHJ1ZSwidHlwZSI6IkFsbE5hbWVzcGFjZXMifV0sImtleXdvcmRzIjpbIndlYmhvb2stb3BlcmF0b3IiXSwibGlua3MiOlt7Im5hbWUiOiJXZWJob29rIE9wZXJhdG9yIiwidXJsIjoiaHR0cHM6Ly93ZWJob29rLW9wZXJhdG9yLmRvbWFpbiJ9XSwibWFpbnRhaW5lcnMiOlt7ImVtYWlsIjoieW91ckBlbWFpbC5jb20iLCJuYW1lIjoiTWFpbnRhaW5lciBOYW1lIn1dLCJtYXR1cml0eSI6ImFscGhhIiwicHJvdmlkZXIiOnsibmFtZSI6IlByb3ZpZGVyIE5hbWUiLCJ1cmwiOiJodHRwczovL3lvdXIuZG9tYWluIn0sInZlcnNpb24iOiIwLjAuMSIsIndlYmhvb2tkZWZpbml0aW9ucyI6W3siYWRtaXNzaW9uUmV2aWV3VmVyc2lvbnMiOlsidjFiZXRhMSIsInYxIl0sImNvbnRhaW5lclBvcnQiOjQ0MywiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6InZ3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiVmFsaWRhdGluZ0FkbWlzc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii92YWxpZGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImRlcGxveW1lbnROYW1lIjoid2ViaG9vay1vcGVyYXRvci13ZWJob29rIiwiZmFpbHVyZVBvbGljeSI6IkZhaWwiLCJnZW5lcmF0ZU5hbWUiOiJtd2ViaG9va3Rlc3Qua2IuaW8iLCJydWxlcyI6W3siYXBpR3JvdXBzIjpbIndlYmhvb2sub3BlcmF0b3JzLmNvcmVvcy5pbyJdLCJhcGlWZXJzaW9ucyI6WyJ2MSJdLCJvcGVyYXRpb25zIjpbIkNSRUFURSIsIlVQREFURSJdLCJyZXNvdXJjZXMiOlsid2ViaG9va3Rlc3RzIl19XSwic2lkZUVmZmVjdHMiOiJOb25lIiwidGFyZ2V0UG9ydCI6NDM0MywidHlwZSI6Ik11dGF0aW5nQWRtaXNzaW9uV2ViaG9vayIsIndlYmhvb2tQYXRoIjoiL211dGF0ZS13ZWJob29rLW9wZXJhdG9ycy1jb3Jlb3MtaW8tdjEtd2ViaG9va3Rlc3QifSx7ImFkbWlzc2lvblJldmlld1ZlcnNpb25zIjpbInYxYmV0YTEiLCJ2MSJdLCJjb250YWluZXJQb3J0Ijo0NDMsImNvbnZlcnNpb25DUkRzIjpbIndlYmhvb2t0ZXN0cy53ZWJob29rLm9wZXJhdG9ycy5jb3Jlb3MuaW8iXSwiZGVwbG95bWVudE5hbWUiOiJ3ZWJob29rLW9wZXJhdG9yLXdlYmhvb2siLCJmYWlsdXJlUG9saWN5IjoiRmFpbCIsImdlbmVyYXRlTmFtZSI6ImN3ZWJob29rdGVzdC5rYi5pbyIsInJ1bGVzIjpbeyJhcGlHcm91cHMiOlsid2ViaG9vay5vcGVyYXRvcnMuY29yZW9zLmlvIl0sImFwaVZlcnNpb25zIjpbInYxIl0sIm9wZXJhdGlvbnMiOlsiQ1JFQVRFIiwiVVBEQVRFIl0sInJlc291cmNlcyI6WyJ3ZWJob29rdGVzdHMiXX1dLCJzaWRlRWZmZWN0cyI6Ik5vbmUiLCJ0YXJnZXRQb3J0Ijo0MzQzLCJ0eXBlIjoiQ29udmVyc2lvbldlYmhvb2siLCJ3ZWJob29rUGF0aCI6Ii9jb252ZXJ0In1dfX0="
+                "annotations": {
+                    "alm-examples": "[\n  {\n    \"apiVersion\": \"webhook.operators.coreos.io/v1\",\n    \"kind\": \"WebhookTest\",\n    \"metadata\": {\n      \"name\": \"webhooktest-sample\",\n      \"namespace\": \"webhook-operator-system\"\n    },\n    \"spec\": {\n      \"valid\": true\n    }\n  }\n]",
+                    "capabilities": "Basic Install",
+                    "operators.operatorframework.io/builder": "operator-sdk-v1.0.0",
+                    "operators.operatorframework.io/project_layout": "go"
+                },
+                "apiServiceDefinitions": {},
+                "crdDescriptions": {
+                    "owned": [
+                        {
+                            "name": "webhooktests.webhook.operators.coreos.io",
+                            "version": "v1",
+                            "kind": "WebhookTest"
+                        }
+                    ]
+                },
+                "description": "Webhook Operator description. TODO.",
+                "displayName": "Webhook Operator",
+                "installModes": [
+                    {
+                        "type": "OwnNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "SingleNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "MultiNamespace",
+                        "supported": false
+                    },
+                    {
+                        "type": "AllNamespaces",
+                        "supported": true
+                    }
+                ],
+                "keywords": [
+                    "webhook-operator"
+                ],
+                "links": [
+                    {
+                        "name": "Webhook Operator",
+                        "url": "https://webhook-operator.domain"
+                    }
+                ],
+                "maintainers": [
+                    {
+                        "name": "Maintainer Name",
+                        "email": "your@email.com"
+                    }
+                ],
+                "maturity": "alpha",
+                "provider": {
+                    "name": "Provider Name",
+                    "url": "https://your.domain"
+                }
             }
         }
     ],

@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/operator-framework/api/pkg/operators"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -103,10 +104,18 @@ func ObjectsAndPropertiesFromBundle(b *Bundle) ([]string, []property.Property, e
 		}
 		objects = append(objects, string(objData))
 
-		// Only make an olm.bundle.object property if the object is a ClusterServiceVersion
-		// or if there is no bundle image set.
-		if obj.GetKind() == operators.ClusterServiceVersionKind || b.BundleImage == "" {
+		// Make an olm.bundle.object property if there is no bundle image set.
+		// Otherwise, make a olm.csv.metadata property if the object is a CSV
+		// (and fallback to olm.bundle.object if parsing the CSV fails).
+		if b.BundleImage == "" {
 			props = append(props, property.MustBuildBundleObjectData(objData))
+		} else if obj.GetKind() == operators.ClusterServiceVersionKind {
+			var csv v1alpha1.ClusterServiceVersion
+			if err := json.Unmarshal(objData, &csv); err != nil {
+				props = append(props, property.MustBuildBundleObjectData(objData))
+			} else {
+				props = append(props, property.MustBuildCSVMetadata(csv))
+			}
 		}
 	}
 

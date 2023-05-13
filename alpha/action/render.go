@@ -385,7 +385,7 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 		)
 		for _, p := range b.Properties {
 			switch p.Type {
-			case property.TypeBundleObject:
+			case property.TypeBundleObject, property.TypeCSVMetadata:
 				objs = append(objs, p)
 			default:
 				others = append(others, p)

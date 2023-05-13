@@ -1,16 +1,19 @@
 package action_test
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -105,7 +108,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
+							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -129,7 +132,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -195,7 +198,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
+							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -219,7 +222,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -464,7 +467,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						Objects: []string{string(foov2csv), string(foov2crd)},
 						CsvJSON: string(foov2csv),
@@ -513,7 +516,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csvNoRelatedImages),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csvNoRelatedImages)),
 						},
 						Objects: []string{string(foov2csvNoRelatedImages), string(foov2crdNoRelatedImages)},
 						CsvJSON: string(foov2csvNoRelatedImages),
@@ -883,4 +886,12 @@ func generateSqliteFile(path string, imageMap map[image.Reference]string) error 
 		return err
 	}
 	return nil
+}
+
+func mustBuildCSVMetadata(r io.Reader) property.Property {
+	var csv v1alpha1.ClusterServiceVersion
+	if err := json.NewDecoder(r).Decode(&csv); err != nil {
+		panic(err)
+	}
+	return property.MustBuildCSVMetadata(csv)
 }
