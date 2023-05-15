@@ -58,7 +58,6 @@ func TestBasicBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
-				fmt.Println(string(fileData))
 				require.Equal(t, string(fileData), basicBuiltFbcYaml)
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
@@ -90,7 +89,6 @@ func TestBasicBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
-				fmt.Println(string(fileData))
 				require.Equal(t, string(fileData), basicBuiltFbcJson)
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
