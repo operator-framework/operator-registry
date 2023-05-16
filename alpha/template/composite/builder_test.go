@@ -638,7 +638,7 @@ Stable:
 `
 
 const semverBuiltFbcYaml = `---
-defaultChannel: stable-v0
+defaultChannel: stable-v0.0
 name: webhook-operator
 schema: olm.package
 ---
@@ -694,7 +694,7 @@ schema: olm.bundle
 const semverBuiltFbcJson = `{
     "schema": "olm.package",
     "name": "webhook-operator",
-    "defaultChannel": "stable-v0"
+    "defaultChannel": "stable-v0.0"
 }
 {
     "schema": "olm.channel",

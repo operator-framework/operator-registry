@@ -144,97 +144,178 @@ func TestGenerateChannels(t *testing.T) {
 		},
 	}
 
+	majorLinkedChannels := []declcfg.Channel{
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v0",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v0.1.0", Replaces: ""},
+				{Name: "a-v0.1.1", Replaces: "", Skips: []string{"a-v0.1.0"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v1",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v1.1.0", Replaces: "", Skips: []string{}},
+				{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{}},
+				{Name: "a-v1.3.1-alpha", Replaces: ""},
+				{Name: "a-v1.3.1-beta", Replaces: ""},
+				{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.1.0", "a-v1.3.1-alpha", "a-v1.3.1-beta"}},
+				{Name: "a-v1.4.1-beta1", Replaces: ""},
+				{Name: "a-v1.4.1-beta2", Replaces: ""},
+				{Name: "a-v1.4.1", Replaces: "a-v1.3.1", Skips: []string{"a-v1.1.0", "a-v1.2.1", "a-v1.3.1-alpha", "a-v1.3.1-beta", "a-v1.4.1-beta1", "a-v1.4.1-beta2"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v2",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v2.1.0", Replaces: ""},
+				{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
+				{Name: "a-v2.3.1", Replaces: ""},
+				{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.0", "a-v2.3.1"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v3",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v3.1.0", Replaces: ""},
+				{Name: "a-v3.1.1", Replaces: "", Skips: []string{"a-v3.1.0"}},
+			},
+		},
+	}
+
+	minorLinkedChannels := []declcfg.Channel{
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v0.1",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v0.1.0", Replaces: ""},
+				{Name: "a-v0.1.1", Replaces: "", Skips: []string{"a-v0.1.0"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v1.1",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v1.1.0", Replaces: "", Skips: []string{}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v1.2",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v1.3",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v1.3.1-alpha", Replaces: ""},
+				{Name: "a-v1.3.1-beta", Replaces: ""},
+				{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.1.0", "a-v1.3.1-alpha", "a-v1.3.1-beta"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v1.4",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v1.4.1-beta1", Replaces: ""},
+				{Name: "a-v1.4.1-beta2", Replaces: ""},
+				{Name: "a-v1.4.1", Replaces: "a-v1.3.1", Skips: []string{"a-v1.1.0", "a-v1.2.1", "a-v1.3.1-alpha", "a-v1.3.1-beta", "a-v1.4.1-beta1", "a-v1.4.1-beta2"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v2.1",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v2.1.0", Replaces: ""},
+				{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v2.3",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v2.3.1", Replaces: ""},
+				{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.0", "a-v2.3.1"}},
+			},
+		},
+		{
+			Schema:  "olm.channel",
+			Name:    "stable-v3.1",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v3.1.0", Replaces: ""},
+				{Name: "a-v3.1.1", Replaces: "", Skips: []string{"a-v3.1.0"}},
+			},
+		},
+	}
+
+	var combinedLinkedChannels []declcfg.Channel
+	combinedLinkedChannels = append(combinedLinkedChannels, minorLinkedChannels...)
+	combinedLinkedChannels = append(combinedLinkedChannels, majorLinkedChannels...)
+
 	tests := []struct {
 		name                  string
 		generateMinorChannels bool
 		generateMajorChannels bool
+		defaultChannel        string
+		channelTypePreference streamType
 		out                   []declcfg.Channel
 	}{
 		{
 			name:                  "Edges between minor channels",
 			generateMinorChannels: true,
 			generateMajorChannels: false,
-			out: []declcfg.Channel{
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v0.1",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v0.1.0", Replaces: ""},
-						{Name: "a-v0.1.1", Replaces: "", Skips: []string{"a-v0.1.0"}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v1.1",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v1.1.0", Replaces: "", Skips: []string{}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v1.2",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v1.3",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v1.3.1-alpha", Replaces: ""},
-						{Name: "a-v1.3.1-beta", Replaces: ""},
-						{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.1.0", "a-v1.3.1-alpha", "a-v1.3.1-beta"}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v1.4",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v1.4.1-beta1", Replaces: ""},
-						{Name: "a-v1.4.1-beta2", Replaces: ""},
-						{Name: "a-v1.4.1", Replaces: "a-v1.3.1", Skips: []string{"a-v1.1.0", "a-v1.2.1", "a-v1.3.1-alpha", "a-v1.3.1-beta", "a-v1.4.1-beta1", "a-v1.4.1-beta2"}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v2.1",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v2.1.0", Replaces: ""},
-						{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v2.3",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v2.3.1", Replaces: ""},
-						{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.0", "a-v2.3.1"}},
-					},
-				},
-				{
-					Schema:  "olm.channel",
-					Name:    "stable-v3.1",
-					Package: "a",
-					Entries: []declcfg.ChannelEntry{
-						{Name: "a-v3.1.0", Replaces: ""},
-						{Name: "a-v3.1.1", Replaces: "", Skips: []string{"a-v3.1.0"}},
-					},
-				},
-			},
+			defaultChannel:        "stable-v3.1",
+			channelTypePreference: minorStreamType,
+			out:                   minorLinkedChannels,
 		},
-	}
+		{
+			name:                  "No edges between major channels",
+			generateMinorChannels: false,
+			generateMajorChannels: true,
+			defaultChannel:        "stable-v3",
+			channelTypePreference: majorStreamType,
+			out:                   majorLinkedChannels,
+		},
+		{
+			name:                  "Preference for minor default channel",
+			generateMinorChannels: true,
+			generateMajorChannels: true,
+			defaultChannel:        "stable-v3.1",
+			channelTypePreference: minorStreamType,
+			out:                   combinedLinkedChannels,
+		},
+		{
+			name:                  "Preference for major default channel",
+			generateMinorChannels: true,
+			generateMajorChannels: true,
+			defaultChannel:        "stable-v3",
+			channelTypePreference: majorStreamType,
+			out:                   combinedLinkedChannels,
+		}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := &semverTemplate{GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a"}
+			sv := &semverTemplate{GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a", ChannelTypePreference: tt.channelTypePreference}
 			require.ElementsMatch(t, tt.out, sv.generateChannels(&channelOperatorVersions))
+			require.Equal(t, tt.defaultChannel, sv.defaultChannel)
 		})
 	}
 }

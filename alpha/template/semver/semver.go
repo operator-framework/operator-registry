@@ -75,10 +75,11 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 		return nil, err
 	}
 
-	// default behavior is to generate only minor channels
+	// default behavior is to generate only minor channels and to favor minor channels if presented with otherwise-equal minor/major channels (just a good default here)
 	sv := semverTemplate{
 		GenerateMajorChannels: false,
 		GenerateMinorChannels: true,
+		ChannelTypePreference: minorStreamType,
 	}
 	if err := yaml.UnmarshalStrict(data, &sv); err != nil {
 		return nil, err
@@ -196,7 +197,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	sort.Sort(byChannelPriority(archetypesByPriority))
 
 	// set to the least-priority channel
-	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
+	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}, kind: invalidStreamType}
 
 	unlinkedChannels := make(map[string]*declcfg.Channel)
 	unassociatedEdges := []entryTuple{}
@@ -241,8 +242,8 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 
 					unlinkedChannels[cName] = ch
 
-					hwcCandidate := highwaterChannel{archetype: archetype, version: bundles[bundleName], name: cName}
-					if hwcCandidate.gt(&hwc) {
+					hwcCandidate := highwaterChannel{archetype: archetype, kind: cKey, version: bundles[bundleName], name: cName}
+					if hwcCandidate.gt(&hwc, sv.ChannelTypePreference) {
 						hwc = hwcCandidate
 					}
 				}
@@ -419,4 +420,32 @@ func validateVersions(versions *map[string]semver.Version) error {
 func stripBuildMetadata(v semver.Version) string {
 	v.Build = nil
 	return v.String()
+}
+
+// prefer (in descending order of preference):
+// - higher-rank archetype,
+// - semver version,
+// - a channel type matching the set preference, or
+// - a 'better' (higher value) channel type
+func (h *highwaterChannel) gt(ih *highwaterChannel, pref streamType) bool {
+	if channelPriorities[h.archetype] != channelPriorities[ih.archetype] {
+		return channelPriorities[h.archetype] > channelPriorities[ih.archetype]
+	}
+	if h.version.NE(ih.version) {
+		return h.version.GT(ih.version)
+	}
+	if h.kind != ih.kind {
+		if h.kind == pref {
+			return true
+		}
+		if ih.kind == pref {
+			return false
+		}
+		return h.kind.gt((*ih).kind)
+	}
+	return false
+}
+
+func (t streamType) gt(in streamType) bool {
+	return streamTypePriorities[t] > streamTypePriorities[in]
 }
