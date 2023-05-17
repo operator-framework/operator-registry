@@ -1,6 +1,7 @@
 package semver
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -462,18 +463,12 @@ func TestBailOnVersionBuildMetadata(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	type testCase struct {
-		name       string
-		input      string
-		assertions func(*testing.T, *semverTemplate, error)
-	}
-	testCases := []testCase{
-		{
-			name: "valid",
-			input: `---
+
+	templateFstr := `---
 schema: olm.semver
-generateMajorChannels: true
-generateMinorChannels: true
+generateMajorChannels: %s
+generateMinorChannels: %s
+defaultChannelTypePreference: %s
 candidate:
     bundles:
         - image: quay.io/foo/olm:testoperator.v0.1.0
@@ -497,7 +492,17 @@ fast:
 stable:
     bundles:
         - image: quay.io/foo/olm:testoperator.v1.0.1
-`,
+`
+
+	type testCase struct {
+		name       string
+		input      string
+		assertions func(*testing.T, *semverTemplate, error)
+	}
+	testCases := []testCase{
+		{
+			name:  "valid",
+			input: fmt.Sprintf(templateFstr, "true", "true", "minor"),
 			assertions: func(t *testing.T, template *semverTemplate, err error) {
 				require.NotNil(t, template)
 				require.NoError(t, err)
@@ -539,6 +544,30 @@ invalid:
 			assertions: func(t *testing.T, template *semverTemplate, err error) {
 				require.Nil(t, template)
 				require.EqualError(t, err, `error unmarshaling JSON: while decoding JSON: json: unknown field "invalid"`)
+			},
+		},
+		{
+			name:  "generate/default mismatch, minor/major",
+			input: fmt.Sprintf(templateFstr, "true", "false", "minor"),
+			assertions: func(t *testing.T, template *semverTemplate, err error) {
+				require.Nil(t, template)
+				require.ErrorContains(t, err, "schema attribute mismatch")
+			},
+		},
+		{
+			name:  "generate/default mismatch, major/minor",
+			input: fmt.Sprintf(templateFstr, "false", "true", "major"),
+			assertions: func(t *testing.T, template *semverTemplate, err error) {
+				require.Nil(t, template)
+				require.ErrorContains(t, err, "schema attribute mismatch")
+			},
+		},
+		{
+			name:  "unknown defaultchanneltypepreference",
+			input: fmt.Sprintf(templateFstr, "false", "true", "foo"),
+			assertions: func(t *testing.T, template *semverTemplate, err error) {
+				require.Nil(t, template)
+				require.ErrorContains(t, err, "unknown DefaultChannelTypePreference")
 			},
 		},
 	}

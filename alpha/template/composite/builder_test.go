@@ -435,7 +435,7 @@ func TestSemverBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
-				require.Equal(t, string(fileData), semverBuiltFbcYaml)
+				require.Equal(t, semverBuiltFbcYaml, string(fileData))
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
 				require.NoError(t, validateErr)
@@ -466,7 +466,7 @@ func TestSemverBuilder(t *testing.T) {
 				defer file.Close()
 				fileData, err := io.ReadAll(file)
 				require.NoError(t, err)
-				require.Equal(t, string(fileData), semverBuiltFbcJson)
+				require.Equal(t, semverBuiltFbcJson, string(fileData))
 			},
 			validateAssertions: func(t *testing.T, validateErr error) {
 				require.NoError(t, validateErr)
@@ -565,8 +565,8 @@ func TestSemverBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Equal(t,
-					buildErr.Error(),
-					"semver template configuration is invalid: semver template config must have a non-empty output (templateDefinition.config.output)")
+					"semver template configuration is invalid: semver template config must have a non-empty output (templateDefinition.config.output)",
+					buildErr.Error())
 			},
 		},
 		{
@@ -584,8 +584,9 @@ func TestSemverBuilder(t *testing.T) {
 			buildAssertions: func(t *testing.T, dir string, buildErr error) {
 				require.Error(t, buildErr)
 				require.Equal(t,
+					"semver template configuration is invalid: semver template config must have a non-empty input (templateDefinition.config.input),semver template config must have a non-empty output (templateDefinition.config.output)",
 					buildErr.Error(),
-					"semver template configuration is invalid: semver template config must have a non-empty input (templateDefinition.config.input),semver template config must have a non-empty output (templateDefinition.config.output)")
+				)
 			},
 		},
 	}

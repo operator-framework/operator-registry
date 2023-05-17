@@ -75,18 +75,42 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 		return nil, err
 	}
 
-	// default behavior is to generate only minor channels and to favor minor channels if presented with otherwise-equal minor/major channels (just a good default here)
-	sv := semverTemplate{
-		GenerateMajorChannels:        false,
-		GenerateMinorChannels:        true,
-		DefaultChannelTypePreference: minorStreamType,
-	}
+	sv := semverTemplate{}
 	if err := yaml.UnmarshalStrict(data, &sv); err != nil {
 		return nil, err
 	}
+
 	if sv.Schema != schema {
 		return nil, fmt.Errorf("readFile: input file has unknown schema, should be %q", schema)
 	}
+
+	// if no generate option is selected, default to GenerateMinorChannels
+	if !sv.GenerateMajorChannels && !sv.GenerateMinorChannels {
+		sv.GenerateMinorChannels = true
+	}
+
+	// for default channel preference,
+	// if un-set, default to align to the selected generate option
+	// if set, error out if we mismatch the two
+	switch sv.DefaultChannelTypePreference {
+	case "":
+		if sv.GenerateMinorChannels {
+			sv.DefaultChannelTypePreference = minorStreamType
+		} else if sv.GenerateMajorChannels {
+			sv.DefaultChannelTypePreference = majorStreamType
+		}
+	case minorStreamType:
+		if !sv.GenerateMinorChannels {
+			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'minor' doesn't make sense if not generating minor-version channels")
+		}
+	case majorStreamType:
+		if !sv.GenerateMajorChannels {
+			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'major' doesn't make sense if not generating major-version channels")
+		}
+	default:
+		return nil, fmt.Errorf("unknown DefaultChannelTypePreference: %q\nValid values are 'major' or 'minor'", sv.DefaultChannelTypePreference)
+	}
+
 	return &sv, nil
 }
 

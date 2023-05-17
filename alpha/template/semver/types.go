@@ -27,7 +27,7 @@ type semverTemplate struct {
 	Schema                       string                       `json:"schema"`
 	GenerateMajorChannels        bool                         `json:"generateMajorChannels,omitempty"`
 	GenerateMinorChannels        bool                         `json:"generateMinorChannels,omitempty"`
-	DefaultChannelTypePreference streamType                   `json:"channelTypePreference,omitempty"`
+	DefaultChannelTypePreference streamType                   `json:"defaultChannelTypePreference,omitempty"`
 	Candidate                    semverTemplateChannelBundles `json:"candidate,omitempty"`
 	Fast                         semverTemplateChannelBundles `json:"fast,omitempty"`
 	Stable                       semverTemplateChannelBundles `json:"stable,omitempty"`
