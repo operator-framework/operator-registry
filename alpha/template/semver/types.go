@@ -24,13 +24,13 @@ type semverTemplateChannelBundles struct {
 }
 
 type semverTemplate struct {
-	Schema                string                       `json:"schema"`
-	GenerateMajorChannels bool                         `json:"generateMajorChannels,omitempty"`
-	GenerateMinorChannels bool                         `json:"generateMinorChannels,omitempty"`
-	ChannelTypePreference streamType                   `json:"channelTypePreference,omitempty"`
-	Candidate             semverTemplateChannelBundles `json:"candidate,omitempty"`
-	Fast                  semverTemplateChannelBundles `json:"fast,omitempty"`
-	Stable                semverTemplateChannelBundles `json:"stable,omitempty"`
+	Schema                       string                       `json:"schema"`
+	GenerateMajorChannels        bool                         `json:"generateMajorChannels,omitempty"`
+	GenerateMinorChannels        bool                         `json:"generateMinorChannels,omitempty"`
+	DefaultChannelTypePreference streamType                   `json:"channelTypePreference,omitempty"`
+	Candidate                    semverTemplateChannelBundles `json:"candidate,omitempty"`
+	Fast                         semverTemplateChannelBundles `json:"fast,omitempty"`
+	Stable                       semverTemplateChannelBundles `json:"stable,omitempty"`
 
 	pkg            string `json:"-"` // the derived package name
 	defaultChannel string `json:"-"` // detected "most stable" channel head
@@ -63,12 +63,11 @@ func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 type streamType string
 
-const invalidStreamType streamType = "INVALID"
 const minorStreamType streamType = "minor"
 const majorStreamType streamType = "major"
 
-// ensuring that default initialized type is invalid and a general preference for minor channels
-var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1, invalidStreamType: 0}
+// general preference for minor channels
+var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1}
 
 // map of archetypes --> bundles --> bundle-version from the input file
 type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv["stable"]["example-operator.v1.0.0"] = 1.0.0

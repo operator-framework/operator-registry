@@ -309,11 +309,28 @@ func TestGenerateChannels(t *testing.T) {
 			defaultChannel:        "stable-v3",
 			channelTypePreference: majorStreamType,
 			out:                   combinedLinkedChannels,
-		}}
+		},
+		{
+			name:                  "Mismatch generate/preference minor/major default channel",
+			generateMinorChannels: true,
+			generateMajorChannels: false,
+			defaultChannel:        "stable-v3.1",
+			channelTypePreference: majorStreamType,
+			out:                   minorLinkedChannels,
+		},
+		{
+			name:                  "Mismatch generate/preference major/minor default channel",
+			generateMinorChannels: false,
+			generateMajorChannels: true,
+			defaultChannel:        "stable-v3",
+			channelTypePreference: minorStreamType,
+			out:                   majorLinkedChannels,
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := &semverTemplate{GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a", ChannelTypePreference: tt.channelTypePreference}
+			sv := &semverTemplate{GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a", DefaultChannelTypePreference: tt.channelTypePreference}
 			require.ElementsMatch(t, tt.out, sv.generateChannels(&channelOperatorVersions))
 			require.Equal(t, tt.defaultChannel, sv.defaultChannel)
 		})

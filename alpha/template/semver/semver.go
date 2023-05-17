@@ -77,9 +77,9 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 
 	// default behavior is to generate only minor channels and to favor minor channels if presented with otherwise-equal minor/major channels (just a good default here)
 	sv := semverTemplate{
-		GenerateMajorChannels: false,
-		GenerateMinorChannels: true,
-		ChannelTypePreference: minorStreamType,
+		GenerateMajorChannels:        false,
+		GenerateMinorChannels:        true,
+		DefaultChannelTypePreference: minorStreamType,
 	}
 	if err := yaml.UnmarshalStrict(data, &sv); err != nil {
 		return nil, err
@@ -197,7 +197,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	sort.Sort(byChannelPriority(archetypesByPriority))
 
 	// set to the least-priority channel
-	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}, kind: invalidStreamType}
+	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
 
 	unlinkedChannels := make(map[string]*declcfg.Channel)
 	unassociatedEdges := []entryTuple{}
@@ -243,7 +243,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 					unlinkedChannels[cName] = ch
 
 					hwcCandidate := highwaterChannel{archetype: archetype, kind: cKey, version: bundles[bundleName], name: cName}
-					if hwcCandidate.gt(&hwc, sv.ChannelTypePreference) {
+					if hwcCandidate.gt(&hwc, sv.DefaultChannelTypePreference) {
 						hwc = hwcCandidate
 					}
 				}
