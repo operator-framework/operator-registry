@@ -29,12 +29,11 @@ func (m Migrate) Run(ctx context.Context) error {
 	}
 
 	r := Render{
-		Refs: []string{m.CatalogRef},
+		Refs:    []string{m.CatalogRef},
+		Migrate: true,
 
-		// Only allow sqlite images and files to be migrated.
-		AllowedRefMask: RefSqliteImage | RefSqliteFile,
-
-		skipSqliteDeprecationLog: true,
+		// Only allow catalogs to be migrated.
+		AllowedRefMask: RefSqliteImage | RefSqliteFile | RefDCImage | RefDCDir,
 	}
 	if m.Registry != nil {
 		r.Registry = m.Registry

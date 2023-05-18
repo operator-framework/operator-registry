@@ -50,8 +50,8 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalog(),
-				"bar/catalog.yaml": migrateBarCatalog(),
+				"foo/catalog.yaml": migrateFooCatalogSqlite(),
+				"bar/catalog.yaml": migrateBarCatalogSqlite(),
 			},
 		},
 		{
@@ -64,12 +64,12 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalog(),
-				"bar/catalog.yaml": migrateBarCatalog(),
+				"foo/catalog.yaml": migrateFooCatalogSqlite(),
+				"bar/catalog.yaml": migrateBarCatalogSqlite(),
 			},
 		},
 		{
-			name: "DeclcfgImage/Failure",
+			name: "DeclcfgImage/Success",
 			migrate: action.Migrate{
 				CatalogRef: "test.registry/foo-operator/foo-index-declcfg:v0.2.0",
 				OutputDir:  filepath.Join(tmpDir, "declcfg-image"),
@@ -77,10 +77,12 @@ func TestMigrate(t *testing.T) {
 				FileExt:    ".yaml",
 				Registry:   reg,
 			},
-			expectErr: action.ErrNotAllowed,
+			expectedFiles: map[string]string{
+				"foo/catalog.yaml": migrateFooCatalogFBC(),
+			},
 		},
 		{
-			name: "DeclcfgDir/Failure",
+			name: "DeclcfgDir/Success",
 			migrate: action.Migrate{
 				CatalogRef: "testdata/foo-index-v0.2.0-declcfg",
 				OutputDir:  filepath.Join(tmpDir, "declcfg-dir"),
@@ -88,7 +90,9 @@ func TestMigrate(t *testing.T) {
 				FileExt:    ".yaml",
 				Registry:   reg,
 			},
-			expectErr: action.ErrNotAllowed,
+			expectedFiles: map[string]string{
+				"foo/catalog.yaml": migrateFooCatalogFBC(),
+			},
 		},
 		{
 			name: "BundleImage/Failure",
@@ -106,12 +110,22 @@ func TestMigrate(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			err := s.migrate.Run(context.Background())
 			require.ErrorIs(t, err, s.expectErr)
-			for file, expectedData := range s.expectedFiles {
-				path := filepath.Join(s.migrate.OutputDir, file)
-				actualData, err := os.ReadFile(path)
-				require.NoError(t, err)
-				require.Equal(t, expectedData, string(actualData))
+			if s.expectErr != nil {
+				return
 			}
+			actualFS := os.DirFS(s.migrate.OutputDir)
+			fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
+				require.NoError(t, err)
+				if d.IsDir() {
+					return nil
+				}
+				actualData, err := fs.ReadFile(actualFS, path)
+				require.NoError(t, err)
+				expectedData, ok := s.expectedFiles[path]
+				require.True(t, ok, "output directory contained unexpected file %q", path)
+				require.Equal(t, expectedData, string(actualData))
+				return nil
+			})
 		})
 	}
 }
@@ -156,7 +170,7 @@ func newMigrateRegistry(t *testing.T, imageMap map[image.Reference]string) (imag
 	return reg, nil
 }
 
-func migrateFooCatalog() string {
+func migrateFooCatalogSqlite() string {
 	return `---
 defaultChannel: beta
 name: foo
@@ -280,7 +294,7 @@ schema: olm.bundle
 `
 }
 
-func migrateBarCatalog() string {
+func migrateBarCatalogSqlite() string {
 	return `---
 defaultChannel: alpha
 name: bar
@@ -353,6 +367,138 @@ relatedImages:
 - image: test.registry/bar-operator/bar-bundle:v0.2.0
   name: ""
 - image: test.registry/bar-operator/bar:v0.2.0
+  name: operator
+schema: olm.bundle
+`
+}
+
+func migrateFooCatalogFBC() string {
+	return `---
+defaultChannel: beta
+name: foo
+properties:
+- type: owner
+  value:
+    group: abc.com
+    name: admin
+schema: olm.package
+---
+entries:
+- name: foo.v0.1.0
+  skipRange: <0.1.0
+- name: foo.v0.2.0
+  replaces: foo.v0.1.0
+  skipRange: <0.2.0
+  skips:
+  - foo.v0.1.1
+  - foo.v0.1.2
+name: beta
+package: foo
+properties:
+- type: user
+  value:
+    group: xyz.com
+    name: account
+schema: olm.channel
+---
+entries:
+- name: foo.v0.2.0
+  replaces: foo.v0.1.0
+  skipRange: <0.2.0
+  skips:
+  - foo.v0.1.1
+  - foo.v0.1.2
+name: stable
+package: foo
+schema: olm.channel
+---
+image: test.registry/foo-operator/foo-bundle:v0.1.0
+name: foo.v0.1.0
+package: foo
+properties:
+- type: olm.gvk
+  value:
+    group: test.foo
+    kind: Foo
+    version: v1
+- type: olm.gvk.required
+  value:
+    group: test.bar
+    kind: Bar
+    version: v1alpha1
+- type: olm.package
+  value:
+    packageName: foo
+    version: 0.1.0
+- type: olm.package.required
+  value:
+    packageName: bar
+    versionRange: <0.1.0
+- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.1.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}
+relatedImages:
+- image: test.registry/foo-operator/foo-bundle:v0.1.0
+  name: ""
+- image: test.registry/foo-operator/foo:v0.1.0
+  name: operator
+schema: olm.bundle
+---
+image: test.registry/foo-operator/foo-bundle:v0.2.0
+name: foo.v0.2.0
+package: foo
+properties:
+- type: olm.gvk
+  value:
+    group: test.foo
+    kind: Foo
+    version: v1
+- type: olm.gvk.required
+  value:
+    group: test.bar
+    kind: Bar
+    version: v1alpha1
+- type: olm.package
+  value:
+    packageName: foo
+    version: 0.2.0
+- type: olm.package.required
+  value:
+    packageName: bar
+    versionRange: <0.1.0
+- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.2.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}
+relatedImages:
+- image: test.registry/foo-operator/foo-2:v0.2.0
+  name: ""
+- image: test.registry/foo-operator/foo-bundle:v0.2.0
+  name: ""
+- image: test.registry/foo-operator/foo-init-2:v0.2.0
+  name: ""
+- image: test.registry/foo-operator/foo-init:v0.2.0
+  name: ""
+- image: test.registry/foo-operator/foo-other:v0.2.0
+  name: other
+- image: test.registry/foo-operator/foo:v0.2.0
   name: operator
 schema: olm.bundle
 `

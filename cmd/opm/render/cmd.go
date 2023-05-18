@@ -66,6 +66,7 @@ database files.
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
+	cmd.Flags().BoolVar(&render.Migrate, "migrate", false, "Perform migrations on the rendered FBC")
 	return cmd
 }
 
