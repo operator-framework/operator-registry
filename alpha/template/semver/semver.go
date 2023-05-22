@@ -75,17 +75,42 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 		return nil, err
 	}
 
-	// default behavior is to generate only minor channels
-	sv := semverTemplate{
-		GenerateMajorChannels: false,
-		GenerateMinorChannels: true,
-	}
+	sv := semverTemplate{}
 	if err := yaml.UnmarshalStrict(data, &sv); err != nil {
 		return nil, err
 	}
+
 	if sv.Schema != schema {
 		return nil, fmt.Errorf("readFile: input file has unknown schema, should be %q", schema)
 	}
+
+	// if no generate option is selected, default to GenerateMinorChannels
+	if !sv.GenerateMajorChannels && !sv.GenerateMinorChannels {
+		sv.GenerateMinorChannels = true
+	}
+
+	// for default channel preference,
+	// if un-set, default to align to the selected generate option
+	// if set, error out if we mismatch the two
+	switch sv.DefaultChannelTypePreference {
+	case defaultStreamType:
+		if sv.GenerateMinorChannels {
+			sv.DefaultChannelTypePreference = minorStreamType
+		} else if sv.GenerateMajorChannels {
+			sv.DefaultChannelTypePreference = majorStreamType
+		}
+	case minorStreamType:
+		if !sv.GenerateMinorChannels {
+			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'minor' doesn't make sense if not generating minor-version channels")
+		}
+	case majorStreamType:
+		if !sv.GenerateMajorChannels {
+			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'major' doesn't make sense if not generating major-version channels")
+		}
+	default:
+		return nil, fmt.Errorf("unknown DefaultChannelTypePreference: %q\nValid values are 'major' or 'minor'", sv.DefaultChannelTypePreference)
+	}
+
 	return &sv, nil
 }
 
@@ -241,8 +266,8 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 
 					unlinkedChannels[cName] = ch
 
-					hwcCandidate := highwaterChannel{archetype: archetype, version: bundles[bundleName], name: cName}
-					if hwcCandidate.gt(&hwc) {
+					hwcCandidate := highwaterChannel{archetype: archetype, kind: cKey, version: bundles[bundleName], name: cName}
+					if hwcCandidate.gt(&hwc, sv.DefaultChannelTypePreference) {
 						hwc = hwcCandidate
 					}
 				}
@@ -419,4 +444,32 @@ func validateVersions(versions *map[string]semver.Version) error {
 func stripBuildMetadata(v semver.Version) string {
 	v.Build = nil
 	return v.String()
+}
+
+// prefer (in descending order of preference):
+// - higher-rank archetype,
+// - semver version,
+// - a channel type matching the set preference, or
+// - a 'better' (higher value) channel type
+func (h *highwaterChannel) gt(ih *highwaterChannel, pref streamType) bool {
+	if channelPriorities[h.archetype] != channelPriorities[ih.archetype] {
+		return channelPriorities[h.archetype] > channelPriorities[ih.archetype]
+	}
+	if h.version.NE(ih.version) {
+		return h.version.GT(ih.version)
+	}
+	if h.kind != ih.kind {
+		if h.kind == pref {
+			return true
+		}
+		if ih.kind == pref {
+			return false
+		}
+		return h.kind.gt((*ih).kind)
+	}
+	return false
+}
+
+func (t streamType) gt(in streamType) bool {
+	return streamTypePriorities[t] > streamTypePriorities[in]
 }

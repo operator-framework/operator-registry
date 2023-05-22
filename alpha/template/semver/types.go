@@ -24,12 +24,13 @@ type semverTemplateChannelBundles struct {
 }
 
 type semverTemplate struct {
-	Schema                string                       `json:"schema"`
-	GenerateMajorChannels bool                         `json:"generateMajorChannels,omitempty"`
-	GenerateMinorChannels bool                         `json:"generateMinorChannels,omitempty"`
-	Candidate             semverTemplateChannelBundles `json:"candidate,omitempty"`
-	Fast                  semverTemplateChannelBundles `json:"fast,omitempty"`
-	Stable                semverTemplateChannelBundles `json:"stable,omitempty"`
+	Schema                       string                       `json:"schema"`
+	GenerateMajorChannels        bool                         `json:"generateMajorChannels,omitempty"`
+	GenerateMinorChannels        bool                         `json:"generateMinorChannels,omitempty"`
+	DefaultChannelTypePreference streamType                   `json:"defaultChannelTypePreference,omitempty"`
+	Candidate                    semverTemplateChannelBundles `json:"candidate,omitempty"`
+	Fast                         semverTemplateChannelBundles `json:"fast,omitempty"`
+	Stable                       semverTemplateChannelBundles `json:"stable,omitempty"`
 
 	pkg            string `json:"-"` // the derived package name
 	defaultChannel string `json:"-"` // detected "most stable" channel head
@@ -62,10 +63,12 @@ func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 type streamType string
 
+const defaultStreamType streamType = ""
 const minorStreamType streamType = "minor"
 const majorStreamType streamType = "major"
 
-var streamTypePriorities = map[streamType]int{minorStreamType: 0, majorStreamType: 1}
+// general preference for minor channels
+var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1, defaultStreamType: 0}
 
 // map of archetypes --> bundles --> bundle-version from the input file
 type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv["stable"]["example-operator.v1.0.0"] = 1.0.0
@@ -74,12 +77,9 @@ type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv[
 // later as the package's defaultChannel attribute
 type highwaterChannel struct {
 	archetype channelArchetype
+	kind      streamType
 	version   semver.Version
 	name      string
-}
-
-func (h *highwaterChannel) gt(ih *highwaterChannel) bool {
-	return (channelPriorities[h.archetype] > channelPriorities[ih.archetype]) || (h.version.GT(ih.version))
 }
 
 type entryTuple struct {
