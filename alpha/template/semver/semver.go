@@ -93,7 +93,7 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 	// if un-set, default to align to the selected generate option
 	// if set, error out if we mismatch the two
 	switch sv.DefaultChannelTypePreference {
-	case "":
+	case defaultStreamType:
 		if sv.GenerateMinorChannels {
 			sv.DefaultChannelTypePreference = minorStreamType
 		} else if sv.GenerateMajorChannels {

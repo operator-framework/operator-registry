@@ -63,11 +63,12 @@ func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 type streamType string
 
+const defaultStreamType streamType = ""
 const minorStreamType streamType = "minor"
 const majorStreamType streamType = "major"
 
 // general preference for minor channels
-var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1}
+var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1, defaultStreamType: 0}
 
 // map of archetypes --> bundles --> bundle-version from the input file
 type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv["stable"]["example-operator.v1.0.0"] = 1.0.0
