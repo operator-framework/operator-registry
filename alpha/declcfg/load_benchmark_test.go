@@ -2,7 +2,6 @@ package declcfg_test
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -11,9 +10,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/operator-framework/api/pkg/lib/version"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8srand "k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -86,16 +83,8 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 			},
 		}
 
-		for _, f := range []func() ([]byte, error){
-			func() ([]byte, error) { return randSecret(20000) },
-			func() ([]byte, error) { return genCsv(pkgName, version) },
-		} {
-			data, err := f()
-			if err != nil {
-				b.Error(err)
-			}
-			bundle.Properties = append(bundle.Properties, property.MustBuildBundleObjectData(data))
-		}
+		csv := genCsv(pkgName, version)
+		bundle.Properties = append(bundle.Properties, property.MustBuildCSVMetadata(csv))
 		fbc.Bundles = append(fbc.Bundles, bundle)
 
 		chIdx := rand.Intn(numChannels)
@@ -114,7 +103,7 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 	return fbc
 }
 
-func genCsv(pkgName, ver string) ([]byte, error) {
+func genCsv(pkgName, ver string) v1alpha1.ClusterServiceVersion {
 	csv := v1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterServiceVersion",
@@ -299,43 +288,5 @@ func genCsv(pkgName, ver string) ([]byte, error) {
 			Version: version.OperatorVersion{Version: semver.MustParse(ver)},
 		},
 	}
-	b, err := json.Marshal(csv)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func randSecret(len int) ([]byte, error) {
-	bytes, err := randBytes(len)
-	if err != nil {
-		return nil, err
-	}
-	obj := corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8srand.String(10),
-			Namespace: k8srand.String(10),
-		},
-		Data: map[string][]byte{
-			"foo": bytes,
-		},
-	}
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func randBytes(len int) ([]byte, error) {
-	b := make([]byte, len)
-	_, err := rand.Read(b)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return csv
 }
