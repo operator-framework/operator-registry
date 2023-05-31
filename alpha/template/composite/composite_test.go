@@ -30,7 +30,7 @@ func (tb *TestBuilder) Build(ctx context.Context, reg image.Registry, dir string
 	return nil
 }
 
-func (tb *TestBuilder) Validate(dir string) error {
+func (tb *TestBuilder) Validate(ctx context.Context, dir string) error {
 	if tb.validateShouldError {
 		return fmt.Errorf("validate error!")
 	}

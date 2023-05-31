@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -338,7 +339,7 @@ func TestLoadFS(t *testing.T) {
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			cfg, err := LoadFS(s.fsys)
+			cfg, err := LoadFS(context.Background(), s.fsys)
 			s.assertion(t, err)
 			if err == nil {
 				require.NotNil(t, cfg)

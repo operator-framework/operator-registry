@@ -114,7 +114,7 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 // that match patterns found in .indexignore files found throughout the filesystem.
 // If LoadFS encounters an error loading or parsing any file, the error will be
 // immediately returned.
-func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
+func LoadFS(ctx context.Context, root fs.FS) (*DeclarativeConfig, error) {
 	if root == nil {
 		return nil, fmt.Errorf("no declarative config filesystem provided")
 	}
@@ -131,7 +131,7 @@ func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
 	// goroutine returns an error. Goroutines should check the context
 	// to see if they should return early (in the case of another goroutine
 	// returning an error).
-	eg, ctx := errgroup.WithContext(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
 
 	// Walk the FS and send paths to a channel for parsing.
 	eg.Go(func() error {

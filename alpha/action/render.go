@@ -122,7 +122,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 			if !r.AllowedRefMask.Allowed(RefDCDir) {
 				return nil, fmt.Errorf("cannot render declarative config directory: %w", ErrNotAllowed)
 			}
-			return declcfg.LoadFS(os.DirFS(ref))
+			return declcfg.LoadFS(ctx, os.DirFS(ref))
 		} else {
 			// The only supported file type is an sqlite DB file,
 			// since declarative configs will be in a directory.
@@ -169,7 +169,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		if !r.AllowedRefMask.Allowed(RefDCImage) {
 			return nil, fmt.Errorf("cannot render declarative config image: %w", ErrNotAllowed)
 		}
-		cfg, err = declcfg.LoadFS(os.DirFS(filepath.Join(tmpDir, configsDir)))
+		cfg, err = declcfg.LoadFS(ctx, os.DirFS(filepath.Join(tmpDir, configsDir)))
 		if err != nil {
 			return nil, err
 		}

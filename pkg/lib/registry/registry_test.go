@@ -102,7 +102,7 @@ func newCache(t *testing.T, bundles []*model.Bundle) cache.Cache {
 	reg, err := cache.New(cacheDir)
 	require.NoError(t, err)
 
-	require.NoError(t, reg.Build(os.DirFS(fbcDir)))
+	require.NoError(t, reg.Build(context.Background(), os.DirFS(fbcDir)))
 	require.NoError(t, reg.Load())
 
 	return reg

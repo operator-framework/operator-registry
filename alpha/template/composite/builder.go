@@ -34,7 +34,7 @@ type BuilderConfig struct {
 
 type Builder interface {
 	Build(ctx context.Context, reg image.Registry, dir string, td TemplateDefinition) error
-	Validate(dir string) error
+	Validate(ctx context.Context, dir string) error
 }
 
 type BasicBuilder struct {
@@ -94,8 +94,8 @@ func (bb *BasicBuilder) Build(ctx context.Context, reg image.Registry, dir strin
 	return build(dcfg, destPath, bb.builderCfg.OutputType)
 }
 
-func (bb *BasicBuilder) Validate(dir string) error {
-	return validate(bb.builderCfg, dir)
+func (bb *BasicBuilder) Validate(ctx context.Context, dir string) error {
+	return validate(ctx, bb.builderCfg, dir)
 }
 
 type SemverBuilder struct {
@@ -156,8 +156,8 @@ func (sb *SemverBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 	return build(dcfg, destPath, sb.builderCfg.OutputType)
 }
 
-func (sb *SemverBuilder) Validate(dir string) error {
-	return validate(sb.builderCfg, dir)
+func (sb *SemverBuilder) Validate(ctx context.Context, dir string) error {
+	return validate(ctx, sb.builderCfg, dir)
 }
 
 type RawBuilder struct {
@@ -216,8 +216,8 @@ func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, t
 	return build(dcfg, destPath, rb.builderCfg.OutputType)
 }
 
-func (rb *RawBuilder) Validate(dir string) error {
-	return validate(rb.builderCfg, dir)
+func (rb *RawBuilder) Validate(ctx context.Context, dir string) error {
+	return validate(ctx, rb.builderCfg, dir)
 }
 
 type CustomBuilder struct {
@@ -285,8 +285,8 @@ func (cb *CustomBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 	return build(dcfg, destPath, cb.builderCfg.OutputType)
 }
 
-func (cb *CustomBuilder) Validate(dir string) error {
-	return validate(cb.builderCfg, dir)
+func (cb *CustomBuilder) Validate(ctx context.Context, dir string) error {
+	return validate(ctx, cb.builderCfg, dir)
 }
 
 func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) error {
@@ -300,7 +300,7 @@ func writeDeclCfg(dcfg declcfg.DeclarativeConfig, w io.Writer, output string) er
 	}
 }
 
-func validate(builderCfg BuilderConfig, dir string) error {
+func validate(ctx context.Context, builderCfg BuilderConfig, dir string) error {
 
 	path := path.Join(builderCfg.WorkingDir, dir)
 	s, err := os.Stat(path)
@@ -311,7 +311,7 @@ func validate(builderCfg BuilderConfig, dir string) error {
 		return fmt.Errorf("%q is not a directory", path)
 	}
 
-	if err := config.Validate(os.DirFS(path)); err != nil {
+	if err := config.Validate(ctx, os.DirFS(path)); err != nil {
 		return fmt.Errorf("validation failure in path %q: %v", path, err)
 	}
 	return nil

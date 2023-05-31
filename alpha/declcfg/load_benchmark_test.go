@@ -1,6 +1,7 @@
 package declcfg_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
@@ -28,7 +29,7 @@ func BenchmarkLoadFS(b *testing.B) {
 		}
 		b.StartTimer()
 
-		_, err := declcfg.LoadFS(os.DirFS(tempDir))
+		_, err := declcfg.LoadFS(context.Background(), os.DirFS(tempDir))
 		if err != nil {
 			b.Error(err)
 		}

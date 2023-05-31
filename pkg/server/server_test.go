@@ -66,7 +66,7 @@ func createDBStore(dbPath string) *sqlite.SQLQuerier {
 
 func fbcJsonCache(catalogDir, cacheDir string) (cache2.Cache, error) {
 	store := cache2.NewJSON(cacheDir)
-	if err := store.Build(os.DirFS(catalogDir)); err != nil {
+	if err := store.Build(context.Background(), os.DirFS(catalogDir)); err != nil {
 		return nil, err
 	}
 	if err := store.Load(); err != nil {

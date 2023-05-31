@@ -18,13 +18,13 @@ type Cache interface {
 	registry.GRPCQuery
 
 	CheckIntegrity(fbc fs.FS) error
-	Build(fbc fs.FS) error
+	Build(ctx context.Context, fbc fs.FS) error
 	Load() error
 }
 
-func LoadOrRebuild(c Cache, fbc fs.FS) error {
+func LoadOrRebuild(ctx context.Context, c Cache, fbc fs.FS) error {
 	if err := c.CheckIntegrity(fbc); err != nil {
-		if err := c.Build(fbc); err != nil {
+		if err := c.Build(ctx, fbc); err != nil {
 			return err
 		}
 	}

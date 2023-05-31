@@ -205,7 +205,7 @@ func genTestCaches(t *testing.T, fbcFS fs.FS) []Cache {
 	}
 
 	for _, c := range caches {
-		err := c.Build(fbcFS)
+		err := c.Build(context.Background(), fbcFS)
 		require.NoError(t, err)
 		err = c.Load()
 		require.NoError(t, err)
