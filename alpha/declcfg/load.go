@@ -1,15 +1,19 @@
 package declcfg
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"github.com/joelanford/ignore"
 	"github.com/operator-framework/api/pkg/operators"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -111,20 +115,109 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 // If LoadFS encounters an error loading or parsing any file, the error will be
 // immediately returned.
 func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
-	cfg := &DeclarativeConfig{}
-	if err := WalkFS(root, func(path string, fcfg *DeclarativeConfig, err error) error {
+	if root == nil {
+		return nil, fmt.Errorf("no declarative config filesystem provided")
+	}
+
+	concurrency := runtime.NumCPU()
+
+	var (
+		fcfg     = &DeclarativeConfig{}
+		pathChan = make(chan string, concurrency)
+		cfgChan  = make(chan *DeclarativeConfig, concurrency)
+	)
+
+	// Create an errgroup to manage goroutines. The context is closed when any
+	// goroutine returns an error. Goroutines should check the context
+	// to see if they should return early (in the case of another goroutine
+	// returning an error).
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	// Walk the FS and send paths to a channel for parsing.
+	eg.Go(func() error {
+		return sendPaths(ctx, root, pathChan)
+	})
+
+	// Parse paths concurrently. The waitgroup ensures that all paths are parsed
+	// before the cfgChan is closed.
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		eg.Go(func() error {
+			defer wg.Done()
+			return parsePaths(ctx, root, pathChan, cfgChan)
+		})
+	}
+
+	// Merge parsed configs into a single config.
+	eg.Go(func() error {
+		return mergeCfgs(ctx, cfgChan, fcfg)
+	})
+
+	// Wait for all path parsing goroutines to finish before closing cfgChan.
+	wg.Wait()
+	close(cfgChan)
+
+	// Wait for all goroutines to finish.
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return fcfg, nil
+}
+
+func sendPaths(ctx context.Context, root fs.FS, pathChan chan<- string) error {
+	defer close(pathChan)
+	return walkFiles(root, func(_ fs.FS, path string, err error) error {
 		if err != nil {
 			return err
 		}
-		cfg.Packages = append(cfg.Packages, fcfg.Packages...)
-		cfg.Channels = append(cfg.Channels, fcfg.Channels...)
-		cfg.Bundles = append(cfg.Bundles, fcfg.Bundles...)
-		cfg.Others = append(cfg.Others, fcfg.Others...)
+		select {
+		case pathChan <- path:
+		case <-ctx.Done(): // don't block on sending to pathChan
+			return ctx.Err()
+		}
 		return nil
-	}); err != nil {
-		return nil, err
+	})
+}
+
+func parsePaths(ctx context.Context, root fs.FS, pathChan <-chan string, cfgChan chan<- *DeclarativeConfig) error {
+	for {
+		select {
+		case <-ctx.Done(): // don't block on receiving from pathChan
+			return ctx.Err()
+		case path, ok := <-pathChan:
+			if !ok {
+				return nil
+			}
+			cfg, err := LoadFile(root, path)
+			if err != nil {
+				return err
+			}
+			select {
+			case cfgChan <- cfg:
+			case <-ctx.Done(): // don't block on sending to cfgChan
+				return ctx.Err()
+			}
+		}
 	}
-	return cfg, nil
+}
+
+func mergeCfgs(ctx context.Context, cfgChan <-chan *DeclarativeConfig, fcfg *DeclarativeConfig) error {
+	for {
+		select {
+		case <-ctx.Done(): // don't block on receiving from cfgChan
+			return ctx.Err()
+		case cfg, ok := <-cfgChan:
+			if !ok {
+				return nil
+			}
+			fcfg.Packages = append(fcfg.Packages, cfg.Packages...)
+			fcfg.Channels = append(fcfg.Channels, cfg.Channels...)
+			fcfg.Bundles = append(fcfg.Bundles, cfg.Bundles...)
+			fcfg.Others = append(fcfg.Others, cfg.Others...)
+		}
+
+	}
 }
 
 func readBundleObjects(bundles []Bundle, root fs.FS, path string) error {

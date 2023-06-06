@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go4.org/bytereplacer"
+	"golang.org/x/text/cases"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -100,25 +102,78 @@ func (m Meta) MarshalJSON() ([]byte, error) {
 }
 
 func (m *Meta) UnmarshalJSON(blob []byte) error {
-	blob = bytereplacer.New(`\u003c`, "<", `\u003e`, ">", `\u0026`, "&").Replace(blob)
+	blobMap := map[string]interface{}{}
+	if err := json.Unmarshal(blob, &blobMap); err != nil {
+		return err
+	}
 
-	type tmp struct {
-		Schema     string              `json:"schema"`
-		Package    string              `json:"package,omitempty"`
-		Name       string              `json:"name,omitempty"`
-		Properties []property.Property `json:"properties,omitempty"`
+	// TODO: this function ensures we do not break backwards compatibility with
+	//    the documented examples of FBC templates, which use upper camel case
+	//    for JSON field names. We need to decide if we want to continue supporting
+	//    case insensitive JSON field names, or if we want to enforce a specific
+	//    case-sensitive key value for each field.
+	if err := extractUniqueMetaKeys(blobMap, m); err != nil {
+		return err
 	}
-	var t tmp
-	if err := json.Unmarshal(blob, &t); err != nil {
-		// TODO: return an error that includes the the full JSON message,
-		//    the offset of the error, and the error message. Let callers
-		//    decide how to format it.
-		return errors.New(resolveUnmarshalErr(blob, err))
+
+	buf := bytes.Buffer{}
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(blobMap); err != nil {
+		return err
 	}
-	m.Schema = t.Schema
-	m.Package = t.Package
-	m.Name = t.Name
-	m.Blob = blob
+	m.Blob = buf.Bytes()
+	return nil
+}
+
+// extractUniqueMetaKeys enables a case-insensitive key lookup for the schema, package, and name
+// fields of the Meta struct. If the blobMap contains duplicate keys (that is, keys have the same folded value),
+// an error is returned.
+func extractUniqueMetaKeys(blobMap map[string]any, m *Meta) error {
+	keySets := map[string]sets.Set[string]{}
+	folder := cases.Fold()
+	for key := range blobMap {
+		foldKey := folder.String(key)
+		if _, ok := keySets[foldKey]; !ok {
+			keySets[foldKey] = sets.New[string]()
+		}
+		keySets[foldKey].Insert(key)
+	}
+
+	dupErrs := []error{}
+	for foldedKey, keys := range keySets {
+		if len(keys) != 1 {
+			dupErrs = append(dupErrs, fmt.Errorf("duplicate keys for key %q: %v", foldedKey, sets.List(keys)))
+		}
+	}
+	if len(dupErrs) > 0 {
+		return utilerrors.NewAggregate(dupErrs)
+	}
+
+	metaMap := map[string]*string{
+		folder.String("schema"):  &m.Schema,
+		folder.String("package"): &m.Package,
+		folder.String("name"):    &m.Name,
+	}
+
+	for foldedKey, ptr := range metaMap {
+		// if the folded key doesn't exist in the key set derived from the blobMap, that means
+		// the key doesn't exist in the blobMap, so we can skip it
+		if _, ok := keySets[foldedKey]; !ok {
+			continue
+		}
+
+		// reset key to the unfolded key, which we know is the one that appears in the blobMap
+		key := keySets[foldedKey].UnsortedList()[0]
+		if _, ok := blobMap[key]; !ok {
+			continue
+		}
+		v, ok := blobMap[key].(string)
+		if !ok {
+			return fmt.Errorf("expected value for key %q to be a string, got %t: %v", key, blobMap[key], blobMap[key])
+		}
+		*ptr = v
+	}
 	return nil
 }
 

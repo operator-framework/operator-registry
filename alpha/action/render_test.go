@@ -1,16 +1,19 @@
 package action_test
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -105,8 +108,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
+							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -130,8 +132,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -197,8 +198,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
+							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -222,8 +222,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -468,8 +467,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
 						},
 						Objects: []string{string(foov2csv), string(foov2crd)},
 						CsvJSON: string(foov2csv),
@@ -518,8 +516,7 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csvNoRelatedImages),
-							property.MustBuildBundleObjectData(foov2crdNoRelatedImages),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csvNoRelatedImages)),
 						},
 						Objects: []string{string(foov2csvNoRelatedImages), string(foov2crdNoRelatedImages)},
 						CsvJSON: string(foov2csvNoRelatedImages),
@@ -551,7 +548,17 @@ func TestRender(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			actualCfg, actualErr := s.render.Run(context.Background())
 			s.assertion(t, actualErr)
-			require.Equal(t, s.expectCfg, actualCfg)
+			require.Equal(t, len(s.expectCfg.Packages), len(actualCfg.Packages))
+			require.Equal(t, s.expectCfg.Packages, actualCfg.Packages)
+			require.Equal(t, len(s.expectCfg.Channels), len(actualCfg.Channels))
+			require.Equal(t, s.expectCfg.Channels, actualCfg.Channels)
+			require.Equal(t, len(s.expectCfg.Bundles), len(actualCfg.Bundles))
+			for i := range s.expectCfg.Bundles {
+				actual, expected := actualCfg.Bundles[i], s.expectCfg.Bundles[i]
+				require.Equal(t, expected, actual, "bundle %d", i)
+			}
+			require.Equal(t, len(s.expectCfg.Others), len(actualCfg.Others))
+			require.Equal(t, s.expectCfg.Others, actualCfg.Others)
 		})
 	}
 }
@@ -879,4 +886,12 @@ func generateSqliteFile(path string, imageMap map[image.Reference]string) error 
 		return err
 	}
 	return nil
+}
+
+func mustBuildCSVMetadata(r io.Reader) property.Property {
+	var csv v1alpha1.ClusterServiceVersion
+	if err := json.NewDecoder(r).Decode(&csv); err != nil {
+		panic(err)
+	}
+	return property.MustBuildCSVMetadata(csv)
 }

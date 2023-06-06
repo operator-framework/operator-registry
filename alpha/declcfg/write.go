@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/blang/semver/v4"
-	"github.com/operator-framework/operator-registry/alpha/property"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
+
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 type MermaidWriter struct {
@@ -422,6 +424,51 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		if err := enc.Encode(o); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+type WriteFunc func(config DeclarativeConfig, w io.Writer) error
+
+func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
+	channelsByPackage := map[string][]Channel{}
+	for _, c := range cfg.Channels {
+		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
+	}
+	bundlesByPackage := map[string][]Bundle{}
+	for _, b := range cfg.Bundles {
+		bundlesByPackage[b.Package] = append(bundlesByPackage[b.Package], b)
+	}
+
+	if err := os.MkdirAll(rootDir, 0777); err != nil {
+		return err
+	}
+
+	for _, p := range cfg.Packages {
+		fcfg := DeclarativeConfig{
+			Packages: []Package{p},
+			Channels: channelsByPackage[p.Name],
+			Bundles:  bundlesByPackage[p.Name],
+		}
+		pkgDir := filepath.Join(rootDir, p.Name)
+		if err := os.MkdirAll(pkgDir, 0777); err != nil {
+			return err
+		}
+		filename := filepath.Join(pkgDir, fmt.Sprintf("catalog%s", fileExt))
+		if err := writeFile(fcfg, filename, writeFunc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeFile(cfg DeclarativeConfig, filename string, writeFunc WriteFunc) error {
+	buf := &bytes.Buffer{}
+	if err := writeFunc(cfg, buf); err != nil {
+		return fmt.Errorf("write to buffer for %q: %v", filename, err)
+	}
+	if err := os.WriteFile(filename, buf.Bytes(), 0666); err != nil {
+		return fmt.Errorf("write file %q: %v", filename, err)
 	}
 	return nil
 }
