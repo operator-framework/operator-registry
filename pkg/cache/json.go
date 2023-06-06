@@ -178,7 +178,7 @@ func (q *JSON) computeDigest(fbcFsys fs.FS) (string, error) {
 	return fmt.Sprintf("%x", computedHasher.Sum(nil)), nil
 }
 
-func (q *JSON) Build(fbcFsys fs.FS) error {
+func (q *JSON) Build(ctx context.Context, fbcFsys fs.FS) error {
 	// ensure that generated cache is available to all future users
 	oldUmask := umask(000)
 	defer umask(oldUmask)
@@ -190,7 +190,7 @@ func (q *JSON) Build(fbcFsys fs.FS) error {
 		return fmt.Errorf("ensure clean base directory: %v", err)
 	}
 
-	fbc, err := declcfg.LoadFS(fbcFsys)
+	fbc, err := declcfg.LoadFS(ctx, fbcFsys)
 	if err != nil {
 		return err
 	}

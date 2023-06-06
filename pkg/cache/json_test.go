@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 func TestJSON_StableDigest(t *testing.T) {
 	cacheDir := t.TempDir()
 	c := NewJSON(cacheDir)
-	require.NoError(t, c.Build(validFS))
+	require.NoError(t, c.Build(context.Background(), validFS))
 
 	actualDigest, err := c.existingDigest()
 	require.NoError(t, err)
@@ -96,7 +97,7 @@ func TestJSON_CheckIntegrity(t *testing.T) {
 			c := NewJSON(cacheDir)
 
 			if tc.build {
-				require.NoError(t, c.Build(tc.fbcFS))
+				require.NoError(t, c.Build(context.Background(), tc.fbcFS))
 			}
 			if tc.mod != nil {
 				require.NoError(t, tc.mod(&tc, cacheDir))

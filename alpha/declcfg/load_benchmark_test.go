@@ -1,10 +1,12 @@
 package declcfg_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -20,18 +22,22 @@ func BenchmarkLoadFS(b *testing.B) {
 	fbc := generateFBC(b, 300, 450, 3000)
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		tempDir := b.TempDir()
-		if err := declcfg.WriteFS(*fbc, tempDir, declcfg.WriteJSON, ".json"); err != nil {
-			b.Error(err)
-		}
-		b.StartTimer()
+	for _, n := range []int{1, runtime.NumCPU(), 2 * runtime.NumCPU()} {
+		b.Run(fmt.Sprintf("%d routines", n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				tempDir := b.TempDir()
+				if err := declcfg.WriteFS(*fbc, tempDir, declcfg.WriteJSON, ".json"); err != nil {
+					b.Error(err)
+				}
+				b.StartTimer()
 
-		_, err := declcfg.LoadFS(os.DirFS(tempDir))
-		if err != nil {
-			b.Error(err)
-		}
+				_, err := declcfg.LoadFS(context.Background(), os.DirFS(tempDir), declcfg.WithConcurrency(n))
+				if err != nil {
+					b.Error(err)
+				}
+			}
+		})
 	}
 }
 

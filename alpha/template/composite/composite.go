@@ -134,7 +134,7 @@ func (t *Template) Render(ctx context.Context, validate bool) error {
 
 				if validate {
 					// run the validation for the builder
-					err = builder.Validate(component.Destination.Path)
+					err = builder.Validate(ctx, component.Destination.Path)
 					if err != nil {
 						return fmt.Errorf("validating component %q: %w", component.Name, err)
 					}

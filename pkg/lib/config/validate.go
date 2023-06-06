@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"io/fs"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -13,9 +14,9 @@ import (
 // directory: a filesystem where declarative config file(s) exist
 // Outputs:
 // error: a wrapped error that contains a tree of error strings
-func Validate(root fs.FS) error {
+func Validate(ctx context.Context, root fs.FS) error {
 	// Load config files and convert them to declcfg objects
-	cfg, err := declcfg.LoadFS(root)
+	cfg, err := declcfg.LoadFS(ctx, root)
 	if err != nil {
 		return err
 	}

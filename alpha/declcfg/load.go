@@ -109,29 +109,46 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 	})
 }
 
+type LoadOptions struct {
+	concurrency int
+}
+
+type LoadOption func(*LoadOptions)
+
+func WithConcurrency(concurrency int) LoadOption {
+	return func(opts *LoadOptions) {
+		opts.concurrency = concurrency
+	}
+}
+
 // LoadFS loads a declarative config from the provided root FS. LoadFS walks the
 // filesystem from root and uses a gitignore-style filename matcher to skip files
 // that match patterns found in .indexignore files found throughout the filesystem.
 // If LoadFS encounters an error loading or parsing any file, the error will be
 // immediately returned.
-func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
+func LoadFS(ctx context.Context, root fs.FS, opts ...LoadOption) (*DeclarativeConfig, error) {
 	if root == nil {
 		return nil, fmt.Errorf("no declarative config filesystem provided")
 	}
 
-	concurrency := runtime.NumCPU()
+	options := LoadOptions{
+		concurrency: runtime.NumCPU(),
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
 
 	var (
 		fcfg     = &DeclarativeConfig{}
-		pathChan = make(chan string, concurrency)
-		cfgChan  = make(chan *DeclarativeConfig, concurrency)
+		pathChan = make(chan string, options.concurrency)
+		cfgChan  = make(chan *DeclarativeConfig, options.concurrency)
 	)
 
 	// Create an errgroup to manage goroutines. The context is closed when any
 	// goroutine returns an error. Goroutines should check the context
 	// to see if they should return early (in the case of another goroutine
 	// returning an error).
-	eg, ctx := errgroup.WithContext(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
 
 	// Walk the FS and send paths to a channel for parsing.
 	eg.Go(func() error {
@@ -141,7 +158,7 @@ func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
 	// Parse paths concurrently. The waitgroup ensures that all paths are parsed
 	// before the cfgChan is closed.
 	var wg sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
+	for i := 0; i < options.concurrency; i++ {
 		wg.Add(1)
 		eg.Go(func() error {
 			defer wg.Done()

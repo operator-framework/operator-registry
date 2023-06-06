@@ -136,7 +136,7 @@ func (s *serve) run(ctx context.Context) error {
 			return err
 		}
 	} else {
-		if err := cache.LoadOrRebuild(store, os.DirFS(s.configDir)); err != nil {
+		if err := cache.LoadOrRebuild(ctx, store, os.DirFS(s.configDir)); err != nil {
 			return err
 		}
 	}

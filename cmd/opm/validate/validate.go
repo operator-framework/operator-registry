@@ -17,7 +17,7 @@ func NewCmd() *cobra.Command {
 		Short: "Validate the declarative index config",
 		Long:  "Validate the declarative config JSON file(s) in a given directory",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			directory := args[0]
 			s, err := os.Stat(directory)
 			if err != nil {
@@ -27,7 +27,7 @@ func NewCmd() *cobra.Command {
 				return fmt.Errorf("%q is not a directory", directory)
 			}
 
-			if err := config.Validate(os.DirFS(directory)); err != nil {
+			if err := config.Validate(c.Context(), os.DirFS(directory)); err != nil {
 				logger.Fatal(err)
 			}
 			return nil

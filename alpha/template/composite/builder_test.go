@@ -242,7 +242,7 @@ func TestBasicBuilder(t *testing.T) {
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
-				validateErr := tc.basicBuilder.Validate(outDir)
+				validateErr := tc.basicBuilder.Validate(context.Background(), outDir)
 				tc.validateAssertions(t, validateErr)
 			}
 		})
@@ -706,7 +706,7 @@ func TestSemverBuilder(t *testing.T) {
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
-				validateErr := tc.semverBuilder.Validate(outDir)
+				validateErr := tc.semverBuilder.Validate(context.Background(), outDir)
 				tc.validateAssertions(t, validateErr)
 			}
 		})
@@ -1176,7 +1176,7 @@ func TestRawBuilder(t *testing.T) {
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
-				validateErr := tc.rawBuilder.Validate(outDir)
+				validateErr := tc.rawBuilder.Validate(context.Background(), outDir)
 				tc.validateAssertions(t, validateErr)
 			}
 		})
@@ -1575,7 +1575,7 @@ func TestCustomBuilder(t *testing.T) {
 			tc.buildAssertions(t, outPath, buildErr)
 
 			if tc.validate {
-				validateErr := tc.customBuilder.Validate(outDir)
+				validateErr := tc.customBuilder.Validate(context.Background(), outDir)
 				tc.validateAssertions(t, validateErr)
 			}
 		})
@@ -1759,7 +1759,7 @@ const customBuiltFbcJson = `{
 `
 
 func TestValidateFailure(t *testing.T) {
-	err := validate(BuilderConfig{}, "")
+	err := validate(context.Background(), BuilderConfig{}, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no such file or directory")
 }
