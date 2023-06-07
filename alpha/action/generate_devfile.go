@@ -8,6 +8,9 @@ import (
 
 type GenerateDevfile struct {
 	IndexDir string
+	Name     string
+	BuildCTX string
+	Provider string
 	Writer   io.Writer
 }
 
@@ -34,18 +37,18 @@ func (i GenerateDevfile) validate() error {
 
 const devfileTmpl = `schemaVersion: 2.2.0
 metadata:
-  name: fbc-4.11
-  displayName: FBC 4.11
+  name: {{.Name}}
+  displayName: {{.Name}}
   description: 'File based catalog'
   language: fbc
-  provider: Red Hat
+  provider: {{.Provider}}
 components:
   - name: image-build
     image:
       imageName: fbc:latest
       dockerfile:
         uri: {{.IndexDir}}.Dockerfile
-        buildContext: "4.11"
+        buildContext: {{.BuildCTX}}
 commands:
   - id: build-image
     apply:
