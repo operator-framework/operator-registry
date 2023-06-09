@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -104,7 +103,11 @@ func (m Meta) MarshalJSON() ([]byte, error) {
 func (m *Meta) UnmarshalJSON(blob []byte) error {
 	blobMap := map[string]interface{}{}
 	if err := json.Unmarshal(blob, &blobMap); err != nil {
-		return err
+		// TODO: unfortunately, there are libraries between here and the original caller
+		//   that eat our error type and return a generic error, such that we lose the
+		//   ability to errors.As to get this error on the other side. For now, just return
+		//   a string error that includes the pretty printed message.
+		return errors.New(newJSONUnmarshalError(blob, err).Pretty())
 	}
 
 	// TODO: this function ensures we do not break backwards compatibility with
@@ -175,48 +178,4 @@ func extractUniqueMetaKeys(blobMap map[string]any, m *Meta) error {
 		*ptr = v
 	}
 	return nil
-}
-
-func resolveUnmarshalErr(data []byte, err error) string {
-	var te *json.UnmarshalTypeError
-	if errors.As(err, &te) {
-		return formatUnmarshallErrorString(data, te.Error(), te.Offset)
-	}
-	var se *json.SyntaxError
-	if errors.As(err, &se) {
-		return formatUnmarshallErrorString(data, se.Error(), se.Offset)
-	}
-	return err.Error()
-}
-
-func formatUnmarshallErrorString(data []byte, errmsg string, offset int64) string {
-	sb := new(strings.Builder)
-	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by <==)\n ", errmsg, offset))
-	// attempt to present the erroneous JSON in indented, human-readable format
-	// errors result in presenting the original, unformatted output
-	var pretty bytes.Buffer
-	err := json.Indent(&pretty, data, "", "    ")
-	if err == nil {
-		pString := pretty.String()
-		// calc the prettified string offset which correlates to the original string offset
-		var pOffset, origOffset int64
-		origOffset = 0
-		for origOffset = 0; origOffset < offset; {
-			if pString[pOffset] != '\n' && pString[pOffset] != ' ' {
-				origOffset++
-			}
-			pOffset++
-		}
-		_, _ = sb.WriteString(pString[:pOffset])
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.WriteString(pString[pOffset:])
-	} else {
-		for i := int64(0); i < offset; i++ {
-			_ = sb.WriteByte(data[i])
-		}
-		_, _ = sb.WriteString(" <== ")
-		_, _ = sb.Write(data[offset:])
-	}
-
-	return sb.String()
 }
