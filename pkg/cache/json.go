@@ -11,10 +11,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var _ Cache = &JSON{}
@@ -135,6 +137,17 @@ func NewJSON(baseDir string) *JSON {
 	return &JSON{baseDir: baseDir}
 }
 
+func LoadJSONFromModel(baseDir string, m model.Model) (*JSON, error) {
+	c := NewJSON(baseDir)
+	if err := c.buildFromModel(m); err != nil {
+		return nil, err
+	}
+	if err := c.Load(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 const (
 	jsonDigestFile = "digest"
 	jsonDir        = "cache"
@@ -179,6 +192,30 @@ func (q *JSON) computeDigest(fbcFsys fs.FS) (string, error) {
 }
 
 func (q *JSON) Build(ctx context.Context, fbcFsys fs.FS) error {
+	fbc, err := declcfg.LoadFS(ctx, fbcFsys)
+	if err != nil {
+		return err
+	}
+	fbcModel, err := declcfg.ConvertToModel(*fbc)
+	if err != nil {
+		return err
+	}
+
+	if err := q.buildFromModel(fbcModel); err != nil {
+		return err
+	}
+
+	digest, err := q.computeDigest(fbcFsys)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(q.baseDir, jsonDigestFile), []byte(digest), jsonCacheModeFile); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (q *JSON) buildFromModel(fbcModel model.Model) error {
 	// ensure that generated cache is available to all future users
 	oldUmask := umask(000)
 	defer umask(oldUmask)
@@ -188,15 +225,6 @@ func (q *JSON) Build(ctx context.Context, fbcFsys fs.FS) error {
 	}
 	if err := ensureEmptyDir(filepath.Join(q.baseDir, jsonDir), jsonCacheModeDir); err != nil {
 		return fmt.Errorf("ensure clean base directory: %v", err)
-	}
-
-	fbc, err := declcfg.LoadFS(ctx, fbcFsys)
-	if err != nil {
-		return err
-	}
-	fbcModel, err := declcfg.ConvertToModel(*fbc)
-	if err != nil {
-		return err
 	}
 
 	pkgs, err := packagesFromModel(fbcModel)
@@ -231,13 +259,6 @@ func (q *JSON) Build(ctx context.Context, fbcFsys fs.FS) error {
 				q.apiBundles[apiBundleKey{p.Name, ch.Name, b.Name}] = filename
 			}
 		}
-	}
-	digest, err := q.computeDigest(fbcFsys)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(q.baseDir, jsonDigestFile), []byte(digest), jsonCacheModeFile); err != nil {
-		return err
 	}
 	return nil
 }
