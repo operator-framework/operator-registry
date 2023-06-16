@@ -25,7 +25,7 @@ type Interface interface {
 
 type Client struct {
 	Registry api.RegistryClient
-	Health   grpc_health_v1.HealthClient
+	Health   grpc_health_v1.RegistryHealthClient
 	Conn     *grpc.ClientConn
 }
 
@@ -98,7 +98,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) HealthCheck(ctx context.Context, reconnectTimeout time.Duration) (bool, error) {
-	res, err := c.Health.Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "Registry"})
+	res, err := c.Health.Check(ctx, &grpc_health_v1.RegistryHealthCheckRequest{Service: "Registry"})
 	if err != nil {
 		if c.Conn.GetState() == connectivity.TransientFailure {
 			ctx, cancel := context.WithTimeout(ctx, reconnectTimeout)
@@ -109,7 +109,7 @@ func (c *Client) HealthCheck(ctx context.Context, reconnectTimeout time.Duration
 		}
 		return false, NewHealthError(c.Conn, HealthErrReasonConnection, err.Error())
 	}
-	if res.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+	if res.Status != grpc_health_v1.RegistryHealthCheckResponse_SERVING {
 		return false, nil
 	}
 	return true, nil
@@ -126,7 +126,7 @@ func NewClient(address string) (*Client, error) {
 func NewClientFromConn(conn *grpc.ClientConn) *Client {
 	return &Client{
 		Registry: api.NewRegistryClient(conn),
-		Health:   grpc_health_v1.NewHealthClient(conn),
+		Health:   grpc_health_v1.NewRegistryHealthClient(conn),
 		Conn:     conn,
 	}
 }

@@ -4,11 +4,11 @@ option go_package = ".;grpc_health_v1";
 
 package grpc.health.v1;
 
-message HealthCheckRequest {
+message RegistryHealthCheckRequest {
     string service = 1;
 }
 
-message HealthCheckResponse {
+message RegistryHealthCheckResponse {
     enum ServingStatus {
         UNKNOWN = 0;
         SERVING = 1;
@@ -17,6 +17,6 @@ message HealthCheckResponse {
     ServingStatus status = 1;
 }
 
-service Health {
-    rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+service RegistryHealth {
+    rpc Check(RegistryHealthCheckRequest) returns (RegistryHealthCheckResponse);
 }
