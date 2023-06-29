@@ -98,14 +98,14 @@ func newDevfileCmd() *cobra.Command {
 		Long: `Generate a Devfile for a declarative config index.
 
 This command creates a Devfile in the same directory as the <dcRootDir>
-(named <dcDirName>.Dockerfile) that can be used to build the index. If a
+(named devfile.yaml) that can be used to build the index. If a
 Devfile with the same name already exists, this command will fail.
 `,
 		RunE: func(_ *cobra.Command, args []string) error {
 			fromDir := filepath.Clean(args[0])
 
 			dir, indexName := filepath.Split(fromDir)
-			dockerfilePath := filepath.Join(dir, fmt.Sprintf("%s.Devfile", indexName))
+			dockerfilePath := filepath.Join(dir, "devfile.yaml")
 
 			if err := ensureNotExist(dockerfilePath); err != nil {
 				logrus.Fatal(err)
