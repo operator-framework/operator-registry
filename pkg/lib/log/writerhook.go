@@ -44,7 +44,7 @@ func AddHooks(hooks ...*WriterHook) {
 }
 
 func AddDefaultWriterHooks(terminationLogPath string) error {
-	terminationLogFile, err := os.OpenFile(terminationLogPath, os.O_WRONLY|os.O_CREATE, 0755)
+	terminationLogFile, err := os.OpenFile(terminationLogPath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
