@@ -26,6 +26,9 @@ type Template struct {
 	outputType         string
 	registry           image.Registry
 	registeredBuilders map[string]builderFunc
+
+	catalogSpec      *CatalogConfig
+	contributionSpec *CompositeConfig
 }
 
 type TemplateOption func(t *Template)
@@ -104,26 +107,37 @@ func FetchCatalogConfig(path string, httpGetter HttpGetter) (io.ReadCloser, erro
 	return tempCatalog, nil
 }
 
+func (t *Template) Parse() error {
+
+	catalogSpec, err := t.parseCatalogsSpec()
+	if err != nil {
+		return err
+	}
+	t.catalogSpec = catalogSpec
+
+	contributionSpec, err := t.parseContributionSpec()
+	if err != nil {
+		return err
+	}
+	t.contributionSpec = contributionSpec
+
+	return nil
+}
+
 // TODO(everettraven): do we need the context here? If so, how should it be used?
 func (t *Template) Render(ctx context.Context, validate bool) error {
 
-	catalogFile, err := t.parseCatalogsSpec()
-	if err != nil {
+	if err := t.Parse(); err != nil {
 		return err
 	}
 
-	contributionFile, err := t.parseContributionSpec()
-	if err != nil {
-		return err
-	}
-
-	catalogBuilderMap, err := t.newCatalogBuilderMap(catalogFile.Catalogs, t.outputType)
+	catalogBuilderMap, err := t.newCatalogBuilderMap(t.catalogSpec.Catalogs, t.outputType)
 	if err != nil {
 		return err
 	}
 
 	// TODO(everettraven): should we return aggregated errors?
-	for _, component := range contributionFile.Components {
+	for _, component := range t.contributionSpec.Components {
 		if builderMap, ok := (*catalogBuilderMap)[component.Name]; ok {
 			if builder, ok := builderMap[component.Strategy.Template.Schema]; ok {
 				// run the builder corresponding to the schema
