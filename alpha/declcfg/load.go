@@ -1,6 +1,7 @@
 package declcfg
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -106,6 +107,48 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 		}
 
 		return fn(root, path, nil)
+	})
+}
+
+type rawJSON struct {
+	bytes.Buffer
+}
+
+func (r *rawJSON) UnmarshalJSON(b []byte) error {
+	return json.Compact(&r.Buffer, b)
+}
+
+func (r *rawJSON) MarshalJSON() ([]byte, error) {
+	return r.Bytes(), nil
+}
+
+func ToJSONStream(root fs.FS, w io.Writer) error {
+	return walkFiles(root, func(root fs.FS, path string, err error) error {
+		if err != nil {
+			return err
+		}
+
+		f, err := root.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		dec := yaml.NewYAMLOrJSONDecoder(f, 4096)
+		for {
+			var in rawJSON
+			if err := dec.Decode(&in); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return err
+			}
+
+			if _, err := w.Write(in.Bytes()); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

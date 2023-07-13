@@ -6,6 +6,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
 	"github.com/operator-framework/operator-registry/cmd/opm/generate"
+	"github.com/operator-framework/operator-registry/cmd/opm/http"
 	"github.com/operator-framework/operator-registry/cmd/opm/index"
 	initcmd "github.com/operator-framework/operator-registry/cmd/opm/init"
 	"github.com/operator-framework/operator-registry/cmd/opm/migrate"
@@ -38,7 +39,17 @@ func NewCmd() *cobra.Command {
 		logrus.Panic(err.Error())
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd(), generate.NewCmd())
+	cmd.AddCommand(
+		registry.NewOpmRegistryCmd(),
+		alpha.NewCmd(),
+		initcmd.NewCmd(),
+		migrate.NewCmd(),
+		serve.NewCmd(),
+		render.NewCmd(),
+		validate.NewCmd(),
+		generate.NewCmd(),
+		http.NewCmd(),
+	)
 	index.AddCommand(cmd)
 	version.AddCommand(cmd)
 
