@@ -2,7 +2,7 @@
 
 > **Warning:** Operator Lifecycle Manager (OLM) v1 features and components are still experimental. Early adopters and contributors should expect breaking changes. The following procedures are not recommended for use on production clusters.
 
-You can build a static collection of arbitrary Kubernetes manifests in the YAML format, or *plain bundle*, and add the image to a file-based catalog (FBC). The experimental `olm.bundle.mediatype` property of the `olm.bundle` schema object differentiates a plain bundle from a regular bundle. You must set the bundle media type property to `plain+v0` to specify a plain bundle.
+You can build a static collection of arbitrary Kubernetes manifests in the YAML format, or *plain bundle*, and add the image to a file-based catalog (FBC). The experimental `olm.bundle.mediatype` property of the `olm.bundle` schema object differentiates a plain bundle from a regular (`registry+v1`) bundle. You must set the bundle media type property to `plain+v0` to specify a plain bundle.
 
 For more information, see the [Plain Bundle Specification](https://github.com/operator-framework/rukpak/blob/main/docs/bundles/plain.md) in the RukPak repository.
 
@@ -72,9 +72,9 @@ Procedure
     ```sh
     LABEL operators.operatorframework.io.bundle.mediatype.v1=plain+v0
     LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
-    LABEL operators.operatorframework.io.bundle.package.v1=<operatorName>
+    LABEL operators.operatorframework.io.bundle.package.v1=<operator_name>
     LABEL operators.operatorframework.io.bundle.channels.v1=<channels>
-    LABEL operators.operatorframework.io.bundle.channel.default.v1=<defaultChannel>
+    LABEL operators.operatorframework.io.bundle.channel.default.v1=<default_channel>
     ```
 
 1. Build an OCI-compliant image using your preferred build tool, similar to the following example. You must use an image tag that references a repository where you have push access privileges.
