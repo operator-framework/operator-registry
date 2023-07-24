@@ -24,7 +24,7 @@ Prerequisites
 
 * [`opm` CLI tool](https://github.com/operator-framework/operator-registry/releases)
 * Docker or Podman
-* Push access to an image registry, such as [Quay](https://quay.io)
+* Push access to a container registry, such as [Quay](https://quay.io)
 
 <h3 id="proc-building-plain-bundle-from-image">
 Procedure
@@ -53,7 +53,7 @@ Procedure
 1. Create a Dockerfile at the root of your project:
 
     ```sh
-    touch Dockerfile.plainbundle
+    touch plainbundle.Dockerfile
     ```
 
 1. Make the following changes to your Dockerfile:
@@ -61,35 +61,25 @@ Procedure
     *Example Dockerfile*
 
     ```sh
-    FROM scratch
-    COPY manifests /manifests
+        FROM scratch
+        ADD catalog /configs
     ```
 
     > **Note:** Use the `FROM scratch` directive to make the size of the image smaller.
-
-1. Add the following labels to your Dockerfile:
-
-    ```sh
-    LABEL operators.operatorframework.io.bundle.mediatype.v1=plain+v0
-    LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
-    LABEL operators.operatorframework.io.bundle.package.v1=<operator_name>
-    LABEL operators.operatorframework.io.bundle.channels.v1=<channels>
-    LABEL operators.operatorframework.io.bundle.channel.default.v1=<default_channel>
-    ```
 
 1. Build an OCI-compliant image using your preferred build tool, similar to the following example. You must use an image tag that references a repository where you have push access privileges.
 
     *Example build command*
 
     ```sh
-    docker build -f Dockerfile.plainbundle -t \
-    quay.io/<image_repo>/plainbundle:example .
+    docker build -f plainbundle.Dockerfile -t \
+    quay.io/<organization_name>/<repository_name>:<image_tag> .
     ```
 
 1. Push the image to your remote registry:
 
     ```sh
-    docker push quay.io/<image_repo>/plainbundle:example
+    docker push quay.io/<organization_name>/<repository_name>:<image_tag>
     ```
 
 ### Additional resources
@@ -122,13 +112,9 @@ Procedure
 
 1. Create a Dockerfile that can build a catalog image by running the `opm generate dockerfile` command:
 
-    *Example `<catalog_name>-image.Dockerfile`*
-
     ```sh
     opm generate dockerfile <catalog_dir>
     ```
-
-    > **Note:** If do not want to use the default upstream base image, you can specify a different image using the `-i` flag.
 
     * The Dockerfile must be in the same parent directory as the catalog directory that you created in the previous step:
         *Example directory structure*
@@ -143,9 +129,6 @@ Procedure
 
     ```sh
     opm init <operator_name> \
-    --default-channel=preview \
-    --description=./README.md \
-    --icon=./operator-icon.svg \
     --output json \
     > <catalog_dir>/index.json
     ```
@@ -163,7 +146,7 @@ Prerequisites
 * `opm` CLI tool
 * A plain bundle image
 * A file-based catalog
-* Push access to an image registry, such as [Quay](https://quay.io)
+* Push access to a container registry, such as [Quay](https://quay.io)
 * Docker or Podman
 
 <h3 id="proc-adding-a-plain-bundle-to-fbc">
@@ -179,7 +162,6 @@ Procedure
         {
          "schema": "olm.package",
          "name": "<operator_name>",
-         "defaultChannel": "<default_channel_name>"
         }    
     }
     ```
@@ -191,15 +173,15 @@ Procedure
     ```json
     {
         "schema": "olm.bundle",
-        "name": "<bundle_name>",
+        "name": "<operator_name>.<version>",
         "package": "<operator_name>",
-        "image": "quay.io/<image_repo>/plainbundle:test",
+        "image": "quay.io/<organization_name>/<repository_name>:<image_tag>", 
         "properties": [
             {
                 "type": "olm.package",
                 "value": {
                 "packageName": "<operator_name>",
-                "version": "0.0.3"
+                "version": "<bundle_version>"
                 }
             },
             {
@@ -221,7 +203,7 @@ Procedure
         "package": "<operator_name>",
         "entries": [
             {
-                "name": "<bundle_name>"
+                "name": "<operator_name>/<bundle_version>"
             }
         ]
     }
@@ -238,20 +220,19 @@ Verification
     ```json
     {
         "schema": "olm.package",
-        "name": "testOperator",
-        "defaultChannel": "preview"
+        "name": "example-operator",
     }
     {
         "schema": "olm.bundle",
-        "name": "plainbundle:test",
-        "package": "testOperator",
-        "image": "quay.io/rashmigottipati/plainbundle:test",
+        "name": "example-operator.v0.0.1",
+        "package": "example-operator",
+        "image": "quay.io/rashmigottipati/example-operator-bundle:v0.0.1",
         "properties": [
             {
                 "type": "olm.package",
                 "value": {
-                "packageName": "testOperator",
-                "version": "0.0.3"
+                "packageName": "example-operator",
+                "version": "v0.0.1"
                 }
             },
             {
@@ -263,22 +244,14 @@ Verification
     {
         "schema": "olm.channel",
         "name": "preview",
-        "package": "testOperator",
+        "package": "example-operator",
         "entries": [
             {
-                "name": "plainbundle:test"
+                "name": "example-operator.v0.0.1"
             }
         ]
     }
     ```
-
-1. Run the following command to validate your catalog:
-
-    ```sh
-    opm validate <catalog_directory>
-    ```
-
-    If there are no errors in your catalog, the command completes without output.
 
 ## Building and publishing a file-based catalog
 
@@ -289,12 +262,12 @@ Procedure
 1. Run the following command to build your catalog as an image:
 
     ```sh
-    docker build -f <Dockerfile> -t \
-    quay.io/<image_repo>/plain-bundle-catalog:latest
+    docker build -f <catalog_directory>.Dockerfile -t \
+   quay.io/<organization_name>/<repository_name>:<image_tag> .
     ```
 
 1. Run the following command to push the catalog image:
 
     ```sh
-    docker push quay.io/<image_repo>/plain-bundle-catalog:latest
+    docker push quay.io/<organization_name>/<repository_name>:<image_tag>
     ```
