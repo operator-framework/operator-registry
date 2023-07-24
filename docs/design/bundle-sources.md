@@ -42,7 +42,7 @@ Procedure
     └── deployment.yaml
     ```
 
-    * If you are using [kustomize](https://kustomize.io) to build your manifests from templates, you must redirect the output into a single file under the `manifests/` directory by running the following command:
+    * If you are using [kustomize](https://kustomize.io) to build your manifests from templates, you must redirect the output to one or more files under the `manifests/` directory. For example:
 
         ```sh
         kustomize build templates > manifests/manifests.yaml
@@ -62,10 +62,10 @@ Procedure
 
     ```sh
         FROM scratch
-        ADD catalog /configs
+        ADD manifests /manifests
     ```
 
-    > **Note:** Use the `FROM scratch` directive to make the size of the image smaller.
+    > **Note:** Use the `FROM scratch` directive to make the size of the image smaller. No other files or directories are required in the bundle image.
 
 1. Build an OCI-compliant image using your preferred build tool, similar to the following example. You must use an image tag that references a repository where you have push access privileges.
 
