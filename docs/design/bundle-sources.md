@@ -110,10 +110,10 @@ Procedure
     mkdir <catalog_dir>
     ```
 
-1. Create a Dockerfile that can build a catalog image by running the `opm generate dockerfile` command:
+1. In the same directory level, create a Dockerfile that can build a catalog image:
 
-    ```sh
-    opm generate dockerfile <catalog_dir>
+     ```sh
+    touch Dockerfile
     ```
 
     * The Dockerfile must be in the same parent directory as the catalog directory that you created in the previous step:
@@ -124,6 +124,17 @@ Procedure
         ├── <catalog_dir>
         └── <catalog_dir>.Dockerfile
         ```
+
+1. Make the below changes to your Dockerfile:
+  
+    *Example Dockerfile*
+
+    ```sh
+        FROM scratch
+        ADD <catalog_dir> /configs
+    ```
+
+    > **Note:** Use the `FROM scratch` directive to make the size of the image smaller. 
 
 1. Populate the catalog with the package definition for your Operator by running the `opm init` command:
 
@@ -173,7 +184,7 @@ Procedure
     ```json
     {
         "schema": "olm.bundle",
-        "name": "<operator_name>.<version>",
+        "name": "<operator_name>.v<version>",
         "package": "<operator_name>",
         "image": "quay.io/<organization_name>/<repository_name>:<image_tag>", 
         "properties": [
@@ -199,15 +210,17 @@ Procedure
     ```json
     {
         "schema": "olm.channel",
-        "name": "<default_channel_name>",
+        "name": "<desired_channel_name>",
         "package": "<operator_name>",
         "entries": [
             {
-                "name": "<operator_name>/<bundle_version>"
+                "name": "<operator_name>.v<version>"
             }
         ]
     }
     ```
+
+    > **Note:** Some examples for the <desired_channel_name> include `stable`, `fast`, and `preview`.
 
 <h3 id="verify-adding-a-plain-bundle-to-fbc">
 Verification
