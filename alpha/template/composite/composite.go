@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -88,7 +89,7 @@ type HttpGetter interface {
 func FetchCatalogConfig(path string, httpGetter HttpGetter) (io.ReadCloser, error) {
 	var tempCatalog io.ReadCloser
 	catalogURI, err := url.ParseRequestURI(path)
-	if err != nil {
+	if err != nil || filepath.IsAbs(path) {
 		tempCatalog, err = os.Open(path)
 		if err != nil {
 			return nil, fmt.Errorf("opening catalog config file %q: %v", path, err)
