@@ -125,7 +125,7 @@ Procedure
         └── <catalog_dir>.Dockerfile
         ```
 
-1. Make the below changes to your Dockerfile:
+1. Make the following changes to your Dockerfile:
   
     *Example Dockerfile*
 
@@ -134,7 +134,7 @@ Procedure
         ADD <catalog_dir> /configs
     ```
 
-    > **Note:** Use the `FROM scratch` directive to make the size of the image smaller. 
+    > **Note:** Use the `FROM scratch` directive to make the size of the image smaller.
 
 1. Populate the catalog with the package definition for your Operator by running the `opm init` command:
 
@@ -148,7 +148,7 @@ Procedure
 
 ## Adding a plain bundle to your file-based catalog
 
-Currently, the `opm render` command does not support adding plain bundles to catalogs. You must manually add plain bundles to your file-based catalog, as shown in the example below.
+Currently, the `opm render` command does not support adding plain bundles to catalogs. You must manually add plain bundles to your file-based catalog, as shown in the following example.
 
 <h3 id="prereqs-adding-a-plain-bundle-to-fbc">
 Prerequisites
@@ -220,7 +220,7 @@ Procedure
     }
     ```
 
-    > **Note:** Some examples for the <desired_channel_name> include `stable`, `fast`, and `preview`.
+    > **Note:** Please refer to [channel naming conventions](https://olm.operatorframework.io/docs/best-practices/channel-naming/) for choosing the <desired_channel_name>. An example of the <desired_channel_name> is `candidate-v0`.
 
 <h3 id="verify-adding-a-plain-bundle-to-fbc">
 Verification
@@ -275,8 +275,8 @@ Procedure
 1. Run the following command to build your catalog as an image:
 
     ```sh
-    docker build -f <catalog_directory>.Dockerfile -t \
-   quay.io/<organization_name>/<repository_name>:<image_tag> .
+    docker build -f <catalog_dir>.Dockerfile -t \
+    quay.io/<organization_name>/<repository_name>:<image_tag> .
     ```
 
 1. Run the following command to push the catalog image:
