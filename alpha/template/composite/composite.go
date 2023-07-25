@@ -86,14 +86,20 @@ type HttpGetter interface {
 // FetchCatalogConfig will fetch the catalog configuration file from the given path.
 // The path can be a local file path OR a URL that returns the raw contents of the catalog
 // configuration file.
+// The filepath can be structured relative or as an absolute path
 func FetchCatalogConfig(path string, httpGetter HttpGetter) (io.ReadCloser, error) {
 	var tempCatalog io.ReadCloser
 	catalogURI, err := url.ParseRequestURI(path)
+	// Evalute local catalog config
+	// URI parse will fail on relative filepaths
+	// Check if path is an absolute filepath
 	if err != nil || filepath.IsAbs(path) {
 		tempCatalog, err = os.Open(path)
 		if err != nil {
 			return nil, fmt.Errorf("opening catalog config file %q: %v", path, err)
 		}
+		// Evalute remote catalog config
+		// If URi is valid, execute fetch
 	} else {
 		tempResp, err := httpGetter.Get(catalogURI.String())
 		if err != nil {
