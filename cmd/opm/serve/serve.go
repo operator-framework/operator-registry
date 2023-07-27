@@ -36,8 +36,9 @@ type serve struct {
 	port           string
 	terminationLog string
 
-	debug     bool
-	pprofAddr string
+	debug           bool
+	pprofAddr       string
+	captureProfiles bool
 
 	logger *logrus.Entry
 }
@@ -80,7 +81,8 @@ will not be reflected in the served content.
 	cmd.Flags().BoolVar(&s.debug, "debug", false, "enable debug logging")
 	cmd.Flags().StringVarP(&s.terminationLog, "termination-log", "t", "/dev/termination-log", "path to a container termination log file")
 	cmd.Flags().StringVarP(&s.port, "port", "p", "50051", "port number to serve on")
-	cmd.Flags().StringVar(&s.pprofAddr, "pprof-addr", "", "address of startup profiling endpoint (addr:port format)")
+	cmd.Flags().StringVar(&s.pprofAddr, "pprof-addr", "localhost:6060", "address of startup profiling endpoint (addr:port format)")
+	cmd.Flags().BoolVar(&s.captureProfiles, "pprof-capture-profiles", false, "capture pprof CPU profiles")
 	cmd.Flags().StringVar(&s.cacheDir, "cache-dir", "", "if set, sync and persist server cache directory")
 	cmd.Flags().BoolVar(&s.cacheOnly, "cache-only", false, "sync the serve cache and exit without serving")
 	cmd.Flags().BoolVar(&s.cacheEnforceIntegrity, "cache-enforce-integrity", false, "exit with error if cache is not present or has been invalidated. (default: true when --cache-dir is set and --cache-only is false, false otherwise), ")
@@ -92,8 +94,10 @@ func (s *serve) run(ctx context.Context) error {
 	if err := p.startEndpoint(); err != nil {
 		return fmt.Errorf("could not start pprof endpoint: %v", err)
 	}
-	if err := p.startCpuProfileCache(); err != nil {
-		return fmt.Errorf("could not start CPU profile: %v", err)
+	if s.captureProfiles {
+		if err := p.startCpuProfileCache(); err != nil {
+			return fmt.Errorf("could not start CPU profile: %v", err)
+		}
 	}
 
 	// Immediately set up termination log

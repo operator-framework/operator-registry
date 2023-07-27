@@ -165,6 +165,8 @@ func (q *JSON) existingDigest() (string, error) {
 }
 
 func (q *JSON) computeDigest(fbcFsys fs.FS) (string, error) {
+	// We are not sensitive to the size of this buffer, we just need it to be shared.
+	// For simplicity, do the same as io.Copy() would.
 	buf := make([]byte, 32*1024)
 	computedHasher := fnv.New64a()
 	if err := fsToTar(computedHasher, fbcFsys, buf); err != nil {
