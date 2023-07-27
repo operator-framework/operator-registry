@@ -13,7 +13,10 @@ import (
 // This function unsets user and group information in the tar archive so that readers
 // of archives produced by this function do not need to account for differences in
 // permissions between source and destination filesystems.
-func fsToTar(w io.Writer, fsys fs.FS) error {
+func fsToTar(w io.Writer, fsys fs.FS, buf []byte) error {
+	if buf == nil || len(buf) == 0 {
+		buf = make([]byte, 32*1024)
+	}
 	tw := tar.NewWriter(w)
 	if err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -52,7 +55,7 @@ func fsToTar(w io.Writer, fsys fs.FS) error {
 			return fmt.Errorf("open file %q: %v", path, err)
 		}
 		defer f.Close()
-		if _, err := io.Copy(tw, f); err != nil {
+		if _, err := io.CopyBuffer(tw, f, buf); err != nil {
 			return fmt.Errorf("write tar data for %q: %v", path, err)
 		}
 		return nil

@@ -165,13 +165,14 @@ func (q *JSON) existingDigest() (string, error) {
 }
 
 func (q *JSON) computeDigest(fbcFsys fs.FS) (string, error) {
+	buf := make([]byte, 32*1024)
 	computedHasher := fnv.New64a()
-	if err := fsToTar(computedHasher, fbcFsys); err != nil {
+	if err := fsToTar(computedHasher, fbcFsys, buf); err != nil {
 		return "", err
 	}
 
 	if cacheFS, err := fs.Sub(os.DirFS(q.baseDir), jsonDir); err == nil {
-		if err := fsToTar(computedHasher, cacheFS); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := fsToTar(computedHasher, cacheFS, buf); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("compute hash: %v", err)
 		}
 	}
