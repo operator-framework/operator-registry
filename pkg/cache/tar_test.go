@@ -51,7 +51,7 @@ func Test_fsToTar(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := bytes.Buffer{}
-			err := fsToTar(&w, tc.fsys())
+			err := fsToTar(&w, tc.fsys(), nil)
 			tc.expect(t, w.Bytes(), err)
 		})
 	}
