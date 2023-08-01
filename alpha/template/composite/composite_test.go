@@ -593,7 +593,7 @@ func TestFetchCatalogConfig(t *testing.T) {
 		},
 		{
 			name: "Successful absolute reference file fetch",
-			path: testDir + "file/test.yaml",
+			path: testDir + "/file/test.yaml",
 			fakeGetter: &fakeGetter{
 				catalog:     validCatalog,
 				shouldError: true,
@@ -606,7 +606,7 @@ func TestFetchCatalogConfig(t *testing.T) {
 		},
 		{
 			name: "Failed absolute reference file fetch",
-			path: testDir + "file/test.yaml",
+			path: testDir + "/file/test.yaml",
 			fakeGetter: &fakeGetter{
 				catalog:     validCatalog,
 				shouldError: true,
