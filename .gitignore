@@ -473,3 +473,6 @@ certs/*
 # ignore temp artifacts of building images
 pkg/lib/indexer/index.Dockerfile*
 
+# ignore vendor since we don't commit it
+vendor/*
+
