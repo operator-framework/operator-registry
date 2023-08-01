@@ -1,8 +1,10 @@
 package containerdregistry
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +20,8 @@ import (
 	"github.com/docker/cli/cli/config/credentials"
 	"github.com/docker/docker/registry"
 )
+
+var refreshTokens = make(map[string]string)
 
 func NewResolver(configDir string, skipTlSVerify, plainHTTP bool, roots *x509.CertPool) (remotes.Resolver, error) {
 	transport := &http.Transport{
@@ -51,11 +55,17 @@ func NewResolver(configDir string, skipTlSVerify, plainHTTP bool, roots *x509.Ce
 		return nil, err
 	}
 
+	onFetchRefreshToken := func(ctx context.Context, refreshToken string, req *http.Request) {
+		refreshTokens[req.URL.Host] = refreshToken
+		fmt.Printf("got a refreshed token: %s\n", refreshToken)
+	}
+
 	regopts := []docker.RegistryOpt{
 		docker.WithAuthorizer(docker.NewDockerAuthorizer(
 			docker.WithAuthClient(client),
 			docker.WithAuthHeader(headers),
 			docker.WithAuthCreds(credential(cfg)),
+			docker.WithFetchRefreshToken(onFetchRefreshToken),
 		)),
 		docker.WithClient(client),
 	}
@@ -77,6 +87,10 @@ func credential(cfg *configfile.ConfigFile) func(string) (string, string, error)
 		auth, err := cfg.GetAuthConfig(hostname)
 		if err != nil {
 			return "", "", err
+		}
+		if refreshTokens[hostname] != "" {
+			auth.Password = ""
+			auth.IdentityToken = refreshTokens[hostname]
 		}
 		if auth.IdentityToken != "" {
 			return "", auth.IdentityToken, nil
