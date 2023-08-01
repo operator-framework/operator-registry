@@ -614,7 +614,8 @@ func TestFetchCatalogConfig(t *testing.T) {
 			createFile: false,
 			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
 				require.Error(t, err)
-				require.Equal(t, "opening catalog config file \"file/test.yaml\": open file/test.yaml: no such file or directory", err.Error())
+				strVal := "opening catalog config file \"" + testDir + "/file/test.yaml\": open file/test.yaml: no such file or directory"
+				require.Equal(t, strVal, err.Error())
 			},
 		},
 	}
