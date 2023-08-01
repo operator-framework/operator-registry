@@ -540,6 +540,8 @@ func TestFetchCatalogConfig(t *testing.T) {
 		assertions func(t *testing.T, rc io.ReadCloser, err error)
 	}
 
+	testDir := t.TempDir()
+
 	testCases := []testCase{
 		{
 			name: "Successful HTTP fetch",
@@ -589,9 +591,33 @@ func TestFetchCatalogConfig(t *testing.T) {
 				require.Equal(t, "opening catalog config file \"file/test.yaml\": open file/test.yaml: no such file or directory", err.Error())
 			},
 		},
+		{
+			name: "Successful absolute reference file fetch",
+			path: testDir + "file/test.yaml",
+			fakeGetter: &fakeGetter{
+				catalog:     validCatalog,
+				shouldError: true,
+			},
+			createFile: true,
+			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, rc)
+			},
+		},
+		{
+			name: "Failed absolute reference file fetch",
+			path: testDir + "file/test.yaml",
+			fakeGetter: &fakeGetter{
+				catalog:     validCatalog,
+				shouldError: true,
+			},
+			createFile: false,
+			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
+				require.Error(t, err)
+				require.Equal(t, "opening catalog config file \"file/test.yaml\": open file/test.yaml: no such file or directory", err.Error())
+			},
+		},
 	}
-
-	testDir := t.TempDir()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
