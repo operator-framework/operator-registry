@@ -571,7 +571,8 @@ func TestFetchCatalogConfig(t *testing.T) {
 			name: "Successful file fetch",
 			path: "file/test.yaml",
 			fakeGetter: &fakeGetter{
-				catalog: validCatalog,
+				catalog:     validCatalog,
+				shouldError: true,
 			},
 			createFile: true,
 			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
