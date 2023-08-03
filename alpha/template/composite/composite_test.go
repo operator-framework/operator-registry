@@ -540,6 +540,8 @@ func TestFetchCatalogConfig(t *testing.T) {
 		assertions func(t *testing.T, rc io.ReadCloser, err error)
 	}
 
+	testDir := t.TempDir()
+
 	testCases := []testCase{
 		{
 			name: "Successful HTTP fetch",
@@ -569,7 +571,8 @@ func TestFetchCatalogConfig(t *testing.T) {
 			name: "Successful file fetch",
 			path: "file/test.yaml",
 			fakeGetter: &fakeGetter{
-				catalog: validCatalog,
+				catalog:     validCatalog,
+				shouldError: true,
 			},
 			createFile: true,
 			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
@@ -590,8 +593,6 @@ func TestFetchCatalogConfig(t *testing.T) {
 			},
 		},
 	}
-
-	testDir := t.TempDir()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
