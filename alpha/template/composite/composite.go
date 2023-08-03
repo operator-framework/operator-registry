@@ -98,9 +98,9 @@ func FetchCatalogConfig(path string, httpGetter HttpGetter) (io.ReadCloser, erro
 		if err != nil {
 			return nil, fmt.Errorf("opening catalog config file %q: %v", path, err)
 		}
+	} else {
 		// Evalute remote catalog config
 		// If URi is valid, execute fetch
-	} else {
 		tempResp, err := httpGetter.Get(catalogURI.String())
 		if err != nil {
 			return nil, fmt.Errorf("fetching remote catalog config file %q: %v", path, err)
