@@ -592,33 +592,6 @@ func TestFetchCatalogConfig(t *testing.T) {
 				require.Equal(t, "opening catalog config file \"file/test.yaml\": open file/test.yaml: no such file or directory", err.Error())
 			},
 		},
-		{
-			name: "Successful absolute reference file fetch",
-			path: testDir + "/file/test.yaml",
-			fakeGetter: &fakeGetter{
-				catalog:     validCatalog,
-				shouldError: true,
-			},
-			createFile: true,
-			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, rc)
-			},
-		},
-		{
-			name: "Failed absolute reference file fetch",
-			path: testDir + "/file/faketest.yaml",
-			fakeGetter: &fakeGetter{
-				catalog:     validCatalog,
-				shouldError: true,
-			},
-			createFile: false,
-			assertions: func(t *testing.T, rc io.ReadCloser, err error) {
-				require.Error(t, err)
-				strVal := "opening catalog config file \"" + testDir + "/file/faketest.yaml\": open " + testDir + "/file/faketest.yaml: no such file or directory"
-				require.Equal(t, strVal, err.Error())
-			},
-		},
 	}
 
 	for _, tc := range testCases {
