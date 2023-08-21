@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
+
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -107,7 +109,7 @@ func (m *Meta) UnmarshalJSON(blob []byte) error {
 		//   that eat our error type and return a generic error, such that we lose the
 		//   ability to errors.As to get this error on the other side. For now, just return
 		//   a string error that includes the pretty printed message.
-		return errors.New(newJSONUnmarshalError(blob, err).Pretty())
+		return errors.New(prettyunmarshaler.NewJSONUnmarshalError(blob, err).Pretty())
 	}
 
 	// TODO: this function ensures we do not break backwards compatibility with

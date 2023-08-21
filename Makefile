@@ -3,6 +3,7 @@ GO := go
 CMDS := $(addprefix bin/, $(shell ls ./cmd | grep -v opm))
 OPM := $(addprefix bin/, opm)
 SPECIFIC_UNIT_TEST := $(if $(TEST),-run $(TEST),)
+SPECIFIC_SKIP_UNIT_TEST := $(if $(SKIP),-skip $(SKIP),)
 extra_env := $(GOENV)
 export PKG := github.com/operator-framework/operator-registry
 export GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
@@ -60,7 +61,7 @@ static: build
 
 .PHONY: unit
 unit:
-	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
+	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
 
 .PHONY: sanity-check
 sanity-check:

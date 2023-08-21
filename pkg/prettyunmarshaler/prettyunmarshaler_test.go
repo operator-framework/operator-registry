@@ -1,4 +1,4 @@
-package declcfg
+package prettyunmarshaler
 
 import (
 	"encoding/json"
@@ -135,7 +135,7 @@ func TestJsonUnmarshalError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			actualErr := newJSONUnmarshalError(tc.data, tc.inErr)
+			actualErr := NewJSONUnmarshalError(tc.data, tc.inErr)
 			assert.Equal(t, tc.expectErrorString, actualErr.Error())
 			assert.Equal(t, tc.expectPrettyString, actualErr.Pretty())
 		})
