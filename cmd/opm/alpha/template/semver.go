@@ -23,7 +23,7 @@ func newSemverTemplateCmd() *cobra.Command {
 When FILE is '-' or not provided, the template is read from standard input`,
 		Long: `Generate a file-based catalog from a single 'semver template' file
 When FILE is '-' or not provided, the template is read from standard input`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Handle different input argument types
 			// When no arguments or "-" is passed to the command,
