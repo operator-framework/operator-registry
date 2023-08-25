@@ -1,4 +1,4 @@
-package declcfg
+package prettyunmarshaler
 
 import (
 	"bytes"
@@ -8,29 +8,29 @@ import (
 	"strings"
 )
 
-type jsonUnmarshalError struct {
+type JsonUnmarshalError struct {
 	data   []byte
 	offset int64
 	err    error
 }
 
-func newJSONUnmarshalError(data []byte, err error) *jsonUnmarshalError {
+func NewJSONUnmarshalError(data []byte, err error) *JsonUnmarshalError {
 	var te *json.UnmarshalTypeError
 	if errors.As(err, &te) {
-		return &jsonUnmarshalError{data: data, offset: te.Offset, err: te}
+		return &JsonUnmarshalError{data: data, offset: te.Offset, err: te}
 	}
 	var se *json.SyntaxError
 	if errors.As(err, &se) {
-		return &jsonUnmarshalError{data: data, offset: se.Offset, err: se}
+		return &JsonUnmarshalError{data: data, offset: se.Offset, err: se}
 	}
-	return &jsonUnmarshalError{data: data, offset: -1, err: err}
+	return &JsonUnmarshalError{data: data, offset: -1, err: err}
 }
 
-func (e *jsonUnmarshalError) Error() string {
+func (e *JsonUnmarshalError) Error() string {
 	return e.err.Error()
 }
 
-func (e *jsonUnmarshalError) Pretty() string {
+func (e *JsonUnmarshalError) Pretty() string {
 	if len(e.data) == 0 || e.offset < 0 || e.offset > int64(len(e.data)) {
 		return e.err.Error()
 	}
