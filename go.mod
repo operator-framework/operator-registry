@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.5.13
 	github.com/docker/cli v20.10.12+incompatible
-	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.6.2
