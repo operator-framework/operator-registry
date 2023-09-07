@@ -6,15 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"github.com/sirupsen/logrus"
 )
 
 var _ Cache = &JSON{}
@@ -58,31 +60,66 @@ func (q *JSON) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 }
 
 func (q *JSON) SendBundles(_ context.Context, s registry.BundleSender) error {
+	var keys []apiBundleKey
 	for _, pkg := range q.packageIndex {
-		channels := sets.KeySet(pkg.Channels)
-		for _, chName := range sets.List(channels) {
-			ch := pkg.Channels[chName]
-
-			bundles := sets.KeySet(ch.Bundles)
-			for _, bName := range sets.List(bundles) {
-				b := ch.Bundles[bName]
-				apiBundle, err := q.loadAPIBundle(apiBundleKey{pkg.Name, ch.Name, b.Name})
-				if err != nil {
-					return fmt.Errorf("convert bundle %q: %v", b.Name, err)
-				}
-				if apiBundle.BundlePath != "" {
-					// The SQLite-based server
-					// configures its querier to
-					// omit these fields when
-					// bundle path is set.
-					apiBundle.CsvJson = ""
-					apiBundle.Object = nil
-				}
-				if err := s.Send(apiBundle); err != nil {
-					return err
-				}
+		for _, ch := range pkg.Channels {
+			for _, b := range ch.Bundles {
+				keys = append(keys, apiBundleKey{pkg.Name, ch.Name, b.Name})
 			}
 		}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].chName != keys[j].chName {
+			return keys[i].chName < keys[j].chName
+		}
+		if keys[i].pkgName != keys[j].pkgName {
+			return keys[i].pkgName < keys[j].pkgName
+		}
+		return keys[i].name < keys[j].name
+	})
+	var files []*os.File
+	var readers []io.Reader
+	for _, key := range keys {
+		filename, ok := q.apiBundles[key]
+		if !ok {
+			return fmt.Errorf("package %q, channel %q, key %q not found", key.pkgName, key.chName, key.name)
+		}
+		file, err := os.Open(filename)
+		if err != nil {
+			return fmt.Errorf("failed to open file for package %q, channel %q, key %q: %w", key.pkgName, key.chName, key.name, err)
+		}
+		files = append(files, file)
+		readers = append(readers, file)
+	}
+	defer func() {
+		for _, file := range files {
+			if err := file.Close(); err != nil {
+				logrus.WithError(err).WithField("file", file.Name()).Warn("could not close file")
+			}
+		}
+	}()
+	multiReader := io.MultiReader(readers...)
+	decoder := json.NewDecoder(multiReader)
+	index := 0
+	for {
+		var bundle api.Bundle
+		if err := decoder.Decode(&bundle); err == io.EOF {
+			break
+		} else if err != nil {
+			return fmt.Errorf("failed to decode file for package %q, channel %q, key %q: %w", keys[index].pkgName, keys[index].chName, keys[index].name, err)
+		}
+		if bundle.BundlePath != "" {
+			// The SQLite-based server
+			// configures its querier to
+			// omit these fields when
+			// key path is set.
+			bundle.CsvJson = ""
+			bundle.Object = nil
+		}
+		if err := s.Send(&bundle); err != nil {
+			return err
+		}
+		index += 1
 	}
 	return nil
 }
