@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"context"
-	cryptorand "crypto/rand"
+	"crypto/rand"
 	"expvar"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,7 +25,7 @@ import (
 	"github.com/docker/distribution/notifications"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/auth"
 	registrymiddleware "github.com/docker/distribution/registry/middleware/registry"
 	repositorymiddleware "github.com/docker/distribution/registry/middleware/repository"
@@ -328,7 +329,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	var ok bool
 	app.repoRemover, ok = app.registry.(distribution.RepositoryRemover)
 	if !ok {
-		dcontext.GetLogger(app).Warnf("Registry does not implement RepositoryRemover. Will not be able to delete repos and tags")
+		dcontext.GetLogger(app).Warnf("Registry does not implement RempositoryRemover. Will not be able to delete repos and tags")
 	}
 
 	return app
@@ -610,7 +611,7 @@ func (app *App) configureLogHook(configuration *configuration.Configuration) {
 func (app *App) configureSecret(configuration *configuration.Configuration) {
 	if configuration.HTTP.Secret == "" {
 		var secretBytes [randomSecretSize]byte
-		if _, err := cryptorand.Read(secretBytes[:]); err != nil {
+		if _, err := rand.Read(secretBytes[:]); err != nil {
 			panic(fmt.Sprintf("could not generate random bytes for HTTP secret: %v", err))
 		}
 		configuration.HTTP.Secret = string(secretBytes[:])
@@ -862,7 +863,7 @@ func (app *App) authorized(w http.ResponseWriter, r *http.Request, context *Cont
 		return err
 	}
 
-	dcontext.GetLogger(ctx, auth.UserNameKey).Info("authorized request")
+	dcontext.GetLogger(ctx).Info("authorized request")
 	// TODO(stevvooe): This pattern needs to be cleaned up a bit. One context
 	// should be replaced by another, rather than replacing the context on a
 	// mutable object.
@@ -896,7 +897,7 @@ func (app *App) nameRequired(r *http.Request) bool {
 func apiBase(w http.ResponseWriter, r *http.Request) {
 	const emptyJSON = "{}"
 	// Provide a simple /v2/ 200 OK response with empty json response.
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", fmt.Sprint(len(emptyJSON)))
 
 	fmt.Fprint(w, emptyJSON)
@@ -1060,8 +1061,13 @@ func startUploadPurger(ctx context.Context, storageDriver storagedriver.StorageD
 	}
 
 	go func() {
-		rand.Seed(time.Now().Unix())
-		jitter := time.Duration(rand.Int()%60) * time.Minute
+		randInt, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64))
+		if err != nil {
+			log.Infof("Failed to generate random jitter: %v", err)
+			// sleep 30min for failure case
+			randInt = big.NewInt(30)
+		}
+		jitter := time.Duration(randInt.Int64()%60) * time.Minute
 		log.Infof("Starting upload purge in %s", jitter)
 		time.Sleep(jitter)
 

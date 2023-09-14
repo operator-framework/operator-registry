@@ -65,6 +65,8 @@ github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
+# github.com/bitly/go-simplejson v0.5.1
+## explicit; go 1.17
 # github.com/blang/semver v3.5.1+incompatible
 ## explicit
 github.com/blang/semver
@@ -136,8 +138,8 @@ github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
 github.com/docker/cli/cli/config/types
-# github.com/docker/distribution v2.8.2+incompatible => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
-## explicit; go 1.12
+# github.com/docker/distribution v2.8.2+incompatible
+## explicit
 github.com/docker/distribution
 github.com/docker/distribution/configuration
 github.com/docker/distribution/context
@@ -663,8 +665,6 @@ go.opentelemetry.io/proto/otlp/resource/v1
 go.opentelemetry.io/proto/otlp/trace/v1
 # golang.org/x/crypto v0.0.0-20220408190544-5352b0902921
 ## explicit; go 1.17
-golang.org/x/crypto/acme
-golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/pbkdf2
 # golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
@@ -1260,6 +1260,9 @@ k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
+# rsc.io/letsencrypt v0.0.3
+## explicit
+rsc.io/letsencrypt
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.32
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
@@ -1322,4 +1325,3 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d

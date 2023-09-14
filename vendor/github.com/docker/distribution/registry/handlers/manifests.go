@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"fmt"
-	"mime"
 	"net/http"
 	"strings"
 
@@ -15,11 +14,11 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/auth"
 	"github.com/gorilla/handlers"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go/v1"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // These constants determine which architecture and OS to choose from a
@@ -98,9 +97,13 @@ func (imh *manifestHandler) GetManifest(w http.ResponseWriter, r *http.Request) 
 		// we need to split each header value on "," to get the full list of "Accept" values (per RFC 2616)
 		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.1
 		for _, mediaType := range strings.Split(acceptHeader, ",") {
-			if mediaType, _, err = mime.ParseMediaType(mediaType); err != nil {
-				continue
+			// remove "; q=..." if present
+			if i := strings.Index(mediaType, ";"); i >= 0 {
+				mediaType = mediaType[:i]
 			}
+
+			// it's common (but not required) for Accept values to be space separated ("a/b, c/d, e/f")
+			mediaType = strings.TrimSpace(mediaType)
 
 			if mediaType == schema2.MediaTypeManifest {
 				supports[manifestSchema2] = true

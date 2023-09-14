@@ -6,7 +6,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/distribution/registry/api/v2"
+	v2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/gorilla/handlers"
 )
 
@@ -49,7 +49,7 @@ func (th *tagsHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(tagsAPIResponse{
