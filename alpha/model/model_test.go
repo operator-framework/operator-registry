@@ -478,7 +478,7 @@ func TestValidators(t *testing.T) {
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
-					property.MustBuildBundleObjectRef("path/to/data"),
+					property.MustBuildBundleObject([]byte("testdata")),
 				},
 				Objects: []string{"testdata"},
 				CsvJSON: "CSVjson",

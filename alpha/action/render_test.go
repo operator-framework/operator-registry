@@ -294,8 +294,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
+							property.MustBuildBundleObject(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -319,8 +319,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -392,8 +392,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov1csv),
-							property.MustBuildBundleObjectData(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
+							property.MustBuildBundleObject(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -417,8 +417,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObjectData(foov2csv),
-							property.MustBuildBundleObjectData(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{

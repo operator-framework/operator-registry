@@ -31,9 +31,7 @@ func (m Migrate) Run(ctx context.Context) error {
 	r := Render{
 		Refs: []string{m.CatalogRef},
 
-		// Only allow sqlite images and files to be migrated. Other types cannot
-		// always be migrated cleanly because they may contain file references.
-		// Rendered sqlite databases never contain file references.
+		// Only allow sqlite images and files to be migrated.
 		AllowedRefMask: RefSqliteImage | RefSqliteFile,
 
 		skipSqliteDeprecationLog: true,

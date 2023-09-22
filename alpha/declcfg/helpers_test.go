@@ -3,7 +3,6 @@ package declcfg
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"testing"
 
@@ -116,8 +115,8 @@ func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 		Image:   testBundleImage(packageName, version),
 		Properties: []property.Property{
 			property.MustBuildPackage(packageName, version),
-			property.MustBuildBundleObjectRef(filepath.Join("objects", testBundleName(packageName, version)+".csv.yaml")),
-			property.MustBuildBundleObjectData([]byte(`{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`)),
+			property.MustBuildBundleObject([]byte(csvJson)),
+			property.MustBuildBundleObject([]byte(`{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`)),
 		},
 		RelatedImages: []RelatedImage{
 			{
@@ -193,8 +192,8 @@ func getBundle(pkg *model.Package, ch *model.Channel, version, replaces string, 
 		Image:   testBundleImage(pkg.Name, version),
 		Properties: []property.Property{
 			property.MustBuildPackage(pkg.Name, version),
-			property.MustBuildBundleObjectRef(filepath.Join("objects", testBundleName(pkg.Name, version)+".csv.yaml")),
-			property.MustBuildBundleObjectData([]byte(getCRDJSON())),
+			property.MustBuildBundleObject([]byte(getCSVJson(pkg.Name, version))),
+			property.MustBuildBundleObject([]byte(getCRDJSON())),
 		},
 		Replaces: replaces,
 		Skips:    skips,
