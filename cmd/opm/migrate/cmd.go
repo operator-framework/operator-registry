@@ -27,9 +27,6 @@ parsers that assume that a file contains exactly one valid JSON object.
 
 ` + sqlite.DeprecationMessage,
 		Args: cobra.ExactArgs(2),
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			sqlite.LogSqliteDeprecation()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrate.CatalogRef = args[0]
 			migrate.OutputDir = args[1]

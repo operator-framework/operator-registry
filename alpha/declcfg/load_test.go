@@ -2,7 +2,9 @@ package declcfg
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"testing"
@@ -254,7 +256,7 @@ func TestLoadFS(t *testing.T) {
 							{Type: "olm.gvk", Value: json.RawMessage(`{"group":"etcd.database.coreos.com","kind":"EtcdCluster","version":"v1beta2"}`)},
 							{Type: "olm.channel", Value: json.RawMessage(`{"name":"alpha"}`)},
 							{Type: "olm.skipRange", Value: json.RawMessage(`"<0.6.1"`)},
-							{Type: "olm.bundle.object", Value: json.RawMessage(`{"ref":"etcdoperator.v0.6.1.clusterserviceversion.yaml"}`)},
+							{Type: "olm.bundle.object", Value: json.RawMessage(fmt.Sprintf(`{"data": %q}`, base64.StdEncoding.EncodeToString(etcdCSV.Data)))},
 						},
 						RelatedImages: []RelatedImage{{Name: "etcdv0.6.1", Image: "quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943"}},
 						Objects:       []string{toJSON(t, etcdCSV.Data)},
@@ -508,7 +510,7 @@ var (
 }`),
 	}
 	etcd = &fstest.MapFile{
-		Data: []byte(`---
+		Data: []byte(fmt.Sprintf(`---
 schema: olm.package
 name: etcd
 defaultChannel: singlenamespace-alpha
@@ -539,7 +541,7 @@ properties:
     value: <0.6.1
   - type: olm.bundle.object
     value:
-      ref: etcdoperator.v0.6.1.clusterserviceversion.yaml
+      data: %q
 relatedImages:
   - image: quay.io/coreos/etcd-operator@sha256:bd944a211eaf8f31da5e6d69e8541e7cada8f16a9f7a5a570b22478997819943
     name: etcdv0.6.1
@@ -674,7 +676,7 @@ properties:
       replaces: etcdoperator.v0.9.2-clusterwide
 relatedImages:
   - image: quay.io/coreos/etcd-operator@sha256:66a37fd61a06a43969854ee6d3e21087a98b93838e284a6086b13917f96b0d9b
-    name: etcdv0.9.2`),
+    name: etcdv0.9.2`, base64.StdEncoding.EncodeToString(etcdCSV.Data))),
 	}
 	etcdCSV = &fstest.MapFile{
 		Data: []byte(`apiVersion: operators.coreos.com/v1alpha1

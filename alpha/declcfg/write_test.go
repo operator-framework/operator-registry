@@ -78,7 +78,7 @@ func TestWriteJSON(t *testing.T) {
         {
             "type": "olm.bundle.object",
             "value": {
-                "ref": "objects/anakin.v0.0.1.csv.yaml"
+                "data": "eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMC4xIn19"
             }
         },
         {
@@ -111,7 +111,7 @@ func TestWriteJSON(t *testing.T) {
         {
             "type": "olm.bundle.object",
             "value": {
-                "ref": "objects/anakin.v0.1.0.csv.yaml"
+                "data": "eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMS4wIn19"
             }
         },
         {
@@ -144,7 +144,7 @@ func TestWriteJSON(t *testing.T) {
         {
             "type": "olm.bundle.object",
             "value": {
-                "ref": "objects/anakin.v0.1.1.csv.yaml"
+                "data": "eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMS4xIn19"
             }
         },
         {
@@ -206,7 +206,7 @@ func TestWriteJSON(t *testing.T) {
         {
             "type": "olm.bundle.object",
             "value": {
-                "ref": "objects/boba-fett.v1.0.0.csv.yaml"
+                "data": "eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJib2JhLWZldHQudjEuMC4wIn19"
             }
         },
         {
@@ -239,7 +239,7 @@ func TestWriteJSON(t *testing.T) {
         {
             "type": "olm.bundle.object",
             "value": {
-                "ref": "objects/boba-fett.v2.0.0.csv.yaml"
+                "data": "eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJib2JhLWZldHQudjIuMC4wIn19"
             }
         },
         {
@@ -329,7 +329,7 @@ properties:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
 - type: olm.bundle.object
   value:
-    ref: objects/anakin.v0.0.1.csv.yaml
+    data: eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMC4xIn19
 - type: olm.package
   value:
     packageName: anakin
@@ -348,7 +348,7 @@ properties:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
 - type: olm.bundle.object
   value:
-    ref: objects/anakin.v0.1.0.csv.yaml
+    data: eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMS4wIn19
 - type: olm.package
   value:
     packageName: anakin
@@ -367,7 +367,7 @@ properties:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
 - type: olm.bundle.object
   value:
-    ref: objects/anakin.v0.1.1.csv.yaml
+    data: eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJhbmFraW4udjAuMS4xIn19
 - type: olm.package
   value:
     packageName: anakin
@@ -406,7 +406,7 @@ properties:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
 - type: olm.bundle.object
   value:
-    ref: objects/boba-fett.v1.0.0.csv.yaml
+    data: eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJib2JhLWZldHQudjEuMC4wIn19
 - type: olm.package
   value:
     packageName: boba-fett
@@ -425,7 +425,7 @@ properties:
     data: eyJraW5kIjogIkN1c3RvbVJlc291cmNlRGVmaW5pdGlvbiIsICJhcGlWZXJzaW9uIjogImFwaWV4dGVuc2lvbnMuazhzLmlvL3YxIn0=
 - type: olm.bundle.object
   value:
-    ref: objects/boba-fett.v2.0.0.csv.yaml
+    data: eyJraW5kIjogIkNsdXN0ZXJTZXJ2aWNlVmVyc2lvbiIsICJhcGlWZXJzaW9uIjogIm9wZXJhdG9ycy5jb3Jlb3MuY29tL3YxYWxwaGExIiwgIm1ldGFkYXRhIjp7Im5hbWUiOiJib2JhLWZldHQudjIuMC4wIn19
 - type: olm.package
   value:
     packageName: boba-fett

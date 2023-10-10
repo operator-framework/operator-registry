@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"path/filepath"
 	"runtime"
 	"sync"
 
@@ -237,25 +236,19 @@ func mergeCfgs(ctx context.Context, cfgChan <-chan *DeclarativeConfig, fcfg *Dec
 	}
 }
 
-func readBundleObjects(bundles []Bundle, root fs.FS, path string) error {
+func readBundleObjects(bundles []Bundle) error {
 	for bi, b := range bundles {
-		props, err := property.Parse(b.Properties)
-		if err != nil {
-			return fmt.Errorf("package %q, bundle %q: parse properties: %v", b.Package, b.Name, err)
-		}
-		for oi, obj := range props.BundleObjects {
-			objID := fmt.Sprintf(" %q", obj.GetRef())
-			if !obj.IsRef() {
-				objID = fmt.Sprintf("[%d]", oi)
+		var obj property.BundleObject
+		for i, props := range b.Properties {
+			if props.Type != property.TypeBundleObject {
+				continue
 			}
-
-			d, err := obj.GetData(root, filepath.Dir(path))
-			if err != nil {
-				return fmt.Errorf("package %q, bundle %q: get data for bundle object%s: %v", b.Package, b.Name, objID, err)
+			if err := json.Unmarshal(props.Value, &obj); err != nil {
+				return fmt.Errorf("package %q, bundle %q: parse property at index %d as bundle object: %v", b.Package, b.Name, i, err)
 			}
-			objJson, err := yaml.ToJSON(d)
+			objJson, err := yaml.ToJSON(obj.Data)
 			if err != nil {
-				return fmt.Errorf("package %q, bundle %q: convert object%s to JSON: %v", b.Package, b.Name, objID, err)
+				return fmt.Errorf("package %q, bundle %q: convert bundle object property at index %d to JSON: %v", b.Package, b.Name, i, err)
 			}
 			bundles[bi].Objects = append(bundles[bi].Objects, string(objJson))
 		}
@@ -278,7 +271,6 @@ func extractCSV(objs []string) string {
 }
 
 // LoadReader reads yaml or json from the passed in io.Reader and unmarshals it into a DeclarativeConfig struct.
-// Path references will not be de-referenced so callers are responsible for de-referencing if necessary.
 func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 
@@ -314,6 +306,11 @@ func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	if err := readBundleObjects(cfg.Bundles); err != nil {
+		return nil, fmt.Errorf("read bundle objects: %v", err)
+	}
+
 	return cfg, nil
 }
 
@@ -329,10 +326,6 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	cfg, err := LoadReader(file)
 	if err != nil {
 		return nil, err
-	}
-
-	if err := readBundleObjects(cfg.Bundles, root, path); err != nil {
-		return nil, fmt.Errorf("read bundle objects: %v", err)
 	}
 
 	return cfg, nil

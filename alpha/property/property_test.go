@@ -1,12 +1,7 @@
 package property
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,158 +61,6 @@ func TestValidate(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			err := s.v.Validate()
 			s.assertion(t, err)
-		})
-	}
-}
-
-func TestFile_MarshalJSON(t *testing.T) {
-	type spec struct {
-		name      string
-		file      File
-		json      string
-		assertion require.ErrorAssertionFunc
-	}
-	specs := []spec{
-		{
-			name:      "Success/Ref",
-			file:      File{ref: "foo"},
-			json:      `{"ref":"foo"}`,
-			assertion: require.NoError,
-		},
-		{
-			name:      "Success/Data",
-			file:      File{data: []byte("foo")},
-			json:      fmt.Sprintf(`{"data":%q}`, base64.StdEncoding.EncodeToString([]byte("foo"))),
-			assertion: require.NoError,
-		},
-	}
-
-	for _, s := range specs {
-		t.Run(s.name, func(t *testing.T) {
-			d, err := json.Marshal(s.file)
-			s.assertion(t, err)
-			assert.Equal(t, s.json, string(d))
-		})
-	}
-}
-
-func TestFile_UnmarshalJSON(t *testing.T) {
-	type spec struct {
-		name      string
-		file      File
-		json      string
-		assertion require.ErrorAssertionFunc
-	}
-	specs := []spec{
-		{
-			name:      "Success/Ref",
-			file:      File{ref: "foo"},
-			json:      `{"ref":"foo"}`,
-			assertion: require.NoError,
-		},
-		{
-			name:      "Success/Data",
-			file:      File{data: []byte("foo")},
-			json:      fmt.Sprintf(`{"data":%q}`, base64.StdEncoding.EncodeToString([]byte("foo"))),
-			assertion: require.NoError,
-		},
-		{
-			name:      "Error/RefAndData",
-			json:      fmt.Sprintf(`{"ref":"foo","data":%q}`, base64.StdEncoding.EncodeToString([]byte("bar"))),
-			assertion: require.Error,
-		},
-		{
-			name:      "Error/InvalidJSON",
-			json:      `["ref","data"]`,
-			assertion: require.Error,
-		},
-	}
-
-	for _, s := range specs {
-		t.Run(s.name, func(t *testing.T) {
-			var actual File
-			err := json.Unmarshal([]byte(s.json), &actual)
-			s.assertion(t, err)
-			assert.Equal(t, s.file, actual)
-		})
-	}
-}
-
-func TestFile_IsRef(t *testing.T) {
-	assert.True(t, File{ref: "foo"}.IsRef())
-	assert.False(t, File{data: []byte("bar")}.IsRef())
-}
-
-func TestFile_GetRef(t *testing.T) {
-	assert.Equal(t, "foo", File{ref: "foo"}.GetRef())
-	assert.Equal(t, "", File{data: []byte("bar")}.GetRef())
-}
-
-func TestFile_GetData(t *testing.T) {
-	type spec struct {
-		name       string
-		createFile func(root string) error
-		file       File
-		assertion  assert.ErrorAssertionFunc
-		expectData []byte
-	}
-
-	createFile := func(root string) error {
-		dir := filepath.Join(root, "tmp")
-		if err := os.MkdirAll(dir, 0777); err != nil {
-			return err
-		}
-		return ioutil.WriteFile(filepath.Join(dir, "foo.txt"), []byte("bar"), 0666)
-	}
-
-	specs := []spec{
-		{
-			name:       "Success/NilData",
-			file:       File{},
-			assertion:  assert.NoError,
-			expectData: nil,
-		},
-		{
-			name:       "Success/WithData",
-			file:       File{data: []byte("bar")},
-			assertion:  assert.NoError,
-			expectData: []byte("bar"),
-		},
-		{
-			name:       "Success/WithRef",
-			createFile: createFile,
-			file:       File{ref: "tmp/foo.txt"},
-			assertion:  assert.NoError,
-			expectData: []byte("bar"),
-		},
-		{
-			name:      "Error/WithRef/FileDoesNotExist",
-			file:      File{ref: "non-existent.txt"},
-			assertion: assert.Error,
-		},
-		{
-			name:      "Error/WithRef/RefIsAbsolutePath",
-			file:      File{ref: "/etc/hosts"},
-			assertion: assert.Error,
-		},
-		{
-			name:      "Error/WithRef/RefIsOutsideRoot",
-			file:      File{ref: "../etc/hosts"},
-			assertion: assert.Error,
-		},
-	}
-
-	for _, s := range specs {
-		t.Run(s.name, func(t *testing.T) {
-			dir := t.TempDir()
-
-			if s.createFile != nil {
-				require.NoError(t, s.createFile(dir))
-			}
-
-			data, err := s.file.GetData(os.DirFS(dir), ".")
-			s.assertion(t, err)
-			assert.Equal(t, s.expectData, data)
 		})
 	}
 }
@@ -283,8 +126,7 @@ func TestParse(t *testing.T) {
 				MustBuildGVK("group", "v1", "Kind2"),
 				MustBuildGVKRequired("other", "v2", "Kind3"),
 				MustBuildGVKRequired("other", "v2", "Kind4"),
-				MustBuildBundleObjectRef("testref1"),
-				MustBuildBundleObjectData([]byte("testdata2")),
+				MustBuildBundleObject([]byte("testdata2")),
 				{Type: "otherType1", Value: json.RawMessage(`{"v":"otherValue1"}`)},
 				{Type: "otherType2", Value: json.RawMessage(`["otherValue2"]`)},
 			},
@@ -306,8 +148,7 @@ func TestParse(t *testing.T) {
 					{"other", "Kind4", "v2"},
 				},
 				BundleObjects: []BundleObject{
-					{File: File{ref: "testref1"}},
-					{File: File{data: []byte("testdata2")}},
+					{Data: []byte("testdata2")},
 				},
 				Others: []Property{
 					{Type: "otherType1", Value: json.RawMessage(`{"v":"otherValue1"}`)},
@@ -389,9 +230,9 @@ func TestBuild(t *testing.T) {
 		},
 		{
 			name:             "Success/BundleObject",
-			input:            &BundleObject{File: File{ref: "test"}},
+			input:            &BundleObject{Data: []byte("test")},
 			assertion:        require.NoError,
-			expectedProperty: propPtr(MustBuildBundleObjectRef("test")),
+			expectedProperty: propPtr(MustBuildBundleObject([]byte("test"))),
 		},
 		{
 			name:             "Success/Property",

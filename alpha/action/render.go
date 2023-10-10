@@ -15,6 +15,7 @@ import (
 
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -52,6 +53,7 @@ type Render struct {
 	Refs           []string
 	Registry       image.Registry
 	AllowedRefMask RefType
+	Migrate        bool
 
 	skipSqliteDeprecationLog bool
 }
@@ -88,6 +90,12 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			sort.Slice(b.RelatedImages, func(i, j int) bool {
 				return b.RelatedImages[i].Image < b.RelatedImages[j].Image
 			})
+		}
+
+		if r.Migrate {
+			if err := migrate(cfg); err != nil {
+				return nil, fmt.Errorf("migrate: %v", err)
+			}
 		}
 
 		cfgs = append(cfgs, *cfg)
@@ -393,6 +401,50 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 		}
 		cfg.Bundles[bi].Properties = append(others, objs...)
 	}
+}
+
+func migrate(cfg *declcfg.DeclarativeConfig) error {
+	migrations := []func(*declcfg.DeclarativeConfig) error{
+		convertObjectsToCSVMetadata,
+	}
+
+	for _, m := range migrations {
+		if err := m(cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func convertObjectsToCSVMetadata(cfg *declcfg.DeclarativeConfig) error {
+BundleLoop:
+	for bi, b := range cfg.Bundles {
+		if b.Image == "" || b.CsvJSON == "" {
+			continue
+		}
+
+		var csv v1alpha1.ClusterServiceVersion
+		if err := json.Unmarshal([]byte(b.CsvJSON), &csv); err != nil {
+			return err
+		}
+
+		props := b.Properties[:0]
+		for _, p := range b.Properties {
+			switch p.Type {
+			case property.TypeBundleObject:
+				// Get rid of the bundle objects
+			case property.TypeCSVMetadata:
+				// If this bundle already has a CSV metadata
+				// property, we won't mutate the bundle at all.
+				continue BundleLoop
+			default:
+				// Keep all of the other properties
+				props = append(props, p)
+			}
+		}
+		cfg.Bundles[bi].Properties = append(props, property.MustBuildCSVMetadata(csv))
+	}
+	return nil
 }
 
 func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig {
