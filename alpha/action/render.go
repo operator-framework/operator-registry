@@ -450,10 +450,7 @@ BundleLoop:
 func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig {
 	out := &declcfg.DeclarativeConfig{}
 	for _, in := range cfgs {
-		out.Packages = append(out.Packages, in.Packages...)
-		out.Channels = append(out.Channels, in.Channels...)
-		out.Bundles = append(out.Bundles, in.Bundles...)
-		out.Others = append(out.Others, in.Others...)
+		out.Merge(&in)
 	}
 	return out
 }

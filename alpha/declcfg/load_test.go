@@ -97,13 +97,14 @@ func TestLoadReader(t *testing.T) {
 
 func TestWalkMetasFS(t *testing.T) {
 	type spec struct {
-		name              string
-		fsys              fs.FS
-		assertion         require.ErrorAssertionFunc
-		expectNumPackages int
-		expectNumChannels int
-		expectNumBundles  int
-		expectNumOthers   int
+		name                  string
+		fsys                  fs.FS
+		assertion             require.ErrorAssertionFunc
+		expectNumPackages     int
+		expectNumChannels     int
+		expectNumBundles      int
+		expectNumDeprecations int
+		expectNumOthers       int
 	}
 	specs := []spec{
 		{
@@ -122,19 +123,20 @@ func TestWalkMetasFS(t *testing.T) {
 			assertion: require.Error,
 		},
 		{
-			name:              "Success/ValidDir",
-			fsys:              validFS,
-			assertion:         require.NoError,
-			expectNumPackages: 3,
-			expectNumChannels: 0,
-			expectNumBundles:  12,
-			expectNumOthers:   1,
+			name:                  "Success/ValidDir",
+			fsys:                  validFS,
+			assertion:             require.NoError,
+			expectNumPackages:     3,
+			expectNumChannels:     0,
+			expectNumBundles:      12,
+			expectNumDeprecations: 1,
+			expectNumOthers:       1,
 		},
 	}
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			numPackages, numChannels, numBundles, numOthers := 0, 0, 0, 0
+			numPackages, numChannels, numBundles, numDeprecations, numOthers := 0, 0, 0, 0, 0
 			err := WalkMetasFS(s.fsys, func(path string, meta *Meta, err error) error {
 				if err != nil {
 					return err
@@ -146,6 +148,8 @@ func TestWalkMetasFS(t *testing.T) {
 					numChannels++
 				case SchemaBundle:
 					numBundles++
+				case SchemaDeprecation:
+					numDeprecations++
 				default:
 					numOthers++
 				}
@@ -330,6 +334,18 @@ func TestLoadFS(t *testing.T) {
 					},
 					{
 						Schema: "olm.bundle",
+					},
+				},
+				Deprecations: []Deprecation{
+					{
+						Schema:  "olm.catalog.deprecation",
+						Package: "kiali",
+						Name:    "bobs-discount-name",
+						Deprecations: []DeprecationEntry{
+							{Schema: "olm.bundle", Name: "kiali-operator.v1.68.0", Message: json.RawMessage(`"kiali-operator.v1.68.0 is deprecated. Uninstall and install kiali-operator.v1.72.0 for support.\n"`)},
+							{Schema: "olm.package", Name: "kiali", Message: json.RawMessage(`"package kiali is end of life.  Please use 'kiali-new' package for support.\n"`)},
+							{Schema: "olm.channel", Name: "alpha", Message: json.RawMessage(`"channel alpha is no longer supported.  Please switch to channel 'stable'.\n"`)},
+						},
 					},
 				},
 				Others: []Meta{
@@ -881,6 +897,25 @@ present in the .indexignore file.`),
 	unrecognizedSchema = &fstest.MapFile{
 		Data: []byte(`{"schema":"olm.package"}{"schema":"unexpected"}{"schema":"olm.bundle"}`),
 	}
+	deprecations = &fstest.MapFile{
+		Data: []byte(`---
+schema: olm.catalog.deprecation
+package: kiali
+name: bobs-discount-name
+deprecations:
+- schema: olm.bundle
+  name: kiali-operator.v1.68.0
+  message: |
+     kiali-operator.v1.68.0 is deprecated. Uninstall and install kiali-operator.v1.72.0 for support.
+- schema: olm.package
+  name: kiali
+  message: |
+     package kiali is end of life.  Please use 'kiali-new' package for support.
+- schema: olm.channel
+  name: alpha
+  message: |
+     channel alpha is no longer supported.  Please switch to channel 'stable'.`),
+	}
 
 	validFS = fstest.MapFS{
 		".indexignore":     indexIgnore,
@@ -889,18 +924,19 @@ present in the .indexignore file.`),
 		"etcdoperator.v0.6.1.clusterserviceversion.yaml": etcdCSV,
 		"README.md":                readme,
 		"unrecognized-schema.json": unrecognizedSchema,
+		"deprecations.yaml":        deprecations,
 	}
 )
 
+type EvaluationFunc func(*testing.T, *DeclarativeConfig)
+
 func TestLoadFile(t *testing.T) {
 	type spec struct {
-		name              string
-		fsys              fs.FS
-		path              string
-		assertion         require.ErrorAssertionFunc
-		expectNumPackages int
-		expectNumBundles  int
-		expectNumOthers   int
+		name      string
+		fsys      fs.FS
+		path      string
+		assertion require.ErrorAssertionFunc
+		expect    EvaluationFunc
 	}
 	specs := []spec{
 		{
@@ -944,22 +980,38 @@ func TestLoadFile(t *testing.T) {
 			assertion: require.Error,
 		},
 		{
-			name:              "Success/UnrecognizedSchema",
-			fsys:              validFS,
-			path:              "unrecognized-schema.json",
-			assertion:         require.NoError,
-			expectNumPackages: 1,
-			expectNumBundles:  1,
-			expectNumOthers:   1,
+			name:      "Success/UnrecognizedSchema",
+			fsys:      validFS,
+			path:      "unrecognized-schema.json",
+			assertion: require.NoError,
+			expect: func(t *testing.T, d *DeclarativeConfig) {
+				require.Equal(t, 1, len(d.Packages))
+				require.Equal(t, 1, len(d.Bundles))
+				require.Equal(t, 1, len(d.Others))
+			},
 		},
 		{
-			name:              "Success/ValidFile",
-			fsys:              validFS,
-			path:              "etcd.yaml",
-			assertion:         require.NoError,
-			expectNumPackages: 1,
-			expectNumBundles:  6,
-			expectNumOthers:   0,
+			name:      "Success/ValidFile",
+			fsys:      validFS,
+			path:      "etcd.yaml",
+			assertion: require.NoError,
+			expect: func(t *testing.T, d *DeclarativeConfig) {
+				require.Equal(t, 1, len(d.Packages))
+				require.Equal(t, 6, len(d.Bundles))
+				require.Equal(t, 0, len(d.Others))
+			},
+		},
+		{
+			name:      "Success/ValidFile/Deprecations",
+			fsys:      validFS,
+			path:      "deprecations.yaml",
+			assertion: require.NoError,
+			expect: func(t *testing.T, d *DeclarativeConfig) {
+				require.Equal(t, 0, len(d.Packages))
+				require.Equal(t, 0, len(d.Bundles))
+				require.Equal(t, 0, len(d.Others))
+				require.Equal(t, 1, len(d.Deprecations))
+			},
 		},
 	}
 
@@ -969,9 +1021,7 @@ func TestLoadFile(t *testing.T) {
 			s.assertion(t, err)
 			if err == nil {
 				require.NotNil(t, cfg)
-				assert.Equal(t, len(cfg.Packages), s.expectNumPackages, "unexpected package count")
-				assert.Equal(t, len(cfg.Bundles), s.expectNumBundles, "unexpected bundle count")
-				assert.Equal(t, len(cfg.Others), s.expectNumOthers, "unexpected others count")
+				s.expect(t, cfg)
 			}
 		})
 	}
