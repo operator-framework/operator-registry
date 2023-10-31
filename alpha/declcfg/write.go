@@ -425,10 +425,17 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 			}
 		}
 
+		//
+		// Normally we would order the deprecations, but it really doesn't make sense since
+		// - there will be 0 or 1 of them for any given package
+		// - they have no other useful field for ordering
+		//
+		// validation is typically via conversion to a model.Model and invoking model.Package.Validate()
+		// It's possible that a user of the object could create a slice containing more then 1
+		// Deprecation object for a package, and it would bypass validation if this
+		// function gets called without conversion.
+		//
 		deprecations := deprecationsByPackage[pName]
-		sort.SliceStable(deprecations, func(i, j int) bool {
-			return deprecations[i].Name < deprecations[j].Name
-		})
 		for _, d := range deprecations {
 			if err := enc.Encode(d); err != nil {
 				return err

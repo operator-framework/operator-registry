@@ -19,7 +19,7 @@ const (
 	SchemaPackage     = "olm.package"
 	SchemaChannel     = "olm.channel"
 	SchemaBundle      = "olm.bundle"
-	SchemaDeprecation = "olm.catalog.deprecation"
+	SchemaDeprecation = "olm.deprecations"
 )
 
 type DeclarativeConfig struct {
@@ -93,16 +93,19 @@ type RelatedImage struct {
 }
 
 type Deprecation struct {
-	Schema       string             `json:"schema"`
-	Package      string             `json:"package"`
-	Name         string             `json:"name,omitempty"`
-	Deprecations []DeprecationEntry `json:"deprecations"`
+	Schema  string             `json:"schema"`
+	Package string             `json:"package"`
+	Entries []DeprecationEntry `json:"entries"`
 }
 
 type DeprecationEntry struct {
-	Schema  string          `json:"schema"`
-	Name    string          `json:"name,omitempty"`
-	Message json.RawMessage `json:"message"`
+	Reference PackageScopedReference `json:"reference"`
+	Message   string                 `json:"message"`
+}
+
+type PackageScopedReference struct {
+	Schema string `json:"schema"`
+	Name   string `json:"name,omitempty"`
 }
 
 type Meta struct {
