@@ -35,10 +35,13 @@ Optional validators. These validators are disabled by default and can be enabled
  * Operatorhub validator - performs operatorhub.io validation. To validate a bundle using custom categories use with the OPERATOR_BUNDLE_CATEGORIES environmental variable to point to a json-encoded categories file.
  * Bundle objects validator - performs validation on resources like PodDisruptionBudgets and PriorityClasses. 
 
-See https://olm.operatorframework.io/docs/tasks/validate-package/#validation for more info.`,
-		Example: `$ opm alpha bundle validate --tag quay.io/test/test-operator:latest --image-builder docker`,
-		RunE:    validateFunc,
-		Args:    cobra.NoArgs,
+See https://olm.operatorframework.io/docs/tasks/validate-package/#validation for more info.
+
+Note that this subcommand is deprecated and will be removed in a future release. Migrate to operator-sdk bundle validate.`,
+		Example:    `$ opm alpha bundle validate --tag quay.io/test/test-operator:latest --image-builder docker`,
+		RunE:       validateFunc,
+		Args:       cobra.NoArgs,
+		Deprecated: "This subcommand is deprecated and will be removed in a future release. Migrate to operator-sdk bundle validate",
 	}
 
 	bundleValidateCmd.Flags().StringVarP(&tag, "tag", "t", "",
