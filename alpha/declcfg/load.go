@@ -227,12 +227,8 @@ func mergeCfgs(ctx context.Context, cfgChan <-chan *DeclarativeConfig, fcfg *Dec
 			if !ok {
 				return nil
 			}
-			fcfg.Packages = append(fcfg.Packages, cfg.Packages...)
-			fcfg.Channels = append(fcfg.Channels, cfg.Channels...)
-			fcfg.Bundles = append(fcfg.Bundles, cfg.Bundles...)
-			fcfg.Others = append(fcfg.Others, cfg.Others...)
+			fcfg.Merge(cfg)
 		}
-
 	}
 }
 
@@ -297,6 +293,12 @@ func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 				return fmt.Errorf("parse bundle: %v", err)
 			}
 			cfg.Bundles = append(cfg.Bundles, b)
+		case SchemaDeprecation:
+			var d Deprecation
+			if err := json.Unmarshal(in.Blob, &d); err != nil {
+				return fmt.Errorf("parse deprecation: %w", err)
+			}
+			cfg.Deprecations = append(cfg.Deprecations, d)
 		case "":
 			return fmt.Errorf("object '%s' is missing root schema field", string(in.Blob))
 		default:

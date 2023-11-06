@@ -377,6 +377,12 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgNames.Insert(pkgName)
 		othersByPackage[pkgName] = append(othersByPackage[pkgName], o)
 	}
+	deprecationsByPackage := map[string][]Deprecation{}
+	for _, d := range cfg.Deprecations {
+		pkgName := d.Package
+		pkgNames.Insert(pkgName)
+		deprecationsByPackage[pkgName] = append(deprecationsByPackage[pkgName], d)
+	}
 
 	for _, pName := range pkgNames.List() {
 		if len(pName) == 0 {
@@ -418,6 +424,16 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 				return err
 			}
 		}
+
+		deprecations := deprecationsByPackage[pName]
+		sort.SliceStable(deprecations, func(i, j int) bool {
+			return deprecations[i].Name < deprecations[j].Name
+		})
+		for _, d := range deprecations {
+			if err := enc.Encode(d); err != nil {
+				return err
+			}
+		}
 	}
 
 	for _, o := range othersByPackage[""] {
@@ -425,6 +441,7 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
