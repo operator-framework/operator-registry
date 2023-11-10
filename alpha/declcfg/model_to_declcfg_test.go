@@ -19,7 +19,7 @@ func TestConvertFromModel(t *testing.T) {
 		{
 			name:      "Success",
 			m:         buildTestModel(),
-			expectCfg: buildValidDeclarativeConfig(false),
+			expectCfg: buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: false, IncludeDeprecations: false}),
 		},
 	}
 
