@@ -37,7 +37,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		mpkgs[p.Name] = mpkg
 	}
 
-	channelDefinedEntries := map[string]sets.String{}
+	channelDefinedEntries := map[string]sets.Set[string]{}
 	for _, c := range cfg.Channels {
 		mpkg, ok := mpkgs[c.Package]
 		if !ok {
@@ -62,7 +62,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			Properties: c.Properties,
 		}
 
-		cde := sets.NewString()
+		cde := sets.Set[string]{}
 		for _, entry := range c.Entries {
 			if _, ok := mch.Bundles[entry.Name]; ok {
 				return nil, fmt.Errorf("invalid package %q, channel %q: duplicate entry %q", c.Package, c.Name, entry.Name)
@@ -89,7 +89,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 	// packageBundles tracks the set of bundle names for each package
 	// and is used to detect duplicate bundles.
-	packageBundles := map[string]sets.String{}
+	packageBundles := map[string]sets.Set[string]{}
 
 	for _, b := range cfg.Bundles {
 		if b.Package == "" {
@@ -102,7 +102,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 		bundles, ok := packageBundles[b.Package]
 		if !ok {
-			bundles = sets.NewString()
+			bundles = sets.Set[string]{}
 		}
 		if bundles.Has(b.Name) {
 			return nil, fmt.Errorf("package %q has duplicate bundle %q", b.Package, b.Name)
@@ -151,7 +151,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 	for pkg, entries := range channelDefinedEntries {
 		if entries.Len() > 0 {
-			return nil, fmt.Errorf("no olm.bundle blobs found in package %q for olm.channel entries %s", pkg, entries.List())
+			return nil, fmt.Errorf("no olm.bundle blobs found in package %q for olm.channel entries %s", pkg, sets.List[string](entries))
 		}
 	}
 
@@ -165,6 +165,71 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			}
 			mpkg.DefaultChannel = dch
 			mpkg.Channels[dch.Name] = dch
+		}
+	}
+
+	// deprecationsByPackage tracks the set of package names
+	// and is used to detect duplicate packages.
+	deprecationsByPackage := sets.New[string]()
+
+	for i, deprecation := range cfg.Deprecations {
+
+		// no need to validate schema, since it could not be unmarshaled if missing/invalid
+
+		if deprecation.Package == "" {
+			return nil, fmt.Errorf("package name must be set for deprecation item %v", i)
+		}
+
+		// must refer to package in this catalog
+		mpkg, ok := mpkgs[deprecation.Package]
+		if !ok {
+			return nil, fmt.Errorf("cannot apply deprecations to an unknown package %q", deprecation.Package)
+		}
+
+		// must be unique per package
+		if deprecationsByPackage.Has(deprecation.Package) {
+			return nil, fmt.Errorf("expected a maximum of one deprecation per package: %q", deprecation.Package)
+		}
+		deprecationsByPackage.Insert(deprecation.Package)
+
+		references := sets.New[PackageScopedReference]()
+
+		for j, entry := range deprecation.Entries {
+			if entry.Reference.Schema == "" {
+				return nil, fmt.Errorf("schema must be set for deprecation entry [%v] for package %q", deprecation.Package, j)
+			}
+
+			if references.Has(entry.Reference) {
+				return nil, fmt.Errorf("duplicate deprecation entry %#v for package %q", entry.Reference, deprecation.Package)
+			}
+			references.Insert(entry.Reference)
+
+			switch entry.Reference.Schema {
+			case SchemaBundle:
+				if !packageBundles[deprecation.Package].Has(entry.Reference.Name) {
+					return nil, fmt.Errorf("cannot deprecate bundle %q for package %q: bundle not found", entry.Reference.Name, deprecation.Package)
+				}
+				for _, mch := range mpkg.Channels {
+					if mb, ok := mch.Bundles[entry.Reference.Name]; ok {
+						mb.Deprecation = &model.Deprecation{Message: entry.Message}
+					}
+				}
+			case SchemaChannel:
+				ch, ok := mpkg.Channels[entry.Reference.Name]
+				if !ok {
+					return nil, fmt.Errorf("cannot deprecate channel %q for package %q: channel not found", entry.Reference.Name, deprecation.Package)
+				}
+				ch.Deprecation = &model.Deprecation{Message: entry.Message}
+
+			case SchemaPackage:
+				if entry.Reference.Name != "" {
+					return nil, fmt.Errorf("package name must be empty for deprecated package %q (specified %q)", deprecation.Package, entry.Reference.Name)
+				}
+				mpkg.Deprecation = &model.Deprecation{Message: entry.Message}
+
+			default:
+				return nil, fmt.Errorf("cannot deprecate object %#v referenced by entry %v for package %q: object schema unknown", entry.Reference, j, deprecation.Package)
+			}
 		}
 	}
 

@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -30,17 +29,26 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 
 	var channels []registry.PackageChannel
 	for _, ch := range pkg.Channels {
+		var deprecation *registry.Deprecation
+		if ch.Deprecation != nil {
+			deprecation = &registry.Deprecation{Message: ch.Deprecation.Message}
+		}
 		channels = append(channels, registry.PackageChannel{
 			Name:           ch.Name,
 			CurrentCSVName: ch.Head,
+			Deprecation:    deprecation,
 		})
 	}
 	sort.Slice(channels, func(i, j int) bool { return strings.Compare(channels[i].Name, channels[j].Name) < 0 })
-	return &registry.PackageManifest{
+	registryPackage := &registry.PackageManifest{
 		PackageName:        pkg.Name,
 		Channels:           channels,
 		DefaultChannelName: pkg.DefaultChannel,
-	}, nil
+	}
+	if pkg.Deprecation != nil {
+		registryPackage.Deprecation = &registry.Deprecation{Message: pkg.Deprecation.Message}
+	}
+	return registryPackage, nil
 }
 
 func (pkgs packageIndex) GetChannelEntriesThatReplace(_ context.Context, name string) ([]*registry.ChannelEntry, error) {
@@ -178,17 +186,19 @@ func (pkgs packageIndex) GetBundleThatProvides(ctx context.Context, c Cache, gro
 }
 
 type cPkg struct {
-	Name           string        `json:"name"`
-	Description    string        `json:"description"`
-	Icon           *declcfg.Icon `json:"icon"`
-	DefaultChannel string        `json:"defaultChannel"`
+	Name           string      `json:"name"`
+	Description    string      `json:"description"`
+	Icon           *model.Icon `json:"icon"`
+	DefaultChannel string      `json:"defaultChannel"`
 	Channels       map[string]cChannel
+	Deprecation    *model.Deprecation `json:"deprecation,omitempty"`
 }
 
 type cChannel struct {
-	Name    string
-	Head    string
-	Bundles map[string]cBundle
+	Name        string
+	Head        string
+	Bundles     map[string]cBundle
+	Deprecation *model.Deprecation `json:"deprecation,omitempty"`
 }
 
 type cBundle struct {
@@ -204,15 +214,11 @@ func packagesFromModel(m model.Model) (map[string]cPkg, error) {
 	for _, p := range m {
 		newP := cPkg{
 			Name:           p.Name,
+			Icon:           p.Icon,
 			Description:    p.Description,
 			DefaultChannel: p.DefaultChannel.Name,
 			Channels:       map[string]cChannel{},
-		}
-		if p.Icon != nil {
-			newP.Icon = &declcfg.Icon{
-				Data:      p.Icon.Data,
-				MediaType: p.Icon.MediaType,
-			}
+			Deprecation:    p.Deprecation,
 		}
 		for _, ch := range p.Channels {
 			head, err := ch.Head()
@@ -220,9 +226,10 @@ func packagesFromModel(m model.Model) (map[string]cPkg, error) {
 				return nil, err
 			}
 			newCh := cChannel{
-				Name:    ch.Name,
-				Head:    head.Name,
-				Bundles: map[string]cBundle{},
+				Name:        ch.Name,
+				Head:        head.Name,
+				Bundles:     map[string]cBundle{},
+				Deprecation: ch.Deprecation,
 			}
 			for _, b := range ch.Bundles {
 				newB := cBundle{

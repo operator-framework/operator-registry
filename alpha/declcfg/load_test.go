@@ -338,13 +338,12 @@ func TestLoadFS(t *testing.T) {
 				},
 				Deprecations: []Deprecation{
 					{
-						Schema:  "olm.catalog.deprecation",
+						Schema:  SchemaDeprecation,
 						Package: "kiali",
-						Name:    "bobs-discount-name",
-						Deprecations: []DeprecationEntry{
-							{Schema: "olm.bundle", Name: "kiali-operator.v1.68.0", Message: json.RawMessage(`"kiali-operator.v1.68.0 is deprecated. Uninstall and install kiali-operator.v1.72.0 for support.\n"`)},
-							{Schema: "olm.package", Name: "kiali", Message: json.RawMessage(`"package kiali is end of life.  Please use 'kiali-new' package for support.\n"`)},
-							{Schema: "olm.channel", Name: "alpha", Message: json.RawMessage(`"channel alpha is no longer supported.  Please switch to channel 'stable'.\n"`)},
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: SchemaBundle, Name: "kiali-operator.v1.68.0"}, Message: "kiali-operator.v1.68.0 is deprecated. Uninstall and install kiali-operator.v1.72.0 for support.\n"},
+							{Reference: PackageScopedReference{Schema: SchemaPackage}, Message: "package kiali is end of life.  Please use 'kiali-new' package for support.\n"},
+							{Reference: PackageScopedReference{Schema: SchemaChannel, Name: "alpha"}, Message: "channel alpha is no longer supported.  Please switch to channel 'stable'.\n"},
 						},
 					},
 				},
@@ -899,22 +898,23 @@ present in the .indexignore file.`),
 	}
 	deprecations = &fstest.MapFile{
 		Data: []byte(`---
-schema: olm.catalog.deprecation
+schema: olm.deprecations
 package: kiali
-name: bobs-discount-name
-deprecations:
-- schema: olm.bundle
-  name: kiali-operator.v1.68.0
+entries:
+- reference:
+    schema: olm.bundle
+    name: kiali-operator.v1.68.0
   message: |
      kiali-operator.v1.68.0 is deprecated. Uninstall and install kiali-operator.v1.72.0 for support.
-- schema: olm.package
-  name: kiali
+- reference: 
+    schema: olm.package
   message: |
      package kiali is end of life.  Please use 'kiali-new' package for support.
-- schema: olm.channel
-  name: alpha
+- reference:
+    schema: olm.channel
+    name: alpha
   message: |
-     channel alpha is no longer supported.  Please switch to channel 'stable'.`),
+       channel alpha is no longer supported.  Please switch to channel 'stable'.`),
 	}
 
 	validFS = fstest.MapFS{
