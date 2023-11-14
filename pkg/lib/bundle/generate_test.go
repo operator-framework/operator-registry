@@ -35,7 +35,7 @@ func TestGetMediaType(t *testing.T) {
 		{
 			"./testdata/get_mediatype/empty_bundle",
 			"",
-			fmt.Sprintf("The directory contains no files"),
+			"The directory contains no files",
 		},
 	}
 
