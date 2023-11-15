@@ -22,7 +22,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
-	cache2 "github.com/operator-framework/operator-registry/pkg/cache"
+	fbccache "github.com/operator-framework/operator-registry/pkg/cache"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -69,8 +69,8 @@ func createDBStore(dbPath string) *sqlite.SQLQuerier {
 	return store
 }
 
-func fbcJsonCache(catalogDir, cacheDir string) (cache2.Cache, error) {
-	store := cache2.NewJSON(cacheDir)
+func fbcJsonCache(catalogDir, cacheDir string) (fbccache.Cache, error) {
+	store := fbccache.NewJSON(cacheDir)
 	if err := store.Build(context.Background(), os.DirFS(catalogDir)); err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ func fbcJsonCache(catalogDir, cacheDir string) (cache2.Cache, error) {
 	return store, nil
 }
 
-func fbcJsonCacheFromFs(catalogFS fs.FS, cacheDir string) (cache2.Cache, error) {
-	store := cache2.NewJSON(cacheDir)
+func fbcJsonCacheFromFs(catalogFS fs.FS, cacheDir string) (fbccache.Cache, error) {
+	store := fbccache.NewJSON(cacheDir)
 	if err := store.Build(context.Background(), catalogFS); err != nil {
 		return nil, err
 	}
@@ -179,75 +179,12 @@ func client(t *testing.T, address string) (api.RegistryClient, *grpc.ClientConn)
 	return api.NewRegistryClient(conn), conn
 }
 
-var (
-	listPackagesExpected    = []string{"etcd", "prometheus", "strimzi-kafka-operator"}
-	listPackagesExpectedDep = []string{"cockroachdb"}
-
-	getPackageExpected = &api.Package{
-		Name: "etcd",
-		Channels: []*api.Channel{
-			{
-				Name:    "alpha",
-				CsvName: "etcdoperator.v0.9.2",
-			},
-			{
-				Name:    "beta",
-				CsvName: "etcdoperator.v0.9.0",
-			},
-			{
-				Name:    "stable",
-				CsvName: "etcdoperator.v0.9.2",
-			},
-		},
-		DefaultChannelName: "alpha",
-	}
-
-	getPackageExpectedDep = &api.Package{
-		Name: "cockroachdb",
-		Channels: []*api.Channel{
-			{
-				Name:    "stable-5.x",
-				CsvName: "cockroachdb.v5.0.4",
-				Deprecation: &api.Deprecation{
-					Message: `channel stable-5.x is no longer supported.  Please switch to channel 'stable-6.x'.
-`,
-				},
-			},
-			{
-				Name:    "stable-v6.x",
-				CsvName: "cockroachdb.v6.0.0",
-			},
-		},
-		DefaultChannelName: "stable-v6.x",
-		Deprecation: &api.Deprecation{
-			Message: `package cockroachdb is end of life.  Please use 'nouveau-cockroachdb' package for support.
-`,
-		},
-	}
-
-	getChannelEntriesThatReplaceExpected = []*api.ChannelEntry{
-		{
-			PackageName: "etcd",
-			ChannelName: "alpha",
-			BundleName:  "etcdoperator.v0.9.0",
-			Replaces:    "etcdoperator.v0.6.1",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "beta",
-			BundleName:  "etcdoperator.v0.9.0",
-			Replaces:    "etcdoperator.v0.6.1",
-		},
-		{
-			PackageName: "etcd",
-			ChannelName: "stable",
-			BundleName:  "etcdoperator.v0.9.0",
-			Replaces:    "etcdoperator.v0.6.1",
-		},
-	}
-)
-
 func TestListPackages(t *testing.T) {
+	var (
+		listPackagesExpected    = []string{"etcd", "prometheus", "strimzi-kafka-operator"}
+		listPackagesExpectedDep = []string{"cockroachdb"}
+	)
+
 	t.Run("Sqlite", testListPackages(dbAddress, listPackagesExpected))
 	t.Run("FBCJsonCache", testListPackages(jsonCacheAddress, listPackagesExpected))
 	t.Run("FBCJsonCacheWithDeprecations", testListPackages(jsonDeprecationCacheAddress, listPackagesExpectedDep))
@@ -281,6 +218,49 @@ func testListPackages(addr string, expected []string) func(*testing.T) {
 }
 
 func TestGetPackage(t *testing.T) {
+	var (
+		getPackageExpected = &api.Package{
+			Name: "etcd",
+			Channels: []*api.Channel{
+				{
+					Name:    "alpha",
+					CsvName: "etcdoperator.v0.9.2",
+				},
+				{
+					Name:    "beta",
+					CsvName: "etcdoperator.v0.9.0",
+				},
+				{
+					Name:    "stable",
+					CsvName: "etcdoperator.v0.9.2",
+				},
+			},
+			DefaultChannelName: "alpha",
+		}
+
+		getPackageExpectedDep = &api.Package{
+			Name: "cockroachdb",
+			Channels: []*api.Channel{
+				{
+					Name:    "stable-5.x",
+					CsvName: "cockroachdb.v5.0.4",
+					Deprecation: &api.Deprecation{
+						Message: `channel stable-5.x is no longer supported.  Please switch to channel 'stable-6.x'.
+`,
+					},
+				},
+				{
+					Name:    "stable-v6.x",
+					CsvName: "cockroachdb.v6.0.0",
+				},
+			},
+			DefaultChannelName: "stable-v6.x",
+			Deprecation: &api.Deprecation{
+				Message: `package cockroachdb is end of life.  Please use 'nouveau-cockroachdb' package for support.
+`,
+			},
+		}
+	)
 	t.Run("Sqlite", testGetPackage(dbAddress, getPackageExpected))
 	t.Run("FBCJsonCache", testGetPackage(jsonCacheAddress, getPackageExpected))
 	t.Run("FBCJsonCacheWithDeprecations", testGetPackage(jsonDeprecationCacheAddress, getPackageExpectedDep))
@@ -347,8 +327,41 @@ func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T)
 }
 
 func TestGetChannelEntriesThatReplace(t *testing.T) {
+	var (
+		getChannelEntriesThatReplaceExpected = []*api.ChannelEntry{
+			{
+				PackageName: "etcd",
+				ChannelName: "alpha",
+				BundleName:  "etcdoperator.v0.9.0",
+				Replaces:    "etcdoperator.v0.6.1",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "beta",
+				BundleName:  "etcdoperator.v0.9.0",
+				Replaces:    "etcdoperator.v0.6.1",
+			},
+			{
+				PackageName: "etcd",
+				ChannelName: "stable",
+				BundleName:  "etcdoperator.v0.9.0",
+				Replaces:    "etcdoperator.v0.6.1",
+			},
+		}
+
+		getChannelEntriesThatReplaceExpectedDep = []*api.ChannelEntry{
+			{
+				PackageName: "cockroachdb",
+				ChannelName: "stable-5.x",
+				BundleName:  "cockroachdb.v5.0.4",
+				Replaces:    "cockroachdb.v5.0.3",
+			},
+		}
+	)
+
 	t.Run("Sqlite", testGetChannelEntriesThatReplace(dbAddress, getChannelEntriesThatReplaceExpected))
 	t.Run("FBCJsonCache", testGetChannelEntriesThatReplace(jsonCacheAddress, getChannelEntriesThatReplaceExpected))
+	t.Run("FBCJsonCacheWithDeprecations", testGetChannelEntriesThatReplace(jsonDeprecationCacheAddress, getChannelEntriesThatReplaceExpectedDep))
 }
 
 func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry) func(*testing.T) {
@@ -356,7 +369,7 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 		c, conn := client(t, addr)
 		defer conn.Close()
 
-		stream, err := c.GetChannelEntriesThatReplace(context.TODO(), &api.GetAllReplacementsRequest{CsvName: "etcdoperator.v0.6.1"})
+		stream, err := c.GetChannelEntriesThatReplace(context.TODO(), &api.GetAllReplacementsRequest{CsvName: expected[0].Replaces})
 		require.NoError(t, err)
 
 		channelEntries := []*api.ChannelEntry{}
@@ -887,10 +900,6 @@ var (
 	cockroachdb = &fstest.MapFile{
 		Data: []byte(`{
 	"defaultChannel": "stable-v6.x",
-	"icon": {
-		"base64data": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMS44MiAzMiIgd2lkdGg9IjI0ODYiIGhlaWdodD0iMjUwMCI+PHRpdGxlPkNMPC90aXRsZT48cGF0aCBkPSJNMTkuNDIgOS4xN2ExNS4zOSAxNS4zOSAwIDAgMS0zLjUxLjQgMTUuNDYgMTUuNDYgMCAwIDEtMy41MS0uNCAxNS42MyAxNS42MyAwIDAgMSAzLjUxLTMuOTEgMTUuNzEgMTUuNzEgMCAwIDEgMy41MSAzLjkxek0zMCAuNTdBMTcuMjIgMTcuMjIgMCAwIDAgMjUuNTkgMGExNy40IDE3LjQgMCAwIDAtOS42OCAyLjkzQTE3LjM4IDE3LjM4IDAgMCAwIDYuMjMgMGExNy4yMiAxNy4yMiAwIDAgMC00LjQ0LjU3QTE2LjIyIDE2LjIyIDAgMCAwIDAgMS4xM2EuMDcuMDcgMCAwIDAgMCAuMDkgMTcuMzIgMTcuMzIgMCAwIDAgLjgzIDEuNTcuMDcuMDcgMCAwIDAgLjA4IDAgMTYuMzkgMTYuMzkgMCAwIDEgMS44MS0uNTQgMTUuNjUgMTUuNjUgMCAwIDEgMTEuNTkgMS44OCAxNy41MiAxNy41MiAwIDAgMC0zLjc4IDQuNDhjLS4yLjMyLS4zNy42NS0uNTUgMXMtLjIyLjQ1LS4zMy42OS0uMzEuNzItLjQ0IDEuMDhhMTcuNDYgMTcuNDYgMCAwIDAgNC4yOSAxOC43Yy4yNi4yNS41My40OS44MS43M3MuNDQuMzcuNjcuNTQuNTkuNDQuODkuNjRhLjA3LjA3IDAgMCAwIC4wOCAwYy4zLS4yMS42LS40Mi44OS0uNjRzLjQ1LS4zNS42Ny0uNTQuNTUtLjQ4LjgxLS43M2ExNy40NSAxNy40NSAwIDAgMCA1LjM4LTEyLjYxIDE3LjM5IDE3LjM5IDAgMCAwLTEuMDktNi4wOWMtLjE0LS4zNy0uMjktLjczLS40NS0xLjA5cy0uMjItLjQ3LS4zMy0uNjktLjM1LS42Ni0uNTUtMWExNy42MSAxNy42MSAwIDAgMC0zLjc4LTQuNDggMTUuNjUgMTUuNjUgMCAwIDEgMTEuNi0xLjg0IDE2LjEzIDE2LjEzIDAgMCAxIDEuODEuNTQuMDcuMDcgMCAwIDAgLjA4IDBxLjQ0LS43Ni44Mi0xLjU2YS4wNy4wNyAwIDAgMCAwLS4wOUExNi44OSAxNi44OSAwIDAgMCAzMCAuNTd6IiBmaWxsPSIjMTUxZjM0Ii8+PHBhdGggZD0iTTIxLjgyIDE3LjQ3YTE1LjUxIDE1LjUxIDAgMCAxLTQuMjUgMTAuNjkgMTUuNjYgMTUuNjYgMCAwIDEtLjcyLTQuNjggMTUuNSAxNS41IDAgMCAxIDQuMjUtMTAuNjkgMTUuNjIgMTUuNjIgMCAwIDEgLjcyIDQuNjgiIGZpbGw9IiMzNDg1NDAiLz48cGF0aCBkPSJNMTUgMjMuNDhhMTUuNTUgMTUuNTUgMCAwIDEtLjcyIDQuNjggMTUuNTQgMTUuNTQgMCAwIDEtMy41My0xNS4zN0ExNS41IDE1LjUgMCAwIDEgMTUgMjMuNDgiIGZpbGw9IiM3ZGJjNDIiLz48L3N2Zz4=",
-		"mediatype": "image/svg+xml"
-	},
 	"name": "cockroachdb",
 	"schema": "olm.package"
 }
