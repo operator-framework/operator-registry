@@ -126,6 +126,7 @@ func TestBuildContext(t *testing.T) {
 			// prevent regression - cleanup should never be nil
 			t.Fatal("buildContext returned nil cleanup function")
 		}
+		defer actualCleanup()
 
 		if testCase.expectedOutDockerfile != nil && actualOutDockerfile != *testCase.expectedOutDockerfile {
 			t.Fatalf("comparing outDockerfile: expected %v actual %v",
