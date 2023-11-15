@@ -3,7 +3,6 @@ package action
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -20,7 +19,7 @@ type Migrate struct {
 }
 
 func (m Migrate) Run(ctx context.Context) error {
-	entries, err := ioutil.ReadDir(m.OutputDir)
+	entries, err := os.ReadDir(m.OutputDir)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}

@@ -3,13 +3,12 @@ package tmp
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 )
 
 // CopyTmpDB reads the file at the given path and copies it to a tmp directory, returning the copied file path or an err
 func CopyTmpDB(original string) (path string, err error) {
-	dst, err := ioutil.TempFile("", "db-")
+	dst, err := os.CreateTemp("", "db-")
 	if err != nil {
 		return "", err
 	}

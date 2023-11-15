@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -60,7 +60,7 @@ type Render struct {
 
 func nullLogger() *logrus.Entry {
 	logger := logrus.New()
-	logger.SetOutput(ioutil.Discard)
+	logger.SetOutput(io.Discard)
 	return logrus.NewEntry(logger)
 }
 
@@ -155,7 +155,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 	if err != nil {
 		return nil, err
 	}
-	tmpDir, err := ioutil.TempDir("", "render-unpack-")
+	tmpDir, err := os.MkdirTemp("", "render-unpack-")
 	if err != nil {
 		return nil, err
 	}

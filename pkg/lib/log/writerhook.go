@@ -2,7 +2,6 @@ package log
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -36,7 +35,7 @@ func (hook *WriterHook) Levels() []logrus.Level {
 // AddHooks adds hooks to send logs to different destinations depending on level
 func AddHooks(hooks ...*WriterHook) {
 	// Send all logs to nowhere by default
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 
 	for _, hook := range hooks {
 		logrus.AddHook(hook)

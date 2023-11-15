@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -99,7 +98,7 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 	}
 	if rootCA != "" {
 		rootCAs := x509.NewCertPool()
-		certs, err := ioutil.ReadFile(rootCA)
+		certs, err := os.ReadFile(rootCA)
 		if err != nil {
 			return err
 		}
@@ -129,7 +128,7 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dir, err := ioutil.TempDir("", "bundle-")
+	dir, err := os.MkdirTemp("", "bundle-")
 	if err != nil {
 		return err
 	}

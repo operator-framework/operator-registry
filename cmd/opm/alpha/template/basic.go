@@ -2,7 +2,6 @@ package template
 
 import (
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -50,7 +49,7 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			// The bundle loading impl is somewhat verbose, even on the happy path,
 			// so discard all logrus default logger logs. Any important failures will be
 			// returned from template.Render and logged as fatal errors.
-			logrus.SetOutput(ioutil.Discard)
+			logrus.SetOutput(io.Discard)
 
 			reg, err := util.CreateCLIRegistry(cmd)
 			if err != nil {

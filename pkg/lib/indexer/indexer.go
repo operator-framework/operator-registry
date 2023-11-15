@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -303,7 +302,7 @@ func (i ImageIndexer) PruneFromIndex(request PruneFromIndexRequest) error {
 
 // ExtractDatabase sets a temp directory for unpacking an image
 func (i ImageIndexer) ExtractDatabase(buildDir, fromIndex, caFile string, skipTLSVerify, plainHTTP bool) (string, error) {
-	tmpDir, err := ioutil.TempDir("./", tmpDirPrefix)
+	tmpDir, err := os.MkdirTemp("./", tmpDirPrefix)
 	if err != nil {
 		return "", err
 	}
@@ -426,7 +425,7 @@ func buildContext(generate bool, requestedDockerfile string) (buildDir, outDocke
 	}
 
 	// set a temp directory for building the new image
-	buildDir, err = ioutil.TempDir(".", tmpBuildDirPrefix)
+	buildDir, err = os.MkdirTemp(".", tmpBuildDirPrefix)
 	if err != nil {
 		return
 	}
@@ -440,7 +439,7 @@ func buildContext(generate bool, requestedDockerfile string) (buildDir, outDocke
 	}
 
 	// generate a temp dockerfile if needed
-	tempDockerfile, err := ioutil.TempFile(".", defaultDockerfileName)
+	tempDockerfile, err := os.CreateTemp(".", defaultDockerfileName)
 	if err != nil {
 		defer cleanup()
 		return
@@ -504,7 +503,7 @@ type ExportFromIndexRequest struct {
 // an index image
 func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 	// set a temp directory
-	workingDir, err := ioutil.TempDir("./", tmpDirPrefix)
+	workingDir, err := os.MkdirTemp("./", tmpDirPrefix)
 	if err != nil {
 		return err
 	}

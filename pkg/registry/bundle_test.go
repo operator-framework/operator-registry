@@ -2,7 +2,7 @@ package registry
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -31,7 +31,7 @@ func TestV1CRDsInBundle(t *testing.T) {
 	})
 
 	// Read all files in manifests directory
-	items, err := ioutil.ReadDir(manifestDir)
+	items, err := os.ReadDir(manifestDir)
 	if err != nil {
 		t.Fatalf("reading manifests directory: %s", err)
 	}
@@ -40,7 +40,7 @@ func TestV1CRDsInBundle(t *testing.T) {
 	unstObjs := []*unstructured.Unstructured{}
 	for _, item := range items {
 		fileWithPath := filepath.Join(manifestDir, item.Name())
-		data, err := ioutil.ReadFile(fileWithPath)
+		data, err := os.ReadFile(fileWithPath)
 		if err != nil {
 			t.Fatalf("reading manifests directory file %s: %s", fileWithPath, err)
 		}

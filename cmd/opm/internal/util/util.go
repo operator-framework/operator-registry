@@ -2,7 +2,7 @@ package util
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
@@ -69,6 +69,6 @@ func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error)
 
 func nullLogger() *logrus.Entry {
 	logger := logrus.New()
-	logger.SetOutput(ioutil.Discard)
+	logger.SetOutput(io.Discard)
 	return logrus.NewEntry(logger)
 }

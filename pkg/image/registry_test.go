@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"net/http"
@@ -35,7 +34,7 @@ type newRegistryFunc func(t *testing.T, cafile string) (image.Registry, cleanupF
 
 func poolForCertFile(t *testing.T, file string) *x509.CertPool {
 	rootCAs := x509.NewCertPool()
-	certs, err := ioutil.ReadFile(file)
+	certs, err := os.ReadFile(file)
 	require.NoError(t, err)
 	require.True(t, rootCAs.AppendCertsFromPEM(certs))
 	return rootCAs

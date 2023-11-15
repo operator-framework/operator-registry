@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -3072,7 +3071,7 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
 		return bundleDir, cleanup, err
 	}
 
@@ -3080,7 +3079,7 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
 		return bundleDir, cleanup, err
 	}
 	return bundleDir, cleanup, nil

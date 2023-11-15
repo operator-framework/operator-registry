@@ -2,7 +2,6 @@ package bundle
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -80,7 +79,7 @@ func validateFunc(cmd *cobra.Command, _ []string) error {
 	}
 	imageValidator := bundle.NewImageValidator(registry, logger, optional)
 
-	dir, err := ioutil.TempDir("", "bundle-")
+	dir, err := os.MkdirTemp("", "bundle-")
 	logger.Infof("Create a temp directory at %s", dir)
 	if err != nil {
 		return err

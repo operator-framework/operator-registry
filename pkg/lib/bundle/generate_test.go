@@ -2,7 +2,6 @@ package bundle
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -194,12 +193,12 @@ func TestCopyYamlOutput(t *testing.T) {
 	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
 
 	outputAnnotationsFile := filepath.Join(testOutputDir, "metadata/", "annotations.yaml")
-	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	annotationsBlob, err := os.ReadFile(outputAnnotationsFile)
 	require.NoError(t, err)
 	require.Equal(t, testContent, annotationsBlob)
 
 	csvFile := filepath.Join(testOutputDir, "manifests/", "prometheusoperator.0.14.0.clusterserviceversion.yaml")
-	_, err = ioutil.ReadFile(csvFile)
+	_, err = os.ReadFile(csvFile)
 	require.NoError(t, err)
 }
 
@@ -215,7 +214,7 @@ func TestCopyYamlOutput_NoOutputDir(t *testing.T) {
 	require.Equal(t, filepath.Join(filepath.Dir(testManifestDir), "metadata/"), resultMetadataDir)
 
 	outputAnnotationsFile := filepath.Join(resultMetadataDir, "annotations.yaml")
-	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	annotationsBlob, err := os.ReadFile(outputAnnotationsFile)
 	require.NoError(t, err)
 	require.Equal(t, testContent, annotationsBlob)
 
@@ -236,12 +235,12 @@ func TestCopyYamlOutput_NestedCopy(t *testing.T) {
 	require.Equal(t, filepath.Join(testOutputDir, "metadata/"), resultMetadataDir)
 
 	outputAnnotationsFile := filepath.Join(testOutputDir, "metadata/", "annotations.yaml")
-	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	annotationsBlob, err := os.ReadFile(outputAnnotationsFile)
 	require.NoError(t, err)
 	require.Equal(t, testContent, annotationsBlob)
 
 	csvFile := filepath.Join(testOutputDir, "manifests/nested_manifests/", "prometheusoperator.0.14.0.clusterserviceversion.yaml")
-	_, err = ioutil.ReadFile(csvFile)
+	_, err = os.ReadFile(csvFile)
 	require.NoError(t, err)
 }
 
@@ -261,7 +260,7 @@ func TestGenerateFunc(t *testing.T) {
 		"  operators.operatorframework.io.bundle.metadata.v1: metadata/\n" +
 		"  operators.operatorframework.io.bundle.package.v1: etcd\n")
 	outputAnnotationsFile := filepath.Join(outputPath, "metadata/", "annotations.yaml")
-	annotationsBlob, err := ioutil.ReadFile(outputAnnotationsFile)
+	annotationsBlob, err := os.ReadFile(outputAnnotationsFile)
 	require.NoError(t, err)
 	require.EqualValues(t, output, string(annotationsBlob))
 }

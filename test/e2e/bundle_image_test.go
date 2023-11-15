@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -188,7 +187,7 @@ var _ = Describe("Launch bundle", func() {
 			for _, pod := range pl.Items {
 				logs, err := kubeclient.CoreV1().Pods(namespace).GetLogs(pod.GetName(), &corev1.PodLogOptions{}).Stream(context.Background())
 				Expect(err).NotTo(HaveOccurred())
-				logData, err := ioutil.ReadAll(logs)
+				logData, err := io.ReadAll(logs)
 				Expect(err).NotTo(HaveOccurred())
 				Logf("Pod logs for unpack job pod %q:\n%s", pod.GetName(), string(logData))
 			}
