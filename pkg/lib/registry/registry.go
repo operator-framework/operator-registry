@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -106,7 +105,7 @@ func (r RegistryUpdater) AddToRegistry(request AddToRegistryRequest) error {
 
 func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (image.Reference, string, func(), error) {
 	var errs []error
-	workingDir, err := ioutil.TempDir("./", "bundle_tmp")
+	workingDir, err := os.MkdirTemp("./", "bundle_tmp")
 	if err != nil {
 		errs = append(errs, err)
 	}

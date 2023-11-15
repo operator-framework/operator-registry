@@ -1,7 +1,6 @@
 package dns
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -50,7 +49,7 @@ func TestEnsureNsswitch(t *testing.T) {
 			NsswitchFilename = "testfile"
 
 			if tt.existingFile {
-				require.NoError(t, ioutil.WriteFile(NsswitchFilename, []byte("test"), 0644))
+				require.NoError(t, os.WriteFile(NsswitchFilename, []byte("test"), 0644))
 			}
 
 			if err := EnsureNsswitch(); (err != nil) != tt.wantErr {
@@ -58,13 +57,13 @@ func TestEnsureNsswitch(t *testing.T) {
 			}
 
 			if tt.wantFile {
-				contents, err := ioutil.ReadFile(NsswitchFilename)
+				contents, err := os.ReadFile(NsswitchFilename)
 				require.NoError(t, err)
 				require.Equal(t, NsswitchContents, contents)
 				os.Remove(NsswitchFilename)
 			}
 			if tt.existingFile {
-				contents, err := ioutil.ReadFile(NsswitchFilename)
+				contents, err := os.ReadFile(NsswitchFilename)
 				require.NoError(t, err)
 				require.NotEqual(t, NsswitchContents, contents)
 				os.Remove(NsswitchFilename)

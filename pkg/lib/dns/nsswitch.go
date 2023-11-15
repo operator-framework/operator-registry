@@ -1,7 +1,6 @@
 package dns
 
 import (
-	"io/ioutil"
 	"os"
 	"runtime"
 )
@@ -24,5 +23,5 @@ func EnsureNsswitch() error {
 		return nil
 	}
 
-	return ioutil.WriteFile(NsswitchFilename, NsswitchContents, 0644)
+	return os.WriteFile(NsswitchFilename, NsswitchContents, 0644)
 }

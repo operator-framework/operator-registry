@@ -1,7 +1,6 @@
 package bundle
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -65,7 +64,7 @@ func buildTestAnnotations(key string, items map[string]string) []byte {
 }
 
 func clearDir(dir string) {
-	items, _ := ioutil.ReadDir(dir)
+	items, _ := os.ReadDir(dir)
 
 	for _, item := range items {
 		if item.IsDir() {

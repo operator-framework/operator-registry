@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,7 +71,7 @@ func (bl bundleLocations) images() []string {
 }
 
 func inTemporaryBuildContext(f func() error, fromDir, toDir string) (rerr error) {
-	td, err := ioutil.TempDir(".", "opm-")
+	td, err := os.MkdirTemp(".", "opm-")
 	if err != nil {
 		return err
 	}
@@ -246,7 +245,7 @@ func exportIndexImageWith(containerTool string) error {
 }
 
 func initialize() error {
-	tmpDB, err := ioutil.TempFile("./", "index_tmp.db")
+	tmpDB, err := os.CreateTemp("./", "index_tmp.db")
 	if err != nil {
 		return err
 	}
@@ -306,7 +305,7 @@ var _ = Describe("opm", func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 
-			unpackDir, err := ioutil.TempDir(".", bundleTag3)
+			unpackDir, err := os.MkdirTemp(".", bundleTag3)
 			Expect(err).NotTo(HaveOccurred())
 			validator := bundle.NewImageValidator(registry, logger)
 			Expect(validator.PullBundleImage(img, unpackDir)).To(Succeed())
@@ -420,7 +419,7 @@ var _ = Describe("opm", func() {
 
 			By("building bundles")
 			for _, b := range bundles {
-				td, err := ioutil.TempDir(".", "opm-")
+				td, err := os.MkdirTemp(".", "opm-")
 				Expect(err).NotTo(HaveOccurred())
 				defer os.RemoveAll(td)
 
@@ -456,7 +455,7 @@ var _ = Describe("opm", func() {
 			}
 
 			for _, b := range bundles {
-				td, err := ioutil.TempDir(".", "opm-")
+				td, err := os.MkdirTemp(".", "opm-")
 				Expect(err).NotTo(HaveOccurred())
 				defer os.RemoveAll(td)
 

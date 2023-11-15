@@ -3,7 +3,6 @@ package action
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/h2non/filetype"
 
@@ -25,7 +24,7 @@ func (i Init) Run() (*declcfg.Package, error) {
 		DefaultChannel: i.DefaultChannel,
 	}
 	if i.DescriptionReader != nil {
-		descriptionData, err := ioutil.ReadAll(i.DescriptionReader)
+		descriptionData, err := io.ReadAll(i.DescriptionReader)
 		if err != nil {
 			return nil, fmt.Errorf("read description: %v", err)
 		}
@@ -33,7 +32,7 @@ func (i Init) Run() (*declcfg.Package, error) {
 	}
 
 	if i.IconReader != nil {
-		iconData, err := ioutil.ReadAll(i.IconReader)
+		iconData, err := io.ReadAll(i.IconReader)
 		if err != nil {
 			return nil, fmt.Errorf("read icon: %v", err)
 		}

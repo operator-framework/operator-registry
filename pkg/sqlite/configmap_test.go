@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
@@ -70,7 +69,7 @@ func TestReplaceCycle(t *testing.T) {
 	require.NoError(t, err)
 
 	path := "../../configmap.example.yaml"
-	cmap, err := ioutil.ReadFile(path)
+	cmap, err := os.ReadFile(path)
 
 	require.NoError(t, err, "unable to load configmap from file %s", path)
 

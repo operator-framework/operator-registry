@@ -3,7 +3,7 @@ package e2e_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -60,7 +60,7 @@ var _ = Describe("opm alpha bundle", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Set up a temporary directory that we can use for testing
-			tmpDir, err = ioutil.TempDir("", "opm-alpha-bundle-")
+			tmpDir, err = os.MkdirTemp("", "opm-alpha-bundle-")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -89,7 +89,7 @@ var _ = Describe("opm alpha bundle", func() {
 			})
 
 			Expect(opm.Execute()).ToNot(Succeed())
-			result, err := ioutil.ReadAll(&out)
+			result, err := io.ReadAll(&out)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(result)).To(ContainSubstring("bundle content validation failed"))
 		})
@@ -111,7 +111,7 @@ var _ = Describe("opm alpha bundle", func() {
 			})
 
 			Expect(opm.Execute()).To(Succeed())
-			result, err := ioutil.ReadAll(&out)
+			result, err := io.ReadAll(&out)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(ContainSubstring("bundle content validation failed"))
 

@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
@@ -40,15 +39,15 @@ func RunDockerRegistry(ctx context.Context, rootDir string, configOpts ...Config
 	host := fmt.Sprintf("localhost:%d", dockerPort)
 	certPool := x509.NewCertPool()
 
-	cafile, err := ioutil.TempFile("", "ca")
+	cafile, err := os.CreateTemp("", "ca")
 	if err != nil {
 		return "", "", err
 	}
-	certfile, err := ioutil.TempFile("", "cert")
+	certfile, err := os.CreateTemp("", "cert")
 	if err != nil {
 		return "", "", err
 	}
-	keyfile, err := ioutil.TempFile("", "key")
+	keyfile, err := os.CreateTemp("", "key")
 	if err != nil {
 		return "", "", err
 	}

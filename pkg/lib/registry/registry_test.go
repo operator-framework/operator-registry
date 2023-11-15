@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -350,7 +349,7 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
 		return bundleDir, cleanup, err
 	}
 
@@ -358,7 +357,7 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
 		return bundleDir, cleanup, err
 	}
 	return bundleDir, cleanup, nil

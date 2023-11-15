@@ -3,7 +3,7 @@ package certs
 import (
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 )
 
 // RootCAs gets root CAs from system store and the given file
@@ -13,7 +13,7 @@ func RootCAs(CaFile string) (*x509.CertPool, error) {
 		rootCAs = x509.NewCertPool()
 	}
 	if len(CaFile) > 0 {
-		certs, err := ioutil.ReadFile(CaFile)
+		certs, err := os.ReadFile(CaFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append %q to RootCAs: %v", certs, err)
 		}

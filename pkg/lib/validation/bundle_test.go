@@ -1,7 +1,7 @@
 package validation
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -43,12 +43,12 @@ func TestValidateBundle(t *testing.T) {
 		unstObjs := []*unstructured.Unstructured{}
 
 		// Read all files in manifests directory
-		items, err := ioutil.ReadDir(tt.directory)
+		items, err := os.ReadDir(tt.directory)
 		require.NoError(t, err, "Unable to read directory: %s", tt.description)
 
 		for _, item := range items {
 			fileWithPath := filepath.Join(tt.directory, item.Name())
-			data, err := ioutil.ReadFile(fileWithPath)
+			data, err := os.ReadFile(fileWithPath)
 			require.NoError(t, err, "Unable to read file: %s", fileWithPath)
 
 			dec := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(string(data)), 30)
