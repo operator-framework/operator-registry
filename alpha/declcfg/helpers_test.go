@@ -13,7 +13,12 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
-func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
+type validDeclarativeConfigSpec struct {
+	IncludeUnrecognized bool
+	IncludeDeprecations bool
+}
+
+func buildValidDeclarativeConfig(spec validDeclarativeConfigSpec) DeclarativeConfig {
 	a001 := newTestBundle("anakin", "0.0.1")
 	a010 := newTestBundle("anakin", "0.1.0")
 	a011 := newTestBundle("anakin", "0.1.1")
@@ -21,7 +26,7 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 	b2 := newTestBundle("boba-fett", "2.0.0")
 
 	var others []Meta
-	if includeUnrecognized {
+	if spec.IncludeUnrecognized {
 		others = []Meta{
 			{Schema: "custom.1", Blob: json.RawMessage(`{"schema": "custom.1"}`)},
 			{Schema: "custom.2", Blob: json.RawMessage(`{"schema": "custom.2"}`)},
@@ -35,6 +40,38 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 				"package": "boba-fett",
 				"schema": "custom.3"
 			}`)},
+		}
+	}
+
+	var deprecations []Deprecation
+	if spec.IncludeDeprecations {
+		deprecations = []Deprecation{
+			{
+				Schema:  SchemaDeprecation,
+				Package: "anakin",
+				Entries: []DeprecationEntry{
+					{
+						Reference: PackageScopedReference{
+							Schema: "olm.bundle",
+							Name:   testBundleName("anakin", "0.0.1"),
+						},
+						Message: "This bundle version is deprecated",
+					},
+					{
+						Reference: PackageScopedReference{
+							Schema: "olm.channel",
+							Name:   "light",
+						},
+						Message: "This channel is deprecated",
+					},
+					{
+						Reference: PackageScopedReference{
+							Schema: "olm.package",
+						},
+						Message: "This package is deprecated... there is another",
+					},
+				},
+			},
 		}
 	}
 
@@ -81,7 +118,8 @@ func buildValidDeclarativeConfig(includeUnrecognized bool) DeclarativeConfig {
 			a001, a010, a011,
 			b1, b2,
 		},
-		Others: others,
+		Others:       others,
+		Deprecations: deprecations,
 	}
 }
 

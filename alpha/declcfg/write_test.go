@@ -17,7 +17,7 @@ func TestWriteJSON(t *testing.T) {
 	specs := []spec{
 		{
 			name: "Success",
-			cfg:  buildValidDeclarativeConfig(true),
+			cfg:  buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true}),
 			expected: `{
     "schema": "olm.package",
     "name": "anakin",
@@ -168,6 +168,32 @@ func TestWriteJSON(t *testing.T) {
     "schema": "custom.3"
 }
 {
+    "schema": "olm.deprecations",
+    "package": "anakin",
+    "entries": [
+        {
+            "reference": {
+                "schema": "olm.bundle",
+                "name": "anakin.v0.0.1"
+            },
+            "message": "This bundle version is deprecated"
+        },
+        {
+            "reference": {
+                "schema": "olm.channel",
+                "name": "light"
+            },
+            "message": "This channel is deprecated"
+        },
+        {
+            "reference": {
+                "schema": "olm.package"
+            },
+            "message": "This package is deprecated... there is another"
+        }
+    ]
+}
+{
     "schema": "olm.package",
     "name": "boba-fett",
     "defaultChannel": "mando",
@@ -290,7 +316,7 @@ func TestWriteYAML(t *testing.T) {
 	specs := []spec{
 		{
 			name: "Success",
-			cfg:  buildValidDeclarativeConfig(true),
+			cfg:  buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true}),
 			expected: `---
 defaultChannel: dark
 description: anakin operator
@@ -380,6 +406,21 @@ schema: olm.bundle
 myField: foobar
 package: anakin
 schema: custom.3
+---
+entries:
+- message: This bundle version is deprecated
+  reference:
+    name: anakin.v0.0.1
+    schema: olm.bundle
+- message: This channel is deprecated
+  reference:
+    name: light
+    schema: olm.channel
+- message: This package is deprecated... there is another
+  reference:
+    schema: olm.package
+package: anakin
+schema: olm.deprecations
 ---
 defaultChannel: mando
 description: boba-fett operator
@@ -481,7 +522,7 @@ func TestWriteMermaidChannels(t *testing.T) {
 	specs := []spec{
 		{
 			name:          "SuccessNoFilters",
-			cfg:           buildValidDeclarativeConfig(true),
+			cfg:           buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true}),
 			startEdge:     "",
 			packageFilter: "",
 			expected: `graph LR
@@ -516,7 +557,7 @@ func TestWriteMermaidChannels(t *testing.T) {
 		},
 		{
 			name:          "SuccessMinEdgeFilter",
-			cfg:           buildValidDeclarativeConfig(true),
+			cfg:           buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true}),
 			startEdge:     "anakin.v0.1.0",
 			packageFilter: "",
 			expected: `graph LR
@@ -537,7 +578,7 @@ func TestWriteMermaidChannels(t *testing.T) {
 		},
 		{
 			name:          "SuccessPackageNameFilter",
-			cfg:           buildValidDeclarativeConfig(true),
+			cfg:           buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true}),
 			startEdge:     "",
 			packageFilter: "boba-fett",
 			expected: `graph LR

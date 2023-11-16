@@ -280,6 +280,155 @@ func TestConvertToModel(t *testing.T) {
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
 			},
 		},
+		{
+			name:      "Error/Deprecation/UnspecifiedPackage",
+			assertion: hasError(`package name must be set for deprecation item 0`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{Schema: SchemaDeprecation},
+				},
+			},
+		},
+		{
+			name:      "Error/Deprecation/OutOfBoundsBundle",
+			assertion: hasError(`cannot deprecate bundle "foo.v2.0.0" for package "foo": bundle not found`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{
+						Schema:  SchemaDeprecation,
+						Package: "foo",
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: SchemaBundle, Name: "foo.v2.0.0"}, Message: "foo.v2.0.0 doesn't exist in the first place"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "Error/Deprecation/OutOfBoundsPackage",
+			assertion: hasError(`cannot apply deprecations to an unknown package "nyarl"`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{
+						Schema:  SchemaDeprecation,
+						Package: "nyarl",
+					},
+				},
+			},
+		},
+		{
+			name:      "Error/Deprecation/MultiplePerPackage",
+			assertion: hasError(`expected a maximum of one deprecation per package: "foo"`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{
+						Schema:  SchemaDeprecation,
+						Package: "foo",
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: SchemaChannel, Name: "alpha"}, Message: "no more alpha channel"},
+						},
+					},
+					{
+						Schema:  SchemaDeprecation,
+						Package: "foo",
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: SchemaBundle, Name: "foo.v0.1.0"}, Message: "foo.v0.1.0 is dead.  do another thing"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "Error/Deprecation/BadRefSchema",
+			assertion: hasError(`cannot deprecate object declcfg.PackageScopedReference{Schema:"badschema", Name:"foo.v2.0.0"} referenced by entry 0 for package "foo": object schema unknown`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{
+						Schema:  SchemaDeprecation,
+						Package: "foo",
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: "badschema", Name: "foo.v2.0.0"}, Message: "foo.v2.0.0 doesn't exist in the first place"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "Error/Deprecation/DuplicateRef",
+			assertion: hasError(`duplicate deprecation entry declcfg.PackageScopedReference{Schema:"olm.bundle", Name:"foo.v0.1.0"} for package "foo"`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					addPackageProperties(
+						newTestPackage("foo", "alpha", svgSmallCircle),
+						[]property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+				Deprecations: []Deprecation{
+					{
+						Schema:  SchemaDeprecation,
+						Package: "foo",
+						Entries: []DeprecationEntry{
+							{Reference: PackageScopedReference{Schema: SchemaBundle, Name: "foo.v0.1.0"}, Message: "foo.v0.1.0 is bad"},
+							{Reference: PackageScopedReference{Schema: SchemaBundle, Name: "foo.v0.1.0"}, Message: "foo.v0.1.0 is bad"},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, s := range specs {
@@ -291,7 +440,7 @@ func TestConvertToModel(t *testing.T) {
 }
 
 func TestConvertToModelRoundtrip(t *testing.T) {
-	expected := buildValidDeclarativeConfig(true)
+	expected := buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: false}) // TODO: turn on deprecation when we have model-->declcfg conversion
 
 	m, err := ConvertToModel(expected)
 	require.NoError(t, err)
