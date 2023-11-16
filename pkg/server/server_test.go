@@ -122,26 +122,26 @@ func TestMain(m *testing.M) {
 		logrus.Fatal(err)
 	}
 
-	s1 := server(dbStore)
+	grpcServer := server(dbStore)
 
 	fbcJsonStore, err := fbcJsonCache(fbcDir, filepath.Join(tmpDir, "json-cache"))
 	if err != nil {
 		logrus.Fatalf("failed to create json cache: %v", err)
 	}
-	s2 := server(fbcJsonStore)
+	fbcServerSimple := server(fbcJsonStore)
 
 	fbcJsonDeprecationStore, err := fbcJsonCacheFromFs(validFS, filepath.Join(tmpDir, "json-deprecation-cache"))
 	if err != nil {
 		logrus.Fatalf("failed to create json deprecation cache: %v", err)
 	}
-	s3 := server(fbcJsonDeprecationStore)
+	fbcServerDeprecations := server(fbcJsonDeprecationStore)
 
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
-		if err := s1.Serve(lis); err != nil {
+		if err := grpcServer.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve db: %v", err)
 		}
 	}()
@@ -150,7 +150,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
-		if err := s2.Serve(lis); err != nil {
+		if err := fbcServerSimple.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve fbc json cache: %v", err)
 		}
 	}()
@@ -159,7 +159,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
-		if err := s3.Serve(lis); err != nil {
+		if err := fbcServerDeprecations.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve fbc json cache: %v", err)
 		}
 	}()
@@ -287,9 +287,35 @@ func testGetPackage(addr string, expected *api.Package) func(*testing.T) {
 }
 
 func TestGetBundle(t *testing.T) {
+	var (
+		cockroachBundle = &api.Bundle{
+			CsvName:      "cockroachdb.v5.0.4",
+			PackageName:  "cockroachdb",
+			ChannelName:  "stable-5.x",
+			CsvJson:      "",
+			BundlePath:   "quay.io/openshift-community-operators/cockroachdb@sha256:f42337e7b85a46d83c94694638e2312e10ca16a03542399a65ba783c94a32b63",
+			RequiredApis: nil,
+			Version:      "5.0.4",
+			SkipRange:    "",
+			Dependencies: []*api.Dependency(nil),
+			ProvidedApis: []*api.GroupVersionKind{
+				{Group: "charts.operatorhub.io", Version: "v1alpha1", Kind: "Cockroachdb"},
+			},
+			Properties: []*api.Property{
+				{
+					Type:  "olm.gvk",
+					Value: "{\"group\":\"charts.operatorhub.io\",\"kind\":\"Cockroachdb\",\"version\":\"v1alpha1\"}",
+				},
+				{
+					Type:  "olm.package",
+					Value: "{\"packageName\":\"cockroachdb\",\"version\":\"5.0.4\"}",
+				},
+			},
+		}
+	)
 	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
 	t.Run("FBCJsonCache", testGetBundle(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
-	t.Run("FBCJsonCacheWithDeprecations", testGetBundle(jsonDeprecationCacheAddress, getCockroachBundle()))
+	t.Run("FBCJsonCacheWithDeprecations", testGetBundle(jsonDeprecationCacheAddress, cockroachBundle))
 }
 
 func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
@@ -864,34 +890,6 @@ func etcdoperator_v0_9_2(channel string, addSkipsReplaces, addExtraProperties bo
 		b.Object = []string{b.CsvJson}
 	default:
 		panic(fmt.Sprintf("unexpected includeManifests value: %q", includeManifests))
-	}
-	return b
-}
-
-func getCockroachBundle() *api.Bundle {
-	b := &api.Bundle{
-		CsvName:      "cockroachdb.v5.0.4",
-		PackageName:  "cockroachdb",
-		ChannelName:  "stable-5.x",
-		CsvJson:      "",
-		BundlePath:   "quay.io/openshift-community-operators/cockroachdb@sha256:f42337e7b85a46d83c94694638e2312e10ca16a03542399a65ba783c94a32b63",
-		RequiredApis: nil,
-		Version:      "5.0.4",
-		SkipRange:    "",
-		Dependencies: []*api.Dependency(nil),
-		ProvidedApis: []*api.GroupVersionKind{
-			{Group: "charts.operatorhub.io", Version: "v1alpha1", Kind: "Cockroachdb"},
-		},
-		Properties: []*api.Property{
-			{
-				Type:  "olm.gvk",
-				Value: "{\"group\":\"charts.operatorhub.io\",\"kind\":\"Cockroachdb\",\"version\":\"v1alpha1\"}",
-			},
-			{
-				Type:  "olm.package",
-				Value: "{\"packageName\":\"cockroachdb\",\"version\":\"5.0.4\"}",
-			},
-		},
 	}
 	return b
 }
