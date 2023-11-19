@@ -28,7 +28,7 @@ foo   Foo Operator  beta
 		{
 			name:        "Error/UnknownIndex",
 			list:        ListPackages{IndexReference: "unknown-index"},
-			expectedErr: `render reference "unknown-index": error resolving name for image ref unknown-index: object required`,
+			expectedErr: `render reference "unknown-index": repository name must be canonical`,
 		},
 	}
 	for _, s := range specs {
@@ -79,7 +79,7 @@ foo      stable   foo.v0.2.0
 		{
 			name:        "Error/UnknownIndex",
 			list:        ListChannels{IndexReference: "unknown-index"},
-			expectedErr: `render reference "unknown-index": error resolving name for image ref unknown-index: object required`,
+			expectedErr: `render reference "unknown-index": repository name must be canonical`,
 		},
 		{
 			name:        "Error/UnknownPackage",
@@ -138,7 +138,7 @@ foo      stable   foo.v0.2.0  foo.v0.1.0  foo.v0.1.1,foo.v0.1.2  <0.2.0      tes
 		{
 			name:        "Error/UnknownIndex",
 			list:        ListBundles{IndexReference: "unknown-index"},
-			expectedErr: `render reference "unknown-index": error resolving name for image ref unknown-index: object required`,
+			expectedErr: `render reference "unknown-index": repository name must be canonical`,
 		},
 		{
 			name:        "Error/UnknownPackage",
