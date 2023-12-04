@@ -9,7 +9,6 @@ require (
 	github.com/containers/image/v5 v5.28.0
 	github.com/docker/cli v23.0.5+incompatible
 	github.com/docker/distribution v2.8.2+incompatible
-	github.com/ghodss/yaml v1.0.0
 	github.com/golang-migrate/migrate/v4 v4.16.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
@@ -23,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc4
-	github.com/operator-framework/api v0.19.0
+	github.com/operator-framework/api v0.20.0
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	pregistry "github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
