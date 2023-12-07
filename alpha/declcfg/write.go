@@ -106,6 +106,26 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 	minEdgePackage := writer.getMinEdgePackage(&cfg)
 
+	depByPackage := sets.Set[string]{}
+	depByChannel := sets.Set[string]{}
+	depByBundle := sets.Set[string]{}
+
+	for _, d := range cfg.Deprecations {
+		for _, e := range d.Entries {
+			switch e.Reference.Schema {
+			case SchemaPackage:
+				depByPackage.Insert(d.Package)
+			case SchemaChannel:
+				depByChannel.Insert(e.Reference.Name)
+			case SchemaBundle:
+				depByBundle.Insert(e.Reference.Name)
+			}
+		}
+	}
+
+	var deprecatedPackage string
+	deprecatedChannels := []string{}
+
 	for _, c := range cfg.Channels {
 		filteredChannel := writer.filterChannel(&c, versionMap, minVersion, minEdgePackage)
 		if filteredChannel != nil {
@@ -119,10 +139,23 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			pkgBuilder.WriteString(fmt.Sprintf("    %%%% channel %q\n", filteredChannel.Name))
 			pkgBuilder.WriteString(fmt.Sprintf("    subgraph %s[%q]\n", channelID, filteredChannel.Name))
 
+			if depByPackage.Has(filteredChannel.Package) {
+				deprecatedPackage = filteredChannel.Package
+			}
+
+			if depByChannel.Has(filteredChannel.Name) {
+				deprecatedChannels = append(deprecatedChannels, channelID)
+			}
+
 			for _, ce := range filteredChannel.Entries {
 				if versionMap[ce.Name].GE(minVersion) {
+					bundleDeprecation := ""
+					if depByBundle.Has(ce.Name) {
+						bundleDeprecation = ":::deprecated"
+					}
+
 					entryId := fmt.Sprintf("%s-%s", channelID, ce.Name)
-					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]\n", entryId, ce.Name))
+					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]%s\n", entryId, ce.Name, bundleDeprecation))
 
 					if len(ce.Replaces) > 0 {
 						replacesId := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
@@ -154,6 +187,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 	}
 
 	out.Write([]byte("graph LR\n"))
+	out.Write([]byte(fmt.Sprintf("  classDef deprecated fill:#E8960F\n")))
 	pkgNames := []string{}
 	for pname := range pkgs {
 		pkgNames = append(pkgNames, pname)
@@ -166,6 +200,16 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		out.Write([]byte(fmt.Sprintf("  subgraph %q\n", pkgName)))
 		out.Write([]byte(pkgs[pkgName].String()))
 		out.Write([]byte("  end\n"))
+	}
+
+	if deprecatedPackage != "" {
+		out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+	}
+
+	if len(deprecatedChannels) > 0 {
+		for _, deprecatedChannel := range deprecatedChannels {
+			out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
+		}
 	}
 
 	return nil
