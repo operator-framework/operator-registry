@@ -526,11 +526,12 @@ func TestWriteMermaidChannels(t *testing.T) {
 			startEdge:     "",
 			packageFilter: "",
 			expected: `graph LR
+  classDef deprecated fill:#E8960F
   %% package "anakin"
   subgraph "anakin"
     %% channel "dark"
     subgraph anakin-dark["dark"]
-      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]:::deprecated
       anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
@@ -539,7 +540,7 @@ func TestWriteMermaidChannels(t *testing.T) {
     end
     %% channel "light"
     subgraph anakin-light["light"]
-      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]:::deprecated
       anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-light-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
     end
@@ -553,6 +554,8 @@ func TestWriteMermaidChannels(t *testing.T) {
       boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
     end
   end
+style anakin fill:#989695
+style anakin-light fill:#DCD0FF
 `,
 		},
 		{
@@ -561,6 +564,7 @@ func TestWriteMermaidChannels(t *testing.T) {
 			startEdge:     "anakin.v0.1.0",
 			packageFilter: "",
 			expected: `graph LR
+  classDef deprecated fill:#E8960F
   %% package "anakin"
   subgraph "anakin"
     %% channel "dark"
@@ -574,6 +578,8 @@ func TestWriteMermaidChannels(t *testing.T) {
       anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
     end
   end
+style anakin fill:#989695
+style anakin-light fill:#DCD0FF
 `,
 		},
 		{
@@ -582,6 +588,7 @@ func TestWriteMermaidChannels(t *testing.T) {
 			startEdge:     "",
 			packageFilter: "boba-fett",
 			expected: `graph LR
+  classDef deprecated fill:#E8960F
   %% package "boba-fett"
   subgraph "boba-fett"
     %% channel "mando"
