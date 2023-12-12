@@ -123,7 +123,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		}
 	}
 
-	var deprecatedPackage string
+	deprecatedPackages := []string{}
 	deprecatedChannels := []string{}
 
 	for _, c := range cfg.Channels {
@@ -140,7 +140,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			pkgBuilder.WriteString(fmt.Sprintf("    subgraph %s[%q]\n", channelID, filteredChannel.Name))
 
 			if depByPackage.Has(filteredChannel.Package) {
-				deprecatedPackage = filteredChannel.Package
+				deprecatedPackages = append(deprecatedPackages, filteredChannel.Package)
 			}
 
 			if depByChannel.Has(filteredChannel.Name) {
@@ -202,8 +202,10 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		out.Write([]byte("  end\n"))
 	}
 
-	if deprecatedPackage != "" {
-		out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+	if len(deprecatedPackages) > 0 {
+		for _, deprecatedPackage := range deprecatedPackages {
+			out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+		}
 	}
 
 	if len(deprecatedChannels) > 0 {
