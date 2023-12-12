@@ -202,16 +202,12 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		out.Write([]byte("  end\n"))
 	}
 
-	if len(deprecatedPackages) > 0 {
-		for _, deprecatedPackage := range deprecatedPackages {
-			out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
-		}
+	for _, deprecatedPackage := range deprecatedPackages {
+		out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
 	}
 
-	if len(deprecatedChannels) > 0 {
-		for _, deprecatedChannel := range deprecatedChannels {
-			out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
-		}
+	for _, deprecatedChannel := range deprecatedChannels {
+		out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
 	}
 
 	return nil
