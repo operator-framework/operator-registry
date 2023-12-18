@@ -148,10 +148,12 @@ $(LOCALBIN):
 ## Tool Binaries
 GORELEASER ?= $(LOCALBIN)/goreleaser
 GINKGO ?= $(LOCALBIN)/ginkgo
+PROTOC_VERSION ?= $(LOCALBIN)/protoc-gen-go-grpc
 
 ## Tool Versions
 GORELEASER_VERSION ?= v1.8.3
 GINKGO_VERSION ?= v2.1.3
+PROTOC_VERSION ?= v1.3.0
 
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
@@ -162,3 +164,8 @@ $(GORELEASER): $(LOCALBIN)
 ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
 $(GINKGO): $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)
+
+.PHONY: protoc-gen-go-grpc
+protoc-gen-go-grpc: $(protoc-gen-go-grpc) ## Download protoc-gen-go-grpc locally if necessary.
+$(protoc-gen-go-grpc): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_VERSION)
