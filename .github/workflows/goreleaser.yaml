@@ -133,7 +133,7 @@ jobs:
           registry: quay.io
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
 
       - name: "Run GoReleaser"
         run: make release
