@@ -53,7 +53,7 @@ jobs:
           # GoReleaser requires fetch-depth: 0 to correctly
           # run git describe
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
       - name: "Run GoReleaser"
@@ -77,7 +77,7 @@ jobs:
           # run git describe
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
       - name: "Run GoReleaser"
@@ -101,7 +101,7 @@ jobs:
           # run git describe
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
       - name: "Install linux cross-compilers"
