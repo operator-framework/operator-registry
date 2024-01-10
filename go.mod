@@ -22,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc4
-	github.com/operator-framework/api v0.20.0
+	github.com/operator-framework/api v0.21.0
 	github.com/otiai10/copy v1.2.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/pkg/errors v0.9.1
@@ -45,7 +45,7 @@ require (
 	k8s.io/client-go v0.28.5
 	k8s.io/kubectl v0.28.5
 	sigs.k8s.io/controller-runtime v0.16.3
-	sigs.k8s.io/kind v0.11.1
+	sigs.k8s.io/kind v0.20.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -104,6 +104,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230323073829-e72429f035bd // indirect
+	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
