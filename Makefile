@@ -10,6 +10,16 @@ export GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEA
 export OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
 export BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
+# bingo manages consistent tooling versions for things like kind, kustomize, etc.
+include .bingo/Variables.mk
+
+# protoc is not a go binary, so we need a custom recipe for it.
+PROTOC := ./tools/bin/protoc
+PROTOC_VERSION := 27.0
+.PHONY: $(PROTOC)
+$(PROTOC):
+	./scripts/ensure-protoc.sh $(PROTOC_VERSION)
+
 # define characters
 null  :=
 space := $(null) #
@@ -69,7 +79,7 @@ tidy:
 	go mod verify
 
 .PHONY: verify
-verify: tidy lint
+verify: tidy codegen lint
 	git diff --exit-code
 
 .PHONY: sanity-check
@@ -91,12 +101,12 @@ image-upstream:
 
 .PHONY: lint
 lint:
-	find . -name '*.go' | xargs goimports -w
+	find . -type f -name '*.go' ! -name '*.pb.go' -print0 | xargs -0 goimports -w
 
 .PHONY: codegen
-codegen:
-	protoc -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
-	protoc -I pkg/api/ --go-grpc_out=pkg/api pkg/api/*.proto
+codegen: $(PROTOC) $(PROTOC_GEN_GO_GRPC)
+	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
+	$(PROTOC) --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go-grpc_out=pkg/api pkg/api/*.proto
 
 .PHONY: generate-fakes
 generate-fakes:
@@ -107,7 +117,7 @@ clean:
 	@rm -rf ./bin
 
 .PHONY: e2e
-e2e: ginkgo
+e2e: $(GINKGO)
 	$(GINKGO) --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
 
 .PHONY: release
@@ -130,7 +140,7 @@ export LATEST_IMAGE_OR_EMPTY := $(shell \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 RELEASE_GOOS := $(shell go env GOOS)
 release: RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
-release: goreleaser
+release: $(GORELEASER)
 	$(GORELEASER) $(RELEASE_ARGS)
 
 # tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
@@ -144,38 +154,3 @@ $(shell \
 	&& echo "$(OPM_IMAGE_REPO):$(1)" || echo "" )
 endef
 
-################
-# Hack / Tools #
-################
-
-GO_INSTALL_OPTS := "-mod=mod"
-
-## Location to install dependencies to
-LOCALBIN := $(shell pwd)/bin
-$(LOCALBIN):
-	mkdir -p $(LOCALBIN)
-
-## Tool Binaries
-GORELEASER := $(LOCALBIN)/goreleaser
-GINKGO := $(LOCALBIN)/ginkgo
-PROTOC_VERSION := $(LOCALBIN)/protoc-gen-go-grpc
-
-## Tool Versions
-GORELEASER_VERSION := v1.8.3
-GINKGO_VERSION := v2.1.3
-PROTOC_VERSION := v1.3.0
-
-.PHONY: goreleaser
-goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
-$(GORELEASER): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
-
-.PHONY: ginkgo
-ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
-$(GINKGO): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)
-
-.PHONY: protoc-gen-go-grpc
-protoc-gen-go-grpc: $(protoc-gen-go-grpc) ## Download protoc-gen-go-grpc locally if necessary.
-$(protoc-gen-go-grpc): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install $(GO_INSTALL_OPTS) google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_VERSION)
