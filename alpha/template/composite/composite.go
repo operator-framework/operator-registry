@@ -230,6 +230,7 @@ func (t *Template) newCatalogBuilderMap(catalogs []Catalog, outputType string) (
 			builderMap := make(BuilderMap)
 			for _, schema := range catalog.Builders {
 				builder, err := t.builderForSchema(schema, BuilderConfig{
+					WorkingDir: catalog.Destination.WorkingDir,
 					OutputType: outputType,
 				})
 				if err != nil {
