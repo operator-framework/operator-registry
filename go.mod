@@ -18,8 +18,8 @@ require (
 	github.com/joelanford/ignore v0.0.0-20210607151042-0d25dc18b62d
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
-	github.com/onsi/ginkgo/v2 v2.13.2
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/gomega v1.31.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/operator-framework/api v0.21.0
