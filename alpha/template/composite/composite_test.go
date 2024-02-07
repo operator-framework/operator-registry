@@ -436,7 +436,7 @@ func TestParseContributionSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			template := NewTemplate(WithContributionFile(strings.NewReader(tc.composite)))
+			template := NewTemplate(WithContributionFile(strings.NewReader(tc.composite), ""))
 			contrib, err := template.parseContributionSpec()
 			tc.assertions(t, contrib, err)
 		})
