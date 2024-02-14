@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -49,6 +50,11 @@ and a 'composite template' file`,
 			}
 			defer compositeReader.Close()
 
+			compositePath, err := filepath.Abs(filepath.Dir(compositeFile))
+			if err != nil {
+				log.Fatalf("getting absolute path of composite config file %q: %v", compositeFile, err)
+			}
+
 			// catalog maintainer's 'catalogs.yaml' file
 			tempCatalog, err := composite.FetchCatalogConfig(catalogFile, http.DefaultClient)
 			if err != nil {
@@ -58,7 +64,7 @@ and a 'composite template' file`,
 
 			template := composite.NewTemplate(
 				composite.WithCatalogFile(tempCatalog),
-				composite.WithContributionFile(compositeReader),
+				composite.WithContributionFile(compositeReader, compositePath),
 				composite.WithOutputType(output),
 				composite.WithRegistry(reg),
 			)

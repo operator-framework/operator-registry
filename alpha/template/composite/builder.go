@@ -28,8 +28,9 @@ const (
 )
 
 type BuilderConfig struct {
-	WorkingDir string
-	OutputType string
+	WorkingDir       string
+	OutputType       string
+	ContributionPath string
 }
 
 type Builder interface {
@@ -80,7 +81,14 @@ func (bb *BasicBuilder) Build(ctx context.Context, reg image.Registry, dir strin
 	b := basictemplate.Template{Registry: reg}
 	reader, err := os.Open(basicConfig.Input)
 	if err != nil {
-		return fmt.Errorf("error reading basic template: %v", err)
+		if os.IsNotExist(err) && bb.builderCfg.ContributionPath != "" {
+			reader, err = os.Open(path.Join(bb.builderCfg.ContributionPath, basicConfig.Input))
+			if err != nil {
+				return fmt.Errorf("error reading basic template: %v (tried contribution-local path: %q)", err, bb.builderCfg.ContributionPath)
+			}
+		} else {
+			return fmt.Errorf("error reading basic template: %v", err)
+		}
 	}
 	defer reader.Close()
 
@@ -140,7 +148,14 @@ func (sb *SemverBuilder) Build(ctx context.Context, reg image.Registry, dir stri
 
 	reader, err := os.Open(semverConfig.Input)
 	if err != nil {
-		return fmt.Errorf("error reading semver template: %v", err)
+		if os.IsNotExist(err) && sb.builderCfg.ContributionPath != "" {
+			reader, err = os.Open(path.Join(sb.builderCfg.ContributionPath, semverConfig.Input))
+			if err != nil {
+				return fmt.Errorf("error reading semver template: %v (tried contribution-local path: %q)", err, sb.builderCfg.ContributionPath)
+			}
+		} else {
+			return fmt.Errorf("error reading semver template: %v", err)
+		}
 	}
 	defer reader.Close()
 
@@ -202,7 +217,14 @@ func (rb *RawBuilder) Build(ctx context.Context, _ image.Registry, dir string, t
 
 	reader, err := os.Open(rawConfig.Input)
 	if err != nil {
-		return fmt.Errorf("error reading raw input file: %s, %v", rawConfig.Input, err)
+		if os.IsNotExist(err) && rb.builderCfg.ContributionPath != "" {
+			reader, err = os.Open(path.Join(rb.builderCfg.ContributionPath, rawConfig.Input))
+			if err != nil {
+				return fmt.Errorf("error reading raw input file: %v (tried contribution-local path: %q)", err, rb.builderCfg.ContributionPath)
+			}
+		} else {
+			return fmt.Errorf("error reading raw input file: %v", err)
+		}
 	}
 	defer reader.Close()
 

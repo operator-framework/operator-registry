@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -208,6 +209,38 @@ func TestBasicBuilder(t *testing.T) {
 				require.Equal(t,
 					buildErr.Error(),
 					"basic template configuration is invalid: basic template config must have a non-empty input (templateDefinition.config.input),basic template config must have a non-empty output (templateDefinition.config.output)")
+			},
+		},
+		{
+			name:     "successful basic build yaml output using contribution cwd to find inputs",
+			validate: true,
+			basicBuilder: NewBasicBuilder(BuilderConfig{
+				WorkingDir:       testDir,
+				OutputType:       "yaml",
+				ContributionPath: filepath.Join(testDir, "components"),
+			}),
+			templateDefinition: TemplateDefinition{
+				Schema: BasicBuilderSchema,
+				Config: []byte(fmt.Sprintf(validConfigTemplate, "basic.yaml", "catalog.yaml")),
+			},
+			files: map[string]string{
+				"components/basic.yaml": basicYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.NoError(t, buildErr)
+				// check if the catalog.yaml file exists in the correct place
+				filePath := path.Join(dir, "catalog.yaml")
+				_, err := os.Stat(filePath)
+				require.NoError(t, err)
+				file, err := os.Open(filePath)
+				require.NoError(t, err)
+				defer file.Close()
+				fileData, err := io.ReadAll(file)
+				require.NoError(t, err)
+				require.Equal(t, string(fileData), basicBuiltFbcYaml)
+			},
+			validateAssertions: func(t *testing.T, validateErr error) {
+				require.NoError(t, validateErr)
 			},
 		},
 	}
@@ -671,6 +704,38 @@ func TestSemverBuilder(t *testing.T) {
 					"semver template configuration is invalid: semver template config must have a non-empty input (templateDefinition.config.input),semver template config must have a non-empty output (templateDefinition.config.output)",
 					buildErr.Error(),
 				)
+			},
+		},
+		{
+			name:     "successful semver build json output using contribution cwd to find inputs",
+			validate: true,
+			semverBuilder: NewSemverBuilder(BuilderConfig{
+				WorkingDir:       testDir,
+				OutputType:       "json",
+				ContributionPath: filepath.Join(testDir, "components"),
+			}),
+			templateDefinition: TemplateDefinition{
+				Schema: SemverBuilderSchema,
+				Config: []byte(fmt.Sprintf(validConfigTemplate, "semver.yaml", "catalog.json")),
+			},
+			files: map[string]string{
+				"components/semver.yaml": semverYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.NoError(t, buildErr)
+				// check if the catalog.yaml file exists in the correct place
+				filePath := path.Join(dir, "catalog.json")
+				_, err := os.Stat(filePath)
+				require.NoError(t, err)
+				file, err := os.Open(filePath)
+				require.NoError(t, err)
+				defer file.Close()
+				fileData, err := io.ReadAll(file)
+				require.NoError(t, err)
+				require.Equal(t, semverBuiltFbcJson, string(fileData))
+			},
+			validateAssertions: func(t *testing.T, validateErr error) {
+				require.NoError(t, validateErr)
 			},
 		},
 	}
@@ -1142,6 +1207,38 @@ func TestRawBuilder(t *testing.T) {
 				require.Equal(t,
 					buildErr.Error(),
 					"raw template configuration is invalid: raw template config must have a non-empty input (templateDefinition.config.input),raw template config must have a non-empty output (templateDefinition.config.output)")
+			},
+		},
+		{
+			name:     "successful raw build json output using contribution cwd to find inputs",
+			validate: true,
+			rawBuilder: NewRawBuilder(BuilderConfig{
+				WorkingDir:       testDir,
+				OutputType:       "json",
+				ContributionPath: filepath.Join(testDir, "components"),
+			}),
+			templateDefinition: TemplateDefinition{
+				Schema: RawBuilderSchema,
+				Config: []byte(fmt.Sprintf(validConfigTemplate, "raw.yaml", "catalog.json")),
+			},
+			files: map[string]string{
+				"components/raw.yaml": rawYaml,
+			},
+			buildAssertions: func(t *testing.T, dir string, buildErr error) {
+				require.NoError(t, buildErr)
+				// check if the catalog.yaml file exists in the correct place
+				filePath := path.Join(dir, "catalog.json")
+				_, err := os.Stat(filePath)
+				require.NoError(t, err)
+				file, err := os.Open(filePath)
+				require.NoError(t, err)
+				defer file.Close()
+				fileData, err := io.ReadAll(file)
+				require.NoError(t, err)
+				require.Equal(t, string(fileData), rawBuiltFbcJson)
+			},
+			validateAssertions: func(t *testing.T, validateErr error) {
+				require.NoError(t, validateErr)
 			},
 		},
 	}

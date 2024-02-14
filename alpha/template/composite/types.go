@@ -43,6 +43,7 @@ type builderFunc func(BuilderConfig) Builder
 type Template struct {
 	catalogFile        io.Reader
 	contributionFile   io.Reader
+	contributionPath   string
 	validate           bool
 	outputType         string
 	registry           image.Registry

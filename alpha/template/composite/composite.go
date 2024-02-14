@@ -19,9 +19,10 @@ func WithCatalogFile(catalogFile io.Reader) TemplateOption {
 	}
 }
 
-func WithContributionFile(contribFile io.Reader) TemplateOption {
+func WithContributionFile(contribFile io.Reader, contribPath string) TemplateOption {
 	return func(t *Template) {
 		t.contributionFile = contribFile
+		t.contributionPath = contribPath
 	}
 }
 
@@ -230,8 +231,9 @@ func (t *Template) newCatalogBuilderMap(catalogs []Catalog, outputType string) (
 			builderMap := make(BuilderMap)
 			for _, schema := range catalog.Builders {
 				builder, err := t.builderForSchema(schema, BuilderConfig{
-					WorkingDir: catalog.Destination.WorkingDir,
-					OutputType: outputType,
+					WorkingDir:       catalog.Destination.WorkingDir,
+					OutputType:       outputType,
+					ContributionPath: t.contributionPath,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("getting builder %q for catalog %q: %v", schema, catalog.Name, err)
