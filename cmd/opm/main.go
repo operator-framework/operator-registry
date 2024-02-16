@@ -10,7 +10,8 @@ import (
 )
 
 func main() {
-	cmd := root.NewCmd()
+	showAlphaHelp := os.Getenv("HELP_ALPHA") == "true"
+	cmd := root.NewCmd(showAlphaHelp)
 	if err := cmd.Execute(); err != nil {
 		agg, ok := err.(utilerrors.Aggregate)
 		if !ok {

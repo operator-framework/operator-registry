@@ -15,7 +15,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func NewCmd() *cobra.Command {
+func NewCmd(showAlphaHelp bool) *cobra.Command {
 	var (
 		render           action.Render
 		output           string
@@ -27,17 +27,7 @@ func NewCmd() *cobra.Command {
 		Long: `Generate a stream of file-based catalog objects to stdout from the provided
 catalog images, file-based catalog directories, bundle images, and sqlite
 database files.
-
-If rendering sources that do not carry bundle image reference information
-(e.g. bundle directories), the --image-ref-template flag can be used to
-generate image references for the rendered file-based catalog objects.
-This is useful when generating a catalog with image references prior to
-those images actually existing. Available template variables are:
-  - {{.Package}} : the package name the bundle belongs to
-  - {{.Name}}    : the name of the bundle (for registry+v1 bundles, this is the CSV name)
-  - {{.Version}} : the version of the bundle
-
-` + sqlite.DeprecationMessage,
+`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			render.Refs = args
@@ -85,7 +75,23 @@ those images actually existing. Available template variables are:
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
 	cmd.Flags().BoolVar(&render.Migrate, "migrate", false, "Perform migrations on the rendered FBC")
-	cmd.Flags().StringVar(&imageRefTemplate, "image-ref-template", "", "When bundle image reference information is unavailable, populate it with this template")
+
+	// Alpha flags
+	cmd.Flags().StringVar(&imageRefTemplate, "alpha-image-ref-template", "", "When bundle image reference information is unavailable, populate it with this template")
+
+	if showAlphaHelp {
+		cmd.Long += `
+If rendering sources that do not carry bundle image reference information
+(e.g. bundle directories), the --alpha-image-ref-template flag can be used to
+generate image references for the rendered file-based catalog objects.
+This is useful when generating a catalog with image references prior to
+those images actually existing. Available template variables are:
+  - {{.Package}} : the package name the bundle belongs to
+  - {{.Name}}    : the name of the bundle (for registry+v1 bundles, this is the CSV name)
+  - {{.Version}} : the version of the bundle
+`
+	}
+	cmd.Long += "\n" + sqlite.DeprecationMessage
 	return cmd
 }
 

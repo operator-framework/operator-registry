@@ -8,7 +8,7 @@ import (
 )
 
 // NewOpmRegistryCmd returns the appregistry-server command
-func NewOpmRegistryCmd() *cobra.Command {
+func NewOpmRegistryCmd(showAlphaHelp bool) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "registry",
 		Short: "interact with operator-registry database",
@@ -28,7 +28,7 @@ func NewOpmRegistryCmd() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(newRegistryServeCmd())
-	rootCmd.AddCommand(newRegistryAddCmd())
+	rootCmd.AddCommand(newRegistryAddCmd(showAlphaHelp))
 	rootCmd.AddCommand(newRegistryRmCmd())
 	rootCmd.AddCommand(newRegistryPruneCmd())
 	rootCmd.AddCommand(newRegistryPruneStrandedCmd())

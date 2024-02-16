@@ -8,7 +8,7 @@ import (
 )
 
 // AddCommand adds the index subcommand to the given parent command.
-func AddCommand(parent *cobra.Command) {
+func AddCommand(parent *cobra.Command, showAlphaHelp bool) {
 	cmd := &cobra.Command{
 		Use:   "index",
 		Short: "generate operator index container images",
@@ -34,7 +34,7 @@ func AddCommand(parent *cobra.Command) {
 	parent.AddCommand(cmd)
 
 	cmd.AddCommand(newIndexDeleteCmd())
-	addIndexAddCmd(cmd)
+	addIndexAddCmd(cmd, showAlphaHelp)
 	cmd.AddCommand(newIndexExportCmd())
 	cmd.AddCommand(newIndexPruneCmd())
 	cmd.AddCommand(newIndexDeprecateTruncateCmd())

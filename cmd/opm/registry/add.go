@@ -14,7 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func newRegistryAddCmd() *cobra.Command {
+func newRegistryAddCmd(showAlphaHelp bool) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "add",
 		Short: "add operator bundle to operator registry DB",
@@ -48,8 +48,10 @@ func newRegistryAddCmd() *cobra.Command {
 		logrus.Panic(err.Error())
 	}
 	rootCmd.Flags().Bool("enable-alpha", false, "enable unsupported alpha features of the OPM CLI")
-	if err := rootCmd.Flags().MarkHidden("enable-alpha"); err != nil {
-		logrus.Panic(err.Error())
+	if !showAlphaHelp {
+		if err := rootCmd.Flags().MarkHidden("enable-alpha"); err != nil {
+			logrus.Panic(err.Error())
+		}
 	}
 	if err := rootCmd.Flags().MarkDeprecated("skip-tls", "use --use-http and --skip-tls-verify instead"); err != nil {
 		logrus.Panic(err.Error())
