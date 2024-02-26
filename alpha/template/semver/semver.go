@@ -323,6 +323,8 @@ func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Chan
 
 			if curEdge != yProbe {
 				if zmaxQueue != "" {
+					// add skips edge to allow skipping over y iterations within an x stream
+					(*entries)[preChangeIndex].Skips = append((*entries)[preChangeIndex].Skips, zmaxQueue)
 					(*entries)[preChangeIndex].Replaces = zmaxQueue
 				}
 				zmaxQueue = (*entries)[preChangeIndex].Name
