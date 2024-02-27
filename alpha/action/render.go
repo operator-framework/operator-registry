@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
@@ -39,6 +40,7 @@ const (
 	RefSqliteFile
 	RefDCImage
 	RefDCDir
+	RefBundleDir
 
 	RefAll = 0
 )
@@ -50,10 +52,11 @@ func (r RefType) Allowed(refType RefType) bool {
 var ErrNotAllowed = errors.New("not allowed")
 
 type Render struct {
-	Refs           []string
-	Registry       image.Registry
-	AllowedRefMask RefType
-	Migrate        bool
+	Refs             []string
+	Registry         image.Registry
+	AllowedRefMask   RefType
+	Migrate          bool
+	ImageRefTemplate *template.Template
 
 	skipSqliteDeprecationLog bool
 }
@@ -125,25 +128,44 @@ func (r Render) createRegistry() (*containerdregistry.Registry, error) {
 }
 
 func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
-	if stat, serr := os.Stat(ref); serr == nil {
-		if stat.IsDir() {
-			if !r.AllowedRefMask.Allowed(RefDCDir) {
-				return nil, fmt.Errorf("cannot render declarative config directory: %w", ErrNotAllowed)
-			}
-			return declcfg.LoadFS(ctx, os.DirFS(ref))
-		} else {
-			// The only supported file type is an sqlite DB file,
-			// since declarative configs will be in a directory.
-			if err := checkDBFile(ref); err != nil {
-				return nil, err
-			}
-			if !r.AllowedRefMask.Allowed(RefSqliteFile) {
-				return nil, fmt.Errorf("cannot render sqlite file: %w", ErrNotAllowed)
-			}
-			return sqliteToDeclcfg(ctx, ref)
-		}
+	stat, err := os.Stat(ref)
+	if err != nil {
+		return r.imageToDeclcfg(ctx, ref)
 	}
-	return r.imageToDeclcfg(ctx, ref)
+	if stat.IsDir() {
+		dirEntries, err := os.ReadDir(ref)
+		if err != nil {
+			return nil, err
+		}
+		if isBundle(dirEntries) {
+			// Looks like a bundle directory
+			if !r.AllowedRefMask.Allowed(RefBundleDir) {
+				return nil, fmt.Errorf("cannot render bundle directory %q: %w", ref, ErrNotAllowed)
+			}
+			return r.renderBundleDirectory(ref)
+		}
+
+		// Otherwise, assume it is a declarative config root directory.
+		if !r.AllowedRefMask.Allowed(RefDCDir) {
+			return nil, fmt.Errorf("cannot render declarative config directory: %w", ErrNotAllowed)
+		}
+		return declcfg.LoadFS(ctx, os.DirFS(ref))
+	}
+	// The only supported file type is an sqlite DB file,
+	// since declarative configs will be in a directory.
+	if err := checkDBFile(ref); err != nil {
+		return nil, err
+	}
+	if !r.AllowedRefMask.Allowed(RefSqliteFile) {
+		return nil, fmt.Errorf("cannot render sqlite file: %w", ErrNotAllowed)
+	}
+
+	db, err := sqlite.Open(ref)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	return sqliteToDeclcfg(ctx, db)
 }
 
 func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
@@ -169,7 +191,12 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		if !r.AllowedRefMask.Allowed(RefSqliteImage) {
 			return nil, fmt.Errorf("cannot render sqlite image: %w", ErrNotAllowed)
 		}
-		cfg, err = sqliteToDeclcfg(ctx, filepath.Join(tmpDir, dbFile))
+		db, err := sqlite.Open(filepath.Join(tmpDir, dbFile))
+		if err != nil {
+			return nil, err
+		}
+		defer db.Close()
+		cfg, err = sqliteToDeclcfg(ctx, db)
 		if err != nil {
 			return nil, err
 		}
@@ -190,10 +217,11 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 			return nil, err
 		}
 
-		cfg, err = bundleToDeclcfg(img.Bundle)
+		bundle, err := bundleToDeclcfg(img.Bundle)
 		if err != nil {
 			return nil, err
 		}
+		cfg = &declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{*bundle}}
 	} else {
 		labelKeys := sets.StringKeySet(labels)
 		labelVals := []string{}
@@ -221,16 +249,10 @@ func checkDBFile(ref string) error {
 	return nil
 }
 
-func sqliteToDeclcfg(ctx context.Context, dbFile string) (*declcfg.DeclarativeConfig, error) {
+func sqliteToDeclcfg(ctx context.Context, db *sql.DB) (*declcfg.DeclarativeConfig, error) {
 	logDeprecationMessage.Do(func() {
 		sqlite.LogSqliteDeprecation()
 	})
-
-	db, err := sqlite.Open(dbFile)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	migrator, err := sqlite.NewSQLLiteMigrator(db)
 	if err != nil {
@@ -303,7 +325,7 @@ func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig
 	return nil
 }
 
-func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.DeclarativeConfig, error) {
+func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.Bundle, error) {
 	objs, props, err := registry.ObjectsAndPropertiesFromBundle(bundle)
 	if err != nil {
 		return nil, fmt.Errorf("get properties for bundle %q: %v", bundle.Name, err)
@@ -323,7 +345,7 @@ func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.DeclarativeConfig, error
 		}
 	}
 
-	dBundle := declcfg.Bundle{
+	return &declcfg.Bundle{
 		Schema:        "olm.bundle",
 		Name:          bundle.Name,
 		Package:       bundle.Package,
@@ -332,9 +354,7 @@ func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.DeclarativeConfig, error
 		RelatedImages: relatedImages,
 		Objects:       objs,
 		CsvJSON:       string(csvJson),
-	}
-
-	return &declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{dBundle}}, nil
+	}, nil
 }
 
 func getRelatedImages(b *registry.Bundle) ([]declcfg.RelatedImage, error) {
@@ -363,7 +383,7 @@ func getRelatedImages(b *registry.Bundle) ([]declcfg.RelatedImage, error) {
 		allImages = allImages.Insert(ri.Image)
 	}
 
-	if !allImages.Has(b.BundleImage) {
+	if b.BundleImage != "" && !allImages.Has(b.BundleImage) {
 		relatedImages = append(relatedImages, declcfg.RelatedImage{
 			Image: b.BundleImage,
 		})
@@ -453,4 +473,73 @@ func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig
 		out.Merge(&in)
 	}
 	return out
+}
+
+func isBundle(entries []os.DirEntry) bool {
+	foundManifests := false
+	foundMetadata := false
+	for _, e := range entries {
+		if e.IsDir() {
+			switch e.Name() {
+			case "manifests":
+				foundManifests = true
+			case "metadata":
+				foundMetadata = true
+			}
+		}
+		if foundMetadata && foundManifests {
+			return true
+		}
+	}
+	return false
+}
+
+type imageReferenceTemplateData struct {
+	Package string
+	Name    string
+	Version string
+}
+
+func (r *Render) renderBundleDirectory(ref string) (*declcfg.DeclarativeConfig, error) {
+	img, err := registry.NewImageInput(image.SimpleReference(""), ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.templateBundleImageRef(img.Bundle); err != nil {
+		return nil, fmt.Errorf("failed templating image reference from bundle for %q: %v", ref, err)
+	}
+	fbcBundle, err := bundleToDeclcfg(img.Bundle)
+	if err != nil {
+		return nil, err
+	}
+	return &declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{*fbcBundle}}, nil
+}
+
+func (r *Render) templateBundleImageRef(bundle *registry.Bundle) error {
+	if r.ImageRefTemplate == nil {
+		return nil
+	}
+
+	var pkgProp property.Package
+	for _, p := range bundle.Properties {
+		if p.Type != property.TypePackage {
+			continue
+		}
+		if err := json.Unmarshal(p.Value, &pkgProp); err != nil {
+			return err
+		}
+		break
+	}
+
+	var buf strings.Builder
+	tmplInput := imageReferenceTemplateData{
+		Package: bundle.Package,
+		Name:    bundle.Name,
+		Version: pkgProp.Version,
+	}
+	if err := r.ImageRefTemplate.Execute(&buf, tmplInput); err != nil {
+		return err
+	}
+	bundle.BundleImage = buf.String()
+	return nil
 }

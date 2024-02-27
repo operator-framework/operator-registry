@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 
 	deprovision = ctx.MustProvision(ctx.Ctx())
 
-	opm = opmroot.NewCmd() // Creating multiple instances would cause flag registration conflicts
+	opm = opmroot.NewCmd(false) // Creating multiple instances would cause flag registration conflicts
 })
 
 func configureRegistry() {

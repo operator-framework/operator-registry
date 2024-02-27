@@ -1,8 +1,12 @@
 package root
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
 	"github.com/operator-framework/operator-registry/cmd/opm/generate"
@@ -16,11 +20,13 @@ import (
 	"github.com/operator-framework/operator-registry/cmd/opm/version"
 )
 
-func NewCmd() *cobra.Command {
+func NewCmd(showAlphaHelp bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "opm",
 		Short: "operator package manager",
-		Long:  "CLI to interact with operator-registry and build indexes of operator content",
+		Long: `CLI to interact with operator-registry and build indexes of operator content.
+
+To view help related to alpha features, set HELP_ALPHA=true in the environment.`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug {
 				logrus.SetLevel(logrus.DebugLevel)
@@ -38,8 +44,8 @@ func NewCmd() *cobra.Command {
 		logrus.Panic(err.Error())
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(), alpha.NewCmd(), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(), validate.NewCmd(), generate.NewCmd())
-	index.AddCommand(cmd)
+	cmd.AddCommand(registry.NewOpmRegistryCmd(showAlphaHelp), alpha.NewCmd(showAlphaHelp), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(showAlphaHelp), validate.NewCmd(), generate.NewCmd())
+	index.AddCommand(cmd, showAlphaHelp)
 	version.AddCommand(cmd)
 
 	cmd.Flags().Bool("debug", false, "enable debug logging")
@@ -47,5 +53,22 @@ func NewCmd() *cobra.Command {
 		logrus.Panic(err.Error())
 	}
 
+	// Mark all alpha flags as hidden and prepend their usage with an alpha warning
+	configureAlphaFlags(cmd, !showAlphaHelp)
+
 	return cmd
+}
+
+func configureAlphaFlags(cmd *cobra.Command, hideFlags bool) {
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if strings.HasPrefix(f.Name, "alpha-") {
+			if hideFlags {
+				f.Hidden = true
+			}
+			f.Usage = fmt.Sprintf("(ALPHA: This flag will be removed or renamed in a future release, potentially without notice) %s", f.Usage)
+		}
+	})
+	for _, subCmd := range cmd.Commands() {
+		configureAlphaFlags(subCmd, hideFlags)
+	}
 }

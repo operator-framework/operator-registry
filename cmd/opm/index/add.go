@@ -41,7 +41,7 @@ var (
 	`)
 )
 
-func addIndexAddCmd(parent *cobra.Command) {
+func addIndexAddCmd(parent *cobra.Command, showAlphaHelp bool) {
 	indexCmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add operator bundles to an index.",
@@ -78,8 +78,10 @@ func addIndexAddCmd(parent *cobra.Command) {
 		logrus.Panic(err.Error())
 	}
 	indexCmd.Flags().Bool("enable-alpha", false, "enable unsupported alpha features of the OPM CLI")
-	if err := indexCmd.Flags().MarkHidden("enable-alpha"); err != nil {
-		logrus.Panic(err.Error())
+	if !showAlphaHelp {
+		if err := indexCmd.Flags().MarkHidden("enable-alpha"); err != nil {
+			logrus.Panic(err.Error())
+		}
 	}
 	if err := indexCmd.Flags().MarkHidden("debug"); err != nil {
 		logrus.Panic(err.Error())
