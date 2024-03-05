@@ -1,7 +1,6 @@
 package semver
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/blang/semver/v4"
@@ -80,17 +79,4 @@ type highwaterChannel struct {
 	kind      streamType
 	version   semver.Version
 	name      string
-}
-
-type entryTuple struct {
-	arch    channelArchetype
-	kind    streamType
-	name    string
-	parent  string
-	index   int
-	version semver.Version
-}
-
-func (t entryTuple) String() string {
-	return fmt.Sprintf("{ arch: %q, kind: %q, name: %q, parent: %q, index: %d, version: %v }", t.arch, t.kind, t.name, t.parent, t.index, t.version.String())
 }
