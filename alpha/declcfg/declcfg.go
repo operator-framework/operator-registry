@@ -6,13 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
-
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
+	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
 
 const (
