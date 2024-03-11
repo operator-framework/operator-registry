@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/declcfg/filter"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -57,6 +58,7 @@ type Render struct {
 	AllowedRefMask   RefType
 	Migrate          bool
 	ImageRefTemplate *template.Template
+	Filter           declcfg.CatalogFilter
 
 	skipSqliteDeprecationLog bool
 }
@@ -67,7 +69,7 @@ func nullLogger() *logrus.Entry {
 	return logrus.NewEntry(logger)
 }
 
-func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
+func (r *Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	if r.skipSqliteDeprecationLog {
 		// exhaust once with a no-op function.
 		logDeprecationMessage.Do(func() {})
@@ -104,10 +106,18 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		cfgs = append(cfgs, *cfg)
 	}
 
-	return combineConfigs(cfgs), nil
+	cfg := combineConfigs(cfgs)
+	if r.Filter != nil {
+		var err error
+		cfg, err = r.Filter.FilterCatalog(ctx, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("filter catalog: %v", err)
+		}
+	}
+	return cfg, nil
 }
 
-func (r Render) createRegistry() (*containerdregistry.Registry, error) {
+func (r *Render) createRegistry() (*containerdregistry.Registry, error) {
 	cacheDir, err := os.MkdirTemp("", "render-registry-")
 	if err != nil {
 		return nil, fmt.Errorf("create tempdir: %v", err)
@@ -127,7 +137,7 @@ func (r Render) createRegistry() (*containerdregistry.Registry, error) {
 	return reg, nil
 }
 
-func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
+func (r *Render) renderReference(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
 	stat, err := os.Stat(ref)
 	if err != nil {
 		return r.imageToDeclcfg(ctx, ref)
@@ -149,7 +159,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 		if !r.AllowedRefMask.Allowed(RefDCDir) {
 			return nil, fmt.Errorf("cannot render declarative config directory: %w", ErrNotAllowed)
 		}
-		return declcfg.LoadFS(ctx, os.DirFS(ref))
+		return r.renderFBCDirectory(ctx, ref)
 	}
 	// The only supported file type is an sqlite DB file,
 	// since declarative configs will be in a directory.
@@ -168,7 +178,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 	return sqliteToDeclcfg(ctx, db)
 }
 
-func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
+func (r *Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
 	ref := image.SimpleReference(imageRef)
 	if err := r.Registry.Pull(ctx, ref); err != nil {
 		return nil, err
@@ -204,7 +214,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		if !r.AllowedRefMask.Allowed(RefDCImage) {
 			return nil, fmt.Errorf("cannot render declarative config image: %w", ErrNotAllowed)
 		}
-		cfg, err = declcfg.LoadFS(ctx, os.DirFS(filepath.Join(tmpDir, configsDir)))
+		cfg, err = r.renderFBCDirectory(ctx, filepath.Join(tmpDir, configsDir))
 		if err != nil {
 			return nil, err
 		}
@@ -235,6 +245,19 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		}
 	}
 	return cfg, nil
+}
+
+func (r *Render) renderFBCDirectory(ctx context.Context, dir string) (*declcfg.DeclarativeConfig, error) {
+	// If a filterer is provided that can tell us which meta objects to keep, we
+	// can optimize FBC loading and post-filtering by ignoring meta objects that
+	// we know we won't need to keep.
+	metaFilter := filter.KeepAllMetas
+	if r.Filter != nil {
+		if mf, ok := r.Filter.(declcfg.MetaFilter); ok {
+			metaFilter = mf
+		}
+	}
+	return declcfg.LoadFS(ctx, os.DirFS(dir), declcfg.WithMetaFilter(metaFilter))
 }
 
 // checkDBFile returns an error if ref is not an sqlite3 database.
