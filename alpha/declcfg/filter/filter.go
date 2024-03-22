@@ -9,8 +9,8 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
-var KeepAllMetas = declcfg.MetaFilter(declcfg.MetaFilterFunc(func(meta *declcfg.Meta) bool { return true }))
-
+// NewPackageFilter returns a CatalogFilter that keeps package, channel, bundle, deprecation, and other
+// meta objects for the given package names. All objects for all other packages are removed.
 func NewPackageFilter(keepPackages ...string) declcfg.CatalogFilter {
 	return &packageFilter{keepPackages: sets.New[string](keepPackages...)}
 }
@@ -20,19 +20,14 @@ type packageFilter struct {
 }
 
 func (f *packageFilter) FilterCatalog(_ context.Context, fbc *declcfg.DeclarativeConfig) (*declcfg.DeclarativeConfig, error) {
-	slices.DeleteFunc(fbc.Packages, func(pkg declcfg.Package) bool {
-		return !f.keepPackages.Has(pkg.Name)
-	})
-	slices.DeleteFunc(fbc.Channels, func(channel declcfg.Channel) bool {
-		return !f.keepPackages.Has(channel.Package)
-	})
-	slices.DeleteFunc(fbc.Bundles, func(bundle declcfg.Bundle) bool {
-		return !f.keepPackages.Has(bundle.Package)
-	})
-	slices.DeleteFunc(fbc.Deprecations, func(deprecation declcfg.Deprecation) bool { return !f.keepPackages.Has(deprecation.Package) })
-	slices.DeleteFunc(fbc.Others, func(other declcfg.Meta) bool {
-		return !f.keepPackages.Has(other.Package)
-	})
+	if fbc == nil {
+		return nil, nil
+	}
+	fbc.Packages = slices.DeleteFunc(fbc.Packages, func(pkg declcfg.Package) bool { return !f.keepPackages.Has(pkg.Name) })
+	fbc.Channels = slices.DeleteFunc(fbc.Channels, func(channel declcfg.Channel) bool { return !f.keepPackages.Has(channel.Package) })
+	fbc.Bundles = slices.DeleteFunc(fbc.Bundles, func(bundle declcfg.Bundle) bool { return !f.keepPackages.Has(bundle.Package) })
+	fbc.Deprecations = slices.DeleteFunc(fbc.Deprecations, func(deprecation declcfg.Deprecation) bool { return !f.keepPackages.Has(deprecation.Package) })
+	fbc.Others = slices.DeleteFunc(fbc.Others, func(other declcfg.Meta) bool { return !f.keepPackages.Has(other.Package) })
 	return fbc, nil
 }
 

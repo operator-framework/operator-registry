@@ -3,6 +3,8 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -41,7 +43,11 @@ type Channel struct {
 	VersionRange string `json:"versionRange,omitempty"`
 }
 
-func LoadFilterConfiguration(data []byte) (*FilterConfiguration, error) {
+func LoadFilterConfiguration(r io.Reader) (*FilterConfiguration, error) {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &FilterConfiguration{}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err

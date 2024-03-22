@@ -196,7 +196,7 @@ func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, wal
 				return err
 			}
 			if err := WalkMetasReader(file, func(meta *Meta, err error) error {
-				if err != nil || (options.metaFilter != nil && options.metaFilter.KeepMeta(meta)) {
+				if err != nil || options.metaFilter == nil || options.metaFilter.KeepMeta(meta) {
 					return walkFn(path, meta, err)
 				}
 				return nil

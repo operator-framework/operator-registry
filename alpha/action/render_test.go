@@ -21,6 +21,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	configv1alpha1 "github.com/operator-framework/operator-registry/alpha/declcfg/filter/config/v1alpha1"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -165,6 +166,77 @@ func TestRender(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
+			name: "Success/SqliteIndexImage/Filter",
+			render: action.Render{
+				Refs:     []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
+				Registry: reg,
+				Filter: configv1alpha1.NewFilter(configv1alpha1.FilterConfiguration{
+					Packages: []configv1alpha1.Package{{
+						Name:           "foo",
+						DefaultChannel: "stable",
+						Channels: []configv1alpha1.Channel{{
+							Name:         "stable",
+							VersionRange: ">=0.2.0",
+						}},
+					}},
+				}),
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "stable",
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
 			name: "Success/SqliteFile",
 			render: action.Render{
 				Refs:     []string{dbFile},
@@ -213,6 +285,77 @@ func TestRender(t *testing.T) {
 						CsvJSON: string(foov1csv),
 						Objects: []string{string(foov1csv), string(foov1crd)},
 					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/SqliteFile/Filter",
+			render: action.Render{
+				Refs:     []string{dbFile},
+				Registry: reg,
+				Filter: configv1alpha1.NewFilter(configv1alpha1.FilterConfiguration{
+					Packages: []configv1alpha1.Package{{
+						Name:           "foo",
+						DefaultChannel: "stable",
+						Channels: []configv1alpha1.Channel{{
+							Name:         "stable",
+							VersionRange: ">=0.2.0",
+						}},
+					}},
+				}),
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "stable",
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.2.0",
@@ -310,6 +453,85 @@ func TestRender(t *testing.T) {
 						CsvJSON: string(foov1csv),
 						Objects: []string{string(foov1csv), string(foov1crd)},
 					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/DeclcfgIndexImage/Filter",
+			render: action.Render{
+				Refs:     []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
+				Registry: reg,
+				Filter: configv1alpha1.NewFilter(configv1alpha1.FilterConfiguration{
+					Packages: []configv1alpha1.Package{{
+						Name:           "foo",
+						DefaultChannel: "beta",
+						Channels: []configv1alpha1.Channel{{
+							Name:         "beta",
+							VersionRange: ">=0.2.0",
+						}},
+					}},
+				}),
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "beta",
+						Properties: []property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					},
+						Properties: []property.Property{
+							{Type: "user", Value: json.RawMessage("{\"group\":\"xyz.com\",\"name\":\"account\"}")},
+						},
+					},
+				},
+				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
 						Name:    "foo.v0.2.0",
@@ -451,7 +673,86 @@ func TestRender(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
-			name: "Success/DeclcfgImageMigrate",
+			name: "Success/DeclcfgDirectory/Filter",
+			render: action.Render{
+				Refs:     []string{"testdata/foo-index-v0.2.0-declcfg"},
+				Registry: reg,
+				Filter: configv1alpha1.NewFilter(configv1alpha1.FilterConfiguration{
+					Packages: []configv1alpha1.Package{{
+						Name:           "foo",
+						DefaultChannel: "beta",
+						Channels: []configv1alpha1.Channel{{
+							Name:         "beta",
+							VersionRange: ">=0.2.0",
+						}},
+					}},
+				}),
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "beta",
+						Properties: []property.Property{
+							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
+						},
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					},
+						Properties: []property.Property{
+							{Type: "user", Value: json.RawMessage("{\"group\":\"xyz.com\",\"name\":\"account\"}")},
+						},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/DeclcfgImage/Migrate",
 			render: action.Render{
 				Refs:     []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
 				Migrate:  true,
@@ -548,7 +849,7 @@ func TestRender(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
-			name: "Success/DeclcfgDirectoryMigrate",
+			name: "Success/DeclcfgDirectory/Migrate",
 			render: action.Render{
 				Refs:     []string{"testdata/foo-index-v0.2.0-declcfg"},
 				Migrate:  true,

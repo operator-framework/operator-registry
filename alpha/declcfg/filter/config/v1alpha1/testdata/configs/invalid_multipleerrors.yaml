@@ -1,0 +1,24 @@
+apiVersion: olmfiltering.operatorframework.io/v1alpha1
+kind: CatalogFilterConfiguration
+packages:
+  - name: "foo"
+  - name: "bar"
+    channels:
+      - name: "bar-channel1"
+        versionRange: ">=1.0.0 <2.0.0"
+      - name: "bar-channel2"
+        versionRange: ">=2.0.0 <3.0.0"
+  - name: ""
+    channels:
+      - name: ""
+      - name: ""
+  - name: ""
+    channels:
+      - name: ""
+      - name: ""
+  - name: "baz"
+    channels:
+      - name: ""
+        versionRange: ">=1.0.0 <2.0.0"
+      - name: "baz-channel2"
+        versionRange: ">=2.0.0 <3.0.0"

@@ -69,7 +69,7 @@ database files.
 
 			if filterFile != "" {
 				filterLogger := logrus.NewEntry(logrus.New())
-				filterer, err := filtererFromFile(filterFile, filterLogger)
+				filterer, err := filterFromFile(filterFile, filterLogger)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -119,12 +119,12 @@ in a subset of the packages in the source catalogs and bundles.
 	return cmd
 }
 
-func filtererFromFile(filterFile string, log *logrus.Entry) (declcfg.CatalogFilter, error) {
-	if filterFile == "" {
+func filterFromFile(filterFilePath string, log *logrus.Entry) (declcfg.CatalogFilter, error) {
+	if filterFilePath == "" {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile(filterFile)
+	filterFile, err := os.Open(filterFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +133,9 @@ func filtererFromFile(filterFile string, log *logrus.Entry) (declcfg.CatalogFilt
 	// If, in the future, we add a different filter configuration API, we should
 	// parse the type meta, and then switch on it to choose the correct config
 	// loader function.
-	cfg, err := configv1alpha1.LoadFilterConfiguration(data)
+	cfg, err := configv1alpha1.LoadFilterConfiguration(filterFile)
 	if err != nil {
 		return nil, err
 	}
-	return configv1alpha1.NewFilterer(cfg, configv1alpha1.WithLogger(log)), nil
+	return configv1alpha1.NewFilter(*cfg, configv1alpha1.WithLogger(log)), nil
 }

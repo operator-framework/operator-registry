@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/declcfg/filter"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -251,13 +250,13 @@ func (r *Render) renderFBCDirectory(ctx context.Context, dir string) (*declcfg.D
 	// If a filterer is provided that can tell us which meta objects to keep, we
 	// can optimize FBC loading and post-filtering by ignoring meta objects that
 	// we know we won't need to keep.
-	metaFilter := filter.KeepAllMetas
+	opts := []declcfg.LoadOption{}
 	if r.Filter != nil {
 		if mf, ok := r.Filter.(declcfg.MetaFilter); ok {
-			metaFilter = mf
+			opts = append(opts, declcfg.WithMetaFilter(mf))
 		}
 	}
-	return declcfg.LoadFS(ctx, os.DirFS(dir), declcfg.WithMetaFilter(metaFilter))
+	return declcfg.LoadFS(ctx, os.DirFS(dir), opts...)
 }
 
 // checkDBFile returns an error if ref is not an sqlite3 database.
