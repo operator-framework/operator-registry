@@ -7,7 +7,7 @@ require (
 	github.com/containerd/containerd v1.7.11
 	github.com/containers/common v0.57.1
 	github.com/containers/image/v5 v5.29.0
-	github.com/docker/cli v24.0.7+incompatible
+	github.com/docker/cli v25.0.5+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/golang/mock v1.6.0
@@ -28,6 +28,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.etcd.io/bbolt v1.3.8
 	golang.org/x/mod v0.14.0
@@ -75,7 +76,7 @@ require (
 	github.com/containers/ocicrypt v1.1.9 // indirect
 	github.com/containers/storage v1.51.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/docker v24.0.7+incompatible // indirect
+	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
@@ -140,7 +141,6 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.1.6 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
