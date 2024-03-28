@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/operator-framework/operator-registry/pkg/sqlite"

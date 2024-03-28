@@ -18,10 +18,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/distribution/configuration"
-	"github.com/docker/distribution/registry"
-	_ "github.com/docker/distribution/registry/storage/driver/filesystem" // Driver for persisting docker image data to the filesystem.
-	_ "github.com/docker/distribution/registry/storage/driver/inmemory"   // Driver for keeping docker image data in memory.
+	"github.com/distribution/distribution/v3/configuration"
+	"github.com/distribution/distribution/v3/registry"
+	_ "github.com/distribution/distribution/v3/registry/storage/driver/filesystem" // Driver for persisting docker image data to the filesystem.
+	_ "github.com/distribution/distribution/v3/registry/storage/driver/inmemory"   // Driver for keeping docker image data in memory.
 	"github.com/phayes/freeport"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
