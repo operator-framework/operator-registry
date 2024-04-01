@@ -63,6 +63,15 @@ static: build
 unit:
 	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
 
+.PHONY: tidy
+tidy:
+	go mod tidy
+	go mod verify
+
+.PHONY: verify
+verify: tidy lint
+	git diff --exit-code
+
 .PHONY: sanity-check
 sanity-check:
 	# Build a container with the most recent binaries for this project.
