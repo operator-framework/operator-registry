@@ -25,7 +25,7 @@ type Cache interface {
 func LoadOrRebuild(ctx context.Context, c Cache, fbc fs.FS) error {
 	if err := c.CheckIntegrity(fbc); err != nil {
 		if err := c.Build(ctx, fbc); err != nil {
-			return err
+			return fmt.Errorf("failed to rebuild cache: %v", err)
 		}
 	}
 	return c.Load()
@@ -40,6 +40,7 @@ func New(cacheDir string) (Cache, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("detect cache format: read cache directory: %v", err)
 	}
+	pogrebCache := sets.NewString(pograbV1CacheDir)
 	jsonCache := sets.NewString(jsonDir, jsonDigestFile)
 
 	found := sets.NewString()
@@ -47,8 +48,10 @@ func New(cacheDir string) (Cache, error) {
 		found.Insert(e.Name())
 	}
 
-	// Preference (and currently only supported) is the JSON-based cache implementation.
-	if found.IsSuperset(jsonCache) || len(entries) == 0 {
+	// Preference is the Pogreb-based cache implementation.
+	if found.IsSuperset(pogrebCache) || len(entries) == 0 {
+		return NewPogrebV1(cacheDir), nil
+	} else if found.IsSuperset(jsonCache) {
 		return NewJSON(cacheDir), nil
 	}
 

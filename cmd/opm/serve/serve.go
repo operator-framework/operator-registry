@@ -134,14 +134,14 @@ func (s *serve) run(ctx context.Context) error {
 	}
 	if s.cacheEnforceIntegrity {
 		if err := store.CheckIntegrity(os.DirFS(s.configDir)); err != nil {
-			return err
+			return fmt.Errorf("integrity check failed: %v", err)
 		}
 		if err := store.Load(); err != nil {
-			return err
+			return fmt.Errorf("failed to load cache: %v", err)
 		}
 	} else {
 		if err := cache.LoadOrRebuild(ctx, store, os.DirFS(s.configDir)); err != nil {
-			return err
+			return fmt.Errorf("failed to load or rebuild cache: %v", err)
 		}
 	}
 

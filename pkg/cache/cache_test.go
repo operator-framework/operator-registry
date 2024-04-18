@@ -202,6 +202,7 @@ func genTestCaches(t *testing.T, fbcFS fs.FS) []Cache {
 
 	caches := []Cache{
 		NewJSON(t.TempDir()),
+		//NewPogrebV1(t.TempDir()),
 	}
 
 	for _, c := range caches {
