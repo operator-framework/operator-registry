@@ -215,6 +215,9 @@ func genTestCaches(t *testing.T, fbcFS fs.FS) []Cache {
 }
 
 var validFS = fstest.MapFS{
+	".": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
 	"cockroachdb.json": &fstest.MapFile{
 		Data: []byte(`{
     "schema": "olm.package",
