@@ -32,11 +32,11 @@ const (
 	dbAddress = "localhost" + dbPort
 	dbName    = "test.db"
 
-	jsonCachePort    = ":50053"
-	jsonCacheAddress = "localhost" + jsonCachePort
+	cachePort    = ":50053"
+	cacheAddress = "localhost" + cachePort
 
-	jsonDeprecationCachePort    = ":50054"
-	jsonDeprecationCacheAddress = "localhost" + jsonDeprecationCachePort
+	deprecationCachePort    = ":50054"
+	deprecationCacheAddress = "localhost" + deprecationCachePort
 )
 
 func createDBStore(dbPath string) *sqlite.SQLQuerier {
@@ -69,23 +69,29 @@ func createDBStore(dbPath string) *sqlite.SQLQuerier {
 	return store
 }
 
-func fbcJsonCache(catalogDir, cacheDir string) (fbccache.Cache, error) {
-	store := fbccache.NewJSON(cacheDir)
+func fbcCache(catalogDir, cacheDir string) (fbccache.Cache, error) {
+	store, err := fbccache.New(cacheDir)
+	if err != nil {
+		return nil, err
+	}
 	if err := store.Build(context.Background(), os.DirFS(catalogDir)); err != nil {
 		return nil, err
 	}
-	if err := store.Load(); err != nil {
+	if err := store.Load(context.Background()); err != nil {
 		return nil, err
 	}
 	return store, nil
 }
 
-func fbcJsonCacheFromFs(catalogFS fs.FS, cacheDir string) (fbccache.Cache, error) {
-	store := fbccache.NewJSON(cacheDir)
+func fbcCacheFromFs(catalogFS fs.FS, cacheDir string) (fbccache.Cache, error) {
+	store, err := fbccache.New(cacheDir)
+	if err != nil {
+		return nil, err
+	}
 	if err := store.Build(context.Background(), catalogFS); err != nil {
 		return nil, err
 	}
-	if err := store.Load(); err != nil {
+	if err := store.Load(context.Background()); err != nil {
 		return nil, err
 	}
 	return store, nil
@@ -124,17 +130,17 @@ func TestMain(m *testing.M) {
 
 	grpcServer := server(dbStore)
 
-	fbcJsonStore, err := fbcJsonCache(fbcDir, filepath.Join(tmpDir, "json-cache"))
+	fbcStore, err := fbcCache(fbcDir, filepath.Join(tmpDir, "cache"))
 	if err != nil {
-		logrus.Fatalf("failed to create json cache: %v", err)
+		logrus.Fatalf("failed to create cache: %v", err)
 	}
-	fbcServerSimple := server(fbcJsonStore)
+	fbcServerSimple := server(fbcStore)
 
-	fbcJsonDeprecationStore, err := fbcJsonCacheFromFs(validFS, filepath.Join(tmpDir, "json-deprecation-cache"))
+	fbcDeprecationStore, err := fbcCacheFromFs(validFS, filepath.Join(tmpDir, "deprecation-cache"))
 	if err != nil {
-		logrus.Fatalf("failed to create json deprecation cache: %v", err)
+		logrus.Fatalf("failed to create deprecation cache: %v", err)
 	}
-	fbcServerDeprecations := server(fbcJsonDeprecationStore)
+	fbcServerDeprecations := server(fbcDeprecationStore)
 
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
@@ -146,21 +152,21 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	go func() {
-		lis, err := net.Listen("tcp", jsonCachePort)
+		lis, err := net.Listen("tcp", cachePort)
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
 		if err := fbcServerSimple.Serve(lis); err != nil {
-			logrus.Fatalf("failed to serve fbc json cache: %v", err)
+			logrus.Fatalf("failed to serve fbc cache: %v", err)
 		}
 	}()
 	go func() {
-		lis, err := net.Listen("tcp", jsonDeprecationCacheAddress)
+		lis, err := net.Listen("tcp", deprecationCacheAddress)
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
 		if err := fbcServerDeprecations.Serve(lis); err != nil {
-			logrus.Fatalf("failed to serve fbc json cache: %v", err)
+			logrus.Fatalf("failed to serve fbc cache: %v", err)
 		}
 	}()
 	exit := m.Run()
@@ -186,8 +192,8 @@ func TestListPackages(t *testing.T) {
 	)
 
 	t.Run("Sqlite", testListPackages(dbAddress, listPackagesExpected))
-	t.Run("FBCJsonCache", testListPackages(jsonCacheAddress, listPackagesExpected))
-	t.Run("FBCJsonCacheWithDeprecations", testListPackages(jsonDeprecationCacheAddress, listPackagesExpectedDep))
+	t.Run("FBCCache", testListPackages(cacheAddress, listPackagesExpected))
+	t.Run("FBCCacheWithDeprecations", testListPackages(deprecationCacheAddress, listPackagesExpectedDep))
 }
 
 func testListPackages(addr string, expected []string) func(*testing.T) {
@@ -262,8 +268,8 @@ func TestGetPackage(t *testing.T) {
 		}
 	)
 	t.Run("Sqlite", testGetPackage(dbAddress, getPackageExpected))
-	t.Run("FBCJsonCache", testGetPackage(jsonCacheAddress, getPackageExpected))
-	t.Run("FBCJsonCacheWithDeprecations", testGetPackage(jsonDeprecationCacheAddress, getPackageExpectedDep))
+	t.Run("FBCCache", testGetPackage(cacheAddress, getPackageExpected))
+	t.Run("FBCCacheWithDeprecations", testGetPackage(deprecationCacheAddress, getPackageExpectedDep))
 }
 
 func testGetPackage(addr string, expected *api.Package) func(*testing.T) {
@@ -314,8 +320,8 @@ func TestGetBundle(t *testing.T) {
 		}
 	)
 	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCJsonCache", testGetBundle(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
-	t.Run("FBCJsonCacheWithDeprecations", testGetBundle(jsonDeprecationCacheAddress, cockroachBundle))
+	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCacheWithDeprecations", testGetBundle(deprecationCacheAddress, cockroachBundle))
 }
 
 func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
@@ -338,7 +344,7 @@ func TestGetBundleForChannel(t *testing.T) {
 			CsvJson: b.CsvJson + "\n",
 		}))
 	}
-	t.Run("FBCJsonCache", testGetBundleForChannel(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
 }
 
 func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T) {
@@ -386,8 +392,8 @@ func TestGetChannelEntriesThatReplace(t *testing.T) {
 	)
 
 	t.Run("Sqlite", testGetChannelEntriesThatReplace(dbAddress, getChannelEntriesThatReplaceExpected))
-	t.Run("FBCJsonCache", testGetChannelEntriesThatReplace(jsonCacheAddress, getChannelEntriesThatReplaceExpected))
-	t.Run("FBCJsonCacheWithDeprecations", testGetChannelEntriesThatReplace(jsonDeprecationCacheAddress, getChannelEntriesThatReplaceExpectedDep))
+	t.Run("FBCCache", testGetChannelEntriesThatReplace(cacheAddress, getChannelEntriesThatReplaceExpected))
+	t.Run("FBCCacheWithDeprecations", testGetChannelEntriesThatReplace(deprecationCacheAddress, getChannelEntriesThatReplaceExpectedDep))
 }
 
 func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry) func(*testing.T) {
@@ -443,7 +449,7 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 
 func TestGetBundleThatReplaces(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCJsonCache", testGetBundleThatReplaces(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
 }
 
 func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.T) {
@@ -459,7 +465,7 @@ func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.
 
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCJsonCache", testGetBundleThatReplacesSynthetic(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
 }
 
 func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(*testing.T) {
@@ -476,7 +482,7 @@ func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(
 
 func TestGetChannelEntriesThatProvide(t *testing.T) {
 	t.Run("Sqlite", testGetChannelEntriesThatProvide(dbAddress))
-	t.Run("FBCJsonCache", testGetChannelEntriesThatProvide(jsonCacheAddress))
+	t.Run("FBCCache", testGetChannelEntriesThatProvide(cacheAddress))
 }
 
 func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
@@ -593,7 +599,7 @@ func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
 
 func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
 	t.Run("Sqlite", testGetLatestChannelEntriesThatProvide(dbAddress))
-	t.Run("FBCJsonCache", testGetLatestChannelEntriesThatProvide(jsonCacheAddress))
+	t.Run("FBCCache", testGetLatestChannelEntriesThatProvide(cacheAddress))
 }
 
 func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
@@ -669,7 +675,7 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 
 func TestGetDefaultBundleThatProvides(t *testing.T) {
 	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCJsonCache", testGetDefaultBundleThatProvides(jsonCacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
 }
 
 func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*testing.T) {
@@ -687,7 +693,7 @@ func TestListBundles(t *testing.T) {
 	t.Run("Sqlite", testListBundles(dbAddress,
 		etcdoperator_v0_9_2("alpha", true, false, includeManifestsNone),
 		etcdoperator_v0_9_2("stable", true, false, includeManifestsNone)))
-	t.Run("FBCJsonCache", testListBundles(jsonCacheAddress,
+	t.Run("FBCCache", testListBundles(cacheAddress,
 		etcdoperator_v0_9_2("alpha", true, true, includeManifestsNone),
 		etcdoperator_v0_9_2("stable", true, true, includeManifestsNone)))
 }

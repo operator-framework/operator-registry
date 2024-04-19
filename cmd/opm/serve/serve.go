@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	endpoint "net/http/pprof"
@@ -129,14 +128,12 @@ func (s *serve) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if storeCloser, ok := store.(io.Closer); ok {
-		defer storeCloser.Close()
-	}
+	defer store.Close()
 	if s.cacheEnforceIntegrity {
-		if err := store.CheckIntegrity(os.DirFS(s.configDir)); err != nil {
+		if err := store.CheckIntegrity(ctx, os.DirFS(s.configDir)); err != nil {
 			return fmt.Errorf("integrity check failed: %v", err)
 		}
-		if err := store.Load(); err != nil {
+		if err := store.Load(ctx); err != nil {
 			return fmt.Errorf("failed to load cache: %v", err)
 		}
 	} else {

@@ -4,15 +4,16 @@ import (
 	"context"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
 )
 
-func TestJSON_StableDigest(t *testing.T) {
+func TestPogrebV1_StableDigest(t *testing.T) {
 	cacheDir := t.TempDir()
-	c := &cache{backend: newJSONBackend(cacheDir)}
+	c := &cache{backend: newPogrebV1Backend(cacheDir)}
 	require.NoError(t, c.Build(context.Background(), validFS))
 
 	actualDigest, err := c.backend.GetDigest(context.Background())
@@ -26,23 +27,23 @@ func TestJSON_StableDigest(t *testing.T) {
 	//
 	// If validFS needs to change DO NOT CHANGE the json cache implementation
 	// in the same pull request.
-	require.Equal(t, "9adad9ff6cf54e4f", actualDigest)
+	require.Equal(t, "485a767449dd66d4", actualDigest)
 }
 
-func TestJSON_CheckIntegrity(t *testing.T) {
+func TestPogrebV1_CheckIntegrity(t *testing.T) {
 	type testCase struct {
 		name   string
 		build  bool
 		fbcFS  fs.FS
-		mod    func(tc *testCase, cacheDir string) error
+		mod    func(t *testing.T, tc *testCase, cacheDir string, backend backend)
 		expect func(t *testing.T, err error)
 	}
 	testCases := []testCase{
 		{
 			name:  "non-existent cache dir",
 			fbcFS: validFS,
-			mod: func(tc *testCase, cacheDir string) error {
-				return os.RemoveAll(cacheDir)
+			mod: func(t *testing.T, tc *testCase, cacheDir string, _ backend) {
+				require.NoError(t, os.RemoveAll(cacheDir))
 			},
 			expect: func(t *testing.T, err error) {
 				require.Error(t, err)
@@ -69,9 +70,8 @@ func TestJSON_CheckIntegrity(t *testing.T) {
 			name:  "different FBC",
 			build: true,
 			fbcFS: validFS,
-			mod: func(tc *testCase, _ string) error {
+			mod: func(t *testing.T, tc *testCase, _ string, _ backend) {
 				tc.fbcFS = badBundleFS
-				return nil
 			},
 			expect: func(t *testing.T, err error) {
 				require.Error(t, err)
@@ -82,8 +82,8 @@ func TestJSON_CheckIntegrity(t *testing.T) {
 			name:  "different cache",
 			build: true,
 			fbcFS: validFS,
-			mod: func(tc *testCase, cacheDir string) error {
-				return os.WriteFile(filepath.Join(cacheDir, jsonDir, "foo"), []byte("bar"), jsonCacheModeFile)
+			mod: func(t *testing.T, tc *testCase, cacheDir string, b backend) {
+				require.NoError(t, b.PutBundle(context.Background(), bundleKey{"foo", "bar", "baz"}, &api.Bundle{PackageName: "foo", ChannelName: "bar", CsvName: "baz"}))
 			},
 			expect: func(t *testing.T, err error) {
 				require.Error(t, err)
@@ -94,13 +94,13 @@ func TestJSON_CheckIntegrity(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cacheDir := t.TempDir()
-			c := &cache{backend: newJSONBackend(cacheDir)}
+			c := &cache{backend: newPogrebV1Backend(cacheDir)}
 
 			if tc.build {
 				require.NoError(t, c.Build(context.Background(), tc.fbcFS))
 			}
 			if tc.mod != nil {
-				require.NoError(t, tc.mod(&tc, cacheDir))
+				tc.mod(t, &tc, cacheDir, c.backend)
 			}
 			tc.expect(t, c.CheckIntegrity(context.Background(), tc.fbcFS))
 		})
