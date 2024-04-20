@@ -4,10 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
@@ -208,37 +213,95 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 		return fmt.Errorf("init cache: %v", err)
 	}
 
-	fbc, err := declcfg.LoadFS(ctx, fbcFsys)
+	tmpFile, err := os.CreateTemp("", "opm-cache-build-*.json")
 	if err != nil {
 		return err
 	}
-	fbcModel, err := declcfg.ConvertToModel(*fbc)
-	if err != nil {
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}()
+
+	var (
+		concurrency      = runtime.NumCPU()
+		byPackageReaders = map[string][]io.Reader{}
+		walkMu           sync.Mutex
+		offset           int64
+	)
+	if err := declcfg.WalkMetasFS(ctx, fbcFsys, func(path string, meta *declcfg.Meta, err error) error {
+		if err != nil {
+			return err
+		}
+		packageName := meta.Package
+		if meta.Schema == declcfg.SchemaPackage {
+			packageName = meta.Name
+		}
+
+		walkMu.Lock()
+		defer walkMu.Unlock()
+		if _, err := tmpFile.Write(meta.Blob); err != nil {
+			return err
+		}
+		sr := io.NewSectionReader(tmpFile, offset, int64(len(meta.Blob)))
+		byPackageReaders[packageName] = append(byPackageReaders[packageName], sr)
+		offset += int64(len(meta.Blob))
+		return nil
+	}, declcfg.WithConcurrency(concurrency)); err != nil {
+		return err
+	}
+	if err := tmpFile.Sync(); err != nil {
 		return err
 	}
 
-	pkgs, err := packagesFromModel(fbcModel)
-	if err != nil {
-		return err
+	eg, egCtx := errgroup.WithContext(ctx)
+	pkgNameChan := make(chan string, concurrency)
+	eg.Go(func() error {
+		defer close(pkgNameChan)
+		for pkgName := range byPackageReaders {
+			select {
+			case <-egCtx.Done():
+				return egCtx.Err()
+			case pkgNameChan <- pkgName:
+			}
+		}
+		return nil
+	})
+
+	var (
+		pkgs   = packageIndex{}
+		pkgsMu sync.Mutex
+	)
+	for i := 0; i < concurrency; i++ {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-egCtx.Done():
+					return egCtx.Err()
+				case pkgName, ok := <-pkgNameChan:
+					if !ok {
+						return nil
+					}
+					pkgIndex, err := c.processPackage(egCtx, io.MultiReader(byPackageReaders[pkgName]...))
+					if err != nil {
+						return fmt.Errorf("process package %q: %v", pkgName, err)
+					}
+
+					pkgsMu.Lock()
+					pkgs[pkgName] = pkgIndex[pkgName]
+					pkgsMu.Unlock()
+				}
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("build package index: %v", err)
 	}
 
 	if err := c.backend.PutPackageIndex(ctx, pkgs); err != nil {
 		return fmt.Errorf("store package index: %v", err)
 	}
 
-	for _, p := range fbcModel {
-		for _, ch := range p.Channels {
-			for _, b := range ch.Bundles {
-				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
-				if err != nil {
-					return err
-				}
-				if err := c.backend.PutBundle(ctx, bundleKey{p.Name, ch.Name, b.Name}, apiBundle); err != nil {
-					return fmt.Errorf("store bundle %q: %v", b.Name, err)
-				}
-			}
-		}
-	}
 	digest, err := c.backend.ComputeDigest(ctx, fbcFsys)
 	if err != nil {
 		return fmt.Errorf("compute digest: %v", err)
@@ -247,6 +310,35 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 		return fmt.Errorf("store digest: %v", err)
 	}
 	return nil
+}
+
+func (c *cache) processPackage(ctx context.Context, reader io.Reader) (packageIndex, error) {
+	pkgFbc, err := declcfg.LoadReader(reader)
+	if err != nil {
+		return nil, err
+	}
+	pkgModel, err := declcfg.ConvertToModel(*pkgFbc)
+	if err != nil {
+		return nil, err
+	}
+	pkgIndex, err := packagesFromModel(pkgModel)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range pkgModel {
+		for _, ch := range p.Channels {
+			for _, b := range ch.Bundles {
+				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
+				if err != nil {
+					return nil, err
+				}
+				if err := c.backend.PutBundle(ctx, bundleKey{p.Name, ch.Name, b.Name}, apiBundle); err != nil {
+					return nil, fmt.Errorf("store bundle %q: %v", b.Name, err)
+				}
+			}
+		}
+	}
+	return pkgIndex, nil
 }
 
 func (c *cache) Load(ctx context.Context) error {

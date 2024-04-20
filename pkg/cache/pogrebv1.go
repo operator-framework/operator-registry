@@ -175,9 +175,12 @@ func (q *pogrebV1Backend) writeKeyValue(w io.Writer, k []byte) error {
 	return nil
 }
 
-func (q *pogrebV1Backend) ComputeDigest(_ context.Context, fbcFsys fs.FS) (string, error) {
+func (q *pogrebV1Backend) ComputeDigest(ctx context.Context, fbcFsys fs.FS) (string, error) {
 	computedHasher := fnv.New64a()
-	if err := declcfg.WalkMetasFS(fbcFsys, func(path string, meta *declcfg.Meta, err error) error {
+
+	// Use concurrency=1 to ensure deterministic ordering of meta blobs.
+	loadOpts := []declcfg.LoadOption{declcfg.WithConcurrency(1)}
+	if err := declcfg.WalkMetasFS(ctx, fbcFsys, func(path string, meta *declcfg.Meta, err error) error {
 		if err != nil {
 			return err
 		}
@@ -185,7 +188,7 @@ func (q *pogrebV1Backend) ComputeDigest(_ context.Context, fbcFsys fs.FS) (strin
 			return err
 		}
 		return nil
-	}); err != nil {
+	}, loadOpts...); err != nil {
 		return "", err
 	}
 
