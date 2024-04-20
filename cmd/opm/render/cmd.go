@@ -94,9 +94,3 @@ those images actually existing. Available template variables are:
 	cmd.Long += "\n" + sqlite.DeprecationMessage
 	return cmd
 }
-
-func nullLogger() *logrus.Entry {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-	return logrus.NewEntry(logger)
-}

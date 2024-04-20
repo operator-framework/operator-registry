@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -222,8 +223,8 @@ func genTestCaches(t *testing.T, fbcFS fs.FS) map[string]Cache {
 	t.Helper()
 
 	caches := map[string]Cache{
-		"json":      &cache{backend: newJSONBackend(t.TempDir())},
-		"pogreb.v1": &cache{backend: newPogrebV1Backend(t.TempDir())},
+		"json":      &cache{backend: newJSONBackend(t.TempDir()), log: log.Null()},
+		"pogreb.v1": &cache{backend: newPogrebV1Backend(t.TempDir()), log: log.Null()},
 	}
 
 	for _, c := range caches {

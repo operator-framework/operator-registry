@@ -110,8 +110,6 @@ func (s *serve) run(ctx context.Context) error {
 		s.logger.WithError(err).Warn("unable to write default nsswitch config")
 	}
 
-	s.logger = s.logger.WithFields(logrus.Fields{"configs": s.configDir, "port": s.port})
-
 	if s.cacheDir == "" && s.cacheEnforceIntegrity {
 		return fmt.Errorf("--cache-dir must be specified with --cache-enforce-integrity")
 	}
@@ -123,8 +121,12 @@ func (s *serve) run(ctx context.Context) error {
 		}
 		defer os.RemoveAll(s.cacheDir)
 	}
+	s.logger = s.logger.WithFields(logrus.Fields{
+		"configs": s.configDir,
+		"cache":   s.cacheDir,
+	})
 
-	store, err := cache.New(s.cacheDir)
+	store, err := cache.New(s.cacheDir, cache.WithLog(s.logger))
 	if err != nil {
 		return err
 	}
@@ -145,6 +147,8 @@ func (s *serve) run(ctx context.Context) error {
 	if s.cacheOnly {
 		return nil
 	}
+
+	s.logger = s.logger.WithFields(logrus.Fields{"port": s.port})
 
 	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {

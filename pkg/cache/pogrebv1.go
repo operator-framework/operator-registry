@@ -45,6 +45,10 @@ type pogrebV1Backend struct {
 	bundles bundleKeys
 }
 
+func (q *pogrebV1Backend) Name() string {
+	return pograbV1CacheDir
+}
+
 func (q *pogrebV1Backend) IsCachePresent() bool {
 	entries, err := os.ReadDir(q.baseDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {

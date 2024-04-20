@@ -40,6 +40,10 @@ type jsonBackend struct {
 	bundles bundleKeys
 }
 
+func (q *jsonBackend) Name() string {
+	return "json"
+}
+
 func (q *jsonBackend) IsCachePresent() bool {
 	entries, err := os.ReadDir(q.baseDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {

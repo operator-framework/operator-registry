@@ -8,11 +8,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 )
 
 func TestJSON_StableDigest(t *testing.T) {
 	cacheDir := t.TempDir()
-	c := &cache{backend: newJSONBackend(cacheDir)}
+	c := &cache{backend: newJSONBackend(cacheDir), log: log.Null()}
 	require.NoError(t, c.Build(context.Background(), validFS))
 
 	actualDigest, err := c.backend.GetDigest(context.Background())
@@ -94,7 +96,7 @@ func TestJSON_CheckIntegrity(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cacheDir := t.TempDir()
-			c := &cache{backend: newJSONBackend(cacheDir)}
+			c := &cache{backend: newJSONBackend(cacheDir), log: log.Null()}
 
 			if tc.build {
 				require.NoError(t, c.Build(context.Background(), tc.fbcFS))

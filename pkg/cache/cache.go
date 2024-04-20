@@ -12,10 +12,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
@@ -29,6 +31,7 @@ type Cache interface {
 }
 
 type backend interface {
+	Name() string
 	IsCachePresent() bool
 
 	Init() error
@@ -47,22 +50,41 @@ type backend interface {
 	PutDigest(context.Context, string) error
 }
 
+type CacheOptions struct {
+	Log *logrus.Entry
+}
+
+func WithLog(log *logrus.Entry) CacheOption {
+	return func(o *CacheOptions) {
+		o.Log = log
+	}
+}
+
+type CacheOption func(*CacheOptions)
+
 // New creates a new Cache. It chooses a cache implementation based
 // on the files it finds in the cache directory, with a preference for the
 // latest iteration of the cache implementation. If the cache directory
 // is non-empty and a supported cache format is not found, an error is returned.
-func New(cacheDir string) (Cache, error) {
-	cacheBackend, err := getDefaultBackend(cacheDir)
+func New(cacheDir string, cacheOpts ...CacheOption) (Cache, error) {
+	opts := &CacheOptions{
+		Log: log.Null(),
+	}
+	for _, opt := range cacheOpts {
+		opt(opts)
+	}
+	cacheBackend, err := getDefaultBackend(cacheDir, opts.Log)
 	if err != nil {
 		return nil, err
 	}
+
 	if err := cacheBackend.Open(); err != nil {
 		return nil, fmt.Errorf("open cache: %v", err)
 	}
-	return &cache{backend: cacheBackend}, nil
+	return &cache{backend: cacheBackend, log: opts.Log}, nil
 }
 
-func getDefaultBackend(cacheDir string) (backend, error) {
+func getDefaultBackend(cacheDir string, log *logrus.Entry) (backend, error) {
 	entries, err := os.ReadDir(cacheDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("detect cache format: read cache directory: %v", err)
@@ -74,17 +96,26 @@ func getDefaultBackend(cacheDir string) (backend, error) {
 	}
 
 	if len(entries) == 0 {
+		log.WithField("backend", backends[0].Name()).Info("cache directory is empty, using preferred backend")
 		return backends[0], nil
 	}
 
 	for _, backend := range backends {
 		if backend.IsCachePresent() {
+			log.WithField("backend", backend.Name()).Info("found existing cache contents")
 			return backend, nil
 		}
 	}
 
 	// Anything else is unexpected.
-	return nil, fmt.Errorf("cache directory has unexpected contents")
+	entryNames := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Name() == "." {
+			continue
+		}
+		entryNames = append(entryNames, entry.Name())
+	}
+	return nil, fmt.Errorf("cache directory has unexpected contents: %v", strings.Join(entryNames, ","))
 }
 
 func LoadOrRebuild(ctx context.Context, c Cache, fbc fs.FS) error {
@@ -100,6 +131,7 @@ var _ Cache = &cache{}
 
 type cache struct {
 	backend backend
+	log     *logrus.Entry
 	packageIndex
 }
 
@@ -199,6 +231,7 @@ func (c *cache) CheckIntegrity(ctx context.Context, fbc fs.FS) error {
 		return fmt.Errorf("compute digest: %v", err)
 	}
 	if existingDigest != computedDigest {
+		c.log.WithField("existingDigest", existingDigest).WithField("computedDigest", computedDigest).Warn("cache requires rebuild")
 		return fmt.Errorf("cache requires rebuild: cache reports digest as %q, but computed digest is %q", existingDigest, computedDigest)
 	}
 	return nil
@@ -208,6 +241,8 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 	// ensure that generated cache is available to all future users
 	oldUmask := umask(000)
 	defer umask(oldUmask)
+
+	c.log.Info("building cache")
 
 	if err := c.backend.Init(); err != nil {
 		return fmt.Errorf("init cache: %v", err)

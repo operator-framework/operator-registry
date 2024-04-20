@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,7 +16,6 @@ import (
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -26,6 +24,7 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -59,12 +58,6 @@ type Render struct {
 	ImageRefTemplate *template.Template
 
 	skipSqliteDeprecationLog bool
-}
-
-func nullLogger() *logrus.Entry {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-	return logrus.NewEntry(logger)
 }
 
 func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
@@ -119,7 +112,7 @@ func (r Render) createRegistry() (*containerdregistry.Registry, error) {
 		// The containerd registry impl is somewhat verbose, even on the happy path,
 		// so discard all logger logs. Any important failures will be returned from
 		// registry methods and eventually logged as fatal errors.
-		containerdregistry.WithLog(nullLogger()),
+		containerdregistry.WithLog(log.Null()),
 	)
 	if err != nil {
 		return nil, err

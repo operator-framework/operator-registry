@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 )
 
 func TestPogrebV1_StableDigest(t *testing.T) {
 	cacheDir := t.TempDir()
-	c := &cache{backend: newPogrebV1Backend(cacheDir)}
+	c := &cache{backend: newPogrebV1Backend(cacheDir), log: log.Null()}
 	require.NoError(t, c.Build(context.Background(), validFS))
 
 	actualDigest, err := c.backend.GetDigest(context.Background())
@@ -94,7 +95,7 @@ func TestPogrebV1_CheckIntegrity(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cacheDir := t.TempDir()
-			c := &cache{backend: newPogrebV1Backend(cacheDir)}
+			c := &cache{backend: newPogrebV1Backend(cacheDir), log: log.Null()}
 
 			if tc.build {
 				require.NoError(t, c.Build(context.Background(), tc.fbcFS))
