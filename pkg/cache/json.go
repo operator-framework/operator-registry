@@ -10,13 +10,17 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/sirupsen/logrus"
 )
 
 var _ Cache = &JSON{}
@@ -230,56 +234,141 @@ func (q *JSON) Build(ctx context.Context, fbcFsys fs.FS) error {
 		return fmt.Errorf("ensure clean base directory: %v", err)
 	}
 
-	fbc, err := declcfg.LoadFS(ctx, fbcFsys)
+	tmpFile, err := os.CreateTemp("", "opm-cache-build-")
 	if err != nil {
-		return err
+		return fmt.Errorf("create temp file: %v", err)
 	}
-	fbcModel, err := declcfg.ConvertToModel(*fbc)
-	if err != nil {
+	defer func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	}()
+
+	packageReaders := map[string][]io.Reader{}
+	walkMetasMu := sync.Mutex{}
+	offset := int64(0)
+	if err := declcfg.WalkMetasFS(ctx, fbcFsys, func(path string, meta *declcfg.Meta, err error) error {
+		if err != nil {
+			return err
+		}
+		walkMetasMu.Lock()
+		defer walkMetasMu.Unlock()
+		if _, err := tmpFile.Write(meta.Blob); err != nil {
+			return fmt.Errorf("failed to write blob from %q: %v", path, err)
+		}
+		blobLen := int64(len(meta.Blob))
+		sr := io.NewSectionReader(tmpFile, offset, blobLen)
+		offset += blobLen
+
+		if meta.Schema == declcfg.SchemaPackage {
+			packageReaders[meta.Name] = append(packageReaders[meta.Name], sr)
+		} else if meta.Package != "" {
+			packageReaders[meta.Package] = append(packageReaders[meta.Package], sr)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to walk metas: %v", err)
+	}
+
+	q.apiBundles = map[apiBundleKey]string{}
+	q.packageIndex = packageIndex{}
+	pkgChan := make(chan string, runtime.NumCPU())
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		defer close(pkgChan)
+		for pkgName := range packageReaders {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case pkgChan <- pkgName:
+			}
+		}
+		return nil
+	})
+
+	var mapMu sync.Mutex
+	for i := 0; i < runtime.NumCPU(); i++ {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case pkgName, ok := <-pkgChan:
+					if !ok {
+						return nil
+					}
+					r := io.MultiReader(packageReaders[pkgName]...)
+					pkgIndex, apiBundles, err := q.processPackage(pkgName, r)
+					if err != nil {
+						return fmt.Errorf("failed to process package %q: %v", pkgName, err)
+					}
+					mapMu.Lock()
+					q.packageIndex[pkgName] = pkgIndex[pkgName]
+					for k, v := range apiBundles {
+						q.apiBundles[k] = v
+					}
+					mapMu.Unlock()
+				}
+			}
+		})
+	}
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 
-	pkgs, err := packagesFromModel(fbcModel)
-	if err != nil {
-		return err
-	}
-
-	packageJson, err := json.Marshal(pkgs)
+	packageJson, err := json.Marshal(q.packageIndex)
 	if err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(q.baseDir, packagesFile), packageJson, jsonCacheModeFile); err != nil {
-		return err
-	}
-
-	q.apiBundles = map[apiBundleKey]string{}
-	for _, p := range fbcModel {
-		for _, ch := range p.Channels {
-			for _, b := range ch.Bundles {
-				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
-				if err != nil {
-					return err
-				}
-				jsonBundle, err := json.Marshal(apiBundle)
-				if err != nil {
-					return err
-				}
-				filename := filepath.Join(q.baseDir, jsonDir, fmt.Sprintf("%s_%s_%s.json", p.Name, ch.Name, b.Name))
-				if err := os.WriteFile(filename, jsonBundle, jsonCacheModeFile); err != nil {
-					return err
-				}
-				q.apiBundles[apiBundleKey{p.Name, ch.Name, b.Name}] = filename
-			}
-		}
+		return fmt.Errorf("failed to write package index to %q: %v", packagesFile, err)
 	}
 	digest, err := q.computeDigest(fbcFsys)
 	if err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(q.baseDir, jsonDigestFile), []byte(digest), jsonCacheModeFile); err != nil {
-		return err
+		return fmt.Errorf("failed to write digest to %q: %v", jsonDigestFile, err)
 	}
 	return nil
+}
+
+func (q *JSON) processPackage(pkgName string, r io.Reader) (packageIndex, map[apiBundleKey]string, error) {
+	pkgFbc, err := declcfg.LoadReader(r)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load FBC for package %q: %v", pkgName, err)
+	}
+	pkgModel, err := declcfg.ConvertToModel(*pkgFbc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert FBC to model for package %q: %v", pkgName, err)
+	}
+
+	apiBundles := map[apiBundleKey]string{}
+	for _, p := range pkgModel {
+		for _, ch := range p.Channels {
+			for _, b := range ch.Bundles {
+				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to convert to API bundle for package %q, channel %q, bundle %q: %v", p.Name, ch.Name, b.Name, err)
+				}
+				jsonBundle, err := json.Marshal(apiBundle)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to marshal API bundle JSON for package %q, channel %q, bundle %q: %v", p.Name, ch.Name, b.Name, err)
+				}
+				filename := filepath.Join(q.baseDir, jsonDir, fmt.Sprintf("%s_%s_%s.json", p.Name, ch.Name, b.Name))
+				if err := os.WriteFile(filename, jsonBundle, jsonCacheModeFile); err != nil {
+					return nil, nil, fmt.Errorf("failed to write API bundle file %q for package %q, channel %q, bundle %q: %v", filename, p.Name, ch.Name, b.Name, err)
+				}
+				apiBundles[apiBundleKey{p.Name, ch.Name, b.Name}] = filename
+			}
+		}
+	}
+	pkgIndex, err := packagesFromModel(pkgModel)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate package index from model for package %q: %v", pkgName, err)
+	}
+	return pkgIndex, apiBundles, nil
 }
 
 func (q *JSON) Load() error {
