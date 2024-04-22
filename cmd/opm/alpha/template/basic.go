@@ -16,7 +16,6 @@ import (
 func newBasicTemplateCmd() *cobra.Command {
 	var (
 		template basic.Template
-		output   string
 	)
 	cmd := &cobra.Command{
 		Use: "basic basic-template-file",
@@ -30,13 +29,17 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			// When no arguments or "-" is passed to the command,
 			// assume input is coming from stdin
 			// Otherwise open the file passed to the command
-			data, source, err := openFileOrStdin(cmd, args)
+			data, source, err := util.OpenFileOrStdin(cmd, args)
 			if err != nil {
 				log.Fatalf("unable to open %q: %v", source, err)
 			}
 			defer data.Close()
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
+			output, err := cmd.Flags().GetString("output")
+			if err != nil {
+				log.Fatalf("unable to determine output format")
+			}
 			switch output {
 			case "yaml":
 				write = declcfg.WriteYAML
@@ -70,6 +73,5 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			}
 		},
 	}
-	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 	return cmd
 }

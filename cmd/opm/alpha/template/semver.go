@@ -15,7 +15,6 @@ import (
 )
 
 func newSemverTemplateCmd() *cobra.Command {
-	output := ""
 	cmd := &cobra.Command{
 		Use: "semver [FILE]",
 		Short: `Generate a file-based catalog from a single 'semver template' file
@@ -28,13 +27,17 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			// When no arguments or "-" is passed to the command,
 			// assume input is coming from stdin
 			// Otherwise open the file passed to the command
-			data, source, err := openFileOrStdin(cmd, args)
+			data, source, err := util.OpenFileOrStdin(cmd, args)
 			if err != nil {
 				return err
 			}
 			defer data.Close()
 
 			var write func(declcfg.DeclarativeConfig, io.Writer) error
+			output, err := cmd.Flags().GetString("output")
+			if err != nil {
+				log.Fatalf("unable to determine output format")
+			}
 			switch output {
 			case "json":
 				write = declcfg.WriteJSON
@@ -79,6 +82,5 @@ When FILE is '-' or not provided, the template is read from standard input`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml|mermaid)")
 	return cmd
 }
