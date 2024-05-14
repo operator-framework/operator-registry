@@ -5,6 +5,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -20,6 +21,10 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 		if _, ok := mpkgs[p.Name]; ok {
 			return nil, fmt.Errorf("duplicate package %q", p.Name)
+		}
+
+		if errs := validation.IsDNS1123Label(p.Name); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid package name %q: %v", p.Name, errs)
 		}
 
 		mpkg := &model.Package{
