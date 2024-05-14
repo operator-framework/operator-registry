@@ -67,7 +67,9 @@ func (pkgs packageIndex) GetChannelEntriesThatReplace(_ context.Context, name st
 	return entries, nil
 }
 
-func (pkgs packageIndex) GetBundleForChannel(ctx context.Context, c Cache, pkgName string, channelName string) (*api.Bundle, error) {
+type getBundleFunc func(context.Context, bundleKey) (*api.Bundle, error)
+
+func (pkgs packageIndex) GetBundleForChannel(ctx context.Context, getBundle getBundleFunc, pkgName string, channelName string) (*api.Bundle, error) {
 	pkg, ok := pkgs[pkgName]
 	if !ok {
 		return nil, fmt.Errorf("package %q not found", pkgName)
@@ -76,10 +78,10 @@ func (pkgs packageIndex) GetBundleForChannel(ctx context.Context, c Cache, pkgNa
 	if !ok {
 		return nil, fmt.Errorf("package %q, channel %q not found", pkgName, channelName)
 	}
-	return c.GetBundle(ctx, pkg.Name, ch.Name, ch.Head)
+	return getBundle(ctx, bundleKey{pkg.Name, ch.Name, ch.Head})
 }
 
-func (pkgs packageIndex) GetBundleThatReplaces(ctx context.Context, c Cache, name, pkgName, channelName string) (*api.Bundle, error) {
+func (pkgs packageIndex) GetBundleThatReplaces(ctx context.Context, getBundle getBundleFunc, name, pkgName, channelName string) (*api.Bundle, error) {
 	pkg, ok := pkgs[pkgName]
 	if !ok {
 		return nil, fmt.Errorf("package %s not found", pkgName)
@@ -95,19 +97,19 @@ func (pkgs packageIndex) GetBundleThatReplaces(ctx context.Context, c Cache, nam
 	//       implementation to be non-deterministic as well.
 	for _, b := range ch.Bundles {
 		if bundleReplaces(b, name) {
-			return c.GetBundle(ctx, pkg.Name, ch.Name, b.Name)
+			return getBundle(ctx, bundleKey{pkg.Name, ch.Name, b.Name})
 		}
 	}
 	return nil, fmt.Errorf("no entry found for package %q, channel %q", pkgName, channelName)
 }
 
-func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, c Cache, group, version, kind string) ([]*registry.ChannelEntry, error) {
+func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, getBundle getBundleFunc, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	var entries []*registry.ChannelEntry
 
 	for _, pkg := range pkgs {
 		for _, ch := range pkg.Channels {
 			for _, b := range ch.Bundles {
-				provides, err := doesBundleProvide(ctx, c, b.Package, b.Channel, b.Name, group, version, kind)
+				provides, err := doesBundleProvide(ctx, getBundle, b.Package, b.Channel, b.Name, group, version, kind)
 				if err != nil {
 					return nil, err
 				}
@@ -137,13 +139,13 @@ func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, c Cac
 //	---
 //	Separate, but possibly related, I noticed there are several channels in the channel entry
 //	table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
-func (pkgs packageIndex) GetLatestChannelEntriesThatProvide(ctx context.Context, c Cache, group, version, kind string) ([]*registry.ChannelEntry, error) {
+func (pkgs packageIndex) GetLatestChannelEntriesThatProvide(ctx context.Context, getBundle getBundleFunc, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	var entries []*registry.ChannelEntry
 
 	for _, pkg := range pkgs {
 		for _, ch := range pkg.Channels {
 			b := ch.Bundles[ch.Head]
-			provides, err := doesBundleProvide(ctx, c, b.Package, b.Channel, b.Name, group, version, kind)
+			provides, err := doesBundleProvide(ctx, getBundle, b.Package, b.Channel, b.Name, group, version, kind)
 			if err != nil {
 				return nil, err
 			}

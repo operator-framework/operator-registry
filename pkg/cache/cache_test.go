@@ -8,206 +8,229 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestCache_GetBundle(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		b, err := testQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
-		require.NoError(t, err)
-		require.Equal(t, b.PackageName, "etcd")
-		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			b, err := testQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
+			require.NoError(t, err)
+			require.Equal(t, b.PackageName, "etcd")
+			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+		})
 	}
 }
 
 func TestCache_GetBundleForChannel(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		b, err := testQuerier.GetBundleForChannel(context.TODO(), "etcd", "singlenamespace-alpha")
-		require.NoError(t, err)
-		require.NotNil(t, b)
-		require.Equal(t, b.PackageName, "etcd")
-		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			b, err := testQuerier.GetBundleForChannel(context.TODO(), "etcd", "singlenamespace-alpha")
+
+			require.NoError(t, err)
+			require.NotNil(t, b)
+			require.Equal(t, b.PackageName, "etcd")
+			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+		})
 	}
 }
 
 func TestCache_GetBundleThatProvides(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		b, err := testQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-		require.NoError(t, err)
-		require.NotNil(t, b)
-		require.Equal(t, b.PackageName, "etcd")
-		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-		require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			b, err := testQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+			require.NoError(t, err)
+			require.NotNil(t, b)
+			require.Equal(t, b.PackageName, "etcd")
+			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+		})
 	}
 }
 
 func TestCache_GetBundleThatReplaces(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		b, err := testQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
-		require.NoError(t, err)
-		require.NotNil(t, b)
-		require.Equal(t, b.PackageName, "etcd")
-		require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-		require.Equal(t, b.CsvName, "etcdoperator.v0.9.2")
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			b, err := testQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
+			require.NoError(t, err)
+			require.NotNil(t, b)
+			require.Equal(t, b.PackageName, "etcd")
+			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
+			require.Equal(t, b.CsvName, "etcdoperator.v0.9.2")
+		})
 	}
 }
 
 func TestCache_GetChannelEntriesThatProvide(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		entries, err := testQuerier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-		require.NoError(t, err)
-		require.NotNil(t, entries)
-		require.ElementsMatch(t, []*registry.ChannelEntry{
-			{
-				PackageName: "etcd",
-				ChannelName: "singlenamespace-alpha",
-				BundleName:  "etcdoperator.v0.9.0",
-				Replaces:    "",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "singlenamespace-alpha",
-				BundleName:  "etcdoperator.v0.9.4",
-				Replaces:    "etcdoperator.v0.9.2",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.0",
-				Replaces:    "",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.2-clusterwide",
-				Replaces:    "etcdoperator.v0.9.0",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.2-clusterwide",
-				Replaces:    "etcdoperator.v0.6.1",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.4-clusterwide",
-				Replaces:    "etcdoperator.v0.9.2-clusterwide",
-			},
-		}, entries)
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			entries, err := testQuerier.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+			require.NoError(t, err)
+			require.NotNil(t, entries)
+			require.ElementsMatch(t, []*registry.ChannelEntry{
+				{
+					PackageName: "etcd",
+					ChannelName: "singlenamespace-alpha",
+					BundleName:  "etcdoperator.v0.9.0",
+					Replaces:    "",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "singlenamespace-alpha",
+					BundleName:  "etcdoperator.v0.9.4",
+					Replaces:    "etcdoperator.v0.9.2",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.0",
+					Replaces:    "",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.2-clusterwide",
+					Replaces:    "etcdoperator.v0.9.0",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.2-clusterwide",
+					Replaces:    "etcdoperator.v0.6.1",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.4-clusterwide",
+					Replaces:    "etcdoperator.v0.9.2-clusterwide",
+				},
+			}, entries)
+		})
 	}
 }
 
 func TestCache_GetChannelEntriesThatReplace(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		entries, err := testQuerier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
-		require.NoError(t, err)
-		require.NotNil(t, entries)
-		require.ElementsMatch(t, []*registry.ChannelEntry{
-			{
-				PackageName: "etcd",
-				ChannelName: "singlenamespace-alpha",
-				BundleName:  "etcdoperator.v0.9.2",
-				Replaces:    "etcdoperator.v0.9.0",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.2-clusterwide",
-				Replaces:    "etcdoperator.v0.9.0",
-			},
-		}, entries)
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			entries, err := testQuerier.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
+			require.NoError(t, err)
+			require.NotNil(t, entries)
+			require.ElementsMatch(t, []*registry.ChannelEntry{
+				{
+					PackageName: "etcd",
+					ChannelName: "singlenamespace-alpha",
+					BundleName:  "etcdoperator.v0.9.2",
+					Replaces:    "etcdoperator.v0.9.0",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.2-clusterwide",
+					Replaces:    "etcdoperator.v0.9.0",
+				},
+			}, entries)
+		})
 	}
 }
 
 func TestCache_GetLatestChannelEntriesThatProvide(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		entries, err := testQuerier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
-		require.NoError(t, err)
-		require.NotNil(t, entries)
-		require.ElementsMatch(t, []*registry.ChannelEntry{
-			{
-				PackageName: "etcd",
-				ChannelName: "singlenamespace-alpha",
-				BundleName:  "etcdoperator.v0.9.4",
-				Replaces:    "etcdoperator.v0.9.2",
-			},
-			{
-				PackageName: "etcd",
-				ChannelName: "clusterwide-alpha",
-				BundleName:  "etcdoperator.v0.9.4-clusterwide",
-				Replaces:    "etcdoperator.v0.9.2-clusterwide",
-			},
-		}, entries)
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			entries, err := testQuerier.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
+			require.NoError(t, err)
+			require.NotNil(t, entries)
+			require.ElementsMatch(t, []*registry.ChannelEntry{
+				{
+					PackageName: "etcd",
+					ChannelName: "singlenamespace-alpha",
+					BundleName:  "etcdoperator.v0.9.4",
+					Replaces:    "etcdoperator.v0.9.2",
+				},
+				{
+					PackageName: "etcd",
+					ChannelName: "clusterwide-alpha",
+					BundleName:  "etcdoperator.v0.9.4-clusterwide",
+					Replaces:    "etcdoperator.v0.9.2-clusterwide",
+				},
+			}, entries)
+		})
 	}
 }
 
 func TestCache_GetPackage(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		p, err := testQuerier.GetPackage(context.TODO(), "etcd")
-		require.NoError(t, err)
-		require.NotNil(t, p)
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			p, err := testQuerier.GetPackage(context.TODO(), "etcd")
+			require.NoError(t, err)
+			require.NotNil(t, p)
 
-		expected := &registry.PackageManifest{
-			PackageName:        "etcd",
-			DefaultChannelName: "singlenamespace-alpha",
-			Channels: []registry.PackageChannel{
-				{
-					Name:           "singlenamespace-alpha",
-					CurrentCSVName: "etcdoperator.v0.9.4",
+			expected := &registry.PackageManifest{
+				PackageName:        "etcd",
+				DefaultChannelName: "singlenamespace-alpha",
+				Channels: []registry.PackageChannel{
+					{
+						Name:           "singlenamespace-alpha",
+						CurrentCSVName: "etcdoperator.v0.9.4",
+					},
+					{
+						Name:           "clusterwide-alpha",
+						CurrentCSVName: "etcdoperator.v0.9.4-clusterwide",
+					},
+					{
+						Name:           "alpha",
+						CurrentCSVName: "etcdoperator-community.v0.6.1",
+					},
 				},
-				{
-					Name:           "clusterwide-alpha",
-					CurrentCSVName: "etcdoperator.v0.9.4-clusterwide",
-				},
-				{
-					Name:           "alpha",
-					CurrentCSVName: "etcdoperator-community.v0.6.1",
-				},
-			},
-		}
+			}
 
-		require.ElementsMatch(t, expected.Channels, p.Channels)
-		expected.Channels, p.Channels = nil, nil
-		require.Equal(t, expected, p)
+			require.ElementsMatch(t, expected.Channels, p.Channels)
+			expected.Channels, p.Channels = nil, nil
+			require.Equal(t, expected, p)
+		})
 	}
 }
 
 func TestCache_ListBundles(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		bundles, err := testQuerier.ListBundles(context.TODO())
-		require.NoError(t, err)
-		require.NotNil(t, bundles)
-		require.Len(t, bundles, 12)
-		for _, b := range bundles {
-			require.Zero(t, b.CsvJson)
-			require.Zero(t, b.Object)
-		}
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			bundles, err := testQuerier.ListBundles(context.TODO())
+			require.NoError(t, err)
+			require.NotNil(t, bundles)
+			require.Len(t, bundles, 12)
+			for _, b := range bundles {
+				require.Zero(t, b.CsvJson)
+				require.Zero(t, b.Object)
+			}
+		})
 	}
 }
 
 func TestCache_ListPackages(t *testing.T) {
-	for _, testQuerier := range genTestCaches(t, validFS) {
-		packages, err := testQuerier.ListPackages(context.TODO())
-		require.NoError(t, err)
-		require.NotNil(t, packages)
-		require.Equal(t, 2, len(packages))
+	for name, testQuerier := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			packages, err := testQuerier.ListPackages(context.TODO())
+			require.NoError(t, err)
+			require.NotNil(t, packages)
+			require.Equal(t, 2, len(packages))
+		})
 	}
 }
 
-func genTestCaches(t *testing.T, fbcFS fs.FS) []Cache {
+func genTestCaches(t *testing.T, fbcFS fs.FS) map[string]Cache {
 	t.Helper()
 
-	caches := []Cache{
-		NewJSON(t.TempDir()),
+	caches := map[string]Cache{
+		"json":      &cache{backend: newJSONBackend(t.TempDir()), log: log.Null()},
+		"pogreb.v1": &cache{backend: newPogrebV1Backend(t.TempDir()), log: log.Null()},
 	}
 
 	for _, c := range caches {
 		err := c.Build(context.Background(), fbcFS)
 		require.NoError(t, err)
-		err = c.Load()
+		err = c.Load(context.Background())
 		require.NoError(t, err)
 	}
 

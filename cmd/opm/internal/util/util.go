@@ -2,12 +2,12 @@ package util
 
 import (
 	"errors"
-	"io"
 	"os"
 
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/lib/log"
 )
 
 // GetTLSOptions validates and returns TLS options set by opm flags
@@ -59,16 +59,10 @@ func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error)
 		containerdregistry.WithCacheDir(cacheDir),
 		containerdregistry.SkipTLSVerify(skipTlsVerify),
 		containerdregistry.WithPlainHTTP(useHTTP),
-		containerdregistry.WithLog(nullLogger()),
+		containerdregistry.WithLog(log.Null()),
 	)
 	if err != nil {
 		return nil, err
 	}
 	return reg, nil
-}
-
-func nullLogger() *logrus.Entry {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-	return logrus.NewEntry(logger)
 }
