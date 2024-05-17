@@ -11,10 +11,11 @@ import (
 	"sync"
 
 	"github.com/joelanford/ignore"
-	"github.com/operator-framework/api/pkg/operators"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/operator-framework/api/pkg/operators"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -220,6 +221,7 @@ func readBundleObjects(b *Bundle) error {
 		if err != nil {
 			return fmt.Errorf("package %q, bundle %q: convert bundle object property at index %d to JSON: %v", b.Package, b.Name, i, err)
 		}
+
 		b.Objects = append(b.Objects, string(objJson))
 	}
 	b.CsvJSON = extractCSV(b.Objects)

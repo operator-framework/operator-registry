@@ -216,6 +216,17 @@ func TestConvertToModel(t *testing.T) {
 			},
 		},
 		{
+			name:      "Error/PackageBreaksRFC1123",
+			assertion: hasError(`invalid package name "foo.bar": [must not contain dots]`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{
+					newTestPackage("foo.bar", "alpha", svgSmallCircle),
+				},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+			},
+		},
+		{
 			name:      "Error/DuplicateChannel",
 			assertion: hasError(`package "foo" has duplicate channel "alpha"`),
 			cfg: DeclarativeConfig{

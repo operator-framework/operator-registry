@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	endpoint "net/http/pprof"
@@ -111,8 +110,6 @@ func (s *serve) run(ctx context.Context) error {
 		s.logger.WithError(err).Warn("unable to write default nsswitch config")
 	}
 
-	s.logger = s.logger.WithFields(logrus.Fields{"configs": s.configDir, "port": s.port})
-
 	if s.cacheDir == "" && s.cacheEnforceIntegrity {
 		return fmt.Errorf("--cache-dir must be specified with --cache-enforce-integrity")
 	}
@@ -124,30 +121,34 @@ func (s *serve) run(ctx context.Context) error {
 		}
 		defer os.RemoveAll(s.cacheDir)
 	}
+	s.logger = s.logger.WithFields(logrus.Fields{
+		"configs": s.configDir,
+		"cache":   s.cacheDir,
+	})
 
-	store, err := cache.New(s.cacheDir)
+	store, err := cache.New(s.cacheDir, cache.WithLog(s.logger))
 	if err != nil {
 		return err
 	}
-	if storeCloser, ok := store.(io.Closer); ok {
-		defer storeCloser.Close()
-	}
+	defer store.Close()
 	if s.cacheEnforceIntegrity {
-		if err := store.CheckIntegrity(os.DirFS(s.configDir)); err != nil {
-			return err
+		if err := store.CheckIntegrity(ctx, os.DirFS(s.configDir)); err != nil {
+			return fmt.Errorf("integrity check failed: %v", err)
 		}
-		if err := store.Load(); err != nil {
-			return err
+		if err := store.Load(ctx); err != nil {
+			return fmt.Errorf("failed to load cache: %v", err)
 		}
 	} else {
 		if err := cache.LoadOrRebuild(ctx, store, os.DirFS(s.configDir)); err != nil {
-			return err
+			return fmt.Errorf("failed to load or rebuild cache: %v", err)
 		}
 	}
 
 	if s.cacheOnly {
 		return nil
 	}
+
+	s.logger = s.logger.WithFields(logrus.Fields{"port": s.port})
 
 	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {

@@ -139,3 +139,4 @@ func filterFromFile(filterFilePath string, log *logrus.Entry) (declcfg.CatalogFi
 	}
 	return configv1alpha1.NewFilter(*cfg, configv1alpha1.WithLogger(log)), nil
 }
+
