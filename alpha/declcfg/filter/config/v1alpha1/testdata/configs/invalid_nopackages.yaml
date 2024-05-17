@@ -1,0 +1,2 @@
+apiVersion: olm.operatorframework.io/v1alpha1
+kind: FilterConfiguration

@@ -61,6 +61,8 @@ func WalkMetasFS(ctx context.Context, root fs.FS, walkFn WalkMetasFSFunc, opts .
 			return parseMetaPaths(ctx, root, pathChan, walkFn, options)
 		})
 	}
+
+	// Wait for all goroutines to finish.
 	return eg.Wait()
 }
 
@@ -131,6 +133,7 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 
 type LoadOptions struct {
 	concurrency int
+	metaFilter  MetaFilter
 }
 
 type LoadOption func(*LoadOptions)
@@ -138,6 +141,12 @@ type LoadOption func(*LoadOptions)
 func WithConcurrency(concurrency int) LoadOption {
 	return func(opts *LoadOptions) {
 		opts.concurrency = concurrency
+	}
+}
+
+func WithMetaFilter(metaFilter MetaFilter) LoadOption {
+	return func(opts *LoadOptions) {
+		opts.metaFilter = metaFilter
 	}
 }
 
@@ -188,7 +197,10 @@ func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, wal
 				return err
 			}
 			if err := WalkMetasReader(file, func(meta *Meta, err error) error {
-				return walkFn(path, meta, err)
+				if err != nil || options.metaFilter == nil || options.metaFilter.KeepMeta(meta) {
+					return walkFn(path, meta, err)
+				}
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -209,6 +221,7 @@ func readBundleObjects(b *Bundle) error {
 		if err != nil {
 			return fmt.Errorf("package %q, bundle %q: convert bundle object property at index %d to JSON: %v", b.Package, b.Name, i, err)
 		}
+
 		b.Objects = append(b.Objects, string(objJson))
 	}
 	b.CsvJSON = extractCSV(b.Objects)
@@ -231,14 +244,16 @@ func extractCSV(objs []string) string {
 // LoadReader reads yaml or json from the passed in io.Reader and unmarshals it into a DeclarativeConfig struct.
 func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	builder := fbcBuilder{}
-	if err := WalkMetasReader(r, func(meta *Meta, err error) error {
+
+	if err := WalkMetasReader(r, func(in *Meta, err error) error {
 		if err != nil {
 			return err
 		}
-		return builder.addMeta(meta)
+		return builder.addMeta(in)
 	}); err != nil {
 		return nil, err
 	}
+
 	return &builder.cfg, nil
 }
 

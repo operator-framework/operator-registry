@@ -1,0 +1,10 @@
+apiVersion: olm.operatorframework.io/v1alpha1
+kind: FilterConfiguration
+packages:
+  - name: "foo"
+  - name: "bar"
+    channels:
+      - name: "bar-channel1"
+        versionRange: ">=1.0.0 <2.0.0"
+      - name: ""
+        versionRange: ">=2.0.0 <3.0.0"
