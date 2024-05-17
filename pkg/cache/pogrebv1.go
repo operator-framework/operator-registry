@@ -31,8 +31,8 @@ func newPogrebV1Backend(baseDir string) *pogrebV1Backend {
 }
 
 const (
-	pogrebV1CacheModeDir  = 0750
-	pogrebV1CacheModeFile = 0640
+	pogrebV1CacheModeDir  = 0770
+	pogrebV1CacheModeFile = 0660
 
 	pograbV1CacheDir = "pogreb.v1"
 	pogrebDigestFile = pograbV1CacheDir + "/digest"
@@ -86,7 +86,24 @@ func (q *pogrebV1Backend) Close() error {
 	if q.db == nil {
 		return nil
 	}
-	return q.db.Close()
+	if err := q.db.Close(); err != nil {
+		return err
+	}
+
+	// Recursively fixup permissions on the DB directory.
+	return filepath.Walk(filepath.Join(q.baseDir, pogrebDbDir), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		switch info.Mode().Type() {
+		case os.ModeDir:
+			return os.Chmod(path, pogrebV1CacheModeDir)
+		case 0:
+			return os.Chmod(path, pogrebV1CacheModeFile)
+		default:
+			return nil
+		}
+	})
 }
 
 func (q *pogrebV1Backend) GetPackageIndex(_ context.Context) (packageIndex, error) {
