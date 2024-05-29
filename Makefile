@@ -113,8 +113,8 @@ e2e: ginkgo
 .PHONY: release
 export OPM_IMAGE_REPO ?= quay.io/operator-framework/opm
 export IMAGE_TAG ?= $(OPM_VERSION)
-export MAJ_MIN_IMAGE_OR_EMPTY ?= $(call tagged-or-empty,$(shell echo $(OPM_VERSION) | grep -Eo 'v[0-9]+\.[0-9]+'))
-export MAJ_IMAGE_OR_EMPTY ?= $(call tagged-or-empty,$(shell echo $(OPM_VERSION) | grep -Eo 'v[0-9]+'))
+export MAJ_MIN_IMAGE_OR_EMPTY := $(call tagged-or-empty,$(shell echo $(OPM_VERSION) | grep -Eo 'v[0-9]+\.[0-9]+'))
+export MAJ_IMAGE_OR_EMPTY := $(call tagged-or-empty,$(shell echo $(OPM_VERSION) | grep -Eo 'v[0-9]+'))
 # LATEST_TAG is the latest semver tag in HEAD. Used to deduce whether
 # OPM_VERSION is the new latest tag, or a prior minor/patch tag, below.
 # NOTE: this can only be relied upon if full git history is present.
@@ -124,11 +124,12 @@ LATEST_TAG := $(shell git tag -l | tr - \~ | sort -V | tr \~ - | tail -n1)
 # is not a prerelase tag and == LATEST_TAG, otherwise the empty string.
 # An empty string causes goreleaser to skip building the manifest image for latest,
 # which we do not want when cutting a non-latest release (old minor/patch tag).
-export LATEST_IMAGE_OR_EMPTY ?= $(shell \
+export LATEST_IMAGE_OR_EMPTY := $(shell \
 	echo $(OPM_VERSION) | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
-release: RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(shell go env GOOS).yaml
+RELEASE_GOOS := $(shell go env GOOS)
+release: RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
 release: goreleaser
 	$(GORELEASER) $(RELEASE_ARGS)
 
@@ -147,22 +148,22 @@ endef
 # Hack / Tools #
 ################
 
-GO_INSTALL_OPTS ?= "-mod=mod"
+GO_INSTALL_OPTS := "-mod=mod"
 
 ## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
+LOCALBIN := $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 ## Tool Binaries
-GORELEASER ?= $(LOCALBIN)/goreleaser
-GINKGO ?= $(LOCALBIN)/ginkgo
-PROTOC_VERSION ?= $(LOCALBIN)/protoc-gen-go-grpc
+GORELEASER := $(LOCALBIN)/goreleaser
+GINKGO := $(LOCALBIN)/ginkgo
+PROTOC_VERSION := $(LOCALBIN)/protoc-gen-go-grpc
 
 ## Tool Versions
-GORELEASER_VERSION ?= v1.8.3
-GINKGO_VERSION ?= v2.1.3
-PROTOC_VERSION ?= v1.3.0
+GORELEASER_VERSION := v1.8.3
+GINKGO_VERSION := v2.1.3
+PROTOC_VERSION := v1.3.0
 
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
