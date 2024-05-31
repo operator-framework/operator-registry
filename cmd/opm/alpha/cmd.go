@@ -6,7 +6,6 @@ import (
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha/list"
 	rendergraph "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-graph"
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/template"
 )
 
 func NewCmd(showAlphaHelp bool) *cobra.Command {
@@ -25,7 +24,6 @@ func NewCmd(showAlphaHelp bool) *cobra.Command {
 		bundle.NewCmd(),
 		list.NewCmd(),
 		rendergraph.NewCmd(),
-		template.NewCmd(),
 	)
 	return runCmd
 }
