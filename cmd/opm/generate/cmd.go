@@ -29,6 +29,7 @@ func newDockerfileCmd() *cobra.Command {
 	var (
 		baseImage      string
 		extraLabelStrs []string
+		lite           bool
 	)
 	cmd := &cobra.Command{
 		Use:   "dockerfile <dcRootDir>",
@@ -75,6 +76,7 @@ value of each duplicate key will be added to the generated Dockerfile.
 				IndexDir:    indexName,
 				ExtraLabels: extraLabels,
 				Writer:      f,
+				Lite:        lite,
 			}
 			if err := gen.Run(); err != nil {
 				log.Fatal(err)
@@ -83,6 +85,7 @@ value of each duplicate key will be added to the generated Dockerfile.
 		},
 	}
 	cmd.Flags().StringVarP(&baseImage, "binary-image", "i", containertools.DefaultBinarySourceImage, "Image in which to build catalog.")
+	cmd.Flags().BoolVarP(&lite, "lite", "t", false, "Generate a smaller, binary-less Dockerfile.")
 	cmd.Flags().StringSliceVarP(&extraLabelStrs, "extra-labels", "l", []string{}, "Extra labels to include in the generated Dockerfile. Labels should be of the form 'key=value'.")
 	return cmd
 }

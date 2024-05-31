@@ -13,6 +13,7 @@ type GenerateDockerfile struct {
 	IndexDir    string
 	ExtraLabels map[string]string
 	Writer      io.Writer
+	Lite        bool
 }
 
 func (i GenerateDockerfile) Run() error {
@@ -20,7 +21,14 @@ func (i GenerateDockerfile) Run() error {
 		return err
 	}
 
-	t, err := template.New("dockerfile").Parse(dockerfileTmpl)
+	var dockerfileTemplate string
+	if i.Lite {
+		dockerfileTemplate = binlessDockerfileTmpl
+	} else {
+		dockerfileTemplate = dockerfileTmpl
+	}
+
+	t, err := template.New("dockerfile").Parse(dockerfileTemplate)
 	if err != nil {
 		// The template is hardcoded in the binary, so if
 		// there is a parse error, it was a programmer error.
@@ -38,6 +46,31 @@ func (i GenerateDockerfile) validate() error {
 	}
 	return nil
 }
+
+const binlessDockerfileTmpl = `# The builder image is expected to contain
+# /bin/opm (with serve subcommand)
+FROM {{.BaseImage}} as builder
+
+# Copy FBC root into image at /configs and pre-populate serve cache
+ADD {{.IndexDir}} /configs
+RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
+
+FROM scratch
+
+COPY --from=builder /configs /configs
+COPY --from=builder /tmp/cache /tmp/cache
+
+# Set FBC-specific label for the location of the FBC root directory
+# in the image
+LABEL ` + containertools.ConfigsLocationLabel + `=/configs
+{{- if .ExtraLabels }}
+
+# Set other custom labels
+{{- range $key, $value := .ExtraLabels }}
+LABEL "{{ $key }}"="{{ $value }}"
+{{- end }}
+{{- end }}
+`
 
 const dockerfileTmpl = `# The base image is expected to contain
 # /bin/opm (with a serve subcommand) and /bin/grpc_health_probe
