@@ -7,7 +7,7 @@ toolchain go1.22.2
 require (
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/blang/semver/v4 v4.0.0
-	github.com/containerd/containerd v1.7.17
+	github.com/containerd/containerd v1.7.18
 	github.com/containers/common v0.59.0
 	github.com/containers/image/v5 v5.31.0
 	github.com/distribution/distribution/v3 v3.0.0-alpha.1
