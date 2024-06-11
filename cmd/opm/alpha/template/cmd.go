@@ -16,7 +16,6 @@ func NewCmd() *cobra.Command {
 
 	runCmd.AddCommand(newBasicTemplateCmd())
 	runCmd.AddCommand(newSemverTemplateCmd())
-	runCmd.AddCommand(newCompositeTemplateCmd())
 
 	return runCmd
 }
