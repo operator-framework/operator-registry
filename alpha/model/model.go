@@ -198,11 +198,14 @@ func (c *Channel) Validate() error {
 
 	if len(c.Bundles) == 0 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("channel must contain at least one bundle"))
-	}
-
-	if len(c.Bundles) > 0 {
-		if err := c.validateReplacesChain(); err != nil {
+	} else {
+		head, err := c.validateReplacesChain()
+		if err != nil {
 			result.subErrors = append(result.subErrors, err)
+		}
+
+		if head != nil && len(head.CsvJSON) == 0 && len(head.PropertiesP.CSVMetadatas) == 0 {
+			result.subErrors = append(result.subErrors, fmt.Errorf("channel head %q must include a %q property for the CSV or include the %q property", head.Name, property.TypeBundleObject, property.TypeCSVMetadata))
 		}
 	}
 
@@ -232,10 +235,10 @@ func (c *Channel) Validate() error {
 //     Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
 //  3. There must be no cycles in the replaces chain.
 //  4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
-func (c *Channel) validateReplacesChain() error {
+func (c *Channel) validateReplacesChain() (*Bundle, error) {
 	head, err := c.Head()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	allBundles := sets.NewString()
@@ -256,7 +259,7 @@ func (c *Channel) validateReplacesChain() error {
 			chainFrom[k] = append(chainFrom[k], cur.Replaces)
 		}
 		if replacesChainFromHead.Has(cur.Replaces) {
-			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
+			return nil, fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
 		}
 		replacesChainFromHead = replacesChainFromHead.Insert(cur.Replaces)
 		cur = c.Bundles[cur.Replaces]
@@ -264,10 +267,10 @@ func (c *Channel) validateReplacesChain() error {
 
 	strandedBundles := allBundles.Difference(replacesChainFromHead).Difference(skippedBundles).List()
 	if len(strandedBundles) > 0 {
-		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
+		return nil, fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
 	}
 
-	return nil
+	return head, nil
 }
 
 type Bundle struct {
@@ -329,6 +332,10 @@ func (b *Bundle) Validate() error {
 
 	if props != nil && len(props.Packages) != 1 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
+	}
+
+	if props != nil && len(props.CSVMetadatas) > 1 {
+		result.subErrors = append(result.subErrors, fmt.Errorf("must be at most one property with type %q", property.TypeCSVMetadata))
 	}
 
 	if b.Image == "" && len(b.Objects) == 0 {
