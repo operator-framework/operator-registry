@@ -22,6 +22,6 @@ jobs:
       - run: sed -i'' "s:^github.com/$GITHUB_REPOSITORY/::" coverage.out
       - uses: codecov/codecov-action@v4
         with:
+          disable_search: true
           files: coverage.out
-          functionalities: fixes
           token: ${{ secrets.CODECOV_TOKEN }}
