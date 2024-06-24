@@ -17,7 +17,7 @@ import (
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate",
-		Short: "Generate various artifacts for declarative config indexes",
+		Short: "Generate various artifacts for file-based catalogs",
 	}
 	cmd.AddCommand(
 		newDockerfileCmd(),
@@ -28,23 +28,35 @@ func NewCmd() *cobra.Command {
 func newDockerfileCmd() *cobra.Command {
 	var (
 		baseImage      string
+		builderImage   string
 		extraLabelStrs []string
 	)
 	cmd := &cobra.Command{
-		Use:   "dockerfile <dcRootDir>",
+		Use:   "dockerfile <fbcRootDir>",
 		Args:  cobra.ExactArgs(1),
-		Short: "Generate a Dockerfile for a declarative config index",
-		Long: `Generate a Dockerfile for a declarative config index.
+		Short: "Generate a Dockerfile for a file-based catalog",
+		Long: `Generate a Dockerfile for a file-based catalog.
 
-This command creates a Dockerfile in the same directory as the <dcRootDir>
-(named <dcDirName>.Dockerfile) that can be used to build the index. If a
+This command creates a Dockerfile in the same directory as the <fbcRootDir>
+(named <fbcRootDir>.Dockerfile) that can be used to build the index. If a
 Dockerfile with the same name already exists, this command will fail.
 
 When specifying extra labels, note that if duplicate keys exist, only the last
 value of each duplicate key will be added to the generated Dockerfile.
+
+A separate builder and base image can be specified. The builder image may not be "scratch".
 `,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(inCmd *cobra.Command, args []string) error {
 			fromDir := filepath.Clean(args[0])
+
+			if builderImage == "scratch" {
+				return fmt.Errorf("invalid builder image: %q", builderImage)
+			}
+
+			// preserving old behavior, if binary-image is set but not builder-image, set builder-image to binary-image
+			if inCmd.Flags().Changed("binary-image") && !inCmd.Flags().Changed("builder-image") {
+				builderImage = baseImage
+			}
 
 			extraLabels, err := parseLabels(extraLabelStrs)
 			if err != nil {
@@ -71,10 +83,11 @@ value of each duplicate key will be added to the generated Dockerfile.
 			defer f.Close()
 
 			gen := action.GenerateDockerfile{
-				BaseImage:   baseImage,
-				IndexDir:    indexName,
-				ExtraLabels: extraLabels,
-				Writer:      f,
+				BaseImage:    baseImage,
+				BuilderImage: builderImage,
+				IndexDir:     indexName,
+				ExtraLabels:  extraLabels,
+				Writer:       f,
 			}
 			if err := gen.Run(); err != nil {
 				log.Fatal(err)
@@ -82,8 +95,12 @@ value of each duplicate key will be added to the generated Dockerfile.
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&baseImage, "binary-image", "i", containertools.DefaultBinarySourceImage, "Image in which to build catalog.")
+	cmd.Flags().StringVar(&baseImage, "binary-image", containertools.DefaultBinarySourceImage, "Image in which to build catalog.")
+	cmd.Flags().StringVarP(&baseImage, "base-image", "i", containertools.DefaultBinarySourceImage, "Image base to use to build catalog.")
+	cmd.Flags().StringVarP(&builderImage, "builder-image", "b", containertools.DefaultBinarySourceImage, "Image to use as a build stage.")
 	cmd.Flags().StringSliceVarP(&extraLabelStrs, "extra-labels", "l", []string{}, "Extra labels to include in the generated Dockerfile. Labels should be of the form 'key=value'.")
+	cmd.Flags().MarkDeprecated("binary-image", "use --base-image instead")
+	cmd.MarkFlagsMutuallyExclusive("binary-image", "base-image")
 	return cmd
 }
 
