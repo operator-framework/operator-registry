@@ -259,6 +259,17 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	return cfg, nil
 }
 
+// LoadSlice will compose declarative config components from a slice of Meta objects
+func LoadSlice(metas []*Meta) (*DeclarativeConfig, error) {
+	builder := fbcBuilder{}
+	for _, meta := range metas {
+		if err := builder.addMeta(meta); err != nil {
+			return nil, err
+		}
+	}
+	return &builder.cfg, nil
+}
+
 type fbcBuilder struct {
 	cfg DeclarativeConfig
 

@@ -70,8 +70,8 @@ type ChannelEntry struct {
 //     evaluation in bundlesEqual().
 type Bundle struct {
 	Schema        string              `json:"schema"`
-	Name          string              `json:"name"`
-	Package       string              `json:"package"`
+	Name          string              `json:"name,omitempty"`
+	Package       string              `json:"package,omitempty"`
 	Image         string              `json:"image"`
 	Properties    []property.Property `json:"properties,omitempty" hash:"set"`
 	RelatedImages []RelatedImage      `json:"relatedImages,omitempty" hash:"set"`
