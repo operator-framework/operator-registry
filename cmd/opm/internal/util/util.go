@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -65,4 +66,12 @@ func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error)
 		return nil, err
 	}
 	return reg, nil
+}
+
+func OpenFileOrStdin(cmd *cobra.Command, args []string) (io.ReadCloser, string, error) {
+	if len(args) == 0 || args[0] == "-" {
+		return io.NopCloser(cmd.InOrStdin()), "stdin", nil
+	}
+	reader, err := os.Open(args[0])
+	return reader, args[0], err
 }
