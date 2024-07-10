@@ -12,10 +12,12 @@ import (
 	"runtime/pprof"
 	"sync"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
@@ -89,7 +91,8 @@ will not be reflected in the served content.
 }
 
 func (s *serve) run(ctx context.Context) error {
-	p := newProfilerInterface(s.pprofAddr, s.logger)
+	mainLogger := s.logger.Dup()
+	p := newProfilerInterface(s.pprofAddr, mainLogger)
 	if err := p.startEndpoint(); err != nil {
 		return fmt.Errorf("could not start pprof endpoint: %v", err)
 	}
@@ -102,12 +105,12 @@ func (s *serve) run(ctx context.Context) error {
 	// Immediately set up termination log
 	err := log.AddDefaultWriterHooks(s.terminationLog)
 	if err != nil {
-		s.logger.WithError(err).Warn("unable to set termination log path")
+		mainLogger.WithError(err).Warn("unable to set termination log path")
 	}
 
 	// Ensure there is a default nsswitch config
 	if err := dns.EnsureNsswitch(); err != nil {
-		s.logger.WithError(err).Warn("unable to write default nsswitch config")
+		mainLogger.WithError(err).Warn("unable to write default nsswitch config")
 	}
 
 	if s.cacheDir == "" && s.cacheEnforceIntegrity {
@@ -121,12 +124,12 @@ func (s *serve) run(ctx context.Context) error {
 		}
 		defer os.RemoveAll(s.cacheDir)
 	}
-	s.logger = s.logger.WithFields(logrus.Fields{
+	mainLogger = mainLogger.WithFields(logrus.Fields{
 		"configs": s.configDir,
 		"cache":   s.cacheDir,
 	})
 
-	store, err := cache.New(s.cacheDir, cache.WithLog(s.logger))
+	store, err := cache.New(s.cacheDir, cache.WithLog(mainLogger))
 	if err != nil {
 		return err
 	}
@@ -148,18 +151,22 @@ func (s *serve) run(ctx context.Context) error {
 		return nil
 	}
 
-	s.logger = s.logger.WithFields(logrus.Fields{"port": s.port})
+	mainLogger = mainLogger.WithFields(logrus.Fields{"port": s.port})
 
 	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %s", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	streamLogger, unaryLogger := loggingInterceptors(s.logger.Dup())
+	grpcServer := grpc.NewServer(
+		grpc.ChainStreamInterceptor(streamLogger),
+		grpc.ChainUnaryInterceptor(unaryLogger),
+	)
 	api.RegisterRegistryServer(grpcServer, server.NewRegistryServer(store))
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
-	s.logger.Info("serving registry")
+	mainLogger.Info("serving registry")
 	p.stopCpuProfileCache()
 
 	return graceful.Shutdown(s.logger, func() error {
@@ -167,7 +174,7 @@ func (s *serve) run(ctx context.Context) error {
 	}, func() {
 		grpcServer.GracefulStop()
 		if err := p.stopEndpoint(ctx); err != nil {
-			s.logger.Warnf("error shutting down pprof server: %v", err)
+			mainLogger.Warnf("error shutting down pprof server: %v", err)
 		}
 	})
 
@@ -292,4 +299,49 @@ func (p *profilerInterface) setCacheReady() {
 	p.cacheLock.Lock()
 	p.cacheReady = true
 	p.cacheLock.Unlock()
+}
+
+func loggingInterceptors(logger *logrus.Entry) (grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
+	requestLogger := logger.Dup()
+	requestLoggerOpts := []logging.Option{
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+		logging.WithFieldsFromContext(func(ctx context.Context) logging.Fields {
+			fields := logging.ExtractFields(ctx)
+			metadataFields := logging.Fields{}
+			if md, ok := metadata.FromIncomingContext(ctx); ok {
+				for k, v := range md {
+					metadataFields = append(metadataFields, k, v)
+				}
+				fields = fields.AppendUnique(metadataFields)
+			}
+			return fields
+		}),
+	}
+	return logging.StreamServerInterceptor(interceptorLogger(requestLogger), requestLoggerOpts...),
+		logging.UnaryServerInterceptor(interceptorLogger(requestLogger), requestLoggerOpts...)
+}
+
+func interceptorLogger(l *logrus.Entry) logging.Logger {
+	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...any) {
+		f := make(map[string]any, len(fields)/2)
+		i := logging.Fields(fields).Iterator()
+		for i.Next() {
+			k, v := i.At()
+			f[k] = v
+		}
+		l := l.WithFields(f)
+
+		switch lvl {
+		case logging.LevelDebug:
+			l.Debug(msg)
+		case logging.LevelInfo:
+			l.Info(msg)
+		case logging.LevelWarn:
+			l.Warn(msg)
+		case logging.LevelError:
+			l.Error(msg)
+		default:
+			panic(fmt.Sprintf("unknown level %v", lvl))
+		}
+	})
 }
