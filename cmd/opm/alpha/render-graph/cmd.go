@@ -5,11 +5,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 func NewCmd() *cobra.Command {
@@ -60,6 +61,9 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 			render.Refs = args
 			render.AllowedRefMask = action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile
 			render.Registry = registry
+
+			// Run all migrations
+			render.MigrateStages = -1
 
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {
