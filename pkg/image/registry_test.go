@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -273,7 +274,7 @@ func (f *mockBlobStore) Get(ctx context.Context, dgst digest.Digest) ([]byte, er
 	return f.base.Get(ctx, dgst)
 }
 
-func (f *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (distribution.ReadSeekCloser, error) {
+func (f *mockBlobStore) Open(ctx context.Context, dgst digest.Digest) (io.ReadSeekCloser, error) {
 	return f.base.Open(ctx, dgst)
 }
 
