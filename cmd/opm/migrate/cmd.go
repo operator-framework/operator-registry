@@ -51,5 +51,6 @@ parsers that assume that a file contains exactly one valid JSON object.
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
+	cmd.Flags().IntVar(&migrate.Stages, "stages", -1, "Number of migration stages to run; use -1 for all available stages")
 	return cmd
 }

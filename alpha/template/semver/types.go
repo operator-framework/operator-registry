@@ -4,13 +4,15 @@ import (
 	"io"
 
 	"github.com/blang/semver/v4"
+
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 // data passed into this module externally
 type Template struct {
-	Data     io.Reader
-	Registry image.Registry
+	Data          io.Reader
+	Registry      image.Registry
+	MigrateStages int
 }
 
 // IO structs -- BEGIN

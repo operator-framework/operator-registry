@@ -73,5 +73,8 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			}
 		},
 	}
+
+	cmd.Flags().IntVar(&template.MigrateStages, "migrate-stages", 0, "Number of migration stages to run; use -1 for all available stages")
+
 	return cmd
 }
