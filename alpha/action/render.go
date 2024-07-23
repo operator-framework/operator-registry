@@ -17,8 +17,7 @@ import (
 	"github.com/h2non/filetype/matchers"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
@@ -55,7 +54,7 @@ type Render struct {
 	Refs             []string
 	Registry         image.Registry
 	AllowedRefMask   RefType
-	MigrateStages    int
+	MigrationLevel   string
 	ImageRefTemplate *template.Template
 
 	skipSqliteDeprecationLog bool
@@ -89,7 +88,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			})
 		}
 
-		if err := migrate(cfg, r.MigrateStages); err != nil {
+		if err := migrate(cfg, r.MigrationLevel); err != nil {
 			return nil, fmt.Errorf("migrate: %v", err)
 		}
 
@@ -415,60 +414,16 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 	}
 }
 
-func migrate(cfg *declcfg.DeclarativeConfig, migrateStages int) error {
-	// Do not delete or change the order of the below migrations.
-	// The --migrate-stage flag is an API that depends on the presence
-	// and order of these migrations.
-	migrations := []func(*declcfg.DeclarativeConfig) error{
-		convertObjectsToCSVMetadata,
+func migrate(cfg *declcfg.DeclarativeConfig, migrateLevel string) error {
+	mobj, err := migrations.NewMigrations(migrateLevel)
+	if err != nil {
+		return err
 	}
 
-	if migrateStages > len(migrations) {
-		return fmt.Errorf("number of requested migration stages to run (%d) exceeds number of available migrations (%d)", migrateStages, len(migrations))
-	}
-
-	// migrateStages <0 means all migrations
-	// migrateStages 0 means no migrations
-	// migrateStages 1 means only the first migration
-	// etc...
-	for i, m := range migrations {
-		if i == migrateStages {
-			break
-		}
-		if err := m(cfg); err != nil {
+	for _, m := range (*mobj).Migrations {
+		if err := m.Migrate(cfg); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func convertObjectsToCSVMetadata(cfg *declcfg.DeclarativeConfig) error {
-BundleLoop:
-	for bi, b := range cfg.Bundles {
-		if b.Image == "" || b.CsvJSON == "" {
-			continue
-		}
-
-		var csv v1alpha1.ClusterServiceVersion
-		if err := json.Unmarshal([]byte(b.CsvJSON), &csv); err != nil {
-			return err
-		}
-
-		props := b.Properties[:0]
-		for _, p := range b.Properties {
-			switch p.Type {
-			case property.TypeBundleObject:
-				// Get rid of the bundle objects
-			case property.TypeCSVMetadata:
-				// If this bundle already has a CSV metadata
-				// property, we won't mutate the bundle at all.
-				continue BundleLoop
-			default:
-				// Keep all of the other properties
-				props = append(props, p)
-			}
-		}
-		cfg.Bundles[bi].Properties = append(props, property.MustBuildCSVMetadata(csv))
 	}
 	return nil
 }

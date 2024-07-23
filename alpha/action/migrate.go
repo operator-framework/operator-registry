@@ -12,7 +12,7 @@ import (
 type Migrate struct {
 	CatalogRef string
 	OutputDir  string
-	Stages     int
+	Level      string
 
 	WriteFunc declcfg.WriteFunc
 	FileExt   string
@@ -29,8 +29,8 @@ func (m Migrate) Run(ctx context.Context) error {
 	}
 
 	r := Render{
-		Refs:          []string{m.CatalogRef},
-		MigrateStages: m.Stages,
+		Refs:           []string{m.CatalogRef},
+		MigrationLevel: m.Level,
 
 		// Only allow catalogs to be migrated.
 		AllowedRefMask: RefSqliteImage | RefSqliteFile | RefDCImage | RefDCDir,

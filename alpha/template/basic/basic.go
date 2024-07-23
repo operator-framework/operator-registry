@@ -16,8 +16,8 @@ import (
 const schema string = "olm.template.basic"
 
 type Template struct {
-	Registry      image.Registry
-	MigrateStages int
+	Registry     image.Registry
+	MigrateLevel string
 }
 
 type BasicTemplate struct {
@@ -60,7 +60,7 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	r := action.Render{
 		Registry:       t.Registry,
 		AllowedRefMask: action.RefBundleImage,
-		MigrateStages:  t.MigrateStages,
+		MigrationLevel: t.MigrateLevel,
 	}
 
 	for _, b := range cfg.Bundles {

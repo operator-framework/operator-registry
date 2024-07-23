@@ -2,6 +2,7 @@ package action_test
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,6 +15,13 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+)
+
+type migrationLevel string
+
+const (
+	bundleObjectType migrationLevel = "bundle-object"
+	csvMetadataType  migrationLevel = "bundle-object-to-csv-metadata"
 )
 
 func TestMigrate(t *testing.T) {
@@ -50,8 +58,8 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalogSqlite(),
-				"bar/catalog.yaml": migrateBarCatalogSqlite(),
+				"foo/catalog.yaml": migrateFooCatalogSqlite(bundleObjectType),
+				"bar/catalog.yaml": migrateBarCatalogSqlite(bundleObjectType),
 			},
 		},
 		{
@@ -64,8 +72,8 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalogSqlite(),
-				"bar/catalog.yaml": migrateBarCatalogSqlite(),
+				"foo/catalog.yaml": migrateFooCatalogSqlite(bundleObjectType),
+				"bar/catalog.yaml": migrateBarCatalogSqlite(bundleObjectType),
 			},
 		},
 		{
@@ -78,7 +86,7 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalogFBC(),
+				"foo/catalog.yaml": migrateFooCatalogFBC(bundleObjectType),
 			},
 		},
 		{
@@ -91,7 +99,7 @@ func TestMigrate(t *testing.T) {
 				Registry:   reg,
 			},
 			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalogFBC(),
+				"foo/catalog.yaml": migrateFooCatalogFBC(bundleObjectType),
 			},
 		},
 		{
@@ -170,8 +178,9 @@ func newMigrateRegistry(t *testing.T, imageMap map[image.Reference]string) (imag
 	return reg, nil
 }
 
-func migrateFooCatalogSqlite() string {
-	return `---
+func migrateFooCatalogSqlite(m migrationLevel) string {
+
+	template := `---
 defaultChannel: beta
 name: foo
 schema: olm.package
@@ -224,18 +233,7 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.csv.metadata
-  value:
-    annotations:
-      olm.skipRange: <0.1.0
-    apiServiceDefinitions: {}
-    crdDescriptions:
-      owned:
-      - kind: Foo
-        name: foos.test.foo
-        version: v1
-    displayName: Foo Operator
-    provider: {}
+%s
 relatedImages:
 - image: test.registry/foo-operator/foo-bundle:v0.1.0
   name: ""
@@ -265,18 +263,7 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.csv.metadata
-  value:
-    annotations:
-      olm.skipRange: <0.2.0
-    apiServiceDefinitions: {}
-    crdDescriptions:
-      owned:
-      - kind: Foo
-        name: foos.test.foo
-        version: v1
-    displayName: Foo Operator
-    provider: {}
+%s
 relatedImages:
 - image: test.registry/foo-operator/foo-2:v0.2.0
   name: ""
@@ -292,10 +279,61 @@ relatedImages:
   name: operator
 schema: olm.bundle
 `
+	bundle1CsvMetadata := `- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.1.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}`
+
+	bundle1BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvb3MudGVzdC5mb28ifSwic3BlYyI6eyJncm91cCI6InRlc3QuZm9vIiwibmFtZXMiOnsia2luZCI6IkZvbyIsInBsdXJhbCI6ImZvb3MifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMS4wIn0sIm5hbWUiOiJmb28udjAuMS4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiRm9vIE9wZXJhdG9yIiwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Zvby1vcGVyYXRvci9mb286djAuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMC4xLjAifX0=`
+
+	bundle2CsvMetadata := `- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.2.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}`
+
+	bundle2BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvb3MudGVzdC5mb28ifSwic3BlYyI6eyJncm91cCI6InRlc3QuZm9vIiwibmFtZXMiOnsia2luZCI6IkZvbyIsInBsdXJhbCI6ImZvb3MifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJmb28udjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiRm9vIE9wZXJhdG9yIiwiaW5zdGFsbCI6eyJzcGVjIjp7ImRlcGxveW1lbnRzIjpbeyJuYW1lIjoiZm9vLW9wZXJhdG9yIiwic3BlYyI6eyJ0ZW1wbGF0ZSI6eyJzcGVjIjp7ImNvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vOnYwLjIuMCJ9XSwiaW5pdENvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLWluaXQ6djAuMi4wIn1dfX19fSx7Im5hbWUiOiJmb28tb3BlcmF0b3ItMiIsInNwZWMiOnsidGVtcGxhdGUiOnsic3BlYyI6eyJjb250YWluZXJzIjpbeyJpbWFnZSI6InRlc3QucmVnaXN0cnkvZm9vLW9wZXJhdG9yL2Zvby0yOnYwLjIuMCJ9XSwiaW5pdENvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLWluaXQtMjp2MC4yLjAifV19fX19XX0sInN0cmF0ZWd5IjoiZGVwbG95bWVudCJ9LCJyZWxhdGVkSW1hZ2VzIjpbeyJpbWFnZSI6InRlc3QucmVnaXN0cnkvZm9vLW9wZXJhdG9yL2Zvbzp2MC4yLjAiLCJuYW1lIjoib3BlcmF0b3IifSx7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLW90aGVyOnYwLjIuMCIsIm5hbWUiOiJvdGhlciJ9XSwicmVwbGFjZXMiOiJmb28udjAuMS4wIiwic2tpcHMiOlsiZm9vLnYwLjEuMSIsImZvby52MC4xLjIiXSwidmVyc2lvbiI6IjAuMi4wIn19`
+
+	var bundle1Metadata, bundle2Metadata string
+	switch m {
+	case csvMetadataType:
+		bundle1Metadata = bundle1CsvMetadata
+		bundle2Metadata = bundle2CsvMetadata
+	case bundleObjectType:
+		bundle1Metadata = bundle1BundleObject
+		bundle2Metadata = bundle2BundleObject
+	}
+
+	return fmt.Sprintf(template, bundle1Metadata, bundle2Metadata)
 }
 
-func migrateBarCatalogSqlite() string {
-	return `---
+func migrateBarCatalogSqlite(m migrationLevel) string {
+	template := `---
 defaultChannel: alpha
 name: bar
 schema: olm.package
@@ -323,15 +361,7 @@ properties:
   value:
     packageName: bar
     version: 0.1.0
-- type: olm.csv.metadata
-  value:
-    apiServiceDefinitions: {}
-    crdDescriptions:
-      owned:
-      - kind: Bar
-        name: bars.test.bar
-        version: v1alpha1
-    provider: {}
+%s
 relatedImages:
 - image: test.registry/bar-operator/bar-bundle:v0.1.0
   name: ""
@@ -352,7 +382,33 @@ properties:
   value:
     packageName: bar
     version: 0.2.0
-- type: olm.csv.metadata
+%s
+relatedImages:
+- image: test.registry/bar-operator/bar-bundle:v0.2.0
+  name: ""
+- image: test.registry/bar-operator/bar:v0.2.0
+  name: operator
+schema: olm.bundle
+`
+
+	bundle1CsvMetadata := `- type: olm.csv.metadata
+  value:
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Bar
+        name: bars.test.bar
+        version: v1alpha1
+    provider: {}`
+
+	bundle1BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhcnMudGVzdC5iYXIifSwic3BlYyI6eyJncm91cCI6InRlc3QuYmFyIiwibmFtZXMiOnsia2luZCI6IkJhciIsInBsdXJhbCI6ImJhcnMifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MWFscGhhMSJ9XX19
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhci52MC4xLjAifSwic3BlYyI6eyJjdXN0b21yZXNvdXJjZWRlZmluaXRpb25zIjp7Im93bmVkIjpbeyJncm91cCI6InRlc3QuYmFyIiwia2luZCI6IkJhciIsIm5hbWUiOiJiYXJzLnRlc3QuYmFyIiwidmVyc2lvbiI6InYxYWxwaGExIn1dfSwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Jhci1vcGVyYXRvci9iYXI6djAuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMC4xLjAifX0=`
+
+	bundle2CsvMetadata := `- type: olm.csv.metadata
   value:
     annotations:
       olm.skipRange: <0.2.0
@@ -362,18 +418,30 @@ properties:
       - kind: Bar
         name: bars.test.bar
         version: v1alpha1
-    provider: {}
-relatedImages:
-- image: test.registry/bar-operator/bar-bundle:v0.2.0
-  name: ""
-- image: test.registry/bar-operator/bar:v0.2.0
-  name: operator
-schema: olm.bundle
-`
+    provider: {}`
+
+	bundle2BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImJhcnMudGVzdC5iYXIifSwic3BlYyI6eyJncm91cCI6InRlc3QuYmFyIiwibmFtZXMiOnsia2luZCI6IkJhciIsInBsdXJhbCI6ImJhcnMifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MWFscGhhMSJ9XX19
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJiYXIudjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmJhciIsImtpbmQiOiJCYXIiLCJuYW1lIjoiYmFycy50ZXN0LmJhciIsInZlcnNpb24iOiJ2MWFscGhhMSJ9XX0sInJlbGF0ZWRJbWFnZXMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9iYXItb3BlcmF0b3IvYmFyOnYwLjIuMCIsIm5hbWUiOiJvcGVyYXRvciJ9XSwic2tpcHMiOlsiYmFyLnYwLjEuMCJdLCJ2ZXJzaW9uIjoiMC4yLjAifX0=`
+
+	var bundle1Metadata, bundle2Metadata string
+	switch m {
+	case csvMetadataType:
+		bundle1Metadata = bundle1CsvMetadata
+		bundle2Metadata = bundle2CsvMetadata
+	case bundleObjectType:
+		bundle1Metadata = bundle1BundleObject
+		bundle2Metadata = bundle2BundleObject
+	}
+
+	return fmt.Sprintf(template, bundle1Metadata, bundle2Metadata)
 }
 
-func migrateFooCatalogFBC() string {
-	return `---
+func migrateFooCatalogFBC(m migrationLevel) string {
+	template := `---
 defaultChannel: beta
 name: foo
 properties:
@@ -434,18 +502,7 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.csv.metadata
-  value:
-    annotations:
-      olm.skipRange: <0.1.0
-    apiServiceDefinitions: {}
-    crdDescriptions:
-      owned:
-      - kind: Foo
-        name: foos.test.foo
-        version: v1
-    displayName: Foo Operator
-    provider: {}
+%s
 relatedImages:
 - image: test.registry/foo-operator/foo-bundle:v0.1.0
   name: ""
@@ -475,18 +532,7 @@ properties:
   value:
     packageName: bar
     versionRange: <0.1.0
-- type: olm.csv.metadata
-  value:
-    annotations:
-      olm.skipRange: <0.2.0
-    apiServiceDefinitions: {}
-    crdDescriptions:
-      owned:
-      - kind: Foo
-        name: foos.test.foo
-        version: v1
-    displayName: Foo Operator
-    provider: {}
+%s
 relatedImages:
 - image: test.registry/foo-operator/foo-2:v0.2.0
   name: ""
@@ -502,4 +548,56 @@ relatedImages:
   name: operator
 schema: olm.bundle
 `
+
+	bundle1CsvMetadata := `- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.1.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}`
+
+	bundle1BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMS4wIn0sIm5hbWUiOiJmb28udjAuMS4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiRm9vIE9wZXJhdG9yIiwicmVsYXRlZEltYWdlcyI6W3siaW1hZ2UiOiJ0ZXN0LnJlZ2lzdHJ5L2Zvby1vcGVyYXRvci9mb286djAuMS4wIiwibmFtZSI6Im9wZXJhdG9yIn1dLCJ2ZXJzaW9uIjoiMC4xLjAifX0=
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvb3MudGVzdC5mb28ifSwic3BlYyI6eyJncm91cCI6InRlc3QuZm9vIiwibmFtZXMiOnsia2luZCI6IkZvbyIsInBsdXJhbCI6ImZvb3MifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19`
+
+	bundle2CsvMetadata := `- type: olm.csv.metadata
+  value:
+    annotations:
+      olm.skipRange: <0.2.0
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - kind: Foo
+        name: foos.test.foo
+        version: v1
+    displayName: Foo Operator
+    provider: {}`
+
+	bundle2BundleObject := `- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoib3BlcmF0b3JzLmNvcmVvcy5jb20vdjFhbHBoYTEiLCJraW5kIjoiQ2x1c3RlclNlcnZpY2VWZXJzaW9uIiwibWV0YWRhdGEiOnsiYW5ub3RhdGlvbnMiOnsib2xtLnNraXBSYW5nZSI6Ilx1MDAzYzAuMi4wIn0sIm5hbWUiOiJmb28udjAuMi4wIn0sInNwZWMiOnsiY3VzdG9tcmVzb3VyY2VkZWZpbml0aW9ucyI6eyJvd25lZCI6W3siZ3JvdXAiOiJ0ZXN0LmZvbyIsImtpbmQiOiJGb28iLCJuYW1lIjoiZm9vcy50ZXN0LmZvbyIsInZlcnNpb24iOiJ2MSJ9XX0sImRpc3BsYXlOYW1lIjoiRm9vIE9wZXJhdG9yIiwiaW5zdGFsbCI6eyJzcGVjIjp7ImRlcGxveW1lbnRzIjpbeyJuYW1lIjoiZm9vLW9wZXJhdG9yIiwic3BlYyI6eyJ0ZW1wbGF0ZSI6eyJzcGVjIjp7ImNvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vOnYwLjIuMCJ9XSwiaW5pdENvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLWluaXQ6djAuMi4wIn1dfX19fSx7Im5hbWUiOiJmb28tb3BlcmF0b3ItMiIsInNwZWMiOnsidGVtcGxhdGUiOnsic3BlYyI6eyJjb250YWluZXJzIjpbeyJpbWFnZSI6InRlc3QucmVnaXN0cnkvZm9vLW9wZXJhdG9yL2Zvby0yOnYwLjIuMCJ9XSwiaW5pdENvbnRhaW5lcnMiOlt7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLWluaXQtMjp2MC4yLjAifV19fX19XX0sInN0cmF0ZWd5IjoiZGVwbG95bWVudCJ9LCJyZWxhdGVkSW1hZ2VzIjpbeyJpbWFnZSI6InRlc3QucmVnaXN0cnkvZm9vLW9wZXJhdG9yL2Zvbzp2MC4yLjAiLCJuYW1lIjoib3BlcmF0b3IifSx7ImltYWdlIjoidGVzdC5yZWdpc3RyeS9mb28tb3BlcmF0b3IvZm9vLW90aGVyOnYwLjIuMCIsIm5hbWUiOiJvdGhlciJ9XSwicmVwbGFjZXMiOiJmb28udjAuMS4wIiwic2tpcHMiOlsiZm9vLnYwLjEuMSIsImZvby52MC4xLjIiXSwidmVyc2lvbiI6IjAuMi4wIn19
+- type: olm.bundle.object
+  value:
+    data: eyJhcGlWZXJzaW9uIjoiYXBpZXh0ZW5zaW9ucy5rOHMuaW8vdjEiLCJraW5kIjoiQ3VzdG9tUmVzb3VyY2VEZWZpbml0aW9uIiwibWV0YWRhdGEiOnsibmFtZSI6ImZvb3MudGVzdC5mb28ifSwic3BlYyI6eyJncm91cCI6InRlc3QuZm9vIiwibmFtZXMiOnsia2luZCI6IkZvbyIsInBsdXJhbCI6ImZvb3MifSwidmVyc2lvbnMiOlt7Im5hbWUiOiJ2MSJ9XX19`
+
+	var bundle1Metadata, bundle2Metadata string
+	switch m {
+	case csvMetadataType:
+		bundle1Metadata = bundle1CsvMetadata
+		bundle2Metadata = bundle2CsvMetadata
+	case bundleObjectType:
+		bundle1Metadata = bundle1BundleObject
+		bundle2Metadata = bundle2BundleObject
+	}
+
+	return fmt.Sprintf(template, bundle1Metadata, bundle2Metadata)
 }

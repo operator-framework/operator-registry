@@ -63,7 +63,7 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 			render.Registry = registry
 
 			// Run all migrations
-			render.MigrateStages = -1
+			render.MigrationLevel = ""
 
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {

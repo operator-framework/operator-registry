@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/template/basic"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
@@ -74,7 +75,7 @@ When FILE is '-' or not provided, the template is read from standard input`,
 		},
 	}
 
-	cmd.Flags().IntVar(&template.MigrateStages, "migrate-stages", 0, "Number of migration stages to run; use -1 for all available stages")
+	cmd.Flags().StringVar(&template.MigrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 
 	return cmd
 }

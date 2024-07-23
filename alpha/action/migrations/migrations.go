@@ -10,15 +10,17 @@ import (
 
 type Migration interface {
 	Name() string
+	Help() string
 	Migrate(*declcfg.DeclarativeConfig) error
 }
 
-func NewMigration(name string, fn func(config *declcfg.DeclarativeConfig) error) Migration {
-	return &simpleMigration{name: name, fn: fn}
+func newMigration(name string, help string, fn func(config *declcfg.DeclarativeConfig) error) Migration {
+	return &simpleMigration{name: name, help: help, fn: fn}
 }
 
 type simpleMigration struct {
 	name string
+	help string
 	fn   func(*declcfg.DeclarativeConfig) error
 }
 
@@ -30,19 +32,26 @@ func (s simpleMigration) Migrate(config *declcfg.DeclarativeConfig) error {
 	return s.fn(config)
 }
 
-type Migrations struct {
-	migrations []Migration
+func (s simpleMigration) Help() string {
+	return s.help
 }
 
+type Migrations struct {
+	Migrations []Migration
+}
+
+// allMigrations represents the migration catalog
+// the order of these migrations is important
 var allMigrations = []Migration{
 	BundleObjectToCSVMetadata,
 }
 
 func NewMigrations(level string) (*Migrations, error) {
-	migrations := slices.Clone(allMigrations)
 	if level == "" {
-		return &Migrations{migrations: migrations}, nil
+		return &Migrations{}, nil
 	}
+
+	migrations := slices.Clone(allMigrations)
 
 	found := false
 	keep := migrations[:0]
@@ -56,26 +65,24 @@ func NewMigrations(level string) (*Migrations, error) {
 	if !found {
 		return nil, fmt.Errorf("unknown migration level %q", level)
 	}
-	return &Migrations{migrations: keep}, nil
+	return &Migrations{Migrations: keep}, nil
 }
 
-func (m *Migrations) HelpText() string {
+func HelpText() string {
 	var help strings.Builder
-	help.WriteString("-- Migrations --\n")
-	help.WriteString("  To run a migration, use the --level flag with the migration name.\n")
 	help.WriteString("  The migrator will run all migrations up to and including the selected level.\n\n")
-	help.WriteString("  Available migration levels:\n")
-	if len(m.migrations) == 0 {
+	help.WriteString("  Available migrators:\n")
+	if len(allMigrations) == 0 {
 		help.WriteString("   (no migrations available in this version)\n")
 	}
-	for i, migration := range m.migrations {
-		help.WriteString(fmt.Sprintf("   - %s\n", i+1, migration.Name()))
+	for _, migration := range allMigrations {
+		help.WriteString(fmt.Sprintf("  - %s\n", migration.Name()))
 	}
 	return help.String()
 }
 
 func (m *Migrations) Migrate(config *declcfg.DeclarativeConfig) error {
-	for _, migration := range m.migrations {
+	for _, migration := range m.Migrations {
 		if err := migration.Migrate(config); err != nil {
 			return err
 		}

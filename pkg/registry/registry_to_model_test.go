@@ -57,7 +57,11 @@ func testExpectedProperties(t *testing.T) []property.Property {
 			Type:  "olm.constraint",
 			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
 		},
-		property.MustBuildCSVMetadata(csv),
+		// property.MustBuildCSVMetadata(csv),
+
+	}
+	for _, obj := range testExpectedObjects() {
+		props = append(props, property.MustBuildBundleObjectData([]byte(obj)))
 	}
 	return props
 }

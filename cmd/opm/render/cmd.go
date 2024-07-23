@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
@@ -66,8 +68,7 @@ database files.
 			}
 
 			if deprecatedMigrateFlag {
-				// If the deprecated --migrate flag is set, run all migration stages.
-				render.MigrateStages = -1
+				log.Fatal(fmt.Errorf("flag --migrate is deprecated, use --migrate-level instead"))
 			}
 
 			cfg, err := render.Run(cmd.Context())
@@ -82,10 +83,10 @@ database files.
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
 
-	cmd.Flags().IntVar(&render.MigrateStages, "migrate-stages", 0, "Number of migration stages to run; use -1 for all available stages")
+	cmd.Flags().StringVar(&render.MigrationLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 	cmd.Flags().BoolVar(&deprecatedMigrateFlag, "migrate", false, "Perform migrations on the rendered FBC")
-	cmd.Flags().MarkDeprecated("migrate", "use --migrate-stages instead")
-	cmd.MarkFlagsMutuallyExclusive("migrate", "migrate-stages")
+	cmd.Flags().MarkDeprecated("migrate", "use --migrate-level instead")
+	cmd.MarkFlagsMutuallyExclusive("migrate", "migrate-level")
 
 	// Alpha flags
 	cmd.Flags().StringVar(&imageRefTemplate, "alpha-image-ref-template", "", "When bundle image reference information is unavailable, populate it with this template")

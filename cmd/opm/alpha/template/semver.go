@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/template/semver"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
@@ -16,7 +17,7 @@ import (
 
 func newSemverTemplateCmd() *cobra.Command {
 	var (
-		migrateStages int
+		migrateLevel string
 	)
 
 	cmd := &cobra.Command{
@@ -86,7 +87,7 @@ When FILE is '-' or not provided, the template is read from standard input`,
 		},
 	}
 
-	cmd.Flags().IntVar(&migrateStages, "migrate-stages", 0, "Number of migration stages to run; use -1 for all available stages")
+	cmd.Flags().StringVar(&migrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 
 	return cmd
 }
