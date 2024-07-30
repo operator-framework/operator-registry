@@ -139,9 +139,26 @@ export LATEST_IMAGE_OR_EMPTY := $(shell \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 RELEASE_GOOS := $(shell go env GOOS)
-release: RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
+RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
+
+# Note: bingo does not yet support windows (https://github.com/bwplotka/bingo/issues/26)
+# so GOOS=windows gets its own way to install goreleaser
+ifeq ($(RELEASE_GOOS), windows)
+GORELEASER := $(shell pwd)/bin/goreleaser
+release: windows-goreleaser-install
+else
 release: $(GORELEASER)
+endif
+release:
 	$(GORELEASER) $(RELEASE_ARGS)
+
+.PHONY: windows-goreleaser-install
+windows-goreleaser-install:
+	# manually install goreleaser from the bingo directory in the same way bingo (currently) installs it.
+	# This is done to ensure the same version of goreleaser is used across all platforms
+	mkdir -p $(dir $(GORELEASER))
+	@echo "(re)installing $(GORELEASER)"
+	GOWORK=off $(GO) build -mod=mod -modfile=.bingo/goreleaser.mod -o=$(GORELEASER) "github.com/goreleaser/goreleaser"
 
 # tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
