@@ -61,7 +61,7 @@ func testExpectedProperties(t *testing.T) []property.Property {
 
 	}
 	for _, obj := range testExpectedObjects() {
-		props = append(props, property.MustBuildBundleObjectData([]byte(obj)))
+		props = append(props, property.MustBuildBundleObject([]byte(obj)))
 	}
 	return props
 }

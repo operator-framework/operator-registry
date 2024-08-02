@@ -62,9 +62,6 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 			render.AllowedRefMask = action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile
 			render.Registry = registry
 
-			// Run all migrations
-			render.MigrationLevel = ""
-
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {
 				log.Fatal(err)

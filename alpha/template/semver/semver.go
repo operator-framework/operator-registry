@@ -35,7 +35,7 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b},
 			Registry:       t.Registry,
-			MigrationLevel: t.MigrateLevel,
+			MigrationLevel: t.MigrationLevel,
 		}
 		c, err := r.Run(ctx)
 		if err != nil {

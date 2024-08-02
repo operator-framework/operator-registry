@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -67,8 +66,9 @@ database files.
 				render.ImageRefTemplate = tmpl
 			}
 
+			// if the deprecated flag was used, set the level explicitly to the last migration to perform all migrations
 			if deprecatedMigrateFlag {
-				log.Fatal(fmt.Errorf("flag --migrate is deprecated, use --migrate-level instead"))
+				render.MigrationLevel = migrations.GetLastMigrationName()
 			}
 
 			cfg, err := render.Run(cmd.Context())

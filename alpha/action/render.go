@@ -420,11 +420,11 @@ func migrate(cfg *declcfg.DeclarativeConfig, migrateLevel string) error {
 		return err
 	}
 
-	for _, m := range (*mobj).Migrations {
-		if err := m.Migrate(cfg); err != nil {
-			return err
-		}
+	err = mobj.Migrate(cfg)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 

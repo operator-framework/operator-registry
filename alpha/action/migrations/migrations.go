@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
@@ -40,10 +41,17 @@ type Migrations struct {
 	Migrations []Migration
 }
 
+func GetLastMigrationName() string {
+	if len(allMigrations) == 0 {
+		return ""
+	}
+	return allMigrations[len(allMigrations)-1].Name()
+}
+
 // allMigrations represents the migration catalog
 // the order of these migrations is important
 var allMigrations = []Migration{
-	BundleObjectToCSVMetadata,
+	bundleObjectToCSVMetadata,
 }
 
 func NewMigrations(level string) (*Migrations, error) {
@@ -75,9 +83,12 @@ func HelpText() string {
 	if len(allMigrations) == 0 {
 		help.WriteString("   (no migrations available in this version)\n")
 	}
+
+	tabber := tabwriter.NewWriter(&help, 20, 30, 1, '\t', tabwriter.AlignRight)
 	for _, migration := range allMigrations {
-		help.WriteString(fmt.Sprintf("  - %s\n", migration.Name()))
+		fmt.Fprintf(tabber, "    - %s\t%s\n", migration.Name(), migration.Help())
 	}
+	tabber.Flush()
 	return help.String()
 }
 

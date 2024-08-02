@@ -53,9 +53,6 @@ parsers that assume that a file contains exactly one valid JSON object.
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 	cmd.Flags().StringVar(&migrate.Level, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
-	_ = cmd.RegisterFlagCompletionFunc("migrate-level", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{migrations.HelpText()}, cobra.ShellCompDirectiveDefault
-	})
 
 	return cmd
 }

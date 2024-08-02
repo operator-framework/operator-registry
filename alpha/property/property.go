@@ -257,9 +257,6 @@ func MustBuildGVKRequired(group, version, kind string) Property {
 func MustBuildBundleObject(data []byte) Property {
 	return MustBuild(&BundleObject{Data: data})
 }
-func MustBuildBundleObjectData(data []byte) Property {
-	return MustBuild(&BundleObject{Data: data})
-}
 
 func MustBuildCSVMetadata(csv v1alpha1.ClusterServiceVersion) Property {
 	return MustBuild(&CSVMetadata{

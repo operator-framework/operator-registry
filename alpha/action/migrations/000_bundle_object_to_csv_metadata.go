@@ -9,7 +9,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
-var BundleObjectToCSVMetadata = newMigration(
+var bundleObjectToCSVMetadata = newMigration(
 	"bundle-object-to-csv-metadata",
 	"migrates bundles' `olm.bundle.object` to `olm.csv.metadata`",
 	func(cfg *declcfg.DeclarativeConfig) error {

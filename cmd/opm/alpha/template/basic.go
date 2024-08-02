@@ -75,7 +75,7 @@ When FILE is '-' or not provided, the template is read from standard input`,
 		},
 	}
 
-	cmd.Flags().StringVar(&template.MigrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
+	cmd.Flags().StringVar(&template.MigrationLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 
 	return cmd
 }

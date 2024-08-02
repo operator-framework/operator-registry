@@ -10,9 +10,9 @@ import (
 
 // data passed into this module externally
 type Template struct {
-	Data         io.Reader
-	Registry     image.Registry
-	MigrateLevel string
+	Data           io.Reader
+	Registry       image.Registry
+	MigrationLevel string
 }
 
 // IO structs -- BEGIN
