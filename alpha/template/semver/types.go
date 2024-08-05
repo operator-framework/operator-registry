@@ -5,14 +5,15 @@ import (
 
 	"github.com/blang/semver/v4"
 
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 // data passed into this module externally
 type Template struct {
-	Data           io.Reader
-	Registry       image.Registry
-	MigrationLevel string
+	Data       io.Reader
+	Registry   image.Registry
+	Migrations *migrations.Migrations
 }
 
 // IO structs -- BEGIN

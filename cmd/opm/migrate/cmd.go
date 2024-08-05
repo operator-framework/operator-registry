@@ -14,8 +14,9 @@ import (
 
 func NewCmd() *cobra.Command {
 	var (
-		migrate action.Migrate
-		output  string
+		migrate      action.Migrate
+		migrateLevel string
+		output       string
 	)
 	cmd := &cobra.Command{
 		Use:   "migrate <indexRef> <outputDir>",
@@ -43,6 +44,14 @@ parsers that assume that a file contains exactly one valid JSON object.
 				log.Fatalf("invalid --output value %q, expected (json|yaml)", output)
 			}
 
+			if migrateLevel != "" {
+				m, err := migrations.NewMigrations(migrateLevel)
+				if err != nil {
+					log.Fatal(err)
+				}
+				migrate.Migrations = m
+			}
+
 			logrus.Infof("rendering index %q as file-based catalog", migrate.CatalogRef)
 			if err := migrate.Run(cmd.Context()); err != nil {
 				logrus.New().Fatal(err)
@@ -52,7 +61,7 @@ parsers that assume that a file contains exactly one valid JSON object.
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
-	cmd.Flags().StringVar(&migrate.Level, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
+	cmd.Flags().StringVar(&migrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 
 	return cmd
 }

@@ -16,7 +16,8 @@ import (
 
 func newBasicTemplateCmd() *cobra.Command {
 	var (
-		template basic.Template
+		template     basic.Template
+		migrateLevel string
 	)
 	cmd := &cobra.Command{
 		Use: "basic basic-template-file",
@@ -63,6 +64,14 @@ When FILE is '-' or not provided, the template is read from standard input`,
 
 			template.Registry = reg
 
+			if migrateLevel != "" {
+				m, err := migrations.NewMigrations(migrateLevel)
+				if err != nil {
+					log.Fatal(err)
+				}
+				template.Migrations = m
+			}
+
 			// only taking first file argument
 			cfg, err := template.Render(cmd.Context(), data)
 			if err != nil {
@@ -75,7 +84,7 @@ When FILE is '-' or not provided, the template is read from standard input`,
 		},
 	}
 
-	cmd.Flags().StringVar(&template.MigrationLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
+	cmd.Flags().StringVar(&migrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 
 	return cmd
 }

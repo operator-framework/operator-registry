@@ -72,6 +72,13 @@ When FILE is '-' or not provided, the template is read from standard input`,
 				Data:     data,
 				Registry: reg,
 			}
+			if migrateLevel != "" {
+				m, err := migrations.NewMigrations(migrateLevel)
+				if err != nil {
+					log.Fatal(err)
+				}
+				template.Migrations = m
+			}
 			out, err := template.Render(cmd.Context())
 			if err != nil {
 				log.Fatalf("semver %q: %v", source, err)

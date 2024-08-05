@@ -54,8 +54,8 @@ type Render struct {
 	Refs             []string
 	Registry         image.Registry
 	AllowedRefMask   RefType
-	MigrationLevel   string
 	ImageRefTemplate *template.Template
+	Migrations       *migrations.Migrations
 
 	skipSqliteDeprecationLog bool
 }
@@ -88,7 +88,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			})
 		}
 
-		if err := migrate(cfg, r.MigrationLevel); err != nil {
+		if err := r.migrate(cfg); err != nil {
 			return nil, fmt.Errorf("migrate: %v", err)
 		}
 
@@ -414,18 +414,12 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 	}
 }
 
-func migrate(cfg *declcfg.DeclarativeConfig, migrateLevel string) error {
-	mobj, err := migrations.NewMigrations(migrateLevel)
-	if err != nil {
-		return err
+func (r Render) migrate(cfg *declcfg.DeclarativeConfig) error {
+	// If there are no migrations, do nothing.
+	if r.Migrations == nil {
+		return nil
 	}
-
-	err = mobj.Migrate(cfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.Migrations.Migrate(cfg)
 }
 
 func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig {
