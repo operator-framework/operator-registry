@@ -36,7 +36,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/btree v1.7.0
 	go.etcd.io/bbolt v1.3.10
-	golang.org/x/mod v0.19.0
+	golang.org/x/mod v0.20.0
 	golang.org/x/net v0.27.0
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.22.0
