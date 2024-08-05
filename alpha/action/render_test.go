@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
@@ -28,9 +29,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
-
-// aligns with supported migrations in alpha.action.migrations
-const migrationLevelCSVMetadata = "bundle-object-to-csv-metadata"
 
 func TestRender(t *testing.T) {
 	type spec struct {
@@ -75,13 +73,18 @@ func TestRender(t *testing.T) {
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
 	}
 	assert.NoError(t, generateSqliteFile(dbFile, imageMap))
+	allMigrations, err := migrations.NewMigrations(migrations.AllMigrations)
+	require.NoError(t, err)
+	noMigrations, err := migrations.NewMigrations(migrations.NoMigrations)
+	require.NoError(t, err)
 
 	specs := []spec{
 		{
 			name: "Success/SqliteIndexImage",
 			render: action.Render{
-				Refs:     []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry: reg,
+				Refs:       []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
+				Registry:   reg,
+				Migrations: noMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -172,9 +175,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/SqliteIndexImageCSVMigration",
 			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry:       reg,
-				MigrationLevel: migrationLevelCSVMetadata,
+				Refs:       []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -355,9 +358,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/SqliteFileMigration",
 			render: action.Render{
-				Refs:           []string{dbFile},
-				Registry:       reg,
-				MigrationLevel: migrationLevelCSVMetadata,
+				Refs:       []string{dbFile},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -642,9 +645,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/DeclcfgImageMigrate",
 			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
-				MigrationLevel: migrationLevelCSVMetadata,
-				Registry:       reg,
+				Refs:       []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -739,9 +742,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/DeclcfgDirectoryMigrate",
 			render: action.Render{
-				Refs:           []string{"testdata/foo-index-v0.2.0-declcfg"},
-				MigrationLevel: migrationLevelCSVMetadata,
-				Registry:       reg,
+				Refs:       []string{"testdata/foo-index-v0.2.0-declcfg"},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -886,9 +889,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/BundleImageMigration",
 			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
-				Registry:       reg,
-				MigrationLevel: migrationLevelCSVMetadata,
+				Refs:       []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Bundles: []declcfg.Bundle{
@@ -981,9 +984,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/BundleImageWithNoCSVRelatedImagesMigration",
 			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0"},
-				Registry:       reg,
-				MigrationLevel: migrationLevelCSVMetadata,
+				Refs:       []string{"test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0"},
+				Registry:   reg,
+				Migrations: allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Bundles: []declcfg.Bundle{
@@ -1077,7 +1080,7 @@ func TestRender(t *testing.T) {
 				Refs:             []string{"testdata/foo-bundle-v0.2.0"},
 				ImageRefTemplate: template.Must(template.New("imageRef").Parse("test.registry/{{.Package}}-operator/{{.Package}}:v{{.Version}}")),
 				Registry:         reg,
-				MigrationLevel:   migrationLevelCSVMetadata,
+				Migrations:       allMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Bundles: []declcfg.Bundle{

@@ -22,7 +22,8 @@ func NewCmd(showAlphaHelp bool) *cobra.Command {
 		output           string
 		imageRefTemplate string
 
-		deprecatedMigrateFlag bool
+		oldMigrateAllFlag bool
+		migrateLevel      string
 	)
 	cmd := &cobra.Command{
 		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory | sqlite-file]...",
@@ -67,9 +68,16 @@ database files.
 			}
 
 			// if the deprecated flag was used, set the level explicitly to the last migration to perform all migrations
-			if deprecatedMigrateFlag {
-				render.MigrationLevel = migrations.GetLastMigrationName()
+			var m *migrations.Migrations
+			if oldMigrateAllFlag {
+				m, err = migrations.NewMigrations(migrations.AllMigrations)
+			} else if migrateLevel != "" {
+				m, err = migrations.NewMigrations(migrateLevel)
 			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			render.Migrations = m
 
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {
@@ -83,9 +91,8 @@ database files.
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
 
-	cmd.Flags().StringVar(&render.MigrationLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
-	cmd.Flags().BoolVar(&deprecatedMigrateFlag, "migrate", false, "Perform migrations on the rendered FBC")
-	cmd.Flags().MarkDeprecated("migrate", "use --migrate-level instead")
+	cmd.Flags().StringVar(&migrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
+	cmd.Flags().BoolVar(&oldMigrateAllFlag, "migrate", false, "Perform all available schema migrations on the rendered FBC")
 	cmd.MarkFlagsMutuallyExclusive("migrate", "migrate-level")
 
 	// Alpha flags
