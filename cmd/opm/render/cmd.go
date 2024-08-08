@@ -20,6 +20,8 @@ func NewCmd(showAlphaHelp bool) *cobra.Command {
 		render           action.Render
 		output           string
 		imageRefTemplate string
+
+		deprecatedMigrateFlag bool
 	)
 	cmd := &cobra.Command{
 		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory | sqlite-file]...",
@@ -63,6 +65,11 @@ database files.
 				render.ImageRefTemplate = tmpl
 			}
 
+			if deprecatedMigrateFlag {
+				// If the deprecated --migrate flag is set, run all migration stages.
+				render.MigrateStages = -1
+			}
+
 			cfg, err := render.Run(cmd.Context())
 			if err != nil {
 				log.Fatal(err)
@@ -74,7 +81,11 @@ database files.
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
-	cmd.Flags().BoolVar(&render.Migrate, "migrate", false, "Perform migrations on the rendered FBC")
+
+	cmd.Flags().IntVar(&render.MigrateStages, "migrate-stages", 0, "Number of migration stages to run; use -1 for all available stages")
+	cmd.Flags().BoolVar(&deprecatedMigrateFlag, "migrate", false, "Perform migrations on the rendered FBC")
+	cmd.Flags().MarkDeprecated("migrate", "use --migrate-stages instead")
+	cmd.MarkFlagsMutuallyExclusive("migrate", "migrate-stages")
 
 	// Alpha flags
 	cmd.Flags().StringVar(&imageRefTemplate, "alpha-image-ref-template", "", "When bundle image reference information is unavailable, populate it with this template")

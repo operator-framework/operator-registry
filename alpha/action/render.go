@@ -15,8 +15,9 @@ import (
 
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -54,7 +55,7 @@ type Render struct {
 	Refs             []string
 	Registry         image.Registry
 	AllowedRefMask   RefType
-	Migrate          bool
+	MigrateStages    int
 	ImageRefTemplate *template.Template
 
 	skipSqliteDeprecationLog bool
@@ -88,10 +89,8 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			})
 		}
 
-		if r.Migrate {
-			if err := migrate(cfg); err != nil {
-				return nil, fmt.Errorf("migrate: %v", err)
-			}
+		if err := migrate(cfg, r.MigrateStages); err != nil {
+			return nil, fmt.Errorf("migrate: %v", err)
 		}
 
 		cfgs = append(cfgs, *cfg)
@@ -416,12 +415,26 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 	}
 }
 
-func migrate(cfg *declcfg.DeclarativeConfig) error {
+func migrate(cfg *declcfg.DeclarativeConfig, migrateStages int) error {
+	// Do not delete or change the order of the below migrations.
+	// The --migrate-stage flag is an API that depends on the presence
+	// and order of these migrations.
 	migrations := []func(*declcfg.DeclarativeConfig) error{
 		convertObjectsToCSVMetadata,
 	}
 
-	for _, m := range migrations {
+	if migrateStages > len(migrations) {
+		return fmt.Errorf("number of requested migration stages to run (%d) exceeds number of available migrations (%d)", migrateStages, len(migrations))
+	}
+
+	// migrateStages <0 means all migrations
+	// migrateStages 0 means no migrations
+	// migrateStages 1 means only the first migration
+	// etc...
+	for i, m := range migrations {
+		if i == migrateStages {
+			break
+		}
 		if err := m(cfg); err != nil {
 			return err
 		}
