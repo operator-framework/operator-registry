@@ -6,16 +6,19 @@ import (
 	"fmt"
 	"io"
 
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const schema string = "olm.template.basic"
 
 type Template struct {
-	Registry image.Registry
+	Registry   image.Registry
+	Migrations *migrations.Migrations
 }
 
 type BasicTemplate struct {
@@ -58,6 +61,7 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	r := action.Render{
 		Registry:       t.Registry,
 		AllowedRefMask: action.RefBundleImage,
+		Migrations:     t.Migrations,
 	}
 
 	for _, b := range cfg.Bundles {
