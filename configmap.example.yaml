@@ -5724,7 +5724,7 @@ data:
 
           ### Reading and writing to etcd
 
-          Communicate with etcd though its command line utility `etcdctl` or with the API using the automatically generated Kubernetes Service.
+          Communicate with etcd though its command line utility `etcdctl` or with the API using the Kubernetes Service.
 
           [Read the complete guide to using the etcd Open Cloud Service](https://coreos.com/tectonic/docs/latest/alm/etcd-ocs.html)
 
@@ -5901,7 +5901,7 @@ data:
 
           ### Reading and writing to etcd
 
-          Communicate with etcd though its command line utility `etcdctl` or with the API using the automatically generated Kubernetes Service.
+          Communicate with etcd though its command line utility `etcdctl` or with the API using the Kubernetes Service.
 
           [Read the complete guide to using the etcd Open Cloud Service](https://coreos.com/tectonic/docs/latest/alm/etcd-ocs.html)
 
@@ -6196,7 +6196,7 @@ data:
 
           ### Reading and writing to etcd
 
-          Communicate with etcd though its command line utility `etcdctl` or with the API using the automatically generated Kubernetes Service.
+          Communicate with etcd though its command line utility `etcdctl` or with the API using the Kubernetes Service.
 
           [Read the complete guide to using the etcd Open Cloud Service](https://coreos.com/tectonic/docs/latest/alm/etcd-ocs.html)
 
