@@ -1,12 +1,11 @@
 package action_test
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,12 +13,12 @@ import (
 	"testing/fstest"
 	"text/template"
 
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
@@ -28,6 +27,22 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
+
+type fauxMigration struct {
+	token   string
+	help    string
+	migrate func(*declcfg.DeclarativeConfig) error
+}
+
+func (m fauxMigration) Token() migrations.MigrationToken {
+	return migrations.MigrationToken(m.token)
+}
+func (m fauxMigration) Help() string {
+	return m.help
+}
+func (m fauxMigration) Migrate(config *declcfg.DeclarativeConfig) error {
+	return m.migrate(config)
+}
 
 func TestRender(t *testing.T) {
 	type spec struct {
@@ -72,6 +87,16 @@ func TestRender(t *testing.T) {
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
 	}
 	assert.NoError(t, generateSqliteFile(dbFile, imageMap))
+	testMigrations := migrations.Migrations{
+		Migrations: []migrations.Migration{
+			fauxMigration{"faux-migration", "my help text", func(d *declcfg.DeclarativeConfig) error {
+				for i, _ := range d.Bundles {
+					d.Bundles[i].Name = fmt.Sprintf("%s-MIGRATED", d.Bundles[i].Name)
+				}
+				return nil
+			}},
+		},
+	}
 
 	specs := []spec{
 		{
@@ -109,7 +134,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
+							property.MustBuildBundleObject(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -133,7 +159,101 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/SqliteIndexImageWithMigration",
+			render: action.Render{
+				Refs:       []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
+				Registry:   reg,
+				Migrations: &testMigrations,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "beta",
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.1.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.1.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
+							},
+						},
+						CsvJSON: string(foov1csv),
+						Objects: []string{string(foov1csv), string(foov1crd)},
+					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -199,7 +319,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
+							property.MustBuildBundleObject(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -223,7 +344,101 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+						CsvJSON: string(foov2csv),
+						Objects: []string{string(foov2csv), string(foov2crd)},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/SqliteFileMigration",
+			render: action.Render{
+				Refs:       []string{dbFile},
+				Registry:   reg,
+				Migrations: &testMigrations,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema:         "olm.package",
+						Name:           "foo",
+						DefaultChannel: "beta",
+					},
+				},
+				Channels: []declcfg.Channel{
+					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
+						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
+						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.1.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.1.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov1crd),
+							property.MustBuildBundleObject(foov1csv),
+						},
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.1.0",
+							},
+						},
+						CsvJSON: string(foov1csv),
+						Objects: []string{string(foov1csv), string(foov1crd)},
+					},
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -453,9 +668,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/DeclcfgImageMigrate",
 			render: action.Render{
-				Refs:     []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
-				Migrate:  true,
-				Registry: reg,
+				Refs:       []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
+				Registry:   reg,
+				Migrations: &testMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -484,7 +699,7 @@ func TestRender(t *testing.T) {
 				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0",
+						Name:    "foo.v0.1.0-MIGRATED",
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
@@ -492,7 +707,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
+							property.MustBuildBundleObject(foov1csv),
+							property.MustBuildBundleObject(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -508,7 +724,7 @@ func TestRender(t *testing.T) {
 					},
 					{
 						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0",
+						Name:    "foo.v0.2.0-MIGRATED",
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
@@ -516,7 +732,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -550,9 +767,9 @@ func TestRender(t *testing.T) {
 		{
 			name: "Success/DeclcfgDirectoryMigrate",
 			render: action.Render{
-				Refs:     []string{"testdata/foo-index-v0.2.0-declcfg"},
-				Migrate:  true,
-				Registry: reg,
+				Refs:       []string{"testdata/foo-index-v0.2.0-declcfg"},
+				Registry:   reg,
+				Migrations: &testMigrations,
 			},
 			expectCfg: &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{
@@ -581,7 +798,7 @@ func TestRender(t *testing.T) {
 				Bundles: []declcfg.Bundle{
 					{
 						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0",
+						Name:    "foo.v0.1.0-MIGRATED",
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
 						Properties: []property.Property{
@@ -589,7 +806,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.1.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov1csv)),
+							property.MustBuildBundleObject(foov1csv),
+							property.MustBuildBundleObject(foov1crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -605,7 +823,7 @@ func TestRender(t *testing.T) {
 					},
 					{
 						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0",
+						Name:    "foo.v0.2.0-MIGRATED",
 						Package: "foo",
 						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
 						Properties: []property.Property{
@@ -613,7 +831,8 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2csv),
+							property.MustBuildBundleObject(foov2crd),
 						},
 						RelatedImages: []declcfg.RelatedImage{
 							{
@@ -662,7 +881,59 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+						},
+						Objects: []string{string(foov2csv), string(foov2crd)},
+						CsvJSON: string(foov2csv),
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/BundleImageMigration",
+			render: action.Render{
+				Refs:       []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
+				Registry:   reg,
+				Migrations: &testMigrations,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
 						},
 						Objects: []string{string(foov2csv), string(foov2crd)},
 						CsvJSON: string(foov2csv),
@@ -711,7 +982,54 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csvNoRelatedImages)),
+							property.MustBuildBundleObject(foov2crdNoRelatedImages),
+							property.MustBuildBundleObject(foov2csvNoRelatedImages),
+						},
+						Objects: []string{string(foov2csvNoRelatedImages), string(foov2crdNoRelatedImages)},
+						CsvJSON: string(foov2csvNoRelatedImages),
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/BundleImageWithNoCSVRelatedImagesMigration",
+			render: action.Render{
+				Refs:       []string{"test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0"},
+				Registry:   reg,
+				Migrations: &testMigrations,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo-bundle-no-csv-related-images:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csvNoRelatedImages),
 						},
 						Objects: []string{string(foov2csvNoRelatedImages), string(foov2crdNoRelatedImages)},
 						CsvJSON: string(foov2csvNoRelatedImages),
@@ -756,7 +1074,57 @@ func TestRender(t *testing.T) {
 							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
 							property.MustBuildPackage("foo", "0.2.0"),
 							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							mustBuildCSVMetadata(bytes.NewReader(foov2csv)),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
+						},
+						Objects: []string{string(foov2csv), string(foov2crd)},
+						CsvJSON: string(foov2csv),
+						RelatedImages: []declcfg.RelatedImage{
+							{
+								Image: "test.registry/foo-operator/foo-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
+							},
+							{
+								Image: "test.registry/foo-operator/foo-init:v0.2.0",
+							},
+							{
+								Name:  "other",
+								Image: "test.registry/foo-operator/foo-other:v0.2.0",
+							},
+							{
+								Name:  "operator",
+								Image: "test.registry/foo-operator/foo:v0.2.0",
+							},
+						},
+					},
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Success/BundleDirectoryWithImageRefTemplateMigration",
+			render: action.Render{
+				Refs:             []string{"testdata/foo-bundle-v0.2.0"},
+				ImageRefTemplate: template.Must(template.New("imageRef").Parse("test.registry/{{.Package}}-operator/{{.Package}}:v{{.Version}}")),
+				Registry:         reg,
+				Migrations:       &testMigrations,
+			},
+			expectCfg: &declcfg.DeclarativeConfig{
+				Bundles: []declcfg.Bundle{
+					{
+						Schema:  "olm.bundle",
+						Name:    "foo.v0.2.0-MIGRATED",
+						Package: "foo",
+						Image:   "test.registry/foo-operator/foo:v0.2.0",
+						Properties: []property.Property{
+							property.MustBuildGVK("test.foo", "v1", "Foo"),
+							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
+							property.MustBuildPackage("foo", "0.2.0"),
+							property.MustBuildPackageRequired("bar", "<0.1.0"),
+							property.MustBuildBundleObject(foov2crd),
+							property.MustBuildBundleObject(foov2csv),
 						},
 						Objects: []string{string(foov2csv), string(foov2crd)},
 						CsvJSON: string(foov2csv),
@@ -1194,12 +1562,4 @@ func generateSqliteFile(path string, imageMap map[image.Reference]string) error 
 		return err
 	}
 	return nil
-}
-
-func mustBuildCSVMetadata(r io.Reader) property.Property {
-	var csv v1alpha1.ClusterServiceVersion
-	if err := json.NewDecoder(r).Decode(&csv); err != nil {
-		panic(err)
-	}
-	return property.MustBuildCSVMetadata(csv)
 }

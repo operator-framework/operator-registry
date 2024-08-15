@@ -6,13 +6,13 @@ import (
 	"io"
 	"sort"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
-
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/yaml"
+
+	"github.com/operator-framework/operator-registry/alpha/action"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
 func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
@@ -35,6 +35,7 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 			AllowedRefMask: action.RefBundleImage,
 			Refs:           []string{b},
 			Registry:       t.Registry,
+			Migrations:     t.Migrations,
 		}
 		c, err := r.Run(ctx)
 		if err != nil {

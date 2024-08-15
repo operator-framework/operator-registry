@@ -327,7 +327,7 @@ func TestGetBundle(t *testing.T) {
 		}
 	)
 	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
 	t.Run("FBCCacheWithDeprecations", testGetBundle(deprecationCacheAddress, cockroachBundle))
 }
 
@@ -351,7 +351,7 @@ func TestGetBundleForChannel(t *testing.T) {
 			CsvJson: b.CsvJson + "\n",
 		}))
 	}
-	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T) {
@@ -456,7 +456,7 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 
 func TestGetBundleThatReplaces(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.T) {
@@ -472,7 +472,7 @@ func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.
 
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
 	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(*testing.T) {
@@ -682,7 +682,7 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 
 func TestGetDefaultBundleThatProvides(t *testing.T) {
 	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsCSVOnly)))
+	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*testing.T) {

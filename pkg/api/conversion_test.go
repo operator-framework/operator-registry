@@ -59,7 +59,10 @@ func testModelBundle(t *testing.T) model.Bundle {
 			property.MustBuildPackageRequired("test", ">=1.2.3 <2.0.0-0"),
 			property.MustBuildGVKRequired("testapi.coreos.com", "v1", "Testapi"),
 			property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
-			property.MustBuildCSVMetadata(csv),
+			property.MustBuildBundleObject([]byte(crdbackups)),
+			property.MustBuildBundleObject([]byte(crdclusters)),
+			property.MustBuildBundleObject([]byte(csvJson)),
+			property.MustBuildBundleObject([]byte(crdrestores)),
 		},
 		CsvJSON: csvJson,
 		Objects: []string{

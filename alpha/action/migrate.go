@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
@@ -12,6 +13,7 @@ import (
 type Migrate struct {
 	CatalogRef string
 	OutputDir  string
+	Migrations *migrations.Migrations
 
 	WriteFunc declcfg.WriteFunc
 	FileExt   string
@@ -28,8 +30,8 @@ func (m Migrate) Run(ctx context.Context) error {
 	}
 
 	r := Render{
-		Refs:    []string{m.CatalogRef},
-		Migrate: true,
+		Refs:       []string{m.CatalogRef},
+		Migrations: m.Migrations,
 
 		// Only allow catalogs to be migrated.
 		AllowedRefMask: RefSqliteImage | RefSqliteFile | RefDCImage | RefDCDir,

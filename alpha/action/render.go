@@ -15,9 +15,9 @@ import (
 
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/matchers"
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
@@ -54,8 +54,8 @@ type Render struct {
 	Refs             []string
 	Registry         image.Registry
 	AllowedRefMask   RefType
-	Migrate          bool
 	ImageRefTemplate *template.Template
+	Migrations       *migrations.Migrations
 
 	skipSqliteDeprecationLog bool
 }
@@ -88,10 +88,8 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 			})
 		}
 
-		if r.Migrate {
-			if err := migrate(cfg); err != nil {
-				return nil, fmt.Errorf("migrate: %v", err)
-			}
+		if err := r.migrate(cfg); err != nil {
+			return nil, fmt.Errorf("migrate: %v", err)
 		}
 
 		cfgs = append(cfgs, *cfg)
@@ -416,48 +414,12 @@ func moveBundleObjectsToEndOfPropertySlices(cfg *declcfg.DeclarativeConfig) {
 	}
 }
 
-func migrate(cfg *declcfg.DeclarativeConfig) error {
-	migrations := []func(*declcfg.DeclarativeConfig) error{
-		convertObjectsToCSVMetadata,
+func (r Render) migrate(cfg *declcfg.DeclarativeConfig) error {
+	// If there are no migrations, do nothing.
+	if r.Migrations == nil {
+		return nil
 	}
-
-	for _, m := range migrations {
-		if err := m(cfg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func convertObjectsToCSVMetadata(cfg *declcfg.DeclarativeConfig) error {
-BundleLoop:
-	for bi, b := range cfg.Bundles {
-		if b.Image == "" || b.CsvJSON == "" {
-			continue
-		}
-
-		var csv v1alpha1.ClusterServiceVersion
-		if err := json.Unmarshal([]byte(b.CsvJSON), &csv); err != nil {
-			return err
-		}
-
-		props := b.Properties[:0]
-		for _, p := range b.Properties {
-			switch p.Type {
-			case property.TypeBundleObject:
-				// Get rid of the bundle objects
-			case property.TypeCSVMetadata:
-				// If this bundle already has a CSV metadata
-				// property, we won't mutate the bundle at all.
-				continue BundleLoop
-			default:
-				// Keep all of the other properties
-				props = append(props, p)
-			}
-		}
-		cfg.Bundles[bi].Properties = append(props, property.MustBuildCSVMetadata(csv))
-	}
-	return nil
+	return r.Migrations.Migrate(cfg)
 }
 
 func combineConfigs(cfgs []declcfg.DeclarativeConfig) *declcfg.DeclarativeConfig {
