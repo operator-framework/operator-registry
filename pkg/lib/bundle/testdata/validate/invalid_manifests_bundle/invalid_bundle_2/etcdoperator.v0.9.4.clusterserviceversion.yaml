@@ -100,7 +100,7 @@ spec:
     \n\n### Reading and writing to etcd\n\nCommunicate with etcd though its command\
     \ line utility `etcdctl` via port forwarding:\n\n    $ kubectl --namespace default\
     \ port-forward service/example-client 2379:2379\n    $ etcdctl --endpoints http://127.0.0.1:2379\
-    \ get /\n\nOr directly to the API using the automatically generated Kubernetes\
+    \ get /\n\nOr directly to the API using the Kubernetes\
     \ Service:\n\n    $ etcdctl --endpoints http://example-client.default.svc:2379\
     \ get /\n\nBe sure to secure your etcd cluster (see Common Configurations) before\
     \ exposing it outside of the namespace or cluster.\n\n\n### Supported Features\n\
