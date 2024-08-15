@@ -22,7 +22,7 @@ func TestMigrations(t *testing.T) {
 	allMigrations, err := NewMigrations(AllMigrations)
 	require.NoError(t, err)
 
-	evaluators := map[MigrationToken]func(*declcfg.DeclarativeConfig) error{
+	migrationPhaseEvaluators := map[MigrationToken]func(*declcfg.DeclarativeConfig) error{
 		MigrationToken(NoMigrations): func(d *declcfg.DeclarativeConfig) error {
 			if diff := cmp.Diff(*d, unmigratedCatalogFBC()); diff != "" {
 				return fmt.Errorf("'none' migrator is not expected to change the config\n%s", diff)
@@ -62,7 +62,7 @@ func TestMigrations(t *testing.T) {
 			for _, m := range test.migrators.Migrations {
 				err := m.Migrate(&config)
 				require.NoError(t, err)
-				err = evaluators[m.Token()](&config)
+				err = migrationPhaseEvaluators[m.Token()](&config)
 				require.NoError(t, err)
 			}
 		})

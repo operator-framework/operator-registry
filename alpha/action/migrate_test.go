@@ -10,36 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
-type fauxMigration struct {
-	token   string
-	help    string
-	migrate func(*declcfg.DeclarativeConfig) error
-}
-
-func (m fauxMigration) Token() migrations.MigrationToken {
-	return migrations.MigrationToken(m.token)
-}
-func (m fauxMigration) Help() string {
-	return m.help
-}
-func (m fauxMigration) Migrate(config *declcfg.DeclarativeConfig) error {
-	return m.migrate(config)
-}
-
 func TestMigrate(t *testing.T) {
 	type spec struct {
-		name           string
-		migrate        action.Migrate
-		expectedFiles  map[string]string
-		expectErr      error
-		migrationCount int
+		name          string
+		migrate       action.Migrate
+		expectedFiles map[string]string
+		expectErr     error
 	}
 
 	sqliteBundles := map[image.Reference]string{
@@ -56,11 +38,6 @@ func TestMigrate(t *testing.T) {
 
 	reg, err := newMigrateRegistry(t, sqliteBundles)
 	require.NoError(t, err)
-
-	migrationCounter := 0
-	testMigrations := []migrations.Migration{
-		fauxMigration{"faux-migration", "my help text", func(_ *declcfg.DeclarativeConfig) error { migrationCounter++; return nil }},
-	}
 
 	specs := []spec{
 		{
@@ -137,31 +114,9 @@ func TestMigrate(t *testing.T) {
 				"bar/catalog.yaml": migrateBarCatalogSqlite(),
 			},
 		},
-		{
-			name: "SqliteImage/Success/WithMigrations",
-			migrate: action.Migrate{
-				CatalogRef: "test.registry/migrate/catalog:sqlite",
-				WriteFunc:  declcfg.WriteYAML,
-				FileExt:    ".yaml",
-				Registry:   reg,
-				Migrations: &migrations.Migrations{
-					Migrations: testMigrations,
-				},
-			},
-			expectedFiles: map[string]string{
-				"foo/catalog.yaml": migrateFooCatalogSqlite(),
-				"bar/catalog.yaml": migrateBarCatalogSqlite(),
-			},
-			migrationCount: 1,
-		},
 	}
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			var migrationPre int
-			if s.migrationCount != 0 {
-				migrationPre = migrationCounter
-			}
-
 			s.migrate.OutputDir = t.TempDir()
 
 			err := s.migrate.Run(context.Background())
@@ -182,10 +137,6 @@ func TestMigrate(t *testing.T) {
 				require.Equal(t, expectedData, string(actualData))
 				return nil
 			})
-
-			if s.migrationCount != 0 {
-				require.Equal(t, migrationCounter, migrationPre+s.migrationCount)
-			}
 		})
 	}
 }
