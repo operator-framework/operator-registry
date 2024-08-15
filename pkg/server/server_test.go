@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -142,11 +143,14 @@ func TestMain(m *testing.M) {
 	}
 	fbcServerDeprecations := server(fbcDeprecationStore)
 
+	var wg sync.WaitGroup
+	wg.Add(3)
 	go func() {
 		lis, err := net.Listen("tcp", dbPort)
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
+		wg.Done()
 		if err := grpcServer.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve db: %v", err)
 		}
@@ -156,6 +160,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
+		wg.Done()
 		if err := fbcServerSimple.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve fbc cache: %v", err)
 		}
@@ -165,10 +170,12 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
+		wg.Done()
 		if err := fbcServerDeprecations.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve fbc cache: %v", err)
 		}
 	}()
+	wg.Wait()
 	exit := m.Run()
 	os.Exit(exit)
 }
