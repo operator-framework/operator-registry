@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -257,6 +258,25 @@ func TestValidators(t *testing.T) {
 				Icon: &Icon{Data: mustBase64Decode(svgData), MediaType: "image/svg+xml"},
 			},
 			assertion: hasError("package must contain at least one channel"),
+		},
+		{
+			name: "Package/Error/DuplicateBundleVersions",
+			v: &Package{
+				Name: "anakin",
+				Channels: map[string]*Channel{
+					"light": {
+						Package: pkg,
+						Name:    "light",
+						Bundles: map[string]*Bundle{
+							"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+							"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1")},
+							"anakin.v1.0.1": {Name: "anakin.v1.0.1", Version: semver.MustParse("1.0.1")},
+							"anakin.v1.0.2": {Name: "anakin.v1.0.2", Version: semver.MustParse("1.0.1")},
+						},
+					},
+				},
+			},
+			assertion: hasError(`duplicate versions found in bundles: [{0.0.1: [anakin.v0.0.1, anakin.v0.0.2]} {1.0.1: [anakin.v1.0.1, anakin.v1.0.2]}]`),
 		},
 		{
 			name: "Package/Error/NoDefaultChannel",
@@ -612,6 +632,7 @@ func makePackageChannelBundle() (*Package, *Channel) {
 			property.MustBuildPackage("anakin", "0.0.1"),
 			property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
 		},
+		Version: semver.MustParse("0.0.1"),
 	}
 	bundle2 := &Bundle{
 		Name:     "anakin.v0.0.2",
@@ -621,6 +642,7 @@ func makePackageChannelBundle() (*Package, *Channel) {
 			property.MustBuildPackage("anakin", "0.0.2"),
 			property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
 		},
+		Version: semver.MustParse("0.0.2"),
 	}
 	ch := &Channel{
 		Name: "light",

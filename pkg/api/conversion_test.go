@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -77,6 +79,7 @@ func testModelBundle(t *testing.T) model.Bundle {
 				Image: "quay.io/coreos/etcd-operator@sha256:66a37fd61a06a43969854ee6d3e21087a98b93838e284a6086b13917f96b0d9b",
 			},
 		},
+		Version: semver.MustParse("0.9.4"),
 	}
 	return b
 }

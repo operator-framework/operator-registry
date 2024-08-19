@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
@@ -448,6 +450,41 @@ func TestConvertToModel(t *testing.T) {
 			s.assertion(t, err)
 		})
 	}
+}
+
+func TestConvertToModelBundle(t *testing.T) {
+	cfg := DeclarativeConfig{
+		Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+		Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"})},
+		Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
+	}
+	m, err := ConvertToModel(cfg)
+	require.NoError(t, err)
+
+	pkg, ok := m["foo"]
+	require.True(t, ok, "expected package 'foo' to be present")
+	ch, ok := pkg.Channels["alpha"]
+	require.True(t, ok, "expected channel 'alpha' to be present")
+	b, ok := ch.Bundles["foo.v0.1.0"]
+	require.True(t, ok, "expected bundle 'foo.v0.1.0' to be present")
+
+	assert.Equal(t, pkg, b.Package)
+	assert.Equal(t, ch, b.Channel)
+	assert.Equal(t, "foo.v0.1.0", b.Name)
+	assert.Equal(t, "foo-bundle:v0.1.0", b.Image)
+	assert.Equal(t, "", b.Replaces)
+	assert.Nil(t, b.Skips)
+	assert.Equal(t, "", b.SkipRange)
+	assert.Len(t, b.Properties, 3)
+	assert.Equal(t, []model.RelatedImage{{Name: "bundle", Image: "foo-bundle:v0.1.0"}}, b.RelatedImages)
+	assert.Nil(t, b.Deprecation)
+	assert.Len(t, b.Objects, 2)
+	assert.NotEmpty(t, b.CsvJSON)
+	assert.NotNil(t, b.PropertiesP)
+	assert.Len(t, b.PropertiesP.BundleObjects, 2)
+	assert.Len(t, b.PropertiesP.Packages, 1)
+	assert.Equal(t, semver.MustParse("0.1.0"), b.Version)
+
 }
 
 func TestConvertToModelRoundtrip(t *testing.T) {
