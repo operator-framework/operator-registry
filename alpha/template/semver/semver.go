@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
@@ -25,22 +24,16 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 
 	var cfgs []declcfg.DeclarativeConfig
 
-	bundleDict := make(map[string]struct{})
-	buildBundleList(&sv.Candidate.Bundles, &bundleDict)
-	buildBundleList(&sv.Fast.Bundles, &bundleDict)
-	buildBundleList(&sv.Stable.Bundles, &bundleDict)
-
+	bundleDict := buildBundleList(*sv)
 	for b := range bundleDict {
-		r := action.Render{
-			AllowedRefMask: action.RefBundleImage,
-			Refs:           []string{b},
-			Registry:       t.Registry,
-			Migrations:     t.Migrations,
-		}
-		c, err := r.Run(ctx)
+		c, err := t.RenderBundle(ctx, b)
 		if err != nil {
 			return nil, err
 		}
+		if len(c.Bundles) != 1 {
+			return nil, fmt.Errorf("bundle reference %q resulted in %d bundles, expected 1", b, len(c.Bundles))
+		}
+		bundleDict[b] = c.Bundles[0].Image
 		cfgs = append(cfgs, *c)
 	}
 	out = *combineConfigs(cfgs)
@@ -49,7 +42,7 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 		return nil, fmt.Errorf("render: no bundles specified or no bundles could be rendered")
 	}
 
-	channelBundleVersions, err := sv.getVersionsFromStandardChannels(&out)
+	channelBundleVersions, err := sv.getVersionsFromStandardChannels(&out, bundleDict)
 	if err != nil {
 		return nil, fmt.Errorf("render: unable to post-process bundle info: %v", err)
 	}
@@ -61,12 +54,16 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 	return &out, nil
 }
 
-func buildBundleList(bundles *[]semverTemplateBundleEntry, dict *map[string]struct{}) {
-	for _, b := range *bundles {
-		if _, ok := (*dict)[b.Image]; !ok {
-			(*dict)[b.Image] = struct{}{}
+func buildBundleList(t semverTemplate) map[string]string {
+	dict := make(map[string]string)
+	for _, bl := range []semverTemplateChannelBundles{t.Candidate, t.Fast, t.Stable} {
+		for _, b := range bl.Bundles {
+			if _, ok := dict[b.Image]; !ok {
+				dict[b.Image] = b.Image
+			}
 		}
 	}
+	return dict
 }
 
 func readFile(reader io.Reader) (*semverTemplate, error) {
@@ -114,10 +111,10 @@ func readFile(reader io.Reader) (*semverTemplate, error) {
 	return &sv, nil
 }
 
-func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig) (*bundleVersions, error) {
+func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.DeclarativeConfig, bundleDict map[string]string) (*bundleVersions, error) {
 	versions := bundleVersions{}
 
-	bdm, err := sv.getVersionsFromChannel(sv.Candidate.Bundles, cfg)
+	bdm, err := sv.getVersionsFromChannel(sv.Candidate.Bundles, bundleDict, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +123,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	}
 	versions[candidateChannelArchetype] = bdm
 
-	bdm, err = sv.getVersionsFromChannel(sv.Fast.Bundles, cfg)
+	bdm, err = sv.getVersionsFromChannel(sv.Fast.Bundles, bundleDict, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +132,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	}
 	versions[fastChannelArchetype] = bdm
 
-	bdm, err = sv.getVersionsFromChannel(sv.Stable.Bundles, cfg)
+	bdm, err = sv.getVersionsFromChannel(sv.Stable.Bundles, bundleDict, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +144,7 @@ func (sv *semverTemplate) getVersionsFromStandardChannels(cfg *declcfg.Declarati
 	return &versions, nil
 }
 
-func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateBundleEntry, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
+func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateBundleEntry, bundleDict map[string]string, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
 	entries := make(map[string]semver.Version)
 
 	// we iterate over the channel bundles from the template, to:
@@ -158,7 +155,7 @@ func (sv *semverTemplate) getVersionsFromChannel(semverBundles []semverTemplateB
 		// test if the bundle specified in the template is present in the successfully-rendered bundles
 		index := 0
 		for index < len(cfg.Bundles) {
-			if cfg.Bundles[index].Image == semverBundle.Image {
+			if cfg.Bundles[index].Image == bundleDict[semverBundle.Image] {
 				break
 			}
 			index++

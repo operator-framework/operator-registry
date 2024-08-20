@@ -1,6 +1,7 @@
 package template
 
 import (
+	"context"
 	"io"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/template/basic"
@@ -62,14 +64,23 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			}
 			defer reg.Destroy()
 
-			template.Registry = reg
-
+			var m *migrations.Migrations
 			if migrateLevel != "" {
-				m, err := migrations.NewMigrations(migrateLevel)
+				m, err = migrations.NewMigrations(migrateLevel)
 				if err != nil {
 					log.Fatal(err)
 				}
-				template.Migrations = m
+			}
+
+			template.RenderBundle = func(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+				// populate registry, incl any flags from CLI, and enforce only rendering bundle images
+				r := action.Render{
+					Refs:           []string{image},
+					Registry:       reg,
+					AllowedRefMask: action.RefBundleImage,
+					Migrations:     m,
+				}
+				return r.Run(ctx)
 			}
 
 			// only taking first file argument

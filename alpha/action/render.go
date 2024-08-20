@@ -162,19 +162,19 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
 	ref := image.SimpleReference(imageRef)
 	if err := r.Registry.Pull(ctx, ref); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to pull image %q: %v", ref, err)
 	}
 	labels, err := r.Registry.Labels(ctx, ref)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get labels for image %q: %v", ref, err)
 	}
 	tmpDir, err := os.MkdirTemp("", "render-unpack-")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create tempdir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 	if err := r.Registry.Unpack(ctx, ref, tmpDir); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unpack image %q: %v", ref, err)
 	}
 
 	var cfg *declcfg.DeclarativeConfig

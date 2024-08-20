@@ -1,6 +1,7 @@
 package template
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/template/semver"
@@ -68,17 +70,27 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			}
 			defer reg.Destroy()
 
-			template := semver.Template{
-				Data:     data,
-				Registry: reg,
-			}
+			var m *migrations.Migrations
 			if migrateLevel != "" {
-				m, err := migrations.NewMigrations(migrateLevel)
+				m, err = migrations.NewMigrations(migrateLevel)
 				if err != nil {
 					log.Fatal(err)
 				}
-				template.Migrations = m
 			}
+
+			template := semver.Template{
+				Data: data,
+				RenderBundle: func(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {
+					renderer := action.Render{
+						Refs:           []string{ref},
+						Registry:       reg,
+						AllowedRefMask: action.RefBundleImage,
+						Migrations:     m,
+					}
+					return renderer.Run(ctx)
+				},
+			}
+
 			out, err := template.Render(cmd.Context())
 			if err != nil {
 				log.Fatalf("semver %q: %v", source, err)
