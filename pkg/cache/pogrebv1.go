@@ -31,10 +31,12 @@ func newPogrebV1Backend(baseDir string) *pogrebV1Backend {
 }
 
 const (
+	FormatPogrebV1 = "pogreb.v1"
+
 	pogrebV1CacheModeDir  = 0770
 	pogrebV1CacheModeFile = 0660
 
-	pograbV1CacheDir = "pogreb.v1"
+	pograbV1CacheDir = FormatPogrebV1
 	pogrebDigestFile = pograbV1CacheDir + "/digest"
 	pogrebDbDir      = pograbV1CacheDir + "/db"
 )
@@ -46,7 +48,7 @@ type pogrebV1Backend struct {
 }
 
 func (q *pogrebV1Backend) Name() string {
-	return pograbV1CacheDir
+	return FormatPogrebV1
 }
 
 func (q *pogrebV1Backend) IsCachePresent() bool {

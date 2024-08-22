@@ -51,12 +51,19 @@ type backend interface {
 }
 
 type CacheOptions struct {
-	Log *logrus.Entry
+	Log    *logrus.Entry
+	Format string
 }
 
 func WithLog(log *logrus.Entry) CacheOption {
 	return func(o *CacheOptions) {
 		o.Log = log
+	}
+}
+
+func WithFormat(format string) CacheOption {
+	return func(o *CacheOptions) {
+		o.Format = format
 	}
 }
 
@@ -73,7 +80,7 @@ func New(cacheDir string, cacheOpts ...CacheOption) (Cache, error) {
 	for _, opt := range cacheOpts {
 		opt(opts)
 	}
-	cacheBackend, err := getDefaultBackend(cacheDir, opts.Log)
+	cacheBackend, err := getBackend(cacheDir, opts.Format, opts.Log)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +91,7 @@ func New(cacheDir string, cacheOpts ...CacheOption) (Cache, error) {
 	return &cache{backend: cacheBackend, log: opts.Log}, nil
 }
 
-func getDefaultBackend(cacheDir string, log *logrus.Entry) (backend, error) {
+func getBackend(cacheDir string, backendName string, log *logrus.Entry) (backend, error) {
 	entries, err := os.ReadDir(cacheDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("detect cache format: read cache directory: %v", err)
@@ -96,12 +103,21 @@ func getDefaultBackend(cacheDir string, log *logrus.Entry) (backend, error) {
 	}
 
 	if len(entries) == 0 {
-		log.WithField("backend", backends[0].Name()).Info("cache directory is empty, using preferred backend")
-		return backends[0], nil
+		if backendName == "" {
+			log.WithField("backend", backends[0].Name()).Info("cache directory is empty, using preferred backend")
+			return backends[0], nil
+		}
+		for _, b := range backends {
+			if b.Name() == backendName {
+				log.WithField("backend", backendName).Info("using preferred backend")
+				return b, nil
+			}
+		}
+		return nil, fmt.Errorf("preferred backend %q not found", backendName)
 	}
 
 	for _, backend := range backends {
-		if backend.IsCachePresent() {
+		if (backendName == "" || backend.Name() == backendName) && backend.IsCachePresent() {
 			log.WithField("backend", backend.Name()).Info("found existing cache contents")
 			return backend, nil
 		}
