@@ -103,6 +103,13 @@ image-upstream:
 lint:
 	find . -type f -name '*.go' ! -name '*.pb.go' -print0 | xargs -0 goimports -w
 
+.PHONY: bingo-upgrade
+bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
+	@for pkg in $$($(BINGO) list | awk '{ print $$1 }' | tail -n +3); do \
+		echo "Upgrading $$pkg to latest..."; \
+		$(BINGO) get "$$pkg@latest"; \
+	done
+
 .PHONY: codegen
 codegen: $(PROTOC) $(PROTOC_GEN_GO_GRPC)
 	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
