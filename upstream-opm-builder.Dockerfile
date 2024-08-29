@@ -14,7 +14,7 @@ WORKDIR /build
 
 COPY . .
 RUN make static
-RUN GRPC_HEALTH_PROBE_VERSION=v0.4.11 && \
+RUN GRPC_HEALTH_PROBE_VERSION=v0.4.28 && \
     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-$(go env GOARCH) && \
     chmod +x /bin/grpc_health_probe
 
