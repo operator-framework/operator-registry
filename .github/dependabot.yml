@@ -8,3 +8,7 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+  - package-exosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
