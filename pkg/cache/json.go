@@ -40,8 +40,10 @@ type jsonBackend struct {
 	bundles bundleKeys
 }
 
+const FormatJSON = "json"
+
 func (q *jsonBackend) Name() string {
-	return "json"
+	return FormatJSON
 }
 
 func (q *jsonBackend) IsCachePresent() bool {

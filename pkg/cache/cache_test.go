@@ -222,9 +222,11 @@ func TestCache_ListPackages(t *testing.T) {
 func genTestCaches(t *testing.T, fbcFS fs.FS) map[string]Cache {
 	t.Helper()
 
-	caches := map[string]Cache{
-		"json":      &cache{backend: newJSONBackend(t.TempDir()), log: log.Null()},
-		"pogreb.v1": &cache{backend: newPogrebV1Backend(t.TempDir()), log: log.Null()},
+	caches := make(map[string]Cache)
+	for _, format := range []string{FormatJSON, FormatPogrebV1} {
+		c, err := New(t.TempDir(), WithFormat(format), WithLog(log.Null()))
+		require.NoError(t, err)
+		caches[format] = c
 	}
 
 	for _, c := range caches {
