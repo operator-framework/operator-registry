@@ -10,6 +10,8 @@ export GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEA
 export OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
 export BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
+.DEFAULT_GOAL := all
+
 # bingo manages consistent tooling versions for things like kind, kustomize, etc.
 include .bingo/Variables.mk
 
