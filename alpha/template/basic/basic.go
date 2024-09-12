@@ -8,17 +8,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/pkg/image"
 )
 
 const schema string = "olm.template.basic"
 
 type Template struct {
-	Registry   image.Registry
-	Migrations *migrations.Migrations
+	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
 }
 
 type BasicTemplate struct {
@@ -57,19 +53,11 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	}
 
 	outb := cfg.Bundles[:0]
-	// populate registry, incl any flags from CLI, and enforce only rendering bundle images
-	r := action.Render{
-		Registry:       t.Registry,
-		AllowedRefMask: action.RefBundleImage,
-		Migrations:     t.Migrations,
-	}
-
 	for _, b := range cfg.Bundles {
 		if !isBundleTemplate(&b) {
 			return nil, fmt.Errorf("unexpected fields present in basic template bundle")
 		}
-		r.Refs = []string{b.Image}
-		contributor, err := r.Run(ctx)
+		contributor, err := t.RenderBundle(ctx, b.Image)
 		if err != nil {
 			return nil, err
 		}

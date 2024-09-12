@@ -1,19 +1,18 @@
 package semver
 
 import (
+	"context"
 	"io"
 
 	"github.com/blang/semver/v4"
 
-	"github.com/operator-framework/operator-registry/alpha/action/migrations"
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
 // data passed into this module externally
 type Template struct {
-	Data       io.Reader
-	Registry   image.Registry
-	Migrations *migrations.Migrations
+	Data         io.Reader
+	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
 }
 
 // IO structs -- BEGIN

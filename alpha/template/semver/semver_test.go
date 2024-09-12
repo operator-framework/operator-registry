@@ -538,7 +538,7 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			iosv := tt.sv
-			versions, err := iosv.getVersionsFromStandardChannels(&tt.dc)
+			versions, err := iosv.getVersionsFromStandardChannels(&tt.dc, buildBundleList(tt.sv))
 			require.NoError(t, err)
 			require.EqualValues(t, tt.outVersions, *versions)
 			require.EqualValues(t, "a", iosv.pkg) // verify that we learned the package name and stashed it in the receiver
@@ -591,7 +591,7 @@ func TestBailOnVersionBuildMetadata(t *testing.T) {
 	}
 
 	t.Run("Abort on unorderable build metadata version data", func(t *testing.T) {
-		_, err := sv.getVersionsFromStandardChannels(&dc)
+		_, err := sv.getVersionsFromStandardChannels(&dc, buildBundleList(sv))
 		require.Error(t, err)
 	})
 }
