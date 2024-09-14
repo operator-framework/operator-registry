@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -12,7 +15,11 @@ import (
 func main() {
 	showAlphaHelp := os.Getenv("HELP_ALPHA") == "true"
 	cmd := root.NewCmd(showAlphaHelp)
-	if err := cmd.Execute(); err != nil {
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		agg, ok := err.(utilerrors.Aggregate)
 		if !ok {
 			os.Exit(1)

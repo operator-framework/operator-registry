@@ -15,7 +15,6 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
-	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/lib/tmp"
 	"github.com/operator-framework/operator-registry/pkg/server"
@@ -58,6 +57,9 @@ func main() {
 }
 
 func runCmdFunc(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
 	// Immediately set up termination log
 	terminationLogPath, err := cmd.Flags().GetString("termination-log")
 	if err != nil {
@@ -95,19 +97,23 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if _, err := db.ExecContext(context.TODO(), `PRAGMA soft_heap_limit=1`); err != nil {
+	if _, err := db.ExecContext(ctx, `PRAGMA soft_heap_limit=1`); err != nil {
 		logger.WithError(err).Warnf("error setting soft heap limit for sqlite")
 	}
 
 	// migrate to the latest version
-	if err := migrate(cmd, db); err != nil {
+	shouldSkipMigrate, err := cmd.Flags().GetBool("skip-migrate")
+	if err != nil {
+		return err
+	}
+	if err := migrate(ctx, shouldSkipMigrate, db); err != nil {
 		logger.WithError(err).Warnf("couldn't migrate db")
 	}
 
 	store := sqlite.NewSQLLiteQuerierFromDb(db, sqlite.OmitManifests(true))
 
 	// sanity check that the db is available
-	tables, err := store.ListTables(context.TODO())
+	tables, err := store.ListTables(ctx)
 	if err != nil {
 		logger.WithError(err).Warnf("couldn't list tables in db")
 	}
@@ -124,20 +130,18 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	api.RegisterRegistryServer(s, server.NewRegistryServer(store))
 	health.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
-	logger.Info("serving registry")
 
-	return graceful.Shutdown(logger, func() error {
-		return s.Serve(lis)
-	}, func() {
+	go func() {
+		<-ctx.Done()
+		logger.Info("shutting down server")
 		s.GracefulStop()
-	})
+	}()
+
+	logger.Info("serving registry")
+	return s.Serve(lis)
 }
 
-func migrate(cmd *cobra.Command, db *sql.DB) error {
-	shouldSkipMigrate, err := cmd.Flags().GetBool("skip-migrate")
-	if err != nil {
-		return err
-	}
+func migrate(ctx context.Context, shouldSkipMigrate bool, db *sql.DB) error {
 	if shouldSkipMigrate {
 		return nil
 	}
@@ -150,5 +154,5 @@ func migrate(cmd *cobra.Command, db *sql.DB) error {
 		return fmt.Errorf("failed to load migrator")
 	}
 
-	return migrator.Migrate(context.TODO())
+	return migrator.Migrate(ctx)
 }

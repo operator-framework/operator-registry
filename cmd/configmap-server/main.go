@@ -17,7 +17,6 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
-	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/server"
@@ -59,6 +58,9 @@ func main() {
 }
 
 func runCmdFunc(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
 	// Immediately set up termination log
 	terminationLogPath, err := cmd.Flags().GetString("termination-log")
 	if err != nil {
@@ -99,7 +101,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	logger := logrus.WithFields(logrus.Fields{"configMapName": configMapName, "configMapNamespace": configMapNamespace, "port": port})
 
 	client := NewClientFromConfig(kubeconfig, logger.Logger)
-	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(configMapNamespace).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalf("error getting configmap: %s", err)
 	}
@@ -113,7 +115,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := sqlLoader.Migrate(context.TODO()); err != nil {
+	if err := sqlLoader.Migrate(ctx); err != nil {
 		return err
 	}
 
@@ -136,7 +138,7 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	// sanity check that the db is available
-	tables, err := store.ListTables(context.TODO())
+	tables, err := store.ListTables(ctx)
 	if err != nil {
 		logger.WithError(err).Warnf("couldn't list tables in db")
 	}
@@ -154,12 +156,14 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	health.RegisterHealthServer(s, server.NewHealthServer())
 	reflection.Register(s)
 
-	logger.Info("serving registry")
-	return graceful.Shutdown(logger, func() error {
-		return s.Serve(lis)
-	}, func() {
+	go func() {
+		<-ctx.Done()
+		logger.Info("shutting down server")
 		s.GracefulStop()
-	})
+	}()
+
+	logger.Info("serving registry")
+	return s.Serve(lis)
 }
 
 // NewClient creates a kubernetes client or bails out on on failures.

@@ -23,7 +23,6 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/cache"
 	"github.com/operator-framework/operator-registry/pkg/lib/dns"
-	"github.com/operator-framework/operator-registry/pkg/lib/graceful"
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/server"
 )
@@ -91,6 +90,9 @@ will not be reflected in the served content.
 }
 
 func (s *serve) run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	mainLogger := s.logger.Dup()
 	p := newProfilerInterface(s.pprofAddr, mainLogger)
 	if err := p.startEndpoint(); err != nil {
@@ -169,15 +171,16 @@ func (s *serve) run(ctx context.Context) error {
 	mainLogger.Info("serving registry")
 	p.stopCpuProfileCache()
 
-	return graceful.Shutdown(s.logger, func() error {
-		return grpcServer.Serve(lis)
-	}, func() {
+	go func() {
+		<-ctx.Done()
+		mainLogger.Info("shutting down server")
 		grpcServer.GracefulStop()
 		if err := p.stopEndpoint(ctx); err != nil {
 			mainLogger.Warnf("error shutting down pprof server: %v", err)
 		}
-	})
+	}()
 
+	return grpcServer.Serve(lis)
 }
 
 // manages an HTTP pprof endpoint served by `server`,
