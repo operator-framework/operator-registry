@@ -148,7 +148,7 @@ export LATEST_IMAGE_OR_EMPTY := $(shell \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 RELEASE_GOOS := $(shell go env GOOS)
-RELEASE_ARGS ?= release --rm-dist --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
+RELEASE_ARGS ?= release --clean --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
 
 # Note: bingo does not yet support windows (https://github.com/bwplotka/bingo/issues/26)
 # so GOOS=windows gets its own way to install goreleaser

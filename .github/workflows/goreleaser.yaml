@@ -61,7 +61,7 @@ jobs:
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ARGS: release --rm-dist -f release/goreleaser.windows.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+          RELEASE_ARGS: release --skip=validate --clean -f release/goreleaser.windows.yaml ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: tar -cvf dist-windows.tar dist
       - uses: actions/upload-artifact@v4
