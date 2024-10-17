@@ -85,7 +85,7 @@ jobs:
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ARGS: release --rm-dist -f release/goreleaser.darwin.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+          RELEASE_ARGS: release --rm-dist -f release/goreleaser.darwin.yaml --skip=validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: gtar -cvf dist-darwin.tar dist
       - uses: actions/upload-artifact@v4
@@ -140,7 +140,7 @@ jobs:
         run: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ARGS: release --rm-dist -f release/goreleaser.linux.yaml --skip-validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
+          RELEASE_ARGS: release --rm-dist -f release/goreleaser.linux.yaml --skip=validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: tar -cvf dist-linux.tar dist
       - uses: actions/upload-artifact@v4
