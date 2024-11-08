@@ -1,6 +1,8 @@
 module github.com/operator-framework/operator-registry
 
-go 1.22.5
+go 1.22.7
+
+toolchain go1.22.9
 
 require (
 	github.com/akrylysov/pogreb v0.10.2
@@ -37,12 +39,12 @@ require (
 	github.com/tidwall/btree v1.7.0
 	go.etcd.io/bbolt v1.3.11
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/mod v0.22.0
-	golang.org/x/net v0.31.0
+	golang.org/x/mod v0.21.0
+	golang.org/x/net v0.30.0
 	golang.org/x/sync v0.9.0
 	golang.org/x/sys v0.27.0
 	golang.org/x/text v0.20.0
-	google.golang.org/grpc v1.67.1
+	google.golang.org/grpc v1.68.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v2 v2.4.0
