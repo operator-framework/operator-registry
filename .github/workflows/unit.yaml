@@ -20,7 +20,7 @@ jobs:
           go-version-file: "go.mod"
       - run: make unit
       - run: sed -i'' "s:^github.com/$GITHUB_REPOSITORY/::" coverage.out
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           disable_search: true
           files: coverage.out
