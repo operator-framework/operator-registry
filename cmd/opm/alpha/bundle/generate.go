@@ -45,6 +45,7 @@ Note:
 	bundleGenerateCmd.Flags().StringVarP(&outputDir, "output-dir", "u", "",
 		"Optional output directory for operator manifests")
 
+	bundleGenerateCmd.Flags().StringVar(&baseImage, "base-image", "scratch", "Use a custom image pullspec as the base bundle image")
 	return bundleGenerateCmd
 }
 
@@ -56,5 +57,6 @@ func generateFunc(cmd *cobra.Command, _ []string) error {
 		channels,
 		defaultChannel,
 		true,
+		baseImage,
 	)
 }
