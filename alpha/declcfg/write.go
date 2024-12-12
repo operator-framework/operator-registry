@@ -2,11 +2,13 @@ package declcfg
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -394,14 +396,25 @@ type encoder interface {
 	Encode(interface{}) error
 }
 
-func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
-	pkgNames := sets.NewString()
-
+func organizeByPackage(cfg DeclarativeConfig) map[string]DeclarativeConfig {
+	pkgNames := sets.New[string]()
 	packagesByName := map[string][]Package{}
 	for _, p := range cfg.Packages {
 		pkgName := p.Name
 		pkgNames.Insert(pkgName)
 		packagesByName[pkgName] = append(packagesByName[pkgName], p)
+	}
+	packageV2sByName := map[string][]PackageV2{}
+	for _, p := range cfg.PackageV2s {
+		pkgName := p.Package
+		pkgNames.Insert(pkgName)
+		packageV2sByName[pkgName] = append(packageV2sByName[pkgName], p)
+	}
+	packageIconsByPackage := map[string][]PackageIcon{}
+	for _, pi := range cfg.PackageIcons {
+		pkgName := pi.Package
+		pkgNames.Insert(pkgName)
+		packageIconsByPackage[pkgName] = append(packageIconsByPackage[pkgName], pi)
 	}
 	channelsByPackage := map[string][]Channel{}
 	for _, c := range cfg.Channels {
@@ -414,6 +427,12 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgName := b.Package
 		pkgNames.Insert(pkgName)
 		bundlesByPackage[pkgName] = append(bundlesByPackage[pkgName], b)
+	}
+	bundleV2sByPackage := map[string][]BundleV2{}
+	for _, b := range cfg.BundleV2s {
+		pkgName := b.Package
+		pkgNames.Insert(pkgName)
+		bundleV2sByPackage[pkgName] = append(bundleV2sByPackage[pkgName], b)
 	}
 	othersByPackage := map[string][]Meta{}
 	for _, o := range cfg.Others {
@@ -428,97 +447,73 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		deprecationsByPackage[pkgName] = append(deprecationsByPackage[pkgName], d)
 	}
 
-	for _, pName := range pkgNames.List() {
-		if len(pName) == 0 {
-			continue
+	fbcsByPackageName := make(map[string]DeclarativeConfig, len(pkgNames))
+	for _, pkgName := range sets.List(pkgNames) {
+		fbcsByPackageName[pkgName] = DeclarativeConfig{
+			Packages:     packagesByName[pkgName],
+			PackageV2s:   packageV2sByName[pkgName],
+			PackageIcons: packageIconsByPackage[pkgName],
+			Channels:     channelsByPackage[pkgName],
+			Bundles:      bundlesByPackage[pkgName],
+			BundleV2s:    bundleV2sByPackage[pkgName],
+			Deprecations: deprecationsByPackage[pkgName],
+			Others:       othersByPackage[pkgName],
 		}
-		pkgs := packagesByName[pName]
-		for _, p := range pkgs {
-			if err := enc.Encode(p); err != nil {
+	}
+	return fbcsByPackageName
+}
+
+func encodeAll[T any](values []T) func(encoder) error {
+	return func(enc encoder) error {
+		for _, v := range values {
+			if err := enc.Encode(v); err != nil {
 				return err
 			}
 		}
+		return nil
+	}
+}
 
-		channels := channelsByPackage[pName]
-		sort.Slice(channels, func(i, j int) bool {
-			return channels[i].Name < channels[j].Name
+func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
+	byPackage := organizeByPackage(cfg)
+
+	for _, pkgName := range sets.List(sets.KeySet(byPackage)) {
+		slices.SortFunc(byPackage[pkgName].Packages, func(i, j Package) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].PackageV2s, func(i, j PackageV2) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].PackageIcons, func(i, j PackageIcon) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].Channels, func(i, j Channel) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].Bundles, func(i, j Bundle) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].BundleV2s, func(i, j BundleV2) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].Deprecations, func(i, j Deprecation) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].Others, func(i, j Meta) int {
+			if bySchema := cmp.Compare(i.Schema, j.Schema); bySchema != 0 {
+				return bySchema
+			}
+			return cmp.Compare(i.Name, j.Name)
 		})
-		for _, c := range channels {
-			if err := enc.Encode(c); err != nil {
-				return err
-			}
-		}
-
-		bundles := bundlesByPackage[pName]
-		sort.Slice(bundles, func(i, j int) bool {
-			return bundles[i].Name < bundles[j].Name
-		})
-		for _, b := range bundles {
-			if err := enc.Encode(b); err != nil {
-				return err
-			}
-		}
-
-		others := othersByPackage[pName]
-		sort.SliceStable(others, func(i, j int) bool {
-			return others[i].Schema < others[j].Schema
-		})
-		for _, o := range others {
-			if err := enc.Encode(o); err != nil {
-				return err
-			}
-		}
-
-		//
-		// Normally we would order the deprecations, but it really doesn't make sense since
-		// - there will be 0 or 1 of them for any given package
-		// - they have no other useful field for ordering
-		//
-		// validation is typically via conversion to a model.Model and invoking model.Package.Validate()
-		// It's possible that a user of the object could create a slice containing more then 1
-		// Deprecation object for a package, and it would bypass validation if this
-		// function gets called without conversion.
-		//
-		deprecations := deprecationsByPackage[pName]
-		for _, d := range deprecations {
-			if err := enc.Encode(d); err != nil {
+		for _, f := range []func(enc encoder) error{
+			encodeAll(byPackage[pkgName].Packages),
+			encodeAll(byPackage[pkgName].PackageV2s),
+			encodeAll(byPackage[pkgName].PackageIcons),
+			encodeAll(byPackage[pkgName].Channels),
+			encodeAll(byPackage[pkgName].Bundles),
+			encodeAll(byPackage[pkgName].BundleV2s),
+			encodeAll(byPackage[pkgName].Deprecations),
+			encodeAll(byPackage[pkgName].Others),
+		} {
+			if err := f(enc); err != nil {
 				return err
 			}
 		}
 	}
-
-	for _, o := range othersByPackage[""] {
-		if err := enc.Encode(o); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 type WriteFunc func(config DeclarativeConfig, w io.Writer) error
 
 func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
-	channelsByPackage := map[string][]Channel{}
-	for _, c := range cfg.Channels {
-		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
-	}
-	bundlesByPackage := map[string][]Bundle{}
-	for _, b := range cfg.Bundles {
-		bundlesByPackage[b.Package] = append(bundlesByPackage[b.Package], b)
-	}
-
-	if err := os.MkdirAll(rootDir, 0777); err != nil {
-		return err
-	}
-
-	for _, p := range cfg.Packages {
-		fcfg := DeclarativeConfig{
-			Packages: []Package{p},
-			Channels: channelsByPackage[p.Name],
-			Bundles:  bundlesByPackage[p.Name],
-		}
-		pkgDir := filepath.Join(rootDir, p.Name)
+	for pkgName, fcfg := range organizeByPackage(cfg) {
+		pkgDir := filepath.Join(rootDir, pkgName)
 		if err := os.MkdirAll(pkgDir, 0777); err != nil {
 			return err
 		}

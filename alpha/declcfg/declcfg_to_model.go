@@ -2,6 +2,7 @@ package declcfg
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,6 +41,38 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 		defaultChannels[p.Name] = p.DefaultChannel
 		mpkgs[p.Name] = mpkg
+	}
+
+	for _, p := range cfg.PackageV2s {
+		if p.Package == "" {
+			return nil, fmt.Errorf("config contains package with no name")
+		}
+
+		if _, ok := mpkgs[p.Package]; ok {
+			return nil, fmt.Errorf("duplicate package %q", p.Package)
+		}
+
+		if errs := validation.IsDNS1123Label(p.Package); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid package name %q: %v", p.Package, errs)
+		}
+
+		mpkg := &model.Package{
+			Name:        p.Package,
+			Description: p.ShortDescription,
+			Channels:    map[string]*model.Channel{},
+		}
+		defaultChannels[p.Package] = p.Annotations["olm.operatorframework.io/olmv0-compatibility-default-channel"]
+		mpkgs[p.Package] = mpkg
+	}
+	for _, pi := range cfg.PackageIcons {
+		mpkg, ok := mpkgs[pi.Package]
+		if !ok {
+			return nil, fmt.Errorf("found package icon for non-existent package %q", pi.Package)
+		}
+		mpkg.Icon = &model.Icon{
+			Data:      pi.Data,
+			MediaType: pi.MediaType,
+		}
 	}
 
 	channelDefinedEntries := map[string]sets.Set[string]{}
@@ -154,6 +187,70 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 	}
 
+	for _, b := range cfg.BundleV2s {
+		if b.Package == "" {
+			return nil, fmt.Errorf("package name must be set for bundle %q", b.Name)
+		}
+
+		ver, err := semver.Parse(b.Version)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing bundle %q version %q: %v", b.Name, b.Version, err)
+		}
+
+		expectedName := fmt.Sprintf("%s.v%s", b.Package, b.Version)
+		if b.Release > 0 {
+			expectedName += fmt.Sprintf("__%d", b.Release)
+		}
+		if b.Name != expectedName {
+			return nil, fmt.Errorf("bundle name %q does not match expected name %q", b.Name, expectedName)
+		}
+		mpkg, ok := mpkgs[b.Package]
+		if !ok {
+			return nil, fmt.Errorf("unknown package %q for bundle %q", b.Package, b.Name)
+		}
+
+		bundles, ok := packageBundles[b.Package]
+		if !ok {
+			bundles = sets.Set[string]{}
+		}
+		if bundles.Has(b.Name) {
+			return nil, fmt.Errorf("package %q has duplicate bundle %q", b.Package, b.Name)
+		}
+		bundles.Insert(b.Name)
+		packageBundles[b.Package] = bundles
+
+		channelDefinedEntries[b.Package] = channelDefinedEntries[b.Package].Delete(b.Name)
+		found := false
+		for _, mch := range mpkg.Channels {
+			if mb, ok := mch.Bundles[b.Name]; ok {
+				found = true
+				if !strings.HasPrefix(b.Reference, "docker://") {
+					return nil, fmt.Errorf("bundle %q reference %q must be a docker reference (with prefix 'docker://')", b.Name, b.Reference)
+				}
+				mb.Image = strings.TrimPrefix(b.Reference, "docker://")
+				for k, values := range b.Properties {
+					for _, v := range values {
+						mb.Properties = append(mb.Properties, property.Property{
+							Type:  k,
+							Value: v,
+						})
+					}
+				}
+				mb.Properties = append(mb.Properties, property.MustBuildPackage(b.Package, b.Name))
+				for _, rr := range b.RelatedReferences {
+					if !strings.HasPrefix(rr, "docker://") {
+						return nil, fmt.Errorf("bundle %q related reference %q must be a docker reference (with prefix 'docker://')", b.Name, rr)
+					}
+					mb.RelatedImages = append(mb.RelatedImages, model.RelatedImage{Image: strings.TrimPrefix(rr, "docker://")})
+				}
+				mb.Version = ver
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("package %q, bundle %q not found in any channel entries", b.Package, b.Name)
+		}
+	}
+
 	for pkg, entries := range channelDefinedEntries {
 		if entries.Len() > 0 {
 			return nil, fmt.Errorf("no olm.bundle blobs found in package %q for olm.channel entries %s", pkg, sets.List[string](entries))
@@ -210,7 +307,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			references.Insert(entry.Reference)
 
 			switch entry.Reference.Schema {
-			case SchemaBundle:
+			case SchemaBundle, SchemaBundleV2:
 				if !packageBundles[deprecation.Package].Has(entry.Reference.Name) {
 					return nil, fmt.Errorf("cannot deprecate bundle %q for package %q: bundle not found", entry.Reference.Name, deprecation.Package)
 				}
@@ -226,12 +323,11 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 				}
 				ch.Deprecation = &model.Deprecation{Message: entry.Message}
 
-			case SchemaPackage:
+			case SchemaPackage, SchemaPackageV2:
 				if entry.Reference.Name != "" {
 					return nil, fmt.Errorf("package name must be empty for deprecated package %q (specified %q)", deprecation.Package, entry.Reference.Name)
 				}
 				mpkg.Deprecation = &model.Deprecation{Message: entry.Message}
-
 			default:
 				return nil, fmt.Errorf("cannot deprecate object %#v referenced by entry %v for package %q: object schema unknown", entry.Reference, j, deprecation.Package)
 			}
