@@ -284,7 +284,7 @@ var _ = Describe("opm", func() {
 			By("building bundle")
 			img := bundleImage + ":" + bundleTag3
 			err := inTemporaryBuildContext(func() error {
-				return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false)
+				return bundle.BuildFunc(bundlePath3, "", img, containerTool, packageName, channels, defaultChannel, false, "scratch")
 			}, "../../manifests", "manifests")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -329,7 +329,7 @@ var _ = Describe("opm", func() {
 			var err error
 			for _, b := range bundles {
 				err = inTemporaryBuildContext(func() error {
-					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false)
+					return bundle.BuildFunc(b.path, "", b.image, containerTool, packageName, channels, defaultChannel, false, "scratch")
 				}, "../../manifests", "manifests")
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -423,7 +423,7 @@ var _ = Describe("opm", func() {
 				Expect(err).NotTo(HaveOccurred())
 				defer os.RemoveAll(td)
 
-				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true)
+				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true, "scratch")
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -459,7 +459,7 @@ var _ = Describe("opm", func() {
 				Expect(err).NotTo(HaveOccurred())
 				defer os.RemoveAll(td)
 
-				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true)
+				err = bundle.BuildFunc(b.path, td, b.image, containerTool, "", "", "", true, "scratch")
 				Expect(err).NotTo(HaveOccurred())
 			}
 

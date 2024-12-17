@@ -163,7 +163,7 @@ func TestGenerateAnnotationsFunc(t *testing.T) {
 }
 
 func TestGenerateDockerfile(t *testing.T) {
-	expected := `FROM scratch
+	expected := `FROM %s
 
 LABEL operators.operatorframework.io.bundle.mediatype.v1=test1
 LABEL operators.operatorframework.io.bundle.manifests.v1=test2
@@ -174,9 +174,20 @@ COPY a/b/c /manifests/
 COPY x/y/z /metadata/
 `
 
-	actual, err := GenerateDockerfile("test1", "test2", "metadata/", filepath.Join("a", "b", "c"), filepath.Join("x", "y", "z"), "./", "test4", "test5", "")
-	require.NoError(t, err)
-	require.Equal(t, expected, string(actual))
+	type DockerfileTest struct {
+		baseImage string
+	}
+	tests := []DockerfileTest{
+		{baseImage: "scratch"},
+		{baseImage: "registry/group/image@tag"},
+	}
+
+	for _, tt := range tests {
+		tt_expected := fmt.Sprintf(expected, tt.baseImage)
+		actual, err := GenerateDockerfile("test1", "test2", "metadata/", filepath.Join("a", "b", "c"), filepath.Join("x", "y", "z"), "./", "test4", "test5", "", tt.baseImage)
+		require.NoError(t, err)
+		require.Equal(t, tt_expected, string(actual))
+	}
 }
 
 func TestCopyYamlOutput(t *testing.T) {
@@ -248,7 +259,7 @@ func TestGenerateFunc(t *testing.T) {
 	etcdPkgPath := "./testdata/etcd"
 	outputPath := "./testdata/tmp_output"
 	defer os.RemoveAll(outputPath)
-	err := GenerateFunc(filepath.Join(etcdPkgPath, "0.6.1"), outputPath, "", "", "", true)
+	err := GenerateFunc(filepath.Join(etcdPkgPath, "0.6.1"), outputPath, "", "", "", true, "scratch")
 	require.NoError(t, err)
 	os.Remove(filepath.Join("./", DockerFile))
 

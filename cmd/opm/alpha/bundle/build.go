@@ -15,6 +15,7 @@ var (
 	defaultChannel string
 	outputDir      string
 	overwrite      bool
+	baseImage      string
 )
 
 // newBundleBuildCmd returns a command that will build operator bundle image.
@@ -76,6 +77,9 @@ Note:
 	bundleBuildCmd.Flags().StringVarP(&outputDir, "output-dir", "u", "",
 		"Optional output directory for operator manifests")
 
+	bundleBuildCmd.Flags().StringVar(&baseImage, "base-image", "scratch",
+		"Use a custom image pullspec as the base bundle image")
+
 	return bundleBuildCmd
 }
 
@@ -89,5 +93,6 @@ func buildFunc(cmd *cobra.Command, _ []string) error {
 		channels,
 		defaultChannel,
 		overwrite,
+		baseImage,
 	)
 }
