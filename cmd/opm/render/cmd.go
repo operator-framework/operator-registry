@@ -1,6 +1,8 @@
 package render
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -24,6 +27,7 @@ func NewCmd(showAlphaHelp bool) *cobra.Command {
 
 		oldMigrateAllFlag bool
 		migrateLevel      string
+		includeCsvSpecs   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory | sqlite-file]...",
@@ -84,12 +88,38 @@ database files.
 				log.Fatal(err)
 			}
 
+			if includeCsvSpecs {
+				for i, bi := range cfg.Bundles {
+					if bi.CsvJSON != "" {
+						cfg.Bundles[i].Properties = append(cfg.Bundles[i].Properties, property.Property{Type: "olm.csv.spec", Value: json.RawMessage(bi.CsvJSON)})
+					}
+					fmt.Printf("no CSV available for bundle %s, attempting to render CSV spec from image reference\n", bi.Image)
+					brender := action.Render{
+						Refs:           []string{bi.Image},
+						Registry:       reg,
+						AllowedRefMask: action.RefBundleImage,
+						Migrations:     m,
+					}
+					bfbc, err := brender.Run(cmd.Context())
+					if err != nil {
+						log.Fatal(err)
+					}
+					for _, b := range bfbc.Bundles {
+						// assumes only the specified bundle is in the results
+						if b.CsvJSON != "" {
+							cfg.Bundles[i].Properties = append(cfg.Bundles[i].Properties, property.Property{Type: "olm.csv.spec", Value: json.RawMessage(b.CsvJSON)})
+						}
+					}
+				}
+			}
+
 			if err := write(*cfg, os.Stdout); err != nil {
 				log.Fatal(err)
 			}
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format of the streamed file-based catalog objects (json|yaml)")
+	cmd.Flags().BoolVar(&includeCsvSpecs, "include-csv-specs", false, "Include CSV specs in the rendered file-based catalog objects")
 
 	cmd.Flags().StringVar(&migrateLevel, "migrate-level", "", "Name of the last migration to run (default: none)\n"+migrations.HelpText())
 	cmd.Flags().BoolVar(&oldMigrateAllFlag, "migrate", false, "Perform all available schema migrations on the rendered FBC")
