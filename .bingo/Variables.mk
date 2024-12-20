@@ -29,6 +29,12 @@ $(GINKGO): $(BINGO_DIR)/ginkgo.mod
 	@echo "(re)installing $(GOBIN)/ginkgo-v2.20.2"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=ginkgo.mod -o=$(GOBIN)/ginkgo-v2.20.2 "github.com/onsi/ginkgo/v2/ginkgo"
 
+GOIMPORTS := $(GOBIN)/goimports-v0.28.0
+$(GOIMPORTS): $(BINGO_DIR)/goimports.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/goimports-v0.28.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=goimports.mod -o=$(GOBIN)/goimports-v0.28.0 "golang.org/x/tools/cmd/goimports"
+
 GORELEASER := $(GOBIN)/goreleaser-v1.26.2
 $(GORELEASER): $(BINGO_DIR)/goreleaser.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
