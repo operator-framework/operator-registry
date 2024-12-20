@@ -163,7 +163,6 @@ func (d *DirectoryLoader) LoadPackagesWalkFunc(path string, f os.FileInfo, err e
 		if err != nil {
 			return fmt.Errorf("could not decode contents of file %s into package: %s", path, err)
 		}
-
 	}
 	if manifest.PackageName == "" {
 		return nil

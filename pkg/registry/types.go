@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
+
 	"github.com/operator-framework/api/pkg/constraints"
 )
 

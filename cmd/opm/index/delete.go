@@ -52,7 +52,6 @@ func newIndexDeleteCmd() *cobra.Command {
 	}
 
 	return indexCmd
-
 }
 
 func runIndexDeleteCmdFunc(cmd *cobra.Command, _ []string) error {

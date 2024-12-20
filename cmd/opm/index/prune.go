@@ -52,7 +52,6 @@ func newIndexPruneCmd() *cobra.Command {
 	}
 
 	return indexCmd
-
 }
 
 func runIndexPruneCmdFunc(cmd *cobra.Command, _ []string) error {

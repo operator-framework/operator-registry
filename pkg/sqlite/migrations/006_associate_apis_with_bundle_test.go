@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
@@ -114,7 +113,7 @@ func TestAssociateApisWithBundleDown(t *testing.T) {
 	entriesAfterMigration, err := oldGetChannelEntriesThatProvide(db, "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
 	require.NoError(t, err)
 
-	// Migrating down entails sensitive operations. Ensure data is preserved accross down migration
+	// Migrating down entails sensitive operations. Ensure data is preserved across down migration
 	require.EqualValues(t, entriesBeforeMigration, entriesAfterMigration)
 }
 

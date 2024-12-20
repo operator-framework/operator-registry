@@ -96,7 +96,6 @@ func updateChannel(tx *sql.Tx, channelName, packageName, headCsvName string) err
 	_, err = updateChannel.Exec(channelName, packageName, headCsvName)
 	if err != nil {
 		return fmt.Errorf("failed to update channel (%s) for package (%s) with head (%s) : %s", channelName, packageName, headCsvName, err)
-
 	}
 
 	return nil

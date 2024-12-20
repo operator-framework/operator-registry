@@ -1079,7 +1079,6 @@ func (s *SQLQuerier) ListBundles(ctx context.Context) ([]*api.Bundle, error) {
 		return nil, err
 	}
 	return bundleSender, nil
-
 }
 
 func buildLegacyRequiredAPIs(src []*api.Dependency, dst *[]*api.GroupVersionKind) error {

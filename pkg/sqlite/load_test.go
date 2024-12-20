@@ -503,7 +503,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			expected: expected{
 				err: nil,
 				deprecated: map[string]struct{}{
-					"csv-aa": struct{}{}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
+					"csv-aa": {}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
 				},
 				nontruncated: map[string]struct{}{
 					"csv-aa:stable":  {},
@@ -648,7 +648,6 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			checkForBundles(`SELECT operatorbundle_name FROM deprecated`, "deprecated", tt.expected.deprecated)
 			// operatorbundle_name:<channel list>
 			checkForBundles(`SELECT name||":"|| coalesce(group_concat(distinct channel_name), "") FROM (SELECT name, channel_name from operatorbundle left outer join channel_entry on name=operatorbundle_name order by channel_name) group by name`, "operatorbundle", tt.expected.nontruncated)
-
 		})
 	}
 }

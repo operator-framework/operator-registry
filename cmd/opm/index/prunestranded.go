@@ -47,7 +47,6 @@ func newIndexPruneStrandedCmd() *cobra.Command {
 	}
 
 	return indexCmd
-
 }
 
 func runIndexPruneStrandedCmdFunc(cmd *cobra.Command, _ []string) error {

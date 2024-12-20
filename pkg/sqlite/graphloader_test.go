@@ -30,11 +30,11 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			"alpha": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
 				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
-					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+					{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
-					registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
+					{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
 						registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      struct{}{},
 						registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: struct{}{},
 					},
@@ -43,8 +43,8 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			"beta": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"},
 				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
-					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+					{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
 				},
@@ -52,11 +52,11 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 			"stable": {
 				Head: registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"},
 				Nodes: map[registry.BundleKey]map[registry.BundleKey]struct{}{
-					registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
-					registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
+					{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: {},
+					{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: {
 						registry.BundleKey{BundlePath: "", Version: "0.6.1", CsvName: "etcdoperator.v0.6.1"}: struct{}{},
 					},
-					registry.BundleKey{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
+					{BundlePath: "", Version: "0.9.2", CsvName: "etcdoperator.v0.9.2"}: {
 						registry.BundleKey{BundlePath: "", Version: "", CsvName: "etcdoperator.v0.9.1"}:      struct{}{},
 						registry.BundleKey{BundlePath: "", Version: "0.9.0", CsvName: "etcdoperator.v0.9.0"}: struct{}{},
 					},

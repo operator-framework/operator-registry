@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
-
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/api/pkg/operators"
+
+	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
 
 const (
@@ -131,7 +131,6 @@ func ReadCSVFromBundleDirectory(bundleDir string) (*ClusterServiceVersion, error
 		return &csv, nil
 	}
 	return nil, fmt.Errorf("no ClusterServiceVersion object found in %s", bundleDir)
-
 }
 
 // GetReplaces returns the name of the older ClusterServiceVersion object that
@@ -416,7 +415,6 @@ func (csv *ClusterServiceVersion) GetSubstitutesFor() string {
 }
 
 func (csv *ClusterServiceVersion) UnmarshalJSON(data []byte) error {
-
 	if err := csv.UnmarshalSpec(data); err != nil {
 		return err
 	}

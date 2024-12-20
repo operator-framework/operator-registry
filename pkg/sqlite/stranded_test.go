@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/registry"
-
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestStrandedBundleRemover(t *testing.T) {
@@ -75,7 +75,6 @@ func TestStrandedBundleRemover(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, rows.Next())
 	require.NoError(t, rows.Close())
-
 }
 
 func rowCount(rows *sql.Rows) int {

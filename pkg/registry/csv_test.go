@@ -740,7 +740,7 @@ func TestClusterServiceVersion_GetOperatorImages(t *testing.T) {
 					}
 				}`),
 			},
-			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": struct{}{}, "quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
+			want: map[string]struct{}{"quay.io/coreos/etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/init-etcd-operator2@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}, "quay.io/coreos/init-etcd-operator@sha256:c0301e4686c3ed4206e370b42de5a3bd2229b9fb4906cf85f3f30650424abec2": {}},
 		},
 	}
 	for _, tt := range tests {

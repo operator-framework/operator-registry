@@ -155,7 +155,7 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 // CopyYamlOutput takes the generated annotations yaml and writes it to disk.
 // If an outputDir is specified, it will copy the input manifests
 // It returns two strings. resultMetadata is the path to the output metadata/ folder.
-// resultManifests is the path to the output manifests/ folder -- if no copy occured,
+// resultManifests is the path to the output manifests/ folder -- if no copy occurred,
 // it just returns the input manifestDir
 func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDir string, overwrite bool) (resultManifests, resultMetadata string, err error) {
 	// First, determine the parent directory of the metadata and manifest directories

@@ -34,7 +34,7 @@ func TestGetBundlesToExport(t *testing.T) {
 	}
 
 	var bundleImages []string
-	for bundlePath, _ := range bundleMap {
+	for bundlePath := range bundleMap {
 		bundleImages = append(bundleImages, bundlePath)
 	}
 

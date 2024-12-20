@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func TestDependenciesUp(t *testing.T) {

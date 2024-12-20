@@ -693,7 +693,6 @@ func TestCheckForBundles(t *testing.T) {
 							overwriteRefs[img.Bundle.Package] = append(overwriteRefs[img.Bundle.Package], name)
 						}
 						refs[image.SimpleReference(bundleImage)] = dir
-
 					}
 					require.NoError(t, registry.NewDirectoryPopulator(
 						load,

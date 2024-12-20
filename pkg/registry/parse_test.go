@@ -394,7 +394,6 @@ properties:
 			assert.Equal(t, tt.bundle.Annotations, bundle.Annotations)
 		})
 	}
-
 }
 
 func TestDerivedProperties(t *testing.T) {
@@ -573,7 +572,6 @@ func TestDerivedProperties(t *testing.T) {
 			assert.ElementsMatch(t, tt.expected.properties, properties)
 		})
 	}
-
 }
 
 func TestPropertySet(t *testing.T) {

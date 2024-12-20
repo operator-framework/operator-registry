@@ -7,7 +7,6 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -235,7 +234,6 @@ func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
 			return nil, fmt.Errorf("couldn't parse plural.group from crd name: %s", api.Name)
 		}
 		required[APIKey{parts[1], api.Version, api.Kind, parts[0]}] = struct{}{}
-
 	}
 	_, requiredAPIs, err := csv.GetApiServiceDefinitions()
 	if err != nil {

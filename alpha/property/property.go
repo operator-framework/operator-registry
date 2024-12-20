@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 )
 
 type Property struct {
