@@ -5,14 +5,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
+	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
 )
 
 const (

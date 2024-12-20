@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/image"
@@ -53,7 +54,7 @@ func testExpectedProperties(t *testing.T) []property.Property {
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdRestore"),
-		property.Property{
+		{
 			Type:  "olm.constraint",
 			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
 		},

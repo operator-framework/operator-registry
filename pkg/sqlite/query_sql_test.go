@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +30,6 @@ func TestListBundlesQuery(t *testing.T) {
 						t.Fatalf("unexpected error executing setup statements: %v", err)
 					}
 				}
-
 			},
 			Expect: func(t *testing.T, rows *sql.Rows) {
 				replacements := map[sql.NullString]sql.NullString{
@@ -78,7 +76,6 @@ func TestListBundlesQuery(t *testing.T) {
 						t.Fatalf("unexpected error executing setup statements: %v", err)
 					}
 				}
-
 			},
 			Expect: func(t *testing.T, rows *sql.Rows) {
 				type result struct {
@@ -141,7 +138,6 @@ func TestListBundlesQuery(t *testing.T) {
 						t.Fatalf("unexpected error executing setup statements: %v", err)
 					}
 				}
-
 			},
 			Expect: func(t *testing.T, rows *sql.Rows) {
 				require := require.New(t)
@@ -171,7 +167,6 @@ func TestListBundlesQuery(t *testing.T) {
 						t.Fatalf("unexpected error executing setup statements: %v", err)
 					}
 				}
-
 			},
 			Expect: func(t *testing.T, rows *sql.Rows) {
 				require := require.New(t)
@@ -200,7 +195,6 @@ func TestListBundlesQuery(t *testing.T) {
 						t.Fatalf("unexpected error executing setup statements: %v", err)
 					}
 				}
-
 			},
 			Expect: func(t *testing.T, rows *sql.Rows) {
 				require := require.New(t)

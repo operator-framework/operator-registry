@@ -3,8 +3,9 @@ package bundle
 import (
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/operator-framework/operator-registry/pkg/containertools"
 )
 
 func TestExportForBundleWithBadImage(t *testing.T) {

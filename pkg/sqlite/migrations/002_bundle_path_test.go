@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBundlePathUp(t *testing.T) {
@@ -24,7 +25,6 @@ func TestBundlePathUp(t *testing.T) {
 
 	_, err = stmt.Exec("testName", "testCSV", "testBundle", "quay.io/test")
 	require.NoError(t, err)
-
 }
 
 func TestBundlePathDown(t *testing.T) {
@@ -39,6 +39,6 @@ func TestBundlePathDown(t *testing.T) {
 
 	imagesAfterMigration, err := querier.GetImagesForBundle(context.TODO(), "etcdoperator.v0.6.1")
 
-	// Migrating down entails sensitive operations. Ensure data is preserved accross down migration
+	// Migrating down entails sensitive operations. Ensure data is preserved across down migration
 	require.Equal(t, len(imagesBeforeMigration), len(imagesAfterMigration))
 }

@@ -90,7 +90,7 @@ func TestRender(t *testing.T) {
 	testMigrations := migrations.Migrations{
 		Migrations: []migrations.Migration{
 			fauxMigration{"faux-migration", "my help text", func(d *declcfg.DeclarativeConfig) error {
-				for i, _ := range d.Bundles {
+				for i := range d.Bundles {
 					d.Bundles[i].Name = fmt.Sprintf("%s-MIGRATED", d.Bundles[i].Name)
 				}
 				return nil

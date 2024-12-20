@@ -8,6 +8,7 @@ import (
 
 	"github.com/operator-framework/api/pkg/validation/errors"
 	interfaces "github.com/operator-framework/api/pkg/validation/interfaces"
+
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 

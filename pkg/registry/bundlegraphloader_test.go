@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/blang/semver/v4"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,23 +32,23 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 						}},
 
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
 						}},
 
 					"stable": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 						}},
 				},
@@ -71,26 +70,26 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {}},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {}},
 						}},
 
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
 						}},
 
 					"stable": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {}},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {}},
 						}},
 				},
 			},
@@ -105,7 +104,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
 						}},
 				},
 			},
@@ -131,7 +130,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {},
 						}},
 				},
 			},
@@ -152,8 +151,8 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
 						}},
 				},
 			},
@@ -168,7 +167,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
 						}},
 				},
 			},
@@ -189,11 +188,11 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
 						}},
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: nil,
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: nil,
 						}},
 				},
 			},
@@ -220,7 +219,7 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: nil,
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: nil,
 						}},
 				},
 			},
@@ -235,23 +234,23 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 						}},
 
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
 						}},
 
 					"stable": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
-							BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 						}},
 				},
@@ -274,22 +273,22 @@ func TestBundleGraphLoader(t *testing.T) {
 				Channels: map[string]Channel{
 					"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 							},
 						}},
 
 					"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {}},
 						}},
 
 					"stable": {Head: BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"},
 						Nodes: map[BundleKey]map[BundleKey]struct{}{
-							BundleKey{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
-							BundleKey{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {},
+							{CsvName: "etcdoperator.v0.6.1", Version: "0.6.1"}: {},
+							{CsvName: "etcdoperator.v0.9.3", Version: "0.9.3"}: {BundleKey{CsvName: "etcdoperator.v0.9.2", Version: "0.9.2"}: {},
 								BundleKey{CsvName: "etcdoperator.v0.9.0", Version: "0.9.0"}: {},
 							},
 						}},

@@ -544,7 +544,6 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 			require.EqualValues(t, "a", iosv.pkg) // verify that we learned the package name and stashed it in the receiver
 		})
 	}
-
 }
 
 func TestBailOnVersionBuildMetadata(t *testing.T) {
@@ -597,7 +596,6 @@ func TestBailOnVersionBuildMetadata(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-
 	templateFstr := `---
 schema: olm.semver
 generateMajorChannels: %s
