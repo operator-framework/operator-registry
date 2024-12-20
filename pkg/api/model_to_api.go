@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/operator-framework/api/pkg/lib/version"
 	"github.com/operator-framework/api/pkg/operators"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -152,7 +153,6 @@ func gvksRequirestoAPIGVKs(in []property.GVKRequired) []*GroupVersionKind {
 func convertModelPropertiesToAPIProperties(props []property.Property) []*Property {
 	var out []*Property
 	for _, prop := range props {
-
 		// NOTE: This is a special case filter to prevent problems with existing client implementations that
 		//       project bundle properties into CSV annotations and store those CSVs in a size-constrained
 		//       storage backend (e.g. etcd via kube-apiserver). If the bundle object property has data inlined

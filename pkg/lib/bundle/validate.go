@@ -22,6 +22,7 @@ import (
 	"github.com/operator-framework/api/pkg/manifests"
 	v1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v "github.com/operator-framework/api/pkg/validation"
+
 	"github.com/operator-framework/operator-registry/pkg/image"
 	validation "github.com/operator-framework/operator-registry/pkg/lib/validation"
 	"github.com/operator-framework/operator-registry/pkg/registry"

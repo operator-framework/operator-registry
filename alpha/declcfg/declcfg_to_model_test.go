@@ -484,7 +484,6 @@ func TestConvertToModelBundle(t *testing.T) {
 	assert.Len(t, b.PropertiesP.BundleObjects, 2)
 	assert.Len(t, b.PropertiesP.Packages, 1)
 	assert.Equal(t, semver.MustParse("0.1.0"), b.Version)
-
 }
 
 func TestConvertToModelRoundtrip(t *testing.T) {

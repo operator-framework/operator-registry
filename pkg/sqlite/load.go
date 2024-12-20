@@ -162,7 +162,6 @@ func (s *sqlLoader) addOperatorBundle(tx *sql.Tx, bundle *registry.Bundle) error
 }
 
 func (s *sqlLoader) addSubstitutesFor(tx *sql.Tx, bundle *registry.Bundle) error {
-
 	updateBundleReplaces, err := tx.Prepare("update operatorbundle set replaces = ? where replaces = ?")
 	if err != nil {
 		return err
@@ -1550,7 +1549,6 @@ deprecate:
 		if err := s.rmBundle(tx, bundle); err != nil {
 			return err
 		}
-
 	}
 	// remove links to deprecated/truncated bundles to avoid regenerating these on add/overwrite
 	_, err = tx.Exec(`UPDATE channel_entry SET replaces=NULL WHERE operatorbundle_name=?`, name)

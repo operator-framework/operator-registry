@@ -1,9 +1,10 @@
 package bundle
 
 import (
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
 
 var (

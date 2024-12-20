@@ -291,7 +291,6 @@ relatedImages:
   name: operator
 schema: olm.bundle
 `
-
 }
 
 func migrateBarCatalogSqlite() string {
