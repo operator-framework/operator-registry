@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"testing/fstest"
 	"text/template"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -86,7 +84,7 @@ func TestRender(t *testing.T) {
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
 	}
-	assert.NoError(t, generateSqliteFile(dbFile, imageMap))
+	require.NoError(t, generateSqliteFile(dbFile, imageMap))
 	testMigrations := migrations.Migrations{
 		Migrations: []migrations.Migration{
 			fauxMigration{"faux-migration", "my help text", func(d *declcfg.DeclarativeConfig) error {
@@ -1235,7 +1233,7 @@ func TestAllowRefMask(t *testing.T) {
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
 		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
 	}
-	assert.NoError(t, generateSqliteFile(dbFile, imageMap))
+	require.NoError(t, generateSqliteFile(dbFile, imageMap))
 
 	specs := []spec{
 		{
@@ -1365,18 +1363,17 @@ func TestAllowRefMask(t *testing.T) {
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			_, err := s.render.Run(context.Background())
-			require.True(t, errors.Is(err, s.expectErr), "expected error %#v to be %#v", err, s.expectErr)
+			require.ErrorIs(t, err, s.expectErr, "expected error %#v to be %#v", err, s.expectErr)
 		})
 	}
 }
 
 func TestAllowRefMaskAllowed(t *testing.T) {
 	type spec struct {
-		name   string
-		mask   action.RefType
-		pass   []action.RefType
-		fail   []action.RefType
-		expect bool
+		name string
+		mask action.RefType
+		pass []action.RefType
+		fail []action.RefType
 	}
 
 	specs := []spec{

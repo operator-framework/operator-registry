@@ -33,7 +33,7 @@ func TestGetBundlesToExport(t *testing.T) {
 		t.Fatalf("exporting bundles from db: %s", err)
 	}
 
-	var bundleImages []string
+	bundleImages := make([]string, 0, len(bundleMap))
 	for bundlePath := range bundleMap {
 		bundleImages = append(bundleImages, bundlePath)
 	}
@@ -41,7 +41,7 @@ func TestGetBundlesToExport(t *testing.T) {
 	sort.Strings(bundleImages)
 
 	if !reflect.DeepEqual(expected, bundleImages) {
-		t.Fatalf("exporting images: expected matching bundlepaths: expected %s got %s", expected, bundleImages)
+		t.Fatalf("exporting images: expected matching bundlepaths: expected %#v got %#v", expected, bundleImages)
 	}
 }
 

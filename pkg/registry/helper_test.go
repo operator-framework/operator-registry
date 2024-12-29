@@ -18,13 +18,13 @@ func TestBundleVersionCompare(t *testing.T) {
 	type order func(t *testing.T, val int)
 	var (
 		lt order = func(t *testing.T, val int) {
-			require.Less(t, val, 0)
+			require.Negative(t, val)
 		}
 		gt order = func(t *testing.T, val int) {
-			require.Greater(t, val, 0)
+			require.Positive(t, val)
 		}
 		eq order = func(t *testing.T, val int) {
-			require.Equal(t, val, 0)
+			require.Equal(t, 0, val)
 		}
 	)
 	type expect struct {

@@ -125,7 +125,7 @@ func TestMigrate(t *testing.T) {
 				return
 			}
 			actualFS := os.DirFS(s.migrate.OutputDir)
-			fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
+			_ = fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
 				require.NoError(t, err)
 				if d.IsDir() {
 					return nil

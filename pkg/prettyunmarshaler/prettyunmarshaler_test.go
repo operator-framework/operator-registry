@@ -20,6 +20,7 @@ func TestJsonUnmarshalError(t *testing.T) {
 	}
 	validData := []byte(`{"messages": ["Hello", "world!"]}`)
 	invalidData := []byte(`{"messages": ["Hello", "world!"]`)
+	var invalidDataSource byte = 0
 	for _, tc := range []testCase{
 		{
 			name:               "unknown error",
@@ -91,7 +92,7 @@ func TestJsonUnmarshalError(t *testing.T) {
 		{
 			name:               "syntax error: no data",
 			data:               nil,
-			inErr:              json.Unmarshal(invalidData, nil),
+			inErr:              json.Unmarshal(invalidData, &invalidDataSource),
 			expectErrorString:  `unexpected end of JSON input`,
 			expectPrettyString: `unexpected end of JSON input`,
 		},
@@ -148,7 +149,13 @@ func TestJsonUnmarshalError(t *testing.T) {
 //
 // If the data does not cause a syntax error, this function will panic.
 func customOffsetSyntaxError(data []byte, offset int64) *json.SyntaxError {
-	err := json.Unmarshal(data, nil).(*json.SyntaxError)
-	err.Offset = offset
-	return err
+	var d *byte = nil
+	var se *json.SyntaxError
+	err := json.Unmarshal(data, d)
+	if errors.As(err, &se) {
+		se.Offset = offset
+		return se
+	}
+
+	panic("error was not of type json.SyntaxError")
 }

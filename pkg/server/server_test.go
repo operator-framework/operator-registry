@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -146,7 +147,7 @@ func TestMain(m *testing.M) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go func() {
-		lis, err := net.Listen("tcp", dbPort)
+		lis, err := net.Listen("tcp", fmt.Sprintf("localhost%s", dbPort))
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
@@ -156,7 +157,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	go func() {
-		lis, err := net.Listen("tcp", cachePort)
+		lis, err := net.Listen("tcp", fmt.Sprintf("localhost%s", cachePort))
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
@@ -181,6 +182,7 @@ func TestMain(m *testing.M) {
 }
 
 func client(t *testing.T, address string) (api.RegistryClient, *grpc.ClientConn) {
+	// nolint:staticcheck
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
@@ -216,7 +218,7 @@ func testListPackages(addr string, expected []string) func(*testing.T) {
 		go func(t *testing.T) {
 			for {
 				in, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// read done.
 					close(waitc)
 					return
@@ -326,8 +328,8 @@ func TestGetBundle(t *testing.T) {
 			},
 		}
 	)
-	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
+	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
+	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 	t.Run("FBCCacheWithDeprecations", testGetBundle(deprecationCacheAddress, cockroachBundle))
 }
 
@@ -345,13 +347,13 @@ func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
 
 func TestGetBundleForChannel(t *testing.T) {
 	{
-		b := etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)
+		b := etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)
 		t.Run("Sqlite", testGetBundleForChannel(dbAddress, &api.Bundle{
 			CsvName: b.CsvName,
 			CsvJson: b.CsvJson + "\n",
 		}))
 	}
-	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
+	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T) {
@@ -359,6 +361,7 @@ func testGetBundleForChannel(addr string, expected *api.Bundle) func(*testing.T)
 		c, conn := client(t, addr)
 		defer conn.Close()
 
+		// nolint:staticcheck // ignore this, since we still want to test it even if marked deprecated
 		bundle, err := c.GetBundleForChannel(context.TODO(), &api.GetBundleInChannelRequest{PkgName: "etcd", ChannelName: "alpha"})
 		require.NoError(t, err)
 		EqualBundles(t, *expected, *bundle)
@@ -416,7 +419,7 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 		go func(t *testing.T) {
 			for {
 				in, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// read done.
 					close(waitc)
 					return
@@ -455,8 +458,8 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 }
 
 func TestGetBundleThatReplaces(t *testing.T) {
-	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
+	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
+	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.T) {
@@ -471,8 +474,8 @@ func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.
 }
 
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
-	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
+	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
+	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(*testing.T) {
@@ -505,7 +508,7 @@ func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
 		go func(t *testing.T) {
 			for {
 				in, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// read done.
 					close(waitc)
 					return
@@ -622,7 +625,7 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 		go func(t *testing.T) {
 			for {
 				in, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// read done.
 					close(waitc)
 					return
@@ -681,8 +684,8 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 }
 
 func TestGetDefaultBundleThatProvides(t *testing.T) {
-	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperator_v0_9_2("alpha", false, false, includeManifestsAll)))
-	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperator_v0_9_2("alpha", false, true, includeManifestsAll)))
+	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
+	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
 func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*testing.T) {
@@ -698,11 +701,11 @@ func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*t
 
 func TestListBundles(t *testing.T) {
 	t.Run("Sqlite", testListBundles(dbAddress,
-		etcdoperator_v0_9_2("alpha", true, false, includeManifestsNone),
-		etcdoperator_v0_9_2("stable", true, false, includeManifestsNone)))
+		etcdoperatorV0_9_2("alpha", true, false, includeManifestsNone),
+		etcdoperatorV0_9_2("stable", true, false, includeManifestsNone)))
 	t.Run("FBCCache", testListBundles(cacheAddress,
-		etcdoperator_v0_9_2("alpha", true, true, includeManifestsNone),
-		etcdoperator_v0_9_2("stable", true, true, includeManifestsNone)))
+		etcdoperatorV0_9_2("alpha", true, true, includeManifestsNone),
+		etcdoperatorV0_9_2("stable", true, true, includeManifestsNone)))
 }
 
 func testListBundles(addr string, etcdAlpha *api.Bundle, etcdStable *api.Bundle) func(*testing.T) {
@@ -747,7 +750,7 @@ func testListBundles(addr string, etcdAlpha *api.Bundle, etcdStable *api.Bundle)
 			for {
 				in, err := stream.Recv()
 
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// read done.
 					close(waitc)
 					return
@@ -826,7 +829,7 @@ const (
 	includeManifestsCSVOnly includeManifests = "csvOnly"
 )
 
-func etcdoperator_v0_9_2(channel string, addSkipsReplaces, addExtraProperties bool, includeManifests includeManifests) *api.Bundle {
+func etcdoperatorV0_9_2(channel string, addSkipsReplaces, addExtraProperties bool, includeManifests includeManifests) *api.Bundle {
 	b := &api.Bundle{
 		CsvName:     "etcdoperator.v0.9.2",
 		PackageName: "etcd",

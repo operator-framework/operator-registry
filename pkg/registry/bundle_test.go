@@ -66,6 +66,7 @@ func TestV1CRDsInBundle(t *testing.T) {
 		{Group: "objectbucket.io", Version: "v1alpha1", Kind: "ObjectBucketClaim", Plural: "objectbucketclaims"}: {},
 	}
 	providedAPIs, err := bundle.ProvidedAPIs()
+	require.NoError(t, err)
 	t.Logf("provided CRDs: \n%#v", providedAPIs)
 
 	if !reflect.DeepEqual(expectedAPIs, providedAPIs) {
@@ -76,6 +77,7 @@ func TestV1CRDsInBundle(t *testing.T) {
 	// bundle contains one v1beta1 and one v1 CRD
 	dec := serializer.NewCodecFactory(Scheme).UniversalDeserializer()
 	crds, err := bundle.CustomResourceDefinitions()
+	require.NoError(t, err)
 	for _, crd := range crds {
 		switch crd.(type) {
 		case *apiextensionsv1.CustomResourceDefinition:

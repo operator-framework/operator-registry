@@ -2,23 +2,24 @@ package registry_test
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/yaml"
 
@@ -32,12 +33,10 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-func CreateTestDb(t *testing.T) (*sql.DB, func()) {
-	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+func CreateTestDB(t *testing.T) (*sql.DB, func()) {
+	r, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	require.NoError(t, err)
+	dbName := fmt.Sprintf("test-%d.db", r.Int64())
 
 	db, err := sqlite.Open(dbName)
 	require.NoError(t, err)
@@ -92,7 +91,7 @@ func createAndPopulateDB(db *sql.DB) (*sqlite.SQLQuerier, error) {
 
 func TestImageLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	_, err := createAndPopulateDB(db)
@@ -101,7 +100,7 @@ func TestImageLoader(t *testing.T) {
 
 func TestQuerierForImage(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	store, err := createAndPopulateDB(db)
@@ -203,6 +202,7 @@ func TestQuerierForImage(t *testing.T) {
 	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{
 		{"etcd", "alpha", "etcdoperator.v0.9.0", ""},
 		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
@@ -496,7 +496,7 @@ func TestImageLoading(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			load, err := sqlite.NewSQLLiteLoader(db)
 			require.NoError(t, err)
@@ -540,7 +540,8 @@ func TestImageLoading(t *testing.T) {
 }
 
 func checkAggErr(aggErr, wantErr error) bool {
-	if a, ok := aggErr.(utilerrors.Aggregate); ok {
+	var a utilerrors.Aggregate
+	if errors.As(aggErr, &a) {
 		for _, e := range a.Errors() {
 			if reflect.TypeOf(e).String() == reflect.TypeOf(wantErr).String() {
 				return true
@@ -553,7 +554,7 @@ func checkAggErr(aggErr, wantErr error) bool {
 
 func TestQuerierForDependencies(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	store, err := createAndPopulateDB(db)
@@ -612,7 +613,7 @@ func TestQuerierForDependencies(t *testing.T) {
 
 func TestListBundles(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	store, err := createAndPopulateDB(db)
@@ -663,7 +664,7 @@ func TestListBundles(t *testing.T) {
 			}
 		}
 	}
-	require.Equal(t, 10, len(bundles))
+	require.Len(t, bundles, 10)
 	require.ElementsMatch(t, expectedDependencies, dependencies)
 }
 
@@ -721,7 +722,7 @@ func CheckBundlesHaveContentsIfNoPath(t *testing.T, db *sql.DB) {
 }
 
 func TestDirectoryPopulator(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	loader, err := sqlite.NewSQLLiteLoader(db)
@@ -747,7 +748,7 @@ func TestDirectoryPopulator(t *testing.T) {
 	}
 
 	err = populate(add)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"))
 	require.Contains(t, err.Error(), fmt.Sprintf("Invalid bundle %s, replaces nonexistent bundle %s", "prometheusoperator.0.22.2", "prometheusoperator.0.15.0"))
 }
@@ -844,7 +845,7 @@ func TestDeprecateBundle(t *testing.T) {
 				},
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{fmt.Errorf("error deprecating bundle quay.io/test/prometheus.0.22.2: %s", registry.ErrRemovingDefaultChannelDuringDeprecation)}),
+				err: utilerrors.NewAggregate([]error{fmt.Errorf("error deprecating bundle quay.io/test/prometheus.0.22.2: %s", registry.ErrRemovingDefaultChannelDuringDeprecation)}),
 				remainingBundles: []string{
 					"quay.io/test/etcd.0.9.0/alpha",
 					"quay.io/test/etcd.0.9.0/beta",
@@ -910,7 +911,7 @@ func TestDeprecateBundle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			querier, err := createAndPopulateDB(db)
@@ -1122,7 +1123,7 @@ func TestDeprecatePackage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			querier, err := createAndPopulateDB(db)
@@ -1630,7 +1631,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(true))
@@ -2050,7 +2051,7 @@ func TestOverwrite(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			store, err := sqlite.NewSQLLiteLoader(db)
@@ -2876,7 +2877,7 @@ func TestSubstitutesFor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(true))
@@ -2919,7 +2920,7 @@ func TestSubstitutesFor(t *testing.T) {
 				if bundleThatReplaces != nil {
 					require.Equal(t, tt.expected.whatReplaces[bundle.CsvName][bundle.ChannelName], bundleThatReplaces.CsvName)
 				} else {
-					require.Equal(t, tt.expected.whatReplaces[bundle.CsvName][bundle.ChannelName], "")
+					require.Equal(t, "", tt.expected.whatReplaces[bundle.CsvName][bundle.ChannelName])
 				}
 				substitution, err := getBundleSubstitution(context.Background(), db, bundle.CsvName)
 				require.NoError(t, err)
@@ -2992,7 +2993,7 @@ func TestEnableAlpha(t *testing.T) {
 				enableAlpha: false,
 			},
 			expected: expected{
-				err: errors.NewAggregate([]error{fmt.Errorf("SubstitutesFor is an alpha-only feature. You must enable alpha features with the flag --enable-alpha in order to use this feature.")}),
+				err: utilerrors.NewAggregate([]error{fmt.Errorf("SubstitutesFor is an alpha-only feature. You must enable alpha features with the flag --enable-alpha in order to use this feature.")}),
 			},
 		},
 	}
@@ -3000,7 +3001,7 @@ func TestEnableAlpha(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			logrus.SetLevel(logrus.DebugLevel)
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			load, err := sqlite.NewSQLLiteLoader(db, sqlite.WithEnableAlpha(tt.args.enableAlpha))
@@ -3048,10 +3049,10 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 	}
 
 	rawCSV, err := json.Marshal(registry.ClusterServiceVersion{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind: sqlite.ClusterServiceVersionKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: csvSpec,
@@ -3064,14 +3065,17 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 	if err := json.Unmarshal(rawCSV, &rawObj); err != nil {
 		return bundleDir, cleanup, err
 	}
-	rawObj.SetCreationTimestamp(v1.Time{})
+	rawObj.SetCreationTimestamp(metav1.Time{})
 
 	jsonout, err := rawObj.MarshalJSON()
+	if err != nil {
+		return bundleDir, cleanup, err
+	}
 	out, err := yaml.JSONToYAML(jsonout)
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0600); err != nil {
 		return bundleDir, cleanup, err
 	}
 
@@ -3079,7 +3083,7 @@ func newUnpackedTestBundle(root, dir, name string, csvSpec json.RawMessage, anno
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0600); err != nil {
 		return bundleDir, cleanup, err
 	}
 	return bundleDir, cleanup, nil
@@ -3093,24 +3097,25 @@ func TestValidateEdgeBundlePackage(t *testing.T) {
 		spec := v1alpha1.ClusterServiceVersionSpec{
 			Replaces: replaces,
 			Skips:    skips,
-			Version:  version.OperatorVersion{v},
+			Version:  version.OperatorVersion{Version: v},
 		}
-		specJson, err := json.Marshal(&spec)
+		specJSON, err := json.Marshal(&spec)
 		require.NoError(t, err)
 
 		rawCSV, err := json.Marshal(registry.ClusterServiceVersion{
-			TypeMeta: v1.TypeMeta{
+			TypeMeta: metav1.TypeMeta{
 				Kind: sqlite.ClusterServiceVersionKind,
 			},
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec: specJson,
+			Spec: specJSON,
 		})
+		require.NoError(t, err)
 
 		rawObj := unstructured.Unstructured{}
 		require.NoError(t, json.Unmarshal(rawCSV, &rawObj))
-		rawObj.SetCreationTimestamp(v1.Time{})
+		rawObj.SetCreationTimestamp(metav1.Time{})
 
 		jsonout, err := rawObj.MarshalJSON()
 		require.NoError(t, err)
@@ -3121,7 +3126,7 @@ func TestValidateEdgeBundlePackage(t *testing.T) {
 	}
 
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 
 	store, err := createAndPopulateDB(db)

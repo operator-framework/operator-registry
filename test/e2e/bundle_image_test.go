@@ -276,7 +276,7 @@ func pushLoadImages(client *kubernetes.Clientset, w io.Writer, images ...string)
 		}
 	} else {
 		for _, image := range images {
-			pushWith("docker", image)
+			err = pushWith("docker", image)
 			if err != nil {
 				return err
 			}

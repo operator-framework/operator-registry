@@ -2,9 +2,11 @@ package mirror
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"testing"
 
@@ -13,8 +15,10 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
-func CreateTestDb(t *testing.T) (*sql.DB, string, func()) {
-	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+func CreateTestDB(t *testing.T) (*sql.DB, string, func()) {
+	r, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	require.NoError(t, err)
+	dbName := fmt.Sprintf("test-%d.db", r.Int64())
 
 	db, err := sqlite.Open(dbName)
 	require.NoError(t, err)
@@ -39,10 +43,10 @@ func CreateTestDb(t *testing.T) (*sql.DB, string, func()) {
 }
 
 func TestIndexImageMirrorer_Mirror(t *testing.T) {
-	_, path, cleanup := CreateTestDb(t)
+	_, path, cleanup := CreateTestDB(t)
 	defer cleanup()
 
-	var testExtractor DatabaseExtractorFunc = func(from string) (s string, e error) {
+	var testExtractor DatabaseExtractorFunc = func(from string) (string, error) {
 		return path, nil
 	}
 	type fields struct {

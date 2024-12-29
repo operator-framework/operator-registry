@@ -31,7 +31,7 @@ CMD ["registry", "serve", "--database", "/database/index.db"]
 	}
 
 	dockerfile := dockerfileGenerator.GenerateIndexDockerfile(binarySourceImage, databasePath)
-	require.Equal(t, dockerfile, expectedDockerfile)
+	require.Equal(t, expectedDockerfile, dockerfile)
 }
 
 func TestGenerateDockerfile_EmptyBaseImage(t *testing.T) {
@@ -54,5 +54,5 @@ CMD ["registry", "serve", "--database", "/database/index.db"]
 	}
 
 	dockerfile := dockerfileGenerator.GenerateIndexDockerfile("", databasePath)
-	require.Equal(t, dockerfile, expectedDockerfile)
+	require.Equal(t, expectedDockerfile, dockerfile)
 }

@@ -12,7 +12,7 @@ import (
 
 func TestRequiredApisUp(t *testing.T) {
 	// migrate up to, but not including, this migration
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RequiredApiMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RequiredApiMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -54,15 +54,15 @@ func TestRequiredApisUp(t *testing.T) {
 	var plural sql.NullString
 	rows.Next()
 	require.NoError(t, rows.Scan(&group, &version, &kind, &plural))
-	require.Equal(t, group.String, "etcd.database.coreos.com")
-	require.Equal(t, version.String, "v1beta2")
-	require.Equal(t, kind.String, "EtcdCluster")
-	require.Equal(t, plural.String, "etcdclusters")
+	require.Equal(t, "etcd.database.coreos.com", group.String)
+	require.Equal(t, "v1beta2", version.String)
+	require.Equal(t, "EtcdCluster", kind.String)
+	require.Equal(t, "etcdclusters", plural.String)
 	require.NoError(t, rows.Close())
 }
 
 func TestRequiredApisDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RequiredApiMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RequiredApiMigrationKey)
 	defer cleanup()
 
 	// Add a required api
@@ -86,10 +86,10 @@ func TestRequiredApisDown(t *testing.T) {
 	var plural sql.NullString
 	rows.Next()
 	require.NoError(t, rows.Scan(&group, &version, &kind, &plural))
-	require.Equal(t, group.String, "etcd.database.coreos.com")
-	require.Equal(t, version.String, "v1beta2")
-	require.Equal(t, kind.String, "EtcdCluster")
-	require.Equal(t, plural.String, "etcdclusters")
+	require.Equal(t, "etcd.database.coreos.com", group.String)
+	require.Equal(t, "v1beta2", version.String)
+	require.Equal(t, "EtcdCluster", kind.String)
+	require.Equal(t, "etcdclusters", plural.String)
 	require.NoError(t, rows.Close())
 
 	// run down migration

@@ -17,7 +17,7 @@ import (
 
 func TestDirectoryLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestDirectoryLoader(t *testing.T) {
 func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 
 	pkg := new(registry.PackageManifest)
 	require.NoError(t, yaml.NewDecoder(r).Decode(pkg))
-	require.True(t, len(pkg.Channels) > 1)
+	require.Greater(t, len(pkg.Channels), 1)
 	pkg.Channels[0].CurrentCSVName = "imaginary"
 
 	// Replace file contents
@@ -63,7 +63,7 @@ func TestDirectoryLoaderWithBadPackageData(t *testing.T) {
 func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestDirectoryLoaderWithBadBundleData(t *testing.T) {
 }
 
 func TestQuerierForDirectory(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	load, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -192,6 +192,7 @@ func TestQuerierForDirectory(t *testing.T) {
 	EqualBundles(t, *expectedBundle, *etcdBundleByReplaces)
 
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
+	require.NoError(t, err)
 	for _, c := range etcdChannelEntriesThatProvide {
 		t.Logf("%#v", c)
 	}

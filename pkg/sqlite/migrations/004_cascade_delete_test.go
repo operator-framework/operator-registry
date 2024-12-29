@@ -13,19 +13,18 @@ import (
 
 func TestBeforeCascadeDeleteUp(t *testing.T) {
 	// migrate up to, but not including, this migration
-	db, _, cleanup := CreateTestDbAt(t, migrations.CascadeDeleteMigrationKey-1)
+	db, _, cleanup := CreateTestDBAt(t, migrations.CascadeDeleteMigrationKey-1)
 	defer cleanup()
 
 	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	err = checkMigrationInPreviousState(t, tx)
-	require.NoError(t, err)
+	checkMigrationInPreviousState(t, tx)
 }
 
 func TestAfterCascadeDeleteUp(t *testing.T) {
 	// migrate up to, but not including, this migration
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.CascadeDeleteMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.CascadeDeleteMigrationKey-1)
 	defer cleanup()
 
 	// run up migration
@@ -35,23 +34,21 @@ func TestAfterCascadeDeleteUp(t *testing.T) {
 	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	err = checkMigrationInNextState(t, tx)
-	require.NoError(t, err)
+	checkMigrationInNextState(t, tx)
 }
 
 func TestBeforeCascadeDeleteDown(t *testing.T) {
-	db, _, cleanup := CreateTestDbAt(t, migrations.CascadeDeleteMigrationKey)
+	db, _, cleanup := CreateTestDBAt(t, migrations.CascadeDeleteMigrationKey)
 	defer cleanup()
 
 	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	err = checkMigrationInNextState(t, tx)
-	require.NoError(t, err)
+	checkMigrationInNextState(t, tx)
 }
 
 func TestAferCascadeDeleteDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.CascadeDeleteMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.CascadeDeleteMigrationKey)
 	defer cleanup()
 
 	// run down migration
@@ -61,8 +58,7 @@ func TestAferCascadeDeleteDown(t *testing.T) {
 	tx, err := db.Begin()
 	require.NoError(t, err)
 
-	err = checkMigrationInPreviousState(t, tx)
-	require.NoError(t, err)
+	checkMigrationInPreviousState(t, tx)
 }
 
 func removeWhiteSpaces(s string) string {
@@ -73,7 +69,7 @@ func removeWhiteSpaces(s string) string {
 	return s
 }
 
-func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
+func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) {
 	getCreateTableStatement := func(table string) string {
 		return `SELECT sql FROM sqlite_master where name="` + table + `"`
 	}
@@ -130,6 +126,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	var createStatement string
 
 	table, err := tx.Query(getCreateTableStatement("operatorbundle"))
+	require.NoError(t, err)
 	hasRows := table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -139,6 +136,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("package"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -148,6 +146,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("channel"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -157,6 +156,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("channel_entry"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -166,6 +166,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("api_requirer"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -175,6 +176,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("api_provider"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -184,6 +186,7 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("related_image"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -191,11 +194,9 @@ func checkMigrationInPreviousState(t *testing.T, tx *sql.Tx) error {
 	require.Equal(t, removeWhiteSpaces(createNewRelatedImageTable), removeWhiteSpaces(createStatement))
 	err = table.Close()
 	require.NoError(t, err)
-
-	return nil
 }
 
-func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
+func checkMigrationInNextState(t *testing.T, tx *sql.Tx) {
 	getCreateTableStatement := func(table string) string {
 		return `SELECT sql FROM sqlite_master where name="` + table + `"`
 	}
@@ -252,6 +253,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	var createStatement string
 
 	table, err := tx.Query(getCreateTableStatement("operatorbundle"))
+	require.NoError(t, err)
 	hasRows := table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -261,6 +263,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("package"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -270,6 +273,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("channel"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -279,6 +283,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("channel_entry"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -288,6 +293,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("api_requirer"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -297,6 +303,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("api_provider"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -306,6 +313,7 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.NoError(t, err)
 
 	table, err = tx.Query(getCreateTableStatement("related_image"))
+	require.NoError(t, err)
 	hasRows = table.Next()
 	require.True(t, hasRows)
 	err = table.Scan(&createStatement)
@@ -313,6 +321,4 @@ func checkMigrationInNextState(t *testing.T, tx *sql.Tx) error {
 	require.Equal(t, removeWhiteSpaces(createNewRelatedImageTable), removeWhiteSpaces(createStatement))
 	err = table.Close()
 	require.NoError(t, err)
-
-	return nil
 }

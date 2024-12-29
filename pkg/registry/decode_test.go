@@ -23,7 +23,7 @@ func TestDecodeUnstructured(t *testing.T) {
 			name: "ValidObjectWithKind",
 			file: "testdata/valid-unstructured.yaml",
 			assertFunc: func(t *testing.T, objGot *unstructured.Unstructured, errGot error) {
-				assert.NoError(t, errGot)
+				require.NoError(t, errGot)
 				assert.NotNil(t, objGot)
 
 				assert.Equal(t, "FooKind", objGot.GetKind())
@@ -34,7 +34,7 @@ func TestDecodeUnstructured(t *testing.T) {
 			name: "InvalidObjectWithoutKind",
 			file: "testdata/invalid-unstructured.yaml",
 			assertFunc: func(t *testing.T, objGot *unstructured.Unstructured, errGot error) {
-				assert.Error(t, errGot)
+				require.Error(t, errGot)
 				assert.Nil(t, objGot)
 			},
 		},
@@ -63,7 +63,7 @@ func TestDecodePackageManifest(t *testing.T) {
 			name: "WithValidObject",
 			file: "testdata/valid-package-manifest.yaml",
 			assertFunc: func(t *testing.T, packageManifestGot *PackageManifest, errGot error) {
-				assert.NoError(t, errGot)
+				require.NoError(t, errGot)
 				assert.NotNil(t, packageManifestGot)
 
 				assert.Equal(t, "foo", packageManifestGot.PackageName)
@@ -74,7 +74,7 @@ func TestDecodePackageManifest(t *testing.T) {
 			name: "WithoutPackageName",
 			file: "testdata/invalid-package-manifest.yaml",
 			assertFunc: func(t *testing.T, packageManifestGot *PackageManifest, errGot error) {
-				assert.Error(t, errGot)
+				require.Error(t, errGot)
 				assert.Nil(t, packageManifestGot)
 			},
 		},
@@ -109,21 +109,21 @@ func TestDecodeFileFS(t *testing.T) {
 	var nilPtr *foo
 	require.NoError(t, decodeFileFS(root, "foo.yaml", nilPtr, entry))
 	require.Nil(t, nilPtr)
-	require.Equal(t, 0, len(logHook.Entries))
+	require.Empty(t, logHook.Entries)
 	logHook.Reset()
 
 	ptr := &foo{}
 	require.NoError(t, decodeFileFS(root, "foo.yaml", ptr, entry))
 	require.NotNil(t, ptr)
 	require.Equal(t, "baz", ptr.Bar)
-	require.Equal(t, 0, len(logHook.Entries))
+	require.Empty(t, logHook.Entries)
 	logHook.Reset()
 
 	ptr = &foo{}
 	require.NoError(t, decodeFileFS(root, "multi.yaml", ptr, entry))
 	require.NotNil(t, ptr)
 	require.Equal(t, "baz", ptr.Bar)
-	require.Equal(t, 1, len(logHook.Entries))
+	require.Len(t, logHook.Entries, 1)
 	require.Equal(t, logrus.WarnLevel, logHook.LastEntry().Level)
 	require.Equal(t, "found more than one document inside multi.yaml, using only the first one", logHook.LastEntry().Message)
 	logHook.Reset()

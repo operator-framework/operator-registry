@@ -3,7 +3,7 @@ package bundle
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 )
@@ -11,12 +11,12 @@ import (
 func TestExportForBundleWithBadImage(t *testing.T) {
 	exporter := NewExporterForBundle("foo", "", containertools.DockerTool)
 	err := exporter.Export(true, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = exporter.Export(false, true)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	exporter = NewExporterForBundle("foo", "", containertools.NoneTool)
 	err = exporter.Export(true, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

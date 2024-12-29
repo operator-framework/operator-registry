@@ -14,7 +14,7 @@ import (
 
 func TestRemover(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
