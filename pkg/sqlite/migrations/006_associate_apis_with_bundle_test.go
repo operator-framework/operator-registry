@@ -13,7 +13,7 @@ import (
 )
 
 func TestAssociateApisWithBundleUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.AssociateApisWithBundleMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.AssociateApisWithBundleMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -32,7 +32,7 @@ func TestAssociateApisWithBundleUp(t *testing.T) {
 	require.NoError(t, err)
 	result, err := tx.Exec("insert into channel_entry(channel_name, package_name, operatorbundle_name, depth) values(?, ?, ?, ?)", "alpha", "etcd", "etcdoperator.v0.6.1", 0)
 	require.NoError(t, err)
-	entry_id, err := result.LastInsertId()
+	entryID, err := result.LastInsertId()
 	require.NoError(t, err)
 	_, err = tx.Exec("insert into api(group_name, version, kind, plural) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdClusters", "etcdclusters")
 	require.NoError(t, err)
@@ -40,11 +40,11 @@ func TestAssociateApisWithBundleUp(t *testing.T) {
 	require.NoError(t, err)
 	_, err = tx.Exec("insert into api(group_name, version, kind, plural) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdRestores", "etcdrestores")
 	require.NoError(t, err)
-	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdClusters", entry_id)
+	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdClusters", entryID)
 	require.NoError(t, err)
-	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdBackups", entry_id)
+	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdBackups", entryID)
 	require.NoError(t, err)
-	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdRestores", entry_id)
+	_, err = tx.Exec("insert into api_provider(group_name, version, kind, channel_entry_id) values(?, ?, ?, ?)", "etcd.database.coreos.com", "v1alpha1", "EtcdRestores", entryID)
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit())
 	_, err = db.Exec(`PRAGMA foreign_keys = 1`)
@@ -70,7 +70,7 @@ func TestAssociateApisWithBundleUp(t *testing.T) {
 }
 
 func TestAssociateApisWithBundleDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.AssociateApisWithBundleMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.AssociateApisWithBundleMigrationKey)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -106,6 +106,7 @@ func TestAssociateApisWithBundleDown(t *testing.T) {
 	require.NoError(t, err)
 
 	entriesBeforeMigration, err := newGetChannelEntriesThatProvide(db, "etcd.database.coreos.com", "v1alpha1", "EtcdRestores")
+	require.NoError(t, err)
 
 	err = migrator.Down(context.TODO(), migrations.Only(migrations.AssociateApisWithBundleMigrationKey))
 	require.NoError(t, err)
@@ -117,7 +118,7 @@ func TestAssociateApisWithBundleDown(t *testing.T) {
 	require.EqualValues(t, entriesBeforeMigration, entriesAfterMigration)
 }
 
-func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
+func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
         	  FROM channel_entry
               INNER JOIN api_provider ON channel_entry.entry_id = api_provider.channel_entry_id
@@ -126,11 +127,11 @@ func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 
 	rows, err := db.Query(query, group, version, kind)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer rows.Close()
 
-	entries = []*registry.ChannelEntry{}
+	var entries = []*registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -138,7 +139,7 @@ func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 		var bundleNameSQL sql.NullString
 		var replacesSQL sql.NullString
 		if err = rows.Scan(&pkgNameSQL, &channelNameSQL, &bundleNameSQL, &replacesSQL); err != nil {
-			return
+			return nil, err
 		}
 
 		entries = append(entries, &registry.ChannelEntry{
@@ -150,12 +151,12 @@ func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 	}
 	if len(entries) == 0 {
 		err = fmt.Errorf("no channel entries found that provide %s %s %s", group, version, kind)
-		return
+		return nil, err
 	}
-	return
+	return entries, nil
 }
 
-func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (entries []*registry.ChannelEntry, err error) {
+func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	query := `SELECT DISTINCT channel_entry.package_name, channel_entry.channel_name, channel_entry.operatorbundle_name, replaces.operatorbundle_name
           FROM channel_entry
           INNER JOIN api_provider ON channel_entry.operatorbundle_name = api_provider.operatorbundle_name
@@ -164,11 +165,11 @@ func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 
 	rows, err := db.Query(query, group, version, kind)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer rows.Close()
 
-	entries = []*registry.ChannelEntry{}
+	var entries = []*registry.ChannelEntry{}
 
 	for rows.Next() {
 		var pkgNameSQL sql.NullString
@@ -176,7 +177,7 @@ func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 		var bundleNameSQL sql.NullString
 		var replacesSQL sql.NullString
 		if err = rows.Scan(&pkgNameSQL, &channelNameSQL, &bundleNameSQL, &replacesSQL); err != nil {
-			return
+			return nil, err
 		}
 
 		entries = append(entries, &registry.ChannelEntry{
@@ -188,7 +189,7 @@ func newGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) (e
 	}
 	if len(entries) == 0 {
 		err = fmt.Errorf("no channel entries found that provide %s %s %s", group, version, kind)
-		return
+		return nil, err
 	}
-	return
+	return entries, nil
 }

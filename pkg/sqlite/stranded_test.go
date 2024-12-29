@@ -14,7 +14,7 @@ import (
 
 func TestStrandedBundleRemover(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestStrandedBundleRemover(t *testing.T) {
 	querier := NewSQLLiteQuerierFromDb(db)
 	packageBundles, err := querier.GetBundlesForPackage(context.TODO(), "prometheus")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(packageBundles))
+	require.Len(t, packageBundles, 1)
 
 	rows, err := db.QueryContext(context.TODO(), "select * from operatorbundle")
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestStrandedBundleRemover(t *testing.T) {
 	// other bundles in the package still exist, but the bundle is removed
 	packageBundles, err = querier.GetBundlesForPackage(context.TODO(), "prometheus")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(packageBundles))
+	require.Len(t, packageBundles, 1)
 
 	rows, err = db.QueryContext(context.TODO(), "select * from operatorbundle")
 	require.NoError(t, err)

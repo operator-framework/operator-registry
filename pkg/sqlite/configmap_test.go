@@ -3,24 +3,28 @@ package sqlite
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-func CreateTestDb(t *testing.T) (*sql.DB, func()) {
-	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+func CreateTestDB(t *testing.T) (*sql.DB, func()) {
+	r, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	require.NoError(t, err)
+	dbName := fmt.Sprintf("test-%d.db", r.Int64())
 
 	db, err := Open(dbName)
 	require.NoError(t, err)
@@ -40,7 +44,7 @@ func CreateTestDb(t *testing.T) (*sql.DB, func()) {
 func TestConfigMapLoader(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -52,7 +56,7 @@ func TestConfigMapLoader(t *testing.T) {
 	require.NoError(t, err, "unable to load configmap from file %s", path)
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-	manifest := v1.ConfigMap{}
+	manifest := corev1.ConfigMap{}
 	err = decoder.Decode(&manifest)
 	require.NoError(t, err, "could not decode contents of file %s into configmap", path)
 
@@ -63,7 +67,7 @@ func TestConfigMapLoader(t *testing.T) {
 func TestReplaceCycle(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -79,7 +83,7 @@ func TestReplaceCycle(t *testing.T) {
 		[]byte("replaces: etcdoperator.v0.9.2"), 1)))
 
 	decoder := yaml.NewYAMLOrJSONDecoder(sReader, 30)
-	manifest := v1.ConfigMap{}
+	manifest := corev1.ConfigMap{}
 	err = decoder.Decode(&manifest)
 	require.NoError(t, err, "could not decode contents of file %s into configmap", path)
 
@@ -89,7 +93,7 @@ func TestReplaceCycle(t *testing.T) {
 }
 
 func TestQuerierForConfigmap(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	load, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -100,7 +104,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 	require.NoError(t, err, "unable to load configmap from file %s", path)
 
 	decoder := yaml.NewYAMLOrJSONDecoder(fileReader, 30)
-	manifest := v1.ConfigMap{}
+	manifest := corev1.ConfigMap{}
 	err = decoder.Decode(&manifest)
 	require.NoError(t, err, "could not decode contents of file %s into configmap", path)
 
@@ -186,7 +190,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 
 	etcdChannelEntries, err := store.GetChannelEntriesThatReplace(context.TODO(), "etcdoperator.v0.9.0")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntries)
+	require.ElementsMatch(t, []*registry.ChannelEntry{{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.9.2", Replaces: "etcdoperator.v0.9.0"}}, etcdChannelEntries)
 
 	etcdBundleByReplaces, err := store.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "alpha")
 	require.NoError(t, err)
@@ -195,17 +199,17 @@ func TestQuerierForConfigmap(t *testing.T) {
 	etcdChannelEntriesThatProvide, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
 	require.ElementsMatch(t, []*registry.ChannelEntry{
-		{"etcd", "alpha", "etcdoperator.v0.6.1", ""},
-		{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
-		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
+		{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.6.1", Replaces: ""},
+		{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.9.0", Replaces: "etcdoperator.v0.6.1"},
+		{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.9.2", Replaces: "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
 
 	etcdChannelEntriesThatProvideAPIServer, err := store.GetChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "FakeEtcdObject")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"}}, etcdChannelEntriesThatProvideAPIServer)
+	require.ElementsMatch(t, []*registry.ChannelEntry{{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.9.0", Replaces: "etcdoperator.v0.6.1"}}, etcdChannelEntriesThatProvideAPIServer)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
+	require.ElementsMatch(t, []*registry.ChannelEntry{{PackageName: "etcd", ChannelName: "alpha", BundleName: "etcdoperator.v0.9.2", Replaces: "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)

@@ -59,7 +59,7 @@ func TestMigrations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var config declcfg.DeclarativeConfig = unmigratedCatalogFBC()
+			var config = unmigratedCatalogFBC()
 
 			for _, m := range test.migrators.Migrations {
 				err := m.Migrate(&config)

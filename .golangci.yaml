@@ -68,6 +68,15 @@ linters-settings:
     - pkg: github.com/blang/semver/v4
       alias: bsemver
 
+issues:
+  # exclusion rules, mostly to avoid functionally complete areas and reduce unit test noise
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - unused
+        - govet
+
+
 output:
   formats:
     - format: tab

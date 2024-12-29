@@ -146,7 +146,7 @@ func withNoBundleData() func(*Bundle) {
 }
 
 func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
-	csvJson := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
+	csvJSON := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
 	b := Bundle{
 		Schema:  SchemaBundle,
 		Name:    testBundleName(packageName, version),
@@ -154,7 +154,7 @@ func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 		Image:   testBundleImage(packageName, version),
 		Properties: []property.Property{
 			property.MustBuildPackage(packageName, version),
-			property.MustBuildBundleObject([]byte(csvJson)),
+			property.MustBuildBundleObject([]byte(csvJSON)),
 			property.MustBuildBundleObject([]byte(`{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`)),
 		},
 		RelatedImages: []RelatedImage{
@@ -163,9 +163,9 @@ func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 				Image: testBundleImage(packageName, version),
 			},
 		},
-		CsvJSON: csvJson,
+		CsvJSON: csvJSON,
 		Objects: []string{
-			csvJson,
+			csvJSON,
 			`{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`,
 		},
 	}

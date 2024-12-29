@@ -49,7 +49,7 @@ func TestEnsureNsswitch(t *testing.T) {
 			NsswitchFilename = "testfile"
 
 			if tt.existingFile {
-				require.NoError(t, os.WriteFile(NsswitchFilename, []byte("test"), 0644))
+				require.NoError(t, os.WriteFile(NsswitchFilename, []byte("test"), 0600))
 			}
 
 			if err := EnsureNsswitch(); (err != nil) != tt.wantErr {

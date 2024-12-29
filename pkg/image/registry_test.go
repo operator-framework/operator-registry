@@ -2,12 +2,13 @@ package image_test
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"os"
 	"sync"
@@ -44,9 +45,11 @@ func poolForCertFile(t *testing.T, file string) *x509.CertPool {
 func TestRegistries(t *testing.T) {
 	registries := map[string]newRegistryFunc{
 		"containerd": func(t *testing.T, cafile string) (image.Registry, cleanupFunc) {
+			val, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+			require.NoError(t, err)
 			r, err := containerdregistry.NewRegistry(
 				containerdregistry.WithLog(logrus.New().WithField("test", t.Name())),
-				containerdregistry.WithCacheDir(fmt.Sprintf("cache-%x", rand.Int())),
+				containerdregistry.WithCacheDir(fmt.Sprintf("cache-%x", val)),
 				containerdregistry.WithRootCAs(poolForCertFile(t, cafile)),
 			)
 			require.NoError(t, err)
@@ -180,7 +183,10 @@ func testPullAndUnpack(t *testing.T, name string, newRegistry newRegistryFunc) {
 						maxCount: tt.args.pullErrCount,
 						err:      tt.args.pullErr,
 					}}
-					middlewareName := fmt.Sprintf("test-%x", rand.Int())
+					val, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+					require.NoError(t, err)
+
+					middlewareName := fmt.Sprintf("test-%x", val)
 					require.NoError(t, repositorymiddleware.Register(middlewareName, mockRepo.init))
 					config.Middleware["repository"] = append(config.Middleware["repository"], configuration.Middleware{
 						Name: middlewareName,
