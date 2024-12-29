@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/model"
 )
@@ -26,7 +27,7 @@ func TestConvertFromModel(t *testing.T) {
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			s.m.Normalize()
-			assert.NoError(t, s.m.Validate())
+			require.NoError(t, s.m.Validate())
 			actual := ConvertFromModel(s.m)
 
 			removeJSONWhitespace(&s.expectCfg)

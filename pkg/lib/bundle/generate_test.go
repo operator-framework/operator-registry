@@ -55,12 +55,12 @@ func TestValidateAnnotations(t *testing.T) {
 		err      error
 	}{
 		{
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
 				}),
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -68,13 +68,13 @@ func TestValidateAnnotations(t *testing.T) {
 			nil,
 		},
 		{
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
 					"test3": "beta",
 				}),
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -82,12 +82,12 @@ func TestValidateAnnotations(t *testing.T) {
 			nil,
 		},
 		{
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable",
 				}),
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -95,12 +95,12 @@ func TestValidateAnnotations(t *testing.T) {
 			fmt.Errorf(`Expect field "test2" to have value "stable,beta" instead of "stable"`),
 		},
 		{
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test3": "stable",
 				}),
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -109,7 +109,7 @@ func TestValidateAnnotations(t *testing.T) {
 		},
 		{
 			[]byte("\t"),
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -117,7 +117,7 @@ func TestValidateAnnotations(t *testing.T) {
 			fmt.Errorf("yaml: found character that cannot start any token"),
 		},
 		{
-			buildTestAnnotations("annotations",
+			buildTestAnnotations(
 				map[string]string{
 					"test1": "stable",
 					"test2": "stable,beta",
@@ -132,7 +132,7 @@ func TestValidateAnnotations(t *testing.T) {
 		if item.err != nil {
 			require.Equal(t, item.err.Error(), err.Error())
 		} else {
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 	}
 }
@@ -183,10 +183,10 @@ COPY x/y/z /metadata/
 	}
 
 	for _, tt := range tests {
-		tt_expected := fmt.Sprintf(expected, tt.baseImage)
+		ttExpected := fmt.Sprintf(expected, tt.baseImage)
 		actual, err := GenerateDockerfile("test1", "test2", "metadata/", filepath.Join("a", "b", "c"), filepath.Join("x", "y", "z"), "./", "test4", "test5", "", tt.baseImage)
 		require.NoError(t, err)
-		require.Equal(t, tt_expected, string(actual))
+		require.Equal(t, ttExpected, string(actual))
 	}
 }
 

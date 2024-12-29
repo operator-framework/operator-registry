@@ -10,8 +10,8 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
-func createLoadedTestDb(t *testing.T) (*sql.DB, func()) {
-	db, cleanup := CreateTestDb(t)
+func createLoadedTestDB(t *testing.T) (*sql.DB, func()) {
+	db, cleanup := CreateTestDB(t)
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
 	require.NoError(t, store.Migrate(context.TODO()))
@@ -65,7 +65,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 		},
 	}
 
-	db, cleanup := createLoadedTestDb(t)
+	db, cleanup := createLoadedTestDB(t)
 	defer cleanup()
 
 	graphLoader, err := NewSQLGraphLoaderFromDB(db)
@@ -75,7 +75,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "etcd", result.Name)
-	require.Equal(t, 3, len(result.Channels))
+	require.Len(t, result.Channels, 3)
 
 	for channelName, channel := range result.Channels {
 		expectedChannel := expectedGraph.Channels[channelName]
@@ -85,7 +85,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 }
 
 func TestLoadPackageGraph_Etcd_NotFound(t *testing.T) {
-	db, cleanup := createLoadedTestDb(t)
+	db, cleanup := createLoadedTestDB(t)
 	defer cleanup()
 
 	graphLoader, err := NewSQLGraphLoaderFromDB(db)

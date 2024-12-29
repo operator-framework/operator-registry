@@ -2,21 +2,22 @@ package registry
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
@@ -78,13 +79,13 @@ func newCache(t *testing.T, bundles []*model.Bundle) cache.Cache {
 			}
 		}
 		if !pkgPropertyFound {
-			pkgJson, _ := json.Marshal(property.Package{
+			pkgJSON, _ := json.Marshal(property.Package{
 				PackageName: b.Package.Name,
 				Version:     b.Version.String(),
 			})
 			b.Properties = append(b.Properties, property.Property{
 				Type:  property.TypePackage,
-				Value: pkgJson,
+				Value: pkgJSON,
 			})
 		}
 	}
@@ -281,12 +282,10 @@ func TestUnpackImage(t *testing.T) {
 	}
 }
 
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-func CreateTestDb(t *testing.T) (*sql.DB, func()) {
-	dbName := fmt.Sprintf("test-%d.db", rand.Int())
+func CreateTestDB(t *testing.T) (*sql.DB, func()) {
+	r, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	require.NoError(t, err)
+	dbName := fmt.Sprintf("test-%d.db", r)
 
 	db, err := sqlite.Open(dbName)
 	require.NoError(t, err)
@@ -326,10 +325,10 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 	}
 
 	rawCSV, err := json.Marshal(registry.ClusterServiceVersion{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind: sqlite.ClusterServiceVersionKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: csvSpec,
@@ -342,14 +341,17 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 	if err := json.Unmarshal(rawCSV, &rawObj); err != nil {
 		return bundleDir, cleanup, err
 	}
-	rawObj.SetCreationTimestamp(v1.Time{})
+	rawObj.SetCreationTimestamp(metav1.Time{})
 
 	jsonout, err := rawObj.MarshalJSON()
+	if err != nil {
+		return bundleDir, cleanup, err
+	}
 	out, err := yaml.JSONToYAML(jsonout)
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.ManifestsDir, "csv.yaml"), out, 0600); err != nil {
 		return bundleDir, cleanup, err
 	}
 
@@ -357,7 +359,7 @@ func newUnpackedTestBundle(dir, name string, csvSpec json.RawMessage, annotation
 	if err != nil {
 		return bundleDir, cleanup, err
 	}
-	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0666); err != nil {
+	if err := os.WriteFile(filepath.Join(bundleDir, bundle.MetadataDir, "annotations.yaml"), out, 0600); err != nil {
 		return bundleDir, cleanup, err
 	}
 	return bundleDir, cleanup, nil
@@ -653,7 +655,7 @@ func TestCheckForBundles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			tmpdir := t.TempDir()
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			load, err := sqlite.NewSQLLiteLoader(db)
 			require.NoError(t, err)

@@ -98,7 +98,7 @@ func TestValidateBundle_InvalidRegistryVersion(t *testing.T) {
 	var validationError ValidationError
 	isValidationErr := errors.As(err, &validationError)
 	require.True(t, isValidationErr)
-	require.Equal(t, len(validationError.Errors), 1)
+	require.Len(t, validationError.Errors, 1)
 }
 
 func TestValidateBundleContent(t *testing.T) {
