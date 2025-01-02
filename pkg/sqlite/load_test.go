@@ -129,7 +129,7 @@ func TestAddPackageChannels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			store, err := NewSQLLiteLoader(db)
 			require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestAddPackageChannels(t *testing.T) {
 
 			for _, bundle := range tt.fields.bundles {
 				// Throw away any errors loading bundles (not testing this)
-				store.AddOperatorBundle(bundle)
+				_ = store.AddOperatorBundle(bundle)
 			}
 
 			for i, pkg := range tt.args.pkgs {
@@ -157,7 +157,7 @@ func TestAddPackageChannels(t *testing.T) {
 
 func TestAddBundleSemver(t *testing.T) {
 	// Create a test DB
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestAddBundleSemver(t *testing.T) {
 		if b.PackageName != "pkg-0" {
 			continue
 		}
-		require.Len(t, b.Skips, 0, "unexpected skips value(s) for bundle %q", b.CsvName)
+		require.Empty(t, b.Skips, "unexpected skips value(s) for bundle %q", b.CsvName)
 		replaces[b.CsvName] = b.Replaces
 	}
 	require.Equal(t, map[string]string{
@@ -221,7 +221,7 @@ func TestAddBundleSemver(t *testing.T) {
 }
 
 func TestClearNonHeadBundles(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -307,8 +307,8 @@ func newUnstructuredCSVWithVersion(t *testing.T, name, version string) *unstruct
 	csv := &registry.ClusterServiceVersion{}
 	csv.TypeMeta.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
-	versionJson := fmt.Sprintf(`{"version": "%s"}`, version)
-	csv.Spec = json.RawMessage(versionJson)
+	versionJSON := fmt.Sprintf(`{"version": "%s"}`, version)
+	csv.Spec = json.RawMessage(versionJSON)
 
 	out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(csv)
 	require.NoError(t, err)
@@ -329,7 +329,7 @@ func newBundle(t *testing.T, name, pkgName string, channels []string, objs ...*u
 }
 
 func TestRMBundle(t *testing.T) {
-	db, cleanup := CreateTestDb(t)
+	db, cleanup := CreateTestDB(t)
 	defer cleanup()
 	store, err := NewSQLLiteLoader(db)
 	require.NoError(t, err)
@@ -503,7 +503,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 			expected: expected{
 				err: nil,
 				deprecated: map[string]struct{}{
-					"csv-aa": struct{}{}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
+					"csv-aa": {}, // csv-b remains in the deprecated table since it has been truncated and hasn't been removed
 				},
 				nontruncated: map[string]struct{}{
 					"csv-aa:stable":  {},
@@ -600,7 +600,7 @@ func TestDeprecationAwareLoader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			store, err := NewDeprecationAwareLoader(db)
 			require.NoError(t, err)
@@ -643,12 +643,11 @@ func TestDeprecationAwareLoader(t *testing.T) {
 					delete(bundleMap, bundleName)
 				}
 
-				require.Len(t, bundleMap, 0, "not all expected bundles exist in %s table: %v", table, bundleMap)
+				require.Empty(t, bundleMap, "not all expected bundles exist in %s table: %v", table, bundleMap)
 			}
 			checkForBundles(`SELECT operatorbundle_name FROM deprecated`, "deprecated", tt.expected.deprecated)
 			// operatorbundle_name:<channel list>
 			checkForBundles(`SELECT name||":"|| coalesce(group_concat(distinct channel_name), "") FROM (SELECT name, channel_name from operatorbundle left outer join channel_entry on name=operatorbundle_name order by channel_name) group by name`, "operatorbundle", tt.expected.nontruncated)
-
 		})
 	}
 }
@@ -869,7 +868,7 @@ func TestGetTailFromBundle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			store, err := NewSQLLiteLoader(db)
 			require.NoError(t, err)
@@ -993,7 +992,7 @@ func TestAddBundlePropertiesFromAnnotations(t *testing.T) {
 		},
 	} {
 		t.Run(tt.description, func(t *testing.T) {
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 
 			s, err := NewSQLLiteLoader(db)
@@ -1211,7 +1210,7 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			store, err := NewSQLLiteLoader(db)
 			require.NoError(t, err)
@@ -1220,12 +1219,12 @@ func TestRemoveOverwrittenChannelHead(t *testing.T) {
 
 			for _, bundle := range tt.fields.bundles {
 				// Throw away any errors loading bundles (not testing this)
-				store.AddOperatorBundle(bundle)
+				_ = store.AddOperatorBundle(bundle)
 			}
 
 			for _, pkg := range tt.fields.pkgs {
 				// Throw away any errors loading packages (not testing this)
-				store.AddPackageChannels(pkg)
+				_ = store.AddPackageChannels(pkg)
 			}
 
 			getDefaultChannel := func(pkg string) sql.NullString {

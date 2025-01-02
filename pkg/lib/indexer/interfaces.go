@@ -2,9 +2,10 @@
 package indexer
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/lib/registry"
-	"github.com/sirupsen/logrus"
 )
 
 // IndexAdder allows the creation of index container images from scratch or

@@ -11,7 +11,7 @@ import (
 )
 
 func TestRmTruncatedDeprecations(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RmTruncatedDeprecationsMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RmTruncatedDeprecationsMigrationKey-1)
 	defer cleanup()
 
 	// Insert fixtures to satisfy foreign key constraints

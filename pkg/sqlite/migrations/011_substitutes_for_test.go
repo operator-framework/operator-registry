@@ -11,7 +11,7 @@ import (
 )
 
 func TestSubstitutesForUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.SubstitutesForMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.SubstitutesForMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -44,7 +44,7 @@ func TestSubstitutesForUp(t *testing.T) {
 }
 
 func TestSubstitutesForDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.SubstitutesForMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.SubstitutesForMigrationKey)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)

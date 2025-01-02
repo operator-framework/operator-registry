@@ -8,10 +8,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMigrations(t *testing.T) {
@@ -57,7 +59,7 @@ func TestMigrations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var config declcfg.DeclarativeConfig = unmigratedCatalogFBC()
+			var config = unmigratedCatalogFBC()
 
 			for _, m := range test.migrators.Migrations {
 				err := m.Migrate(&config)

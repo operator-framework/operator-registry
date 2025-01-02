@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCelConstraintValidation(t *testing.T) {
@@ -52,13 +52,13 @@ func TestCelConstraintValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var dep CelConstraint
 			err := json.Unmarshal([]byte(tt.constraint), &dep)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			errs := dep.Validate()
 			if len(tt.errs) > 0 {
-				assert.Error(t, errs[0])
-				assert.Contains(t, errs[0].Error(), tt.errs[0].Error())
+				require.Error(t, errs[0])
+				require.Contains(t, errs[0].Error(), tt.errs[0].Error())
 			} else {
-				assert.Equal(t, len(errs), 0)
+				require.Empty(t, errs)
 			}
 		})
 	}

@@ -17,9 +17,9 @@ func TestCache_GetBundle(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b, err := testQuerier.GetBundle(context.TODO(), "etcd", "singlenamespace-alpha", "etcdoperator.v0.9.4")
 			require.NoError(t, err)
-			require.Equal(t, b.PackageName, "etcd")
-			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+			require.Equal(t, "etcd", b.PackageName)
+			require.Equal(t, "singlenamespace-alpha", b.ChannelName)
+			require.Equal(t, "etcdoperator.v0.9.4", b.CsvName)
 		})
 	}
 }
@@ -31,9 +31,9 @@ func TestCache_GetBundleForChannel(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, b)
-			require.Equal(t, b.PackageName, "etcd")
-			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+			require.Equal(t, "etcd", b.PackageName)
+			require.Equal(t, "singlenamespace-alpha", b.ChannelName)
+			require.Equal(t, "etcdoperator.v0.9.4", b.CsvName)
 		})
 	}
 }
@@ -44,9 +44,9 @@ func TestCache_GetBundleThatProvides(t *testing.T) {
 			b, err := testQuerier.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdBackup")
 			require.NoError(t, err)
 			require.NotNil(t, b)
-			require.Equal(t, b.PackageName, "etcd")
-			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-			require.Equal(t, b.CsvName, "etcdoperator.v0.9.4")
+			require.Equal(t, "etcd", b.PackageName)
+			require.Equal(t, "singlenamespace-alpha", b.ChannelName)
+			require.Equal(t, "etcdoperator.v0.9.4", b.CsvName)
 		})
 	}
 }
@@ -57,9 +57,9 @@ func TestCache_GetBundleThatReplaces(t *testing.T) {
 			b, err := testQuerier.GetBundleThatReplaces(context.TODO(), "etcdoperator.v0.9.0", "etcd", "singlenamespace-alpha")
 			require.NoError(t, err)
 			require.NotNil(t, b)
-			require.Equal(t, b.PackageName, "etcd")
-			require.Equal(t, b.ChannelName, "singlenamespace-alpha")
-			require.Equal(t, b.CsvName, "etcdoperator.v0.9.2")
+			require.Equal(t, "etcd", b.PackageName)
+			require.Equal(t, "singlenamespace-alpha", b.ChannelName)
+			require.Equal(t, "etcdoperator.v0.9.2", b.CsvName)
 		})
 	}
 }
@@ -214,7 +214,7 @@ func TestCache_ListPackages(t *testing.T) {
 			packages, err := testQuerier.ListPackages(context.TODO())
 			require.NoError(t, err)
 			require.NotNil(t, packages)
-			require.Equal(t, 2, len(packages))
+			require.Len(t, packages, 2)
 		})
 	}
 }
