@@ -31,15 +31,16 @@ func (fake *FakeDockerfileGenerator) GenerateIndexDockerfile(arg1 string, arg2 s
 		arg1 string
 		arg2 string
 	}{arg1, arg2})
+	stub := fake.GenerateIndexDockerfileStub
+	fakeReturns := fake.generateIndexDockerfileReturns
 	fake.recordInvocation("GenerateIndexDockerfile", []interface{}{arg1, arg2})
 	fake.generateIndexDockerfileMutex.Unlock()
-	if fake.GenerateIndexDockerfileStub != nil {
-		return fake.GenerateIndexDockerfileStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.generateIndexDockerfileReturns
 	return fakeReturns.result1
 }
 
