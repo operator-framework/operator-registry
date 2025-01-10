@@ -29,15 +29,16 @@ func (fake *FakeRegistryAdder) AddToRegistry(arg1 registry.AddToRegistryRequest)
 	fake.addToRegistryArgsForCall = append(fake.addToRegistryArgsForCall, struct {
 		arg1 registry.AddToRegistryRequest
 	}{arg1})
+	stub := fake.AddToRegistryStub
+	fakeReturns := fake.addToRegistryReturns
 	fake.recordInvocation("AddToRegistry", []interface{}{arg1})
 	fake.addToRegistryMutex.Unlock()
-	if fake.AddToRegistryStub != nil {
-		return fake.AddToRegistryStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.addToRegistryReturns
 	return fakeReturns.result1
 }
 

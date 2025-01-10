@@ -29,15 +29,16 @@ func (fake *FakeIndexDeleter) DeleteFromIndex(arg1 indexer.DeleteFromIndexReques
 	fake.deleteFromIndexArgsForCall = append(fake.deleteFromIndexArgsForCall, struct {
 		arg1 indexer.DeleteFromIndexRequest
 	}{arg1})
+	stub := fake.DeleteFromIndexStub
+	fakeReturns := fake.deleteFromIndexReturns
 	fake.recordInvocation("DeleteFromIndex", []interface{}{arg1})
 	fake.deleteFromIndexMutex.Unlock()
-	if fake.DeleteFromIndexStub != nil {
-		return fake.DeleteFromIndexStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.deleteFromIndexReturns
 	return fakeReturns.result1
 }
 

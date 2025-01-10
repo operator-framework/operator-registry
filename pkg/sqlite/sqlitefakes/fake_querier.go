@@ -36,15 +36,16 @@ func (fake *FakeQuerier) QueryContext(arg1 context.Context, arg2 string, arg3 ..
 		arg2 string
 		arg3 []interface{}
 	}{arg1, arg2, arg3})
+	stub := fake.QueryContextStub
+	fakeReturns := fake.queryContextReturns
 	fake.recordInvocation("QueryContext", []interface{}{arg1, arg2, arg3})
 	fake.queryContextMutex.Unlock()
-	if fake.QueryContextStub != nil {
-		return fake.QueryContextStub(arg1, arg2, arg3...)
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	fakeReturns := fake.queryContextReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
