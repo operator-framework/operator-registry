@@ -65,16 +65,15 @@ func (fake *FakeCommandRunner) Build(arg1 string, arg2 string) error {
 		arg1 string
 		arg2 string
 	}{arg1, arg2})
-	stub := fake.BuildStub
-	fakeReturns := fake.buildReturns
 	fake.recordInvocation("Build", []interface{}{arg1, arg2})
 	fake.buildMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
+	if fake.BuildStub != nil {
+		return fake.BuildStub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.buildReturns
 	return fakeReturns.result1
 }
 
@@ -125,16 +124,15 @@ func (fake *FakeCommandRunner) GetToolName() string {
 	ret, specificReturn := fake.getToolNameReturnsOnCall[len(fake.getToolNameArgsForCall)]
 	fake.getToolNameArgsForCall = append(fake.getToolNameArgsForCall, struct {
 	}{})
-	stub := fake.GetToolNameStub
-	fakeReturns := fake.getToolNameReturns
 	fake.recordInvocation("GetToolName", []interface{}{})
 	fake.getToolNameMutex.Unlock()
-	if stub != nil {
-		return stub()
+	if fake.GetToolNameStub != nil {
+		return fake.GetToolNameStub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.getToolNameReturns
 	return fakeReturns.result1
 }
 
@@ -179,16 +177,15 @@ func (fake *FakeCommandRunner) Inspect(arg1 string) ([]byte, error) {
 	fake.inspectArgsForCall = append(fake.inspectArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.InspectStub
-	fakeReturns := fake.inspectReturns
 	fake.recordInvocation("Inspect", []interface{}{arg1})
 	fake.inspectMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.InspectStub != nil {
+		return fake.InspectStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
+	fakeReturns := fake.inspectReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 
@@ -243,16 +240,15 @@ func (fake *FakeCommandRunner) Pull(arg1 string) error {
 	fake.pullArgsForCall = append(fake.pullArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.PullStub
-	fakeReturns := fake.pullReturns
 	fake.recordInvocation("Pull", []interface{}{arg1})
 	fake.pullMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.PullStub != nil {
+		return fake.PullStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.pullReturns
 	return fakeReturns.result1
 }
 

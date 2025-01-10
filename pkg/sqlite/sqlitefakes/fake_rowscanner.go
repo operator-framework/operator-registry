@@ -48,16 +48,15 @@ func (fake *FakeRowScanner) Close() error {
 	ret, specificReturn := fake.closeReturnsOnCall[len(fake.closeArgsForCall)]
 	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
 	}{})
-	stub := fake.CloseStub
-	fakeReturns := fake.closeReturns
 	fake.recordInvocation("Close", []interface{}{})
 	fake.closeMutex.Unlock()
-	if stub != nil {
-		return stub()
+	if fake.CloseStub != nil {
+		return fake.CloseStub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.closeReturns
 	return fakeReturns.result1
 }
 
@@ -101,16 +100,15 @@ func (fake *FakeRowScanner) Next() bool {
 	ret, specificReturn := fake.nextReturnsOnCall[len(fake.nextArgsForCall)]
 	fake.nextArgsForCall = append(fake.nextArgsForCall, struct {
 	}{})
-	stub := fake.NextStub
-	fakeReturns := fake.nextReturns
 	fake.recordInvocation("Next", []interface{}{})
 	fake.nextMutex.Unlock()
-	if stub != nil {
-		return stub()
+	if fake.NextStub != nil {
+		return fake.NextStub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.nextReturns
 	return fakeReturns.result1
 }
 
@@ -155,16 +153,15 @@ func (fake *FakeRowScanner) Scan(arg1 ...interface{}) error {
 	fake.scanArgsForCall = append(fake.scanArgsForCall, struct {
 		arg1 []interface{}
 	}{arg1})
-	stub := fake.ScanStub
-	fakeReturns := fake.scanReturns
 	fake.recordInvocation("Scan", []interface{}{arg1})
 	fake.scanMutex.Unlock()
-	if stub != nil {
-		return stub(arg1...)
+	if fake.ScanStub != nil {
+		return fake.ScanStub(arg1...)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.scanReturns
 	return fakeReturns.result1
 }
 

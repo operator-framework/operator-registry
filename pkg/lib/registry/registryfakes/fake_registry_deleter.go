@@ -29,16 +29,15 @@ func (fake *FakeRegistryDeleter) DeleteFromRegistry(arg1 registry.DeleteFromRegi
 	fake.deleteFromRegistryArgsForCall = append(fake.deleteFromRegistryArgsForCall, struct {
 		arg1 registry.DeleteFromRegistryRequest
 	}{arg1})
-	stub := fake.DeleteFromRegistryStub
-	fakeReturns := fake.deleteFromRegistryReturns
 	fake.recordInvocation("DeleteFromRegistry", []interface{}{arg1})
 	fake.deleteFromRegistryMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.DeleteFromRegistryStub != nil {
+		return fake.DeleteFromRegistryStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.deleteFromRegistryReturns
 	return fakeReturns.result1
 }
 

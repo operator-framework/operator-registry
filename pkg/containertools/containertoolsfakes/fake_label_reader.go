@@ -31,16 +31,15 @@ func (fake *FakeLabelReader) GetLabelsFromImage(arg1 string) (map[string]string,
 	fake.getLabelsFromImageArgsForCall = append(fake.getLabelsFromImageArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.GetLabelsFromImageStub
-	fakeReturns := fake.getLabelsFromImageReturns
 	fake.recordInvocation("GetLabelsFromImage", []interface{}{arg1})
 	fake.getLabelsFromImageMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.GetLabelsFromImageStub != nil {
+		return fake.GetLabelsFromImageStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
+	fakeReturns := fake.getLabelsFromImageReturns
 	return fakeReturns.result1, fakeReturns.result2
 }
 

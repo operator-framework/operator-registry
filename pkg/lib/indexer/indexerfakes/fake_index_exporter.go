@@ -29,16 +29,15 @@ func (fake *FakeIndexExporter) ExportFromIndex(arg1 indexer.ExportFromIndexReque
 	fake.exportFromIndexArgsForCall = append(fake.exportFromIndexArgsForCall, struct {
 		arg1 indexer.ExportFromIndexRequest
 	}{arg1})
-	stub := fake.ExportFromIndexStub
-	fakeReturns := fake.exportFromIndexReturns
 	fake.recordInvocation("ExportFromIndex", []interface{}{arg1})
 	fake.exportFromIndexMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.ExportFromIndexStub != nil {
+		return fake.ExportFromIndexStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.exportFromIndexReturns
 	return fakeReturns.result1
 }
 

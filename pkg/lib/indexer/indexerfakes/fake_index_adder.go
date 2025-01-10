@@ -29,16 +29,15 @@ func (fake *FakeIndexAdder) AddToIndex(arg1 indexer.AddToIndexRequest) error {
 	fake.addToIndexArgsForCall = append(fake.addToIndexArgsForCall, struct {
 		arg1 indexer.AddToIndexRequest
 	}{arg1})
-	stub := fake.AddToIndexStub
-	fakeReturns := fake.addToIndexReturns
 	fake.recordInvocation("AddToIndex", []interface{}{arg1})
 	fake.addToIndexMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
+	if fake.AddToIndexStub != nil {
+		return fake.AddToIndexStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
+	fakeReturns := fake.addToIndexReturns
 	return fakeReturns.result1
 }
 
