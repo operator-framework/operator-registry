@@ -107,8 +107,8 @@ lint:
 
 .PHONY: bingo-upgrade
 bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
-	@for pkg in $$($(BINGO) list | awk '{ print $$1 }' | tail -n +3); do \
-		echo "Upgrading $$pkg to latest..."; \
+	@for pkg in $$($(BINGO) list | awk '{ print $$3 }' | tail -n +3 | sed 's/@.*//'); do \
+		echo -e "Upgrading \033[35m$$pkg\033[0m to latest..."; \
 		$(BINGO) get "$$pkg@latest"; \
 	done
 
