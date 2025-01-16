@@ -211,8 +211,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92Bcuy
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 h1:asbCHRVmodnJTuQ3qamDwqVOIjwqUPTYmYuemVOx+Ys=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0/go.mod h1:ggCgvZ2r7uOoQjOyu2Y1NhHmEPPzzuhWgcza5M1Ji1I=
-github.com/grpc-ecosystem/grpc-health-probe v0.4.36 h1:UVBi2DP0SiKuH3DJ5ZTmPsvZMMtSJdjWomWWgAfBh6U=
-github.com/grpc-ecosystem/grpc-health-probe v0.4.36/go.mod h1:s5C6vVGDSRfdGKiUqy+2NR8qzXqahgISNHNXitDjLL4=
+github.com/grpc-ecosystem/grpc-health-probe v0.4.37 h1:x8IIa8JfqiXpBX3xtmm3jz5b9YMq4Lpc9/b+ZAfzRZI=
+github.com/grpc-ecosystem/grpc-health-probe v0.4.37/go.mod h1:uKUtQKoBUvaI4Ez1jaLCHxFYYYoYn/FYkqNgl+8hADw=
 github.com/h2non/filetype v1.1.3 h1:FKkx9QbD7HR/zjK1Ia5XiBsq9zdLi5Kf3zGyFTAFkGg=
 github.com/h2non/filetype v1.1.3/go.mod h1:319b3zT68BvV+WRj7cwy856M2ehB3HqNOt6sy1HndBY=
 github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c h1:fEE5/5VNnYUoBOj2I9TP8Jc+a7lge3QWn9DKE7NCwfc=
