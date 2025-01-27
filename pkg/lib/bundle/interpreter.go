@@ -34,7 +34,7 @@ func NewBundleDirInterperter(bundleDir string) (*bundleDirInterpreter, error) {
 
 func (b *bundleDirInterpreter) GetBundleChannels() (channelNames []string) {
 	for channelName, channel := range b.pkg.Channels {
-		for bundle, _ := range channel.Nodes {
+		for bundle := range channel.Nodes {
 			if bundle.CsvName == b.bundleCsvName {
 				channelNames = append(channelNames, channelName)
 				break

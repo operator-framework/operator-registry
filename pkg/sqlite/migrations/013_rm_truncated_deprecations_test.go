@@ -11,7 +11,7 @@ import (
 )
 
 func TestRmTruncatedDeprecations(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RmTruncatedDeprecationsMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RmTruncatedDeprecationsMigrationKey-1)
 	defer cleanup()
 
 	// Insert fixtures to satisfy foreign key constraints
@@ -32,6 +32,7 @@ func TestRmTruncatedDeprecations(t *testing.T) {
 
 	// Add a truncated bundle; i.e. doesn't exist in the channel_entry table
 	_, err = db.Exec(insertDeprecated, "operator.v1.0.0-pre")
+	require.NoError(t, err)
 
 	// This migration should delete all bundles that are not referenced by the channel_entry table
 	require.NoError(t, migrator.Up(context.Background(), migrations.Only(migrations.RmTruncatedDeprecationsMigrationKey)))

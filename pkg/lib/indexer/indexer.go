@@ -600,7 +600,7 @@ func getBundlesToExport(dbQuerier pregistry.Query, packages []string) (map[strin
 		if err != nil {
 			return nil, err
 		}
-		for k, _ := range bundlesForPackage {
+		for k := range bundlesForPackage {
 			bundleMap[k.BundlePath] = bundleDirPrefix{pkgName: packageName, bundleVersion: k.Version}
 		}
 	}

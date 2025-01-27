@@ -11,7 +11,7 @@ import (
 )
 
 func TestReplacesSkipsUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.ReplacesSkipsMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.ReplacesSkipsMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -45,7 +45,7 @@ func TestReplacesSkipsUp(t *testing.T) {
 	_, err = tx.Exec("insert into channel(name, package_name, head_operatorbundle_name) values(?,?,?)", "stable", "etcd", "etcdoperator.v0.9.2")
 	require.NoError(t, err)
 
-	channel_entries := `
+	channelEntries := `
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('1', 'alpha', 'etcd', 'etcdoperator.v0.9.2', '4', '0');
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('2', 'alpha', 'etcd', 'etcdoperator.v0.9.1', '', '1');
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('3', 'alpha', 'etcd', 'etcdoperator.v0.9.2', '2', '1');
@@ -76,7 +76,7 @@ func TestReplacesSkipsUp(t *testing.T) {
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('28', 'stable', 'etcd', 'etcdoperator.v0.6.1', '27', '5');
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('29', 'stable', 'etcd', 'etcdoperator.v0.3.2-a', '', '6');
 	INSERT INTO "main"."channel_entry" ("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('30', 'stable', 'etcd', 'etcdoperator.v0.6.1', '29', '6');	`
-	_, err = tx.Exec(channel_entries)
+	_, err = tx.Exec(channelEntries)
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit())
 
@@ -125,19 +125,19 @@ func TestReplacesSkipsUp(t *testing.T) {
 			rows, err := db.QueryContext(context.TODO(), getBundle, tt.name)
 			require.NoError(t, err)
 			require.True(t, rows.Next())
-			var replacesSql sql.NullString
-			var skipsSql sql.NullString
-			require.NoError(t, rows.Scan(&replacesSql, &skipsSql))
+			var replacesSQL sql.NullString
+			var skipsSQL sql.NullString
+			require.NoError(t, rows.Scan(&replacesSQL, &skipsSQL))
 			require.False(t, rows.Next())
 			require.NoError(t, rows.Close())
-			require.Equal(t, tt.replaces, replacesSql.String)
-			require.Equal(t, tt.skips, skipsSql.String)
+			require.Equal(t, tt.replaces, replacesSQL.String)
+			require.Equal(t, tt.skips, skipsSQL.String)
 		})
 	}
 }
 
 func TestReplacesSkipsDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.ReplacesSkipsMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.ReplacesSkipsMigrationKey)
 	defer cleanup()
 
 	// Add a bundle
@@ -159,7 +159,7 @@ func TestReplacesSkipsDown(t *testing.T) {
 	require.NoError(t, err)
 	rows.Next()
 	require.NoError(t, rows.Scan(&name, &csv, &bundle))
-	require.Equal(t, name.String, "etcdoperator.v0.6.1")
+	require.Equal(t, "etcdoperator.v0.6.1", name.String)
 	require.Equal(t, csv.String, testCSV)
 	require.Equal(t, bundle.String, testBundle)
 	require.NoError(t, rows.Close())

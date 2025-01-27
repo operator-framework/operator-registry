@@ -122,7 +122,7 @@ func TestSQLLiteMigrator_Down(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = false
 			down = false
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,
@@ -280,7 +280,7 @@ func TestSQLLiteMigrator_Up(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = 0
 			down = false
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,
@@ -396,7 +396,7 @@ func TestSQLLiteMigrator_Migrate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = 0
 			down = 0
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,

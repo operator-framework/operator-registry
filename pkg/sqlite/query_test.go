@@ -7,10 +7,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 	"github.com/operator-framework/operator-registry/pkg/sqlite/sqlitefakes"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestListBundles(t *testing.T) {

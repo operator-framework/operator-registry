@@ -131,7 +131,7 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		// the new channel head
 		if !lowestAhead.IsEmpty() {
 			channelGraph.Nodes[lowestAhead] = map[BundleKey]struct{}{
-				newBundleKey: struct{}{},
+				newBundleKey: {},
 			}
 		} else {
 			channelGraph.Head = newBundleKey

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 func TestValidateBundle(t *testing.T) {

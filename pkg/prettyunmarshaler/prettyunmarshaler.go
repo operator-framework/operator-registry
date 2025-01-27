@@ -82,7 +82,6 @@ func (e *JsonUnmarshalError) Pretty() string {
 		// We found the byte in the pretty data that matches the byte in the original data,
 		// so increment the pretty index.
 		pIndex++
-
 	}
 
 	_, _ = sb.Write(pretty[:pOffset])

@@ -989,9 +989,9 @@ func TestLoadFile(t *testing.T) {
 			path:      "unrecognized-schema.json",
 			assertion: require.NoError,
 			expect: func(t *testing.T, d *DeclarativeConfig) {
-				require.Equal(t, 1, len(d.Packages))
-				require.Equal(t, 1, len(d.Bundles))
-				require.Equal(t, 1, len(d.Others))
+				require.Len(t, d.Packages, 1)
+				require.Len(t, d.Bundles, 1)
+				require.Len(t, d.Others, 1)
 			},
 		},
 		{
@@ -1000,9 +1000,9 @@ func TestLoadFile(t *testing.T) {
 			path:      "etcd.yaml",
 			assertion: require.NoError,
 			expect: func(t *testing.T, d *DeclarativeConfig) {
-				require.Equal(t, 1, len(d.Packages))
-				require.Equal(t, 6, len(d.Bundles))
-				require.Equal(t, 0, len(d.Others))
+				require.Len(t, d.Packages, 1)
+				require.Len(t, d.Bundles, 6)
+				require.Empty(t, d.Others)
 			},
 		},
 		{
@@ -1011,10 +1011,10 @@ func TestLoadFile(t *testing.T) {
 			path:      "deprecations.yaml",
 			assertion: require.NoError,
 			expect: func(t *testing.T, d *DeclarativeConfig) {
-				require.Equal(t, 0, len(d.Packages))
-				require.Equal(t, 0, len(d.Bundles))
-				require.Equal(t, 0, len(d.Others))
-				require.Equal(t, 1, len(d.Deprecations))
+				require.Empty(t, d.Packages)
+				require.Empty(t, d.Bundles)
+				require.Empty(t, d.Others)
+				require.Len(t, d.Deprecations, 1)
 			},
 		},
 	}

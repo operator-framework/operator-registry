@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"golang.org/x/mod/sumdb/dirhash"
 
 	libimage "github.com/operator-framework/operator-registry/pkg/lib/image"

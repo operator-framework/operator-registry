@@ -166,9 +166,7 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 	populator := registry.NewDirectoryPopulator(loader, graphLoader, querier, unpackedImageMap, overwrittenBundles)
 
 	if err := populator.Populate(mode); err != nil {
-
 		return err
-
 	}
 	return checkForBundles(ctx, querier.(*sqlite.SQLQuerier), graphLoader, imagesToAdd)
 }

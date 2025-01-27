@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -184,7 +185,8 @@ func hasError(expectedError string) require.ErrorAssertionFunc {
 			if err == nil {
 				continue
 			}
-			if verr, ok := err.(*validationError); ok {
+			var verr *validationError
+			if errors.As(err, &verr) {
 				if verr.message == expectedError {
 					return
 				}

@@ -2,7 +2,6 @@ package cache
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io/fs"
@@ -26,7 +25,7 @@ func Test_fsToTar(t *testing.T) {
 				return notExist
 			},
 			expect: func(t *testing.T, bytes []byte, err error) {
-				require.True(t, errors.Is(err, fs.ErrNotExist))
+				require.ErrorIs(t, err, fs.ErrNotExist)
 			},
 		},
 		{

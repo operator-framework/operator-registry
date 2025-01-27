@@ -12,7 +12,7 @@ import (
 )
 
 func TestDeprecated(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.DeprecatedMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.DeprecatedMigrationKey-1)
 	defer cleanup()
 
 	// Insert fixture bundles to satisfy foreign key constraint in properties table
