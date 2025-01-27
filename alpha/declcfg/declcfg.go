@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
-
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"github.com/operator-framework/operator-registry/alpha/property"
+	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
 
 const (
@@ -20,12 +21,20 @@ const (
 	SchemaChannel     = "olm.channel"
 	SchemaBundle      = "olm.bundle"
 	SchemaDeprecation = "olm.deprecations"
+	SchemaPackageV2   = "olm.package.v2"
+	SchemaBundleV2    = "olm.bundle.v2"
+	SchemaPackageIcon = "olm.package.icon"
 )
 
 type DeclarativeConfig struct {
 	Packages     []Package
-	Channels     []Channel
-	Bundles      []Bundle
+	PackageV2s   []PackageV2
+	PackageIcons []PackageIcon
+
+	Channels  []Channel
+	Bundles   []Bundle
+	BundleV2s []BundleV2
+
 	Deprecations []Deprecation
 	Others       []Meta
 }
@@ -90,6 +99,43 @@ type Bundle struct {
 type RelatedImage struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
+}
+
+type PackageV2 struct {
+	Schema      string            `json:"schema"`
+	Package     string            `json:"package"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	DisplayName      string                `json:"displayName,omitempty"`
+	ShortDescription string                `json:"shortDescription,omitempty"`
+	LongDescription  string                `json:"longDescription,omitempty"`
+	Keywords         []string              `json:"keywords,omitempty"`
+	Links            []v1alpha1.AppLink    `json:"links,omitempty"`
+	Provider         v1alpha1.AppLink      `json:"provider,omitempty"`
+	Maintainers      []v1alpha1.Maintainer `json:"maintainers,omitempty"`
+}
+
+type PackageIcon struct {
+	Schema    string `json:"schema"`
+	Package   string `json:"package"`
+	Data      []byte `json:"data"`
+	MediaType string `json:"mediaType"`
+}
+
+type BundleV2 struct {
+	Schema      string            `json:"schema"`
+	Package     string            `json:"package"`
+	Name        string            `json:"name"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	Version string `json:"version"`
+	Release uint32 `json:"release"`
+
+	Reference         string   `json:"ref"`
+	RelatedReferences []string `json:"relatedReferences,omitempty"`
+
+	Properties  map[string][]json.RawMessage `json:"properties,omitempty"`
+	Constraints map[string][]json.RawMessage `json:"constraints,omitempty"`
 }
 
 type Deprecation struct {
@@ -202,8 +248,11 @@ func extractUniqueMetaKeys(blobMap map[string]any, m *Meta) error {
 
 func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Packages = append(destination.Packages, src.Packages...)
+	destination.PackageV2s = append(destination.PackageV2s, src.PackageV2s...)
+	destination.PackageIcons = append(destination.PackageIcons, src.PackageIcons...)
 	destination.Channels = append(destination.Channels, src.Channels...)
 	destination.Bundles = append(destination.Bundles, src.Bundles...)
+	destination.BundleV2s = append(destination.BundleV2s, src.BundleV2s...)
 	destination.Others = append(destination.Others, src.Others...)
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
 }
