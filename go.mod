@@ -1,8 +1,6 @@
 module github.com/operator-framework/operator-registry
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.23.5
 
 require (
 	github.com/akrylysov/pogreb v0.10.2
