@@ -8,7 +8,7 @@ require (
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.7.25
-	github.com/containers/common v0.61.1
+	github.com/containers/common v0.62.0
 	github.com/containers/image/v5 v5.34.0
 	github.com/distribution/distribution/v3 v3.0.0-rc.2
 	github.com/distribution/reference v0.6.0
@@ -38,7 +38,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/btree v1.7.0
 	go.etcd.io/bbolt v1.3.11
-	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
+	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
 	golang.org/x/mod v0.22.0
 	golang.org/x/net v0.34.0
 	golang.org/x/sync v0.10.0
