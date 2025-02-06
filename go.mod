@@ -41,7 +41,7 @@ require (
 	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329
 	golang.org/x/mod v0.23.0
 	golang.org/x/net v0.34.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/text v0.21.0
 	google.golang.org/grpc v1.70.0
