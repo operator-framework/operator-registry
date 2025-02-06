@@ -245,6 +245,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 }
 
 func relatedImagesToModelRelatedImages(in []RelatedImage) []model.RelatedImage {
+	// nolint:prealloc
 	var out []model.RelatedImage
 	for _, p := range in {
 		out = append(out, model.RelatedImage{

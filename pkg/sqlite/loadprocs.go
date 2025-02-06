@@ -41,6 +41,7 @@ func addReplaces(tx *sql.Tx, replacesID, entryID int64) error {
 	return nil
 }
 
+// nolint:unused
 func addPackage(tx *sql.Tx, packageName string) error {
 	addPackage, err := tx.Prepare("insert into package(name) values(?)")
 	if err != nil {
@@ -71,6 +72,7 @@ func addPackageIfNotExists(tx *sql.Tx, packageName string) error {
 	return nil
 }
 
+// nolint:unused
 func addChannel(tx *sql.Tx, channelName, packageName, headCsvName string) error {
 	addChannel, err := tx.Prepare("insert into channel(name, package_name, head_operatorbundle_name) values(?, ?, ?)")
 	if err != nil {
@@ -86,6 +88,7 @@ func addChannel(tx *sql.Tx, channelName, packageName, headCsvName string) error 
 	return nil
 }
 
+// nolint:unused
 func updateChannel(tx *sql.Tx, channelName, packageName, headCsvName string) error {
 	updateChannel, err := tx.Prepare("update channel set head_operatorbundle_name = ? where name = ? and package_name = ?")
 	if err != nil {

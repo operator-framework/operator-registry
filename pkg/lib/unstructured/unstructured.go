@@ -49,7 +49,7 @@ func FromDir(dirpath string) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	unsts := make([]*unstructured.Unstructured, 0, 0)
+	unsts := make([]*unstructured.Unstructured, 0)
 	for _, file := range files {
 		unst, err := FromFile(path.Join(dirpath, file.Name()))
 		if err != nil {

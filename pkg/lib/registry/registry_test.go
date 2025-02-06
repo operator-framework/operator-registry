@@ -705,6 +705,7 @@ func TestCheckForBundles(t *testing.T) {
 				}
 				err = checkForBundles(context.TODO(), query, graphLoader, expected)
 				if step.wantErr == nil {
+					// nolint:testifylint
 					require.NoError(t, err, fmt.Sprintf("%d", step.action))
 					continue
 				}

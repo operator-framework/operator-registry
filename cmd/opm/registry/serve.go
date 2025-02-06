@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -132,10 +133,18 @@ func serveFunc(cmd *cobra.Command, _ []string) error {
 	s := grpc.NewServer()
 	logger.Printf("Keeping server open for %s seconds", timeout)
 	if timeout != "infinite" {
-		timeoutSeconds, err := strconv.ParseUint(timeout, 10, 16)
+		timeoutInputSeconds, err := strconv.ParseUint(timeout, 10, 16)
 		if err != nil {
 			return err
 		}
+		// duration is a signed int, so capping it to prevent overflow
+		if timeoutInputSeconds > math.MaxInt64 {
+			timeoutInputSeconds = math.MaxInt64
+			logger.Infof("Timeout value too large. Capping to %v.", math.MaxInt64)
+		}
+		// having capped the value to safe ranges, quiet the linter
+		// nolint:gosec
+		timeoutSeconds := int64(timeoutInputSeconds)
 
 		timeoutDuration := time.Duration(timeoutSeconds) * time.Second
 		timer := time.AfterFunc(timeoutDuration, func() {

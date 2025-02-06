@@ -128,6 +128,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 	for _, c := range cfg.Channels {
 		filteredChannel := writer.filterChannel(&c, versionMap, minVersion, minEdgePackage)
+		// nolint:nestif
 		if filteredChannel != nil {
 			pkgBuilder, ok := pkgs[c.Package]
 			if !ok {
@@ -154,17 +155,17 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 						bundleDeprecation = ":::deprecated"
 					}
 
-					entryId := fmt.Sprintf("%s-%s", channelID, ce.Name)
-					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]%s\n", entryId, ce.Name, bundleDeprecation))
+					entryID := fmt.Sprintf("%s-%s", channelID, ce.Name)
+					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]%s\n", entryID, ce.Name, bundleDeprecation))
 
 					if len(ce.Replaces) > 0 {
-						replacesId := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
-						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", replacesId, ce.Replaces, "replace", entryId, ce.Name))
+						replacesID := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
+						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", replacesID, ce.Replaces, "replace", entryID, ce.Name))
 					}
 					if len(ce.Skips) > 0 {
 						for _, s := range ce.Skips {
-							skipsId := fmt.Sprintf("%s-%s", channelID, s)
-							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", skipsId, s, "skip", entryId, ce.Name))
+							skipsID := fmt.Sprintf("%s-%s", channelID, s)
+							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", skipsID, s, "skip", entryID, ce.Name))
 						}
 					}
 					if len(ce.SkipRange) > 0 {
@@ -172,8 +173,8 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 						if err == nil {
 							for _, edgeName := range filteredChannel.Entries {
 								if skipRange(versionMap[edgeName.Name]) {
-									skipRangeId := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
-									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeId, edgeName.Name, "skipRange", ce.SkipRange, entryId, ce.Name))
+									skipRangeID := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
+									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeID, edgeName.Name, "skipRange", ce.SkipRange, entryID, ce.Name))
 								}
 							}
 						} else {
@@ -186,8 +187,8 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		}
 	}
 
-	out.Write([]byte("graph LR\n"))
-	out.Write([]byte(fmt.Sprintf("  classDef deprecated fill:#E8960F\n")))
+	_, _ = out.Write([]byte("graph LR\n"))
+	_, _ = out.Write([]byte("  classDef deprecated fill:#E8960F\n"))
 	pkgNames := []string{}
 	for pname := range pkgs {
 		pkgNames = append(pkgNames, pname)
@@ -196,19 +197,19 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		return pkgNames[i] < pkgNames[j]
 	})
 	for _, pkgName := range pkgNames {
-		out.Write([]byte(fmt.Sprintf("  %%%% package %q\n", pkgName)))
-		out.Write([]byte(fmt.Sprintf("  subgraph %q\n", pkgName)))
-		out.Write([]byte(pkgs[pkgName].String()))
-		out.Write([]byte("  end\n"))
+		_, _ = out.Write([]byte(fmt.Sprintf("  %%%% package %q\n", pkgName)))
+		_, _ = out.Write([]byte(fmt.Sprintf("  subgraph %q\n", pkgName)))
+		_, _ = out.Write([]byte(pkgs[pkgName].String()))
+		_, _ = out.Write([]byte("  end\n"))
 	}
 
 	if deprecatedPackage != "" {
-		out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+		_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
 	}
 
 	if len(deprecatedChannels) > 0 {
 		for _, deprecatedChannel := range deprecatedChannels {
-			out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
+			_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
 		}
 	}
 
@@ -236,6 +237,7 @@ func (writer *MermaidWriter) filterChannel(c *Channel, versionMap map[string]sem
 	out := &Channel{Name: c.Name, Package: c.Package, Properties: c.Properties, Entries: []ChannelEntry{}}
 	for _, ce := range c.Entries {
 		filteredCe := ChannelEntry{Name: ce.Name}
+		// nolint:nestif
 		if writer.MinEdgeName == "" {
 			// no minimum-edge specified
 			filteredCe.SkipRange = ce.SkipRange
@@ -535,7 +537,7 @@ func writeFile(cfg DeclarativeConfig, filename string, writeFunc WriteFunc) erro
 	if err := writeFunc(cfg, buf); err != nil {
 		return fmt.Errorf("write to buffer for %q: %v", filename, err)
 	}
-	if err := os.WriteFile(filename, buf.Bytes(), 0666); err != nil {
+	if err := os.WriteFile(filename, buf.Bytes(), 0600); err != nil {
 		return fmt.Errorf("write file %q: %v", filename, err)
 	}
 	return nil

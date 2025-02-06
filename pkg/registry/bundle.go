@@ -53,7 +53,8 @@ type Bundle struct {
 
 func NewBundle(name string, annotations *Annotations, objs ...*unstructured.Unstructured) *Bundle {
 	bundle := &Bundle{
-		Name:        name,
+		Name: name,
+		// nolint:staticcheck
 		Package:     annotations.PackageName,
 		Annotations: annotations,
 	}
@@ -61,6 +62,7 @@ func NewBundle(name string, annotations *Annotations, objs ...*unstructured.Unst
 		bundle.Add(o)
 	}
 
+	// nolint:staticcheck
 	if annotations == nil {
 		return bundle
 	}
@@ -167,6 +169,7 @@ func (b *Bundle) CustomResourceDefinitions() ([]runtime.Object, error) {
 	if err := b.cache(); err != nil {
 		return nil, err
 	}
+	// nolint:prealloc
 	var crds []runtime.Object
 	for _, crd := range b.v1crds {
 		crds = append(crds, crd)
@@ -276,10 +279,18 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 	return nil
 }
 
-func (b *Bundle) Serialize() (csvName, bundleImage string, csvBytes []byte, bundleBytes []byte, annotationBytes []byte, err error) {
+// (csvName, bundleImage string, csvBytes []byte, bundleBytes []byte, annotationBytes []byte, err error) {
+func (b *Bundle) Serialize() (string, string, []byte, []byte, []byte, error) {
+	var bundleBytes []byte
+	var csvName string
+	var csvBytes []byte
+	var annotationBytes []byte
+	var err error
+
 	csvCount := 0
 	for _, obj := range b.Objects {
-		objBytes, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
+		var objBytes []byte
+		objBytes, err = runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
 		if err != nil {
 			return "", "", nil, nil, nil, err
 		}
@@ -299,7 +310,7 @@ func (b *Bundle) Serialize() (csvName, bundleImage string, csvBytes []byte, bund
 	}
 
 	if b.Annotations != nil {
-		annotationBytes, err = json.Marshal(b.Annotations)
+		annotationBytes, _ = json.Marshal(b.Annotations)
 	}
 
 	return csvName, b.BundleImage, csvBytes, bundleBytes, annotationBytes, nil

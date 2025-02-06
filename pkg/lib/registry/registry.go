@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -133,6 +134,7 @@ func unpackImage(ctx context.Context, reg image.Registry, ref image.Reference) (
 func populate(ctx context.Context, loader registry.Load, graphLoader registry.GraphLoader, querier registry.Query, reg image.Registry, refs []image.Reference, mode registry.Mode, overwrite bool) error {
 	unpackedImageMap := make(map[image.Reference]string, 0)
 	overwrittenBundles := map[string][]string{}
+	// nolint:prealloc
 	var imagesToAdd []*registry.Bundle
 	for _, ref := range refs {
 		to, from, cleanup, err := unpackImage(ctx, reg, ref)
@@ -151,7 +153,7 @@ func populate(ctx context.Context, loader registry.Load, graphLoader registry.Gr
 		if overwrite {
 			overwritten, err := querier.GetBundlePathIfExists(ctx, img.Bundle.Name)
 			if err != nil {
-				if err == registry.ErrBundleImageNotInDatabase {
+				if errors.Is(err, registry.ErrBundleImageNotInDatabase) {
 					continue
 				}
 				return err
@@ -391,6 +393,7 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 		registryBundlePaths[b.BundlePath] = struct{}{}
 	}
 
+	// nolint:prealloc
 	var found, missing []string
 	for _, b := range bundlePaths {
 		if _, ok := registryBundlePaths[b]; ok {
@@ -408,7 +411,7 @@ func checkForBundlePaths(querier registry.GRPCQuery, bundlePaths []string) ([]st
 // replaces mode selects highest version as channel head and
 // prunes any bundles in the upgrade chain after the channel head.
 // check for the presence of newly added bundles after a replaces-mode add.
-func checkForBundles(ctx context.Context, q *sqlite.SQLQuerier, g registry.GraphLoader, required []*registry.Bundle) error {
+func checkForBundles(_ context.Context, _ *sqlite.SQLQuerier, g registry.GraphLoader, required []*registry.Bundle) error {
 	var errs []error
 	for _, bundle := range required {
 		graph, err := g.Generate(bundle.Package)

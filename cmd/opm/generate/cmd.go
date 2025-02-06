@@ -99,7 +99,7 @@ A separate builder and base image can be specified. The builder image may not be
 	cmd.Flags().StringVarP(&baseImage, "base-image", "i", containertools.DefaultBinarySourceImage, "Image base to use to build catalog.")
 	cmd.Flags().StringVarP(&builderImage, "builder-image", "b", containertools.DefaultBinarySourceImage, "Image to use as a build stage.")
 	cmd.Flags().StringSliceVarP(&extraLabelStrs, "extra-labels", "l", []string{}, "Extra labels to include in the generated Dockerfile. Labels should be of the form 'key=value'.")
-	cmd.Flags().MarkDeprecated("binary-image", "use --base-image instead")
+	_ = cmd.Flags().MarkDeprecated("binary-image", "use --base-image instead")
 	cmd.MarkFlagsMutuallyExclusive("binary-image", "base-image")
 	return cmd
 }

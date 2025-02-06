@@ -178,6 +178,7 @@ func Deduplicate(in []Property) []Property {
 	}
 
 	props := map[key]Property{}
+	// nolint:prealloc
 	var out []Property
 	for _, p := range in {
 		k := key{p.Type, string(p.Value)}

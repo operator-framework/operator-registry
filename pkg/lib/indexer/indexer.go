@@ -37,6 +37,7 @@ const (
 	concurrencyLimitForExport = 10
 )
 
+// nolint:stylecheck
 var ErrFileBasedCatalogPrune = errors.New("`opm index prune` only supports sqlite-based catalogs. See https://github.com/redhat-openshift-ecosystem/community-operators-prod/issues/793 for instructions on pruning a plaintext files backed catalog.")
 
 // ImageIndexer is a struct implementation of the Indexer interface
@@ -409,9 +410,10 @@ func copyDatabaseTo(databaseFile, targetDir string) (string, error) {
 	return to.Name(), err
 }
 
-func buildContext(generate bool, requestedDockerfile string) (buildDir, outDockerfile string, cleanup func(), err error) {
+func buildContext(generate bool, requestedDockerfile string) (string, string, func(), error) {
+	var buildDir, outDockerfile string
 	// set cleanup to a no-op until explicitly set
-	cleanup = func() {}
+	cleanup := func() {}
 
 	if generate {
 		buildDir = "./"
@@ -421,13 +423,13 @@ func buildContext(generate bool, requestedDockerfile string) (buildDir, outDocke
 			outDockerfile = requestedDockerfile
 		}
 		cleanup = func() {}
-		return
+		return buildDir, outDockerfile, cleanup, nil
 	}
 
 	// set a temp directory for building the new image
-	buildDir, err = os.MkdirTemp(".", tmpBuildDirPrefix)
+	buildDir, err := os.MkdirTemp(".", tmpBuildDirPrefix)
 	if err != nil {
-		return
+		return "", "", cleanup, err
 	}
 	cleanup = func() {
 		os.RemoveAll(buildDir)
@@ -435,14 +437,14 @@ func buildContext(generate bool, requestedDockerfile string) (buildDir, outDocke
 
 	if len(requestedDockerfile) > 0 {
 		outDockerfile = requestedDockerfile
-		return
+		return buildDir, outDockerfile, cleanup, nil
 	}
 
 	// generate a temp dockerfile if needed
 	tempDockerfile, err := os.CreateTemp(".", defaultDockerfileName)
 	if err != nil {
 		defer cleanup()
-		return
+		return "", "", cleanup, err
 	}
 	outDockerfile = tempDockerfile.Name()
 	cleanup = func() {
@@ -450,7 +452,7 @@ func buildContext(generate bool, requestedDockerfile string) (buildDir, outDocke
 		os.Remove(outDockerfile)
 	}
 
-	return
+	return buildDir, outDockerfile, cleanup, nil
 }
 
 func build(dockerfilePath, imageTag string, commandRunner containertools.CommandRunner, logger *logrus.Entry) error {
@@ -561,6 +563,7 @@ func (i ImageIndexer) ExportFromIndex(request ExportFromIndexRequest) error {
 
 			// generate a random folder name if bundle version is empty
 			if bundleDir.bundleVersion == "" {
+				// nolint:gosec
 				bundleDir.bundleVersion = strconv.Itoa(rand.Intn(10000))
 			}
 			exporter := bundle.NewExporterForBundle(bundleImage, filepath.Join(request.DownloadPath, bundleDir.pkgName, bundleDir.bundleVersion), request.ContainerTool)

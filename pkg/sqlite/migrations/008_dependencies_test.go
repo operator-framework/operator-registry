@@ -43,7 +43,7 @@ func TestDependenciesUp(t *testing.T) {
 	var value sql.NullString
 	require.NoError(t, rows.Scan(&typeName, &value))
 	require.Equal(t, "olm.gvk", typeName.String)
-	require.Equal(t, `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`, value.String)
+	require.JSONEq(t, `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`, value.String)
 	require.NoError(t, rows.Close())
 }
 

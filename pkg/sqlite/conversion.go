@@ -40,6 +40,7 @@ func initializeModelPackages(ctx context.Context, q *SQLQuerier) (model.Model, e
 		return nil, err
 	}
 
+	// nolint:prealloc
 	var rPkgs []registry.PackageManifest
 	for _, pkgName := range pkgNames {
 		rPkg, err := q.GetPackage(ctx, pkgName)

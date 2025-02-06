@@ -8,29 +8,29 @@ import (
 	"strings"
 )
 
-type JsonUnmarshalError struct {
+type JSONUnmarshalError struct {
 	data   []byte
 	offset int64
 	err    error
 }
 
-func NewJSONUnmarshalError(data []byte, err error) *JsonUnmarshalError {
+func NewJSONUnmarshalError(data []byte, err error) *JSONUnmarshalError {
 	var te *json.UnmarshalTypeError
 	if errors.As(err, &te) {
-		return &JsonUnmarshalError{data: data, offset: te.Offset, err: te}
+		return &JSONUnmarshalError{data: data, offset: te.Offset, err: te}
 	}
 	var se *json.SyntaxError
 	if errors.As(err, &se) {
-		return &JsonUnmarshalError{data: data, offset: se.Offset, err: se}
+		return &JSONUnmarshalError{data: data, offset: se.Offset, err: se}
 	}
-	return &JsonUnmarshalError{data: data, offset: -1, err: err}
+	return &JSONUnmarshalError{data: data, offset: -1, err: err}
 }
 
-func (e *JsonUnmarshalError) Error() string {
+func (e *JSONUnmarshalError) Error() string {
 	return e.err.Error()
 }
 
-func (e *JsonUnmarshalError) Pretty() string {
+func (e *JSONUnmarshalError) Pretty() string {
 	if len(e.data) == 0 || e.offset < 0 || e.offset > int64(len(e.data)) {
 		return e.err.Error()
 	}

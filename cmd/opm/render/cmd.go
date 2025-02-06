@@ -55,7 +55,9 @@ database files.
 			if err != nil {
 				log.Fatal(err)
 			}
-			defer reg.Destroy()
+			defer func() {
+				_ = reg.Destroy()
+			}()
 
 			render.Registry = reg
 

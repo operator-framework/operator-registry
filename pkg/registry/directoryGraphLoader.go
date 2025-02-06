@@ -76,6 +76,7 @@ func (g *DirGraphLoader) loadBundleCsvPathMap() error {
 	}
 	CsvNameAndReplaceMap := make(map[string]csvReplaces)
 	for _, bundlePath := range bundleDirs {
+		//nolint:nestif
 		if bundlePath.IsDir() {
 			csvStruct, err := ReadCSVFromBundleDirectory(filepath.Join(g.PackageDir, bundlePath.Name()))
 			if err != nil {
