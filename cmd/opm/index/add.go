@@ -90,7 +90,6 @@ func addIndexAddCmd(parent *cobra.Command, showAlphaHelp bool) {
 	// Set the example after the parent has been set to get the correct command path
 	parent.AddCommand(indexCmd)
 	indexCmd.Example = fmt.Sprintf(addExample, indexCmd.CommandPath())
-
 }
 
 func runIndexAddCmdFunc(cmd *cobra.Command, _ []string) error {
@@ -213,7 +212,7 @@ func getContainerTools(cmd *cobra.Command) (string, string, error) {
 		return "", "", err
 	}
 
-	// Backwards compatiblity mode
+	// Backwards compatibility mode
 	if containerTool != "" {
 		if pullTool == "" && buildTool == "" {
 			return containerTool, containerTool, nil

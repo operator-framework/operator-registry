@@ -103,6 +103,7 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 		channels = append(channels, c)
 	}
 
+	// nolint:prealloc
 	var bundles []Bundle
 	for _, b := range bundleMap {
 		b.Properties = property.Deduplicate(b.Properties)
@@ -120,6 +121,7 @@ func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
 }
 
 func ModelRelatedImagesToRelatedImages(relatedImages []model.RelatedImage) []RelatedImage {
+	// nolint:prealloc
 	var out []RelatedImage
 	for _, ri := range relatedImages {
 		out = append(out, RelatedImage{

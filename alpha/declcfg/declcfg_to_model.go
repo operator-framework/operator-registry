@@ -178,7 +178,6 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 	deprecationsByPackage := sets.New[string]()
 
 	for i, deprecation := range cfg.Deprecations {
-
 		// no need to validate schema, since it could not be unmarshaled if missing/invalid
 
 		if deprecation.Package == "" {
@@ -246,6 +245,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 }
 
 func relatedImagesToModelRelatedImages(in []RelatedImage) []model.RelatedImage {
+	// nolint:prealloc
 	var out []model.RelatedImage
 	for _, p := range in {
 		out = append(out, model.RelatedImage{

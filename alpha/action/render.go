@@ -70,10 +70,13 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create registry: %v", err)
 		}
-		defer reg.Destroy()
+		defer func() {
+			_ = reg.Destroy()
+		}()
 		r.Registry = reg
 	}
 
+	// nolint:prealloc
 	var cfgs []declcfg.DeclarativeConfig
 	for _, ref := range r.Refs {
 		cfg, err := r.renderReference(ctx, ref)
@@ -123,6 +126,7 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 	if err != nil {
 		return r.imageToDeclcfg(ctx, ref)
 	}
+	// nolint:nestif
 	if stat.IsDir() {
 		dirEntries, err := os.ReadDir(ref)
 		if err != nil {
@@ -178,6 +182,7 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 	}
 
 	var cfg *declcfg.DeclarativeConfig
+	// nolint:nestif
 	if dbFile, ok := labels[containertools.DbLocationLabel]; ok {
 		if !r.AllowedRefMask.Allowed(RefSqliteImage) {
 			return nil, fmt.Errorf("cannot render sqlite image: %w", ErrNotAllowed)
@@ -279,6 +284,7 @@ func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig
 	}
 	defer rows.Close()
 
+	// nolint:staticcheck
 	images := map[string]sets.String{}
 	for rows.Next() {
 		var (
@@ -326,10 +332,10 @@ func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.Bundle, error) {
 		return nil, fmt.Errorf("get related images for bundle %q: %v", bundle.Name, err)
 	}
 
-	var csvJson []byte
+	var csvJSON []byte
 	for _, obj := range bundle.Objects {
 		if obj.GetKind() == "ClusterServiceVersion" {
-			csvJson, err = json.Marshal(obj)
+			csvJSON, err = json.Marshal(obj)
 			if err != nil {
 				return nil, fmt.Errorf("marshal CSV JSON for bundle %q: %v", bundle.Name, err)
 			}
@@ -344,7 +350,7 @@ func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.Bundle, error) {
 		Properties:    props,
 		RelatedImages: relatedImages,
 		Objects:       objs,
-		CsvJSON:       string(csvJson),
+		CsvJSON:       string(csvJSON),
 	}, nil
 }
 

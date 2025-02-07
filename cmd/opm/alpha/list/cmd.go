@@ -43,7 +43,9 @@ func newPackagesCmd() *cobra.Command {
 			if err != nil {
 				logger.Fatal(err)
 			}
-			defer reg.Destroy()
+			defer func() {
+				_ = reg.Destroy()
+			}()
 			lp := action.ListPackages{IndexReference: args[0], Registry: reg}
 			res, err := lp.Run(cmd.Context())
 			if err != nil {
@@ -72,7 +74,9 @@ func newChannelsCmd() *cobra.Command {
 			if err != nil {
 				logger.Fatal(err)
 			}
-			defer reg.Destroy()
+			defer func() {
+				_ = reg.Destroy()
+			}()
 			lc := action.ListChannels{IndexReference: args[0], Registry: reg}
 			if len(args) > 1 {
 				lc.PackageName = args[1]
@@ -106,7 +110,9 @@ for each channel in which the bundle is present).
 			if err != nil {
 				logger.Fatal(err)
 			}
-			defer reg.Destroy()
+			defer func() {
+				_ = reg.Destroy()
+			}()
 			lb := action.ListBundles{IndexReference: args[0], Registry: reg}
 			if len(args) > 1 {
 				lb.PackageName = args[1]

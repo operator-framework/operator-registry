@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sync"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/sirupsen/logrus"
@@ -44,7 +45,7 @@ type serve struct {
 }
 
 const (
-	defaultCpuStartupPath string = "/debug/pprof/startup/cpu"
+	defaultCPUStartupPath string = "/debug/pprof/startup/cpu"
 )
 
 func NewCmd() *cobra.Command {
@@ -99,7 +100,7 @@ func (s *serve) run(ctx context.Context) error {
 		return fmt.Errorf("could not start pprof endpoint: %v", err)
 	}
 	if s.captureProfiles {
-		if err := p.startCpuProfileCache(); err != nil {
+		if err := p.startCPUProfileCache(); err != nil {
 			return fmt.Errorf("could not start CPU profile: %v", err)
 		}
 	}
@@ -169,7 +170,7 @@ func (s *serve) run(ctx context.Context) error {
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
 	mainLogger.Info("serving registry")
-	p.stopCpuProfileCache()
+	p.stopCPUProfileCache()
 
 	go func() {
 		<-ctx.Done()
@@ -224,11 +225,13 @@ func (p *profilerInterface) startEndpoint() error {
 	mux.HandleFunc("/debug/pprof/profile", endpoint.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", endpoint.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", endpoint.Trace)
-	mux.HandleFunc(defaultCpuStartupPath, p.httpHandler)
+	mux.HandleFunc(defaultCPUStartupPath, p.httpHandler)
 
 	p.server = http.Server{
-		Addr:    p.addr,
-		Handler: mux,
+		Addr:         p.addr,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
 	lis, err := net.Listen("tcp", p.addr)
@@ -249,13 +252,13 @@ func (p *profilerInterface) startEndpoint() error {
 	return nil
 }
 
-func (p *profilerInterface) startCpuProfileCache() error {
+func (p *profilerInterface) startCPUProfileCache() error {
 	// short-circuit if not enabled
 	if !p.isEnabled() {
 		return nil
 	}
 
-	p.logger.Infof("start caching cpu profile data at %q", defaultCpuStartupPath)
+	p.logger.Infof("start caching cpu profile data at %q", defaultCPUStartupPath)
 	if err := pprof.StartCPUProfile(&p.cache); err != nil {
 		return err
 	}
@@ -263,7 +266,7 @@ func (p *profilerInterface) startCpuProfileCache() error {
 	return nil
 }
 
-func (p *profilerInterface) stopCpuProfileCache() {
+func (p *profilerInterface) stopCPUProfileCache() {
 	// short-circuit if not enabled
 	if !p.isEnabled() {
 		return
@@ -277,7 +280,7 @@ func (p *profilerInterface) httpHandler(w http.ResponseWriter, r *http.Request) 
 	if !p.isCacheReady() {
 		http.Error(w, "cpu profile cache is not yet ready", http.StatusServiceUnavailable)
 	}
-	w.Write(p.cache.Bytes())
+	_, _ = w.Write(p.cache.Bytes())
 }
 
 func (p *profilerInterface) stopEndpoint(ctx context.Context) error {

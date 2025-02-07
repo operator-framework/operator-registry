@@ -102,11 +102,11 @@ func (q *jsonBackend) GetPackageIndex(_ context.Context) (packageIndex, error) {
 }
 
 func (q *jsonBackend) PutPackageIndex(_ context.Context, pi packageIndex) error {
-	packageJson, err := json.Marshal(pi)
+	packageJSON, err := json.Marshal(pi)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(q.baseDir, jsonPackagesFile), packageJson, jsonCacheModeFile); err != nil {
+	if err := os.WriteFile(filepath.Join(q.baseDir, jsonPackagesFile), packageJSON, jsonCacheModeFile); err != nil {
 		return err
 	}
 	return nil

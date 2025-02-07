@@ -14,11 +14,11 @@ import (
 
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
-	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
+	"github.com/containerd/errdefs"
 	"github.com/containers/image/v5/docker/reference"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
@@ -34,7 +34,8 @@ type Registry struct {
 	destroy      func() error
 	log          *logrus.Entry
 	resolverFunc func(repo string) (remotes.Resolver, error)
-	platform     platforms.MatchComparer
+	// nolint:staticcheck
+	platform platforms.MatchComparer
 }
 
 var _ image.Registry = &Registry{}
@@ -143,7 +144,7 @@ func (r *Registry) Labels(ctx context.Context, ref image.Reference) (map[string]
 }
 
 // Destroy cleans up the on-disk boltdb file and other cache files, unless preserve cache is true
-func (r *Registry) Destroy() (err error) {
+func (r *Registry) Destroy() error {
 	return r.destroy()
 }
 
@@ -263,6 +264,7 @@ const paxSchilyXattr = "SCHILY.xattr."
 // dropXattrs removes all xattrs from a Header.
 // This is useful for unpacking on systems where writing certain xattrs is a restricted operation; e.g. "security.capability" on SELinux.
 func dropXattrs(h *tar.Header) (bool, error) {
+	// nolint:staticcheck
 	h.Xattrs = nil // Deprecated, but still in use, clear anyway.
 	for key := range h.PAXRecords {
 		if strings.HasPrefix(key, paxSchilyXattr) { // Xattrs are stored under keys with the "Schilly.xattr." prefix.

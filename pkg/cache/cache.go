@@ -342,7 +342,6 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 					pkgsMu.Unlock()
 				}
 			}
-			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {

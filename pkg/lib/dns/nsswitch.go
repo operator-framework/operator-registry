@@ -23,5 +23,6 @@ func EnsureNsswitch() error {
 		return nil
 	}
 
+	// nolint:gosec
 	return os.WriteFile(NsswitchFilename, NsswitchContents, 0644)
 }

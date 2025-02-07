@@ -174,7 +174,7 @@ func sendPaths(ctx context.Context, root fs.FS, pathChan chan<- string) error {
 	})
 }
 
-func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, walkFn WalkMetasFSFunc, options LoadOptions) error {
+func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, walkFn WalkMetasFSFunc, _ LoadOptions) error {
 	for {
 		select {
 		case <-ctx.Done(): // don't block on receiving from pathChan
@@ -205,11 +205,11 @@ func readBundleObjects(b *Bundle) error {
 		if err := json.Unmarshal(props.Value, &obj); err != nil {
 			return fmt.Errorf("package %q, bundle %q: parse property at index %d as bundle object: %v", b.Package, b.Name, i, err)
 		}
-		objJson, err := yaml.ToJSON(obj.Data)
+		objJSON, err := yaml.ToJSON(obj.Data)
 		if err != nil {
 			return fmt.Errorf("package %q, bundle %q: convert bundle object property at index %d to JSON: %v", b.Package, b.Name, i, err)
 		}
-		b.Objects = append(b.Objects, string(objJson))
+		b.Objects = append(b.Objects, string(objJSON))
 	}
 	b.CsvJSON = extractCSV(b.Objects)
 	return nil

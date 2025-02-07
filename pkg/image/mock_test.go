@@ -19,7 +19,7 @@ func TestMockRegistry(t *testing.T) {
 
 	r := MockRegistry{
 		RemoteImages: map[Reference]*MockImage{
-			exists: &MockImage{
+			exists: {
 				Labels: map[string]string{
 					"key1": "value1",
 					"key2": "value2",

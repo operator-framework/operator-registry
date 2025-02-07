@@ -46,7 +46,7 @@ func GetTLSOptions(cmd *cobra.Command) (bool, bool, error) {
 // This works in tandem with opm/index/cmd, which adds the relevant flags as persistent
 // as part of the root command (cmd/root/cmd) initialization
 func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error) {
-	skipTlsVerify, useHTTP, err := GetTLSOptions(cmd)
+	skipTLSVerify, useHTTP, err := GetTLSOptions(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error)
 
 	reg, err := containerdregistry.NewRegistry(
 		containerdregistry.WithCacheDir(cacheDir),
-		containerdregistry.SkipTLSVerify(skipTlsVerify),
+		containerdregistry.SkipTLSVerify(skipTLSVerify),
 		containerdregistry.WithPlainHTTP(useHTTP),
 		containerdregistry.WithLog(log.Null()),
 	)

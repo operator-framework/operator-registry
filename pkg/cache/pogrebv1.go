@@ -14,7 +14,7 @@ import (
 
 	"github.com/akrylysov/pogreb"
 	pogrebfs "github.com/akrylysov/pogreb/fs"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
@@ -38,7 +38,7 @@ const (
 
 	pograbV1CacheDir = FormatPogrebV1
 	pogrebDigestFile = pograbV1CacheDir + "/digest"
-	pogrebDbDir      = pograbV1CacheDir + "/db"
+	pogrebDBDir      = pograbV1CacheDir + "/db"
 )
 
 type pogrebV1Backend struct {
@@ -76,7 +76,7 @@ func (q *pogrebV1Backend) Init() error {
 }
 
 func (q *pogrebV1Backend) Open() error {
-	db, err := pogreb.Open(filepath.Join(q.baseDir, pogrebDbDir), &pogreb.Options{FileSystem: pogrebfs.OSMMap})
+	db, err := pogreb.Open(filepath.Join(q.baseDir, pogrebDBDir), &pogreb.Options{FileSystem: pogrebfs.OSMMap})
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (q *pogrebV1Backend) Close() error {
 	}
 
 	// Recursively fixup permissions on the DB directory.
-	return filepath.Walk(filepath.Join(q.baseDir, pogrebDbDir), func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(filepath.Join(q.baseDir, pogrebDBDir), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -128,11 +128,11 @@ func (q *pogrebV1Backend) GetPackageIndex(_ context.Context) (packageIndex, erro
 }
 
 func (q *pogrebV1Backend) PutPackageIndex(_ context.Context, index packageIndex) error {
-	packageJson, err := json.Marshal(index)
+	packageJSON, err := json.Marshal(index)
 	if err != nil {
 		return err
 	}
-	return q.db.Put([]byte("packages.json"), packageJson)
+	return q.db.Put([]byte("packages.json"), packageJSON)
 }
 
 func (q *pogrebV1Backend) dbKey(in bundleKey) []byte {

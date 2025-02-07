@@ -14,7 +14,7 @@ import (
 // of archives produced by this function do not need to account for differences in
 // permissions between source and destination filesystems.
 func fsToTar(w io.Writer, fsys fs.FS, buf []byte) error {
-	if buf == nil || len(buf) == 0 {
+	if len(buf) == 0 {
 		// We are not sensitive to the size of this buffer, we just need it to be shared.
 		// For simplicity, do the same as io.Copy() would.
 		buf = make([]byte, 32*1024)

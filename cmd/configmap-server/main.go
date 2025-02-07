@@ -129,10 +129,12 @@ func runCmdFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	var store registry.Query
+	// nolint:staticcheck
 	store, err = sqlite.NewSQLLiteQuerier(dbName)
 	if err != nil {
 		logger.WithError(err).Warnf("failed to load db")
 	}
+	// nolint:staticcheck
 	if store == nil {
 		store = registry.NewEmptyQuerier()
 	}

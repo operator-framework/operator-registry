@@ -58,6 +58,7 @@ func unpackBundle(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// nolint:nestif
 	if info, err := os.Stat(out); err != nil {
 		if os.IsNotExist(err) {
 			err = os.MkdirAll(out, 0755)

@@ -122,7 +122,7 @@ func TestSQLLiteMigrator_Down(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = false
 			down = false
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,
@@ -134,7 +134,11 @@ func TestSQLLiteMigrator_Down(t *testing.T) {
 				require.NoError(t, m.setVersion(context.TODO(), tx, 0))
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				// TODO: this shouldn't be unconditionally rolled back
+				// run_test_migration, run_migration_out_of_order, and run_error_migration each have at least one scenario
+				// where rollback is no longer possible (committed or rolled back already)
+				// In the interest of retaining function and a good lint bright line, we'll just ignore the error here
+				_ = tx.Rollback()
 			}
 			if err := m.Down(tt.args.ctx, tt.args.migrations); (err != nil) != tt.wantErr {
 				t.Errorf("Down() error = %v, wantErr %v", err, tt.wantErr)
@@ -150,7 +154,7 @@ func TestSQLLiteMigrator_Down(t *testing.T) {
 				version, err = m.version(context.TODO(), tx)
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			require.Equal(t, tt.wantVersion, version)
 		})
@@ -280,7 +284,7 @@ func TestSQLLiteMigrator_Up(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = 0
 			down = false
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,
@@ -292,7 +296,7 @@ func TestSQLLiteMigrator_Up(t *testing.T) {
 				require.NoError(t, m.setVersion(context.TODO(), tx, -1))
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			if err := m.Up(tt.args.ctx, tt.args.migrations); (err != nil) != tt.wantErr {
 				t.Errorf("Up() error = %v, wantErr %v", err, tt.wantErr)
@@ -308,7 +312,7 @@ func TestSQLLiteMigrator_Up(t *testing.T) {
 				version, err = m.version(context.TODO(), tx)
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			require.Equal(t, tt.wantVersion, version)
 
@@ -326,7 +330,7 @@ func TestSQLLiteMigrator_Up(t *testing.T) {
 				version, err = m.version(context.TODO(), tx)
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			require.Equal(t, NilVersion, version)
 		})
@@ -396,7 +400,7 @@ func TestSQLLiteMigrator_Migrate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			up = 0
 			down = 0
-			db, cleanup := CreateTestDb(t)
+			db, cleanup := CreateTestDB(t)
 			defer cleanup()
 			m := &SQLLiteMigrator{
 				db:              db,
@@ -409,7 +413,7 @@ func TestSQLLiteMigrator_Migrate(t *testing.T) {
 				require.NoError(t, m.setVersion(context.TODO(), tx, tt.startVersion))
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			if err := m.Migrate(context.TODO()); (err != nil) != tt.wantErr {
 				t.Errorf("Migrate() error = %v, wantErr %v", err, tt.wantErr)
@@ -425,7 +429,7 @@ func TestSQLLiteMigrator_Migrate(t *testing.T) {
 				version, err = m.version(context.TODO(), tx)
 				require.NoError(t, err)
 				require.NoError(t, tx.Commit())
-				tx.Rollback()
+				_ = tx.Rollback()
 			}
 			require.Equal(t, tt.wantVersion, version)
 		})

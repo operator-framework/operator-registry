@@ -22,6 +22,7 @@ func (t Template) Render(ctx context.Context) (*declcfg.DeclarativeConfig, error
 		return nil, fmt.Errorf("render: unable to read file: %v", err)
 	}
 
+	// nolint:prealloc
 	var cfgs []declcfg.DeclarativeConfig
 
 	bundleDict := buildBundleList(*sv)
@@ -211,6 +212,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 
 	// sort the channel archetypes in ascending order so we can traverse the bundles in order of
 	// their source channel's priority
+	// nolint:prealloc
 	var archetypesByPriority []channelArchetype
 	for k := range channelPriorities {
 		archetypesByPriority = append(archetypesByPriority, k)
@@ -370,7 +372,7 @@ func newPackage(name string) *declcfg.Package {
 func newChannel(pkgName string, chName string) *declcfg.Channel {
 	return &declcfg.Channel{
 		Schema:  "olm.channel",
-		Name:    string(chName),
+		Name:    chName,
 		Package: pkgName,
 		Entries: []declcfg.ChannelEntry{},
 	}
@@ -391,6 +393,7 @@ func getMinorVersion(v semver.Version) semver.Version {
 	}
 }
 
+// nolint:unused
 func getMajorVersion(v semver.Version) semver.Version {
 	return semver.Version{
 		Major: v.Major,

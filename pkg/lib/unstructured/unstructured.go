@@ -7,10 +7,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
 )
 
 func FromReader(reader io.Reader) (*unstructured.Unstructured, error) {
@@ -49,7 +49,7 @@ func FromDir(dirpath string) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	unsts := make([]*unstructured.Unstructured, 0, 0)
+	unsts := make([]*unstructured.Unstructured, 0)
 	for _, file := range files {
 		unst, err := FromFile(path.Join(dirpath, file.Name()))
 		if err != nil {
