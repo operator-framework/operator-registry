@@ -125,7 +125,7 @@ func TestMigrate(t *testing.T) {
 				return
 			}
 			actualFS := os.DirFS(s.migrate.OutputDir)
-			_ = fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
+			require.NoError(t, fs.WalkDir(actualFS, ".", func(path string, d fs.DirEntry, err error) error {
 				require.NoError(t, err)
 				if d.IsDir() {
 					return nil
@@ -136,7 +136,7 @@ func TestMigrate(t *testing.T) {
 				require.True(t, ok, "output directory contained unexpected file %q", path)
 				require.Equal(t, expectedData, string(actualData))
 				return nil
-			})
+			}))
 		})
 	}
 }
