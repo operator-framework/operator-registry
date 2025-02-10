@@ -56,22 +56,32 @@ func (r *Registry) Pull(ctx context.Context, ref image.Reference) error {
 		return err
 	}
 
-	name, root, err := resolver.Resolve(ctx, ref.String())
-	if err != nil {
-		return fmt.Errorf("error resolving name for image ref %s: %v", ref.String(), err)
+	retryBackoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   1.0,
+		Jitter:   0.1,
+		Steps:    5,
+	}
+
+	var name string
+	var root ocispec.Descriptor
+	if err := retry.OnError(retryBackoff,
+		func(pullErr error) bool {
+			r.log.Warnf("Error resolving registry %q: %v. Retrying", ref.String(), pullErr)
+			return true
+		},
+		func() error {
+			name, root, err = resolver.Resolve(ctx, ref.String())
+			return err
+		},
+	); err != nil {
+		return fmt.Errorf("error resolving remote name %s: %v", ref.String(), err)
 	}
 	r.log.Debugf("resolved name: %s", name)
 
 	fetcher, err := resolver.Fetcher(ctx, name)
 	if err != nil {
 		return err
-	}
-
-	retryBackoff := wait.Backoff{
-		Duration: 1 * time.Second,
-		Factor:   1.0,
-		Jitter:   0.1,
-		Steps:    5,
 	}
 
 	if err := retry.OnError(retryBackoff,
