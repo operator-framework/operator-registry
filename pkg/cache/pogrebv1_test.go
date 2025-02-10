@@ -21,7 +21,7 @@ func TestPogrebV1_StableDigest(t *testing.T) {
 	require.NoError(t, err)
 
 	// NOTE: The entire purpose of this test is to ensure that we don't change the cache
-	// implementation and inadvertantly invalidate existing caches.
+	// implementation and inadvertently invalidate existing caches.
 	//
 	// Therefore, DO NOT CHANGE the expected digest value here unless validFS also
 	// changes.

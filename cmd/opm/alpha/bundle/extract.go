@@ -33,7 +33,7 @@ func init() {
 	extractCmd.Flags().StringP("namespace", "n", "openshift-operator-lifecycle-manager", "namespace to write configmap data")
 	extractCmd.Flags().Uint64P("datalimit", "l", 1<<20, "maximum limit in bytes for total bundle data")
 	extractCmd.Flags().BoolP("gzip", "z", false, "enable gzip compression of configmap data")
-	extractCmd.MarkPersistentFlagRequired("configmapname")
+	_ = extractCmd.MarkPersistentFlagRequired("configmapname")
 }
 
 func runExtractCmd(cmd *cobra.Command, _ []string) error {

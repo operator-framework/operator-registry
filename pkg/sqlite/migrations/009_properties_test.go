@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func TestPropertiesUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.PropertiesMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.PropertiesMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -27,8 +28,8 @@ func TestPropertiesUp(t *testing.T) {
 	require.NoError(t, err)
 	_, err = tx.Exec("insert into api_provider(group_name, version, kind, operatorbundle_name, operatorbundle_version, operatorbundle_path) values(?, ?, ?, ?, ?, ?)", "test.coreos.com", "v1", "testapi", "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
 	require.NoError(t, err)
-	channel_entries := `INSERT INTO channel_entry("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('1', 'alpha', 'etcd', 'etcdoperator.v0.6.1', '', '0');`
-	_, err = tx.Exec(channel_entries)
+	channelEntries := `INSERT INTO channel_entry("entry_id", "channel_name", "package_name", "operatorbundle_name", "replaces", "depth") VALUES ('1', 'alpha', 'etcd', 'etcdoperator.v0.6.1', '', '0');`
+	_, err = tx.Exec(channelEntries)
 	require.NoError(t, err)
 	valueStr := `{"packageName":"etcd","type":"olm.package","version":">0.6.0"}`
 	_, err = tx.Exec("insert into dependencies(type, value, operatorbundle_name, operatorbundle_version, operatorbundle_path) VALUES (?, ?, ?, ?, ?)", "olm.package", valueStr, "etcdoperator.v0.6.1", "0.6.1", "quay.io/image")
@@ -104,7 +105,7 @@ func TestPropertiesUp(t *testing.T) {
 }
 
 func TestPropertiesDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.PropertiesMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.PropertiesMigrationKey)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -133,7 +134,7 @@ func TestPropertiesDown(t *testing.T) {
 	var typeName sql.NullString
 	var value sql.NullString
 	require.NoError(t, rows.Scan(&typeName, &value))
-	require.Equal(t, typeName.String, "olm.package")
+	require.Equal(t, "olm.package", typeName.String)
 	require.Equal(t, value.String, valueStr)
 	require.NoError(t, rows.Close())
 

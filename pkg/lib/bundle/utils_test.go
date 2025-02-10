@@ -36,7 +36,7 @@ func cleanup() {
 }
 
 func createDir(dir string) {
-	os.MkdirAll(dir, os.ModePerm)
+	_ = os.MkdirAll(dir, os.ModePerm)
 }
 
 func createFiles(dir, input string) {
@@ -56,20 +56,9 @@ func createFiles(dir, input string) {
 	}
 }
 
-func buildTestAnnotations(key string, items map[string]string) []byte {
+func buildTestAnnotations(items map[string]string) []byte {
 	temp := make(map[string]interface{})
-	temp[key] = items
+	temp["annotations"] = items
 	output, _ := yaml.Marshal(temp)
 	return output
-}
-
-func clearDir(dir string) {
-	items, _ := os.ReadDir(dir)
-
-	for _, item := range items {
-		if item.IsDir() {
-			continue
-		}
-		os.Remove(filepath.Join(dir, item.Name()))
-	}
 }

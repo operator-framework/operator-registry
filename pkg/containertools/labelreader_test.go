@@ -32,7 +32,7 @@ func TestReadDockerLabels(t *testing.T) {
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
-	require.Equal(t, labels[expectedLabelKey], expectedLabelVal)
+	require.Equal(t, expectedLabelVal, labels[expectedLabelKey])
 }
 
 func TestReadDockerLabelsNoLabels(t *testing.T) {
@@ -55,7 +55,7 @@ func TestReadDockerLabelsNoLabels(t *testing.T) {
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
-	require.Equal(t, len(labels), 0)
+	require.Empty(t, labels)
 }
 
 func TestReadPodmanLabels(t *testing.T) {
@@ -80,7 +80,7 @@ func TestReadPodmanLabels(t *testing.T) {
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
-	require.Equal(t, labels[expectedLabelKey], expectedLabelVal)
+	require.Equal(t, expectedLabelVal, labels[expectedLabelKey])
 }
 
 func TestReadPodmanLabelsNoLabels(t *testing.T) {
@@ -103,7 +103,7 @@ func TestReadPodmanLabelsNoLabels(t *testing.T) {
 
 	labels, err := labelReader.GetLabelsFromImage(image)
 	require.NoError(t, err)
-	require.Equal(t, len(labels), 0)
+	require.Empty(t, labels)
 }
 
 func TestReadDockerLabels_PullError(t *testing.T) {

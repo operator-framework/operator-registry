@@ -484,7 +484,6 @@ func TestConvertToModelBundle(t *testing.T) {
 	assert.Len(t, b.PropertiesP.BundleObjects, 2)
 	assert.Len(t, b.PropertiesP.Packages, 1)
 	assert.Equal(t, semver.MustParse("0.1.0"), b.Version)
-
 }
 
 func TestConvertToModelRoundtrip(t *testing.T) {
@@ -499,7 +498,7 @@ func TestConvertToModelRoundtrip(t *testing.T) {
 
 	assert.Equal(t, expected.Packages, actual.Packages)
 	assert.Equal(t, expected.Bundles, actual.Bundles)
-	assert.Len(t, actual.Others, 0, "expected unrecognized schemas not to make the roundtrip")
+	assert.Empty(t, actual.Others, "expected unrecognized schemas not to make the roundtrip")
 }
 
 func hasError(expectedError string) require.ErrorAssertionFunc {

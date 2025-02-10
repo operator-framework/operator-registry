@@ -7,7 +7,7 @@ import (
 )
 
 // CopyTmpDB reads the file at the given path and copies it to a tmp directory, returning the copied file path or an err
-func CopyTmpDB(original string) (path string, err error) {
+func CopyTmpDB(original string) (string, error) {
 	dst, err := os.CreateTemp("", "db-")
 	if err != nil {
 		return "", err

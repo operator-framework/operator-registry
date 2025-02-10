@@ -36,7 +36,6 @@ This command outputs a basic catalog template to STDOUT from input FBC.
 If no argument is specified or is '-' input is assumed from STDIN.
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-
 			switch output {
 			case "yaml", "json":
 				converter.OutputFormat = output

@@ -44,30 +44,30 @@ func (o *IndexImageMirrorerOptions) Complete() error {
 }
 
 // Apply sequentially applies the given options to the config.
-func (c *IndexImageMirrorerOptions) Apply(options []ImageIndexMirrorOption) {
+func (o *IndexImageMirrorerOptions) Apply(options []ImageIndexMirrorOption) {
 	for _, option := range options {
-		option(c)
+		option(o)
 	}
 }
 
 // ToOption converts an IndexImageMirrorerOptions object into a function that applies
 // its current configuration to another IndexImageMirrorerOptions instance
-func (c *IndexImageMirrorerOptions) ToOption() ImageIndexMirrorOption {
-	return func(o *IndexImageMirrorerOptions) {
-		if c.ImageMirrorer != nil {
-			o.ImageMirrorer = c.ImageMirrorer
+func (o *IndexImageMirrorerOptions) ToOption() ImageIndexMirrorOption {
+	return func(io *IndexImageMirrorerOptions) {
+		if o.ImageMirrorer != nil {
+			io.ImageMirrorer = o.ImageMirrorer
 		}
-		if c.DatabaseExtractor != nil {
-			o.DatabaseExtractor = c.DatabaseExtractor
+		if o.DatabaseExtractor != nil {
+			io.DatabaseExtractor = o.DatabaseExtractor
 		}
-		if c.Source != "" {
-			o.Source = c.Source
+		if o.Source != "" {
+			io.Source = o.Source
 		}
-		if c.Dest != "" {
-			o.Dest = c.Dest
+		if o.Dest != "" {
+			io.Dest = o.Dest
 		}
-		if c.ManifestDir != "" {
-			o.ManifestDir = c.ManifestDir
+		if o.ManifestDir != "" {
+			io.ManifestDir = o.ManifestDir
 		}
 	}
 }

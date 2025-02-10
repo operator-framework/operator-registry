@@ -23,25 +23,25 @@ func TestPackageGraphLoader(t *testing.T) {
 			channel: map[string]Channel{
 				"alpha": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "etcdoperator.v0.6.1"}: {},
-						BundleKey{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
-						BundleKey{CsvName: "etcdoperator.v0.9.1"}: {},
-						BundleKey{CsvName: "etcdoperator.v0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0"}: {},
+						{CsvName: "etcdoperator.v0.6.1"}: {},
+						{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
+						{CsvName: "etcdoperator.v0.9.1"}: {},
+						{CsvName: "etcdoperator.v0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0"}: {},
 							BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 					}},
 
 				"beta": {Head: BundleKey{CsvName: "etcdoperator.v0.9.0"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "etcdoperator.v0.6.1"}: {},
-						BundleKey{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
+						{CsvName: "etcdoperator.v0.6.1"}: {},
+						{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
 					}},
 
 				"stable": {Head: BundleKey{CsvName: "etcdoperator.v0.9.2"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "etcdoperator.v0.6.1"}: {},
-						BundleKey{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
-						BundleKey{CsvName: "etcdoperator.v0.9.1"}: {},
-						BundleKey{CsvName: "etcdoperator.v0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0"}: {},
+						{CsvName: "etcdoperator.v0.6.1"}: {},
+						{CsvName: "etcdoperator.v0.9.0"}: {BundleKey{CsvName: "etcdoperator.v0.6.1"}: {}},
+						{CsvName: "etcdoperator.v0.9.1"}: {},
+						{CsvName: "etcdoperator.v0.9.2"}: {BundleKey{CsvName: "etcdoperator.v0.9.0"}: {},
 							BundleKey{CsvName: "etcdoperator.v0.9.1"}: {}},
 					}},
 			},
@@ -54,9 +54,9 @@ func TestPackageGraphLoader(t *testing.T) {
 			channel: map[string]Channel{
 				"preview": {Head: BundleKey{CsvName: "prometheusoperator.0.22.2"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "prometheusoperator.0.14.0"}: {},
-						BundleKey{CsvName: "prometheusoperator.0.15.0"}: {BundleKey{CsvName: "prometheusoperator.0.14.0"}: {}},
-						BundleKey{CsvName: "prometheusoperator.0.22.2"}: {BundleKey{CsvName: "prometheusoperator.0.15.0"}: {}},
+						{CsvName: "prometheusoperator.0.14.0"}: {},
+						{CsvName: "prometheusoperator.0.15.0"}: {BundleKey{CsvName: "prometheusoperator.0.14.0"}: {}},
+						{CsvName: "prometheusoperator.0.22.2"}: {BundleKey{CsvName: "prometheusoperator.0.15.0"}: {}},
 					}}},
 		},
 		{
@@ -71,15 +71,15 @@ func TestPackageGraphLoader(t *testing.T) {
 			channel: map[string]Channel{
 				"stable": {Head: BundleKey{CsvName: "aqua-operator.v1.0.0"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "aqua-operator.v1.0.0"}: {},
+						{CsvName: "aqua-operator.v1.0.0"}: {},
 					}},
 				"alpha": {Head: BundleKey{CsvName: "aqua-operator.v1.0.0"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "aqua-operator.v1.0.0"}: {},
+						{CsvName: "aqua-operator.v1.0.0"}: {},
 					}},
 				"beta": {Head: BundleKey{CsvName: "aqua-operator.v0.0.1"},
 					Nodes: map[BundleKey]map[BundleKey]struct{}{
-						BundleKey{CsvName: "aqua-operator.v0.0.1"}: {},
+						{CsvName: "aqua-operator.v0.0.1"}: {},
 					}},
 			},
 		},

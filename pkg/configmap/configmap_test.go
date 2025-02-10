@@ -5,14 +5,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/operator-framework/operator-registry/pkg/api"
+	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
 )
 
 const (
@@ -36,7 +37,7 @@ func TestLoad(t *testing.T) {
 
 				crdListGot := bundleGot.GetObject()
 				// 1 CSV + 1 CRD = 2 objects
-				assert.Equal(t, 2, len(crdListGot))
+				assert.Len(t, crdListGot, 2)
 			},
 		},
 		{
@@ -45,11 +46,11 @@ func TestLoad(t *testing.T) {
 			assertFunc: func(t *testing.T, bundleGot *api.Bundle) {
 				objects := bundleGot.GetObject()
 				assert.NotNil(t, objects)
-				assert.Equal(t, 1, len(objects))
+				assert.Len(t, objects, 1)
 
 				unst, err := unstructuredlib.FromString(objects[0])
-				assert.NoError(t, err)
-				assert.True(t, unst.GetKind() == "Foo")
+				require.NoError(t, err)
+				assert.Equal(t, "Foo", unst.GetKind())
 			},
 		},
 		{
@@ -60,7 +61,7 @@ func TestLoad(t *testing.T) {
 				assert.NotNil(t, csvGot)
 
 				unst, err := unstructuredlib.FromString(csvGot)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.True(t, unst.GetName() == "first" || unst.GetName() == "second")
 			},
 		},
@@ -79,12 +80,12 @@ func TestLoad(t *testing.T) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 				unst, err := unstructuredlib.FromString(csvGot)
-				assert.NoError(t, err)
-				assert.True(t, unst.GetName() == "kiali-operator.v1.4.2")
+				require.NoError(t, err)
+				assert.Equal(t, "kiali-operator.v1.4.2", unst.GetName())
 
 				objects := bundleGot.GetObject()
 				// 2 CRDs + 1 CSV == 3 objects
-				assert.Equal(t, 3, len(objects))
+				assert.Len(t, objects, 3)
 			},
 		},
 		{
@@ -94,11 +95,11 @@ func TestLoad(t *testing.T) {
 				csvGot := bundleGot.GetCsvJson()
 				assert.NotNil(t, csvGot)
 				unst, err := unstructuredlib.FromString(csvGot)
-				assert.NoError(t, err)
-				assert.True(t, unst.GetName() == "kiali-operator.v1.4.2")
+				require.NoError(t, err)
+				assert.Equal(t, "kiali-operator.v1.4.2", unst.GetName())
 
 				objects := bundleGot.GetObject()
-				assert.Equal(t, 3, len(objects))
+				assert.Len(t, objects, 3)
 			},
 		},
 	}
@@ -110,7 +111,7 @@ func TestLoad(t *testing.T) {
 			loader := NewBundleLoader()
 			bundleGot, errGot := loader.Load(cm)
 
-			assert.NoError(t, errGot)
+			require.NoError(t, errGot)
 			assert.NotNil(t, bundleGot)
 
 			if tt.assertFunc != nil {
@@ -147,23 +148,24 @@ func TestLoadWriteRead(t *testing.T) {
 				},
 			}
 			clientset := fake.NewSimpleClientset()
-			clientset.CoreV1().ConfigMaps(configMapNamespace).Create(context.TODO(), cm, metav1.CreateOptions{})
+			_, _ = clientset.CoreV1().ConfigMaps(configMapNamespace).Create(context.TODO(), cm, metav1.CreateOptions{})
 
 			cmLoader := NewConfigMapLoaderWithClient(configMapName, configMapNamespace, tt.source, tt.gzip, clientset)
 			err := cmLoader.Populate(1 << 20)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			cm, err = clientset.CoreV1().ConfigMaps(configMapNamespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			bundleLoader := NewBundleLoader()
 			bundle, err := bundleLoader.Load(cm)
+			require.NoError(t, err)
 
 			expectedObjects, err := unstructuredlib.FromDir(tt.source + "manifests/")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			bundleObjects, err := unstructuredlib.FromBundle(bundle)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.ElementsMatch(t, expectedObjects, bundleObjects)
 		})

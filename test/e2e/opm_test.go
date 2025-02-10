@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -228,7 +229,6 @@ func exportPackageWith(containerTool string) error {
 }
 
 func exportIndexImageWith(containerTool string) error {
-
 	logger := logrus.NewEntry(logrus.New())
 	indexExporter := indexer.NewIndexExporter(containertools.NewContainerTool(containerTool, containertools.NoneTool), logger)
 

@@ -14,6 +14,7 @@ import (
 type packageIndex map[string]cPkg
 
 func (pkgs packageIndex) ListPackages(_ context.Context) ([]string, error) {
+	// nolint:prealloc
 	var packages []string
 	for pkgName := range pkgs {
 		packages = append(packages, pkgName)
@@ -27,6 +28,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 		return nil, fmt.Errorf("package %q not found", name)
 	}
 
+	// nolint:prealloc
 	var channels []registry.PackageChannel
 	for _, ch := range pkg.Channels {
 		var deprecation *registry.Deprecation

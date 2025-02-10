@@ -6,9 +6,10 @@ import (
 	"io"
 	"os"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/operator-framework/operator-registry/alpha/template/basic"
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"sigs.k8s.io/yaml"
 )
 
 type Converter struct {

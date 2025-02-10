@@ -500,13 +500,13 @@ func removeJSONWhitespace(cfg *DeclarativeConfig) {
 	for ib := range cfg.Bundles {
 		for ip := range cfg.Bundles[ib].Properties {
 			var buf bytes.Buffer
-			json.Compact(&buf, cfg.Bundles[ib].Properties[ip].Value)
+			_ = json.Compact(&buf, cfg.Bundles[ib].Properties[ip].Value)
 			cfg.Bundles[ib].Properties[ip].Value = buf.Bytes()
 		}
 	}
 	for io := range cfg.Others {
 		var buf bytes.Buffer
-		json.Compact(&buf, cfg.Others[io].Blob)
+		_ = json.Compact(&buf, cfg.Others[io].Blob)
 		cfg.Others[io].Blob = buf.Bytes()
 	}
 }

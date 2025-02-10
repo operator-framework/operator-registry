@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func TestDependenciesUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.DependenciesMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.DependenciesMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -41,13 +42,13 @@ func TestDependenciesUp(t *testing.T) {
 	var typeName sql.NullString
 	var value sql.NullString
 	require.NoError(t, rows.Scan(&typeName, &value))
-	require.Equal(t, typeName.String, "olm.gvk")
-	require.Equal(t, value.String, `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`)
+	require.Equal(t, "olm.gvk", typeName.String)
+	require.JSONEq(t, `{"group":"test.coreos.com","kind":"testapi","type":"olm.gvk","version":"v1"}`, value.String)
 	require.NoError(t, rows.Close())
 }
 
 func TestDependenciesDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.DependenciesMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.DependenciesMigrationKey)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -76,7 +77,7 @@ func TestDependenciesDown(t *testing.T) {
 	var typeName sql.NullString
 	var value sql.NullString
 	require.NoError(t, rows.Scan(&typeName, &value))
-	require.Equal(t, typeName.String, "olm.package")
+	require.Equal(t, "olm.package", typeName.String)
 	require.Equal(t, value.String, valueStr)
 	require.NoError(t, rows.Close())
 

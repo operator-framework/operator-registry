@@ -2,17 +2,19 @@ package declcfg_test
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/blang/semver/v4"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/operator-framework/api/pkg/lib/version"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -64,7 +66,11 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 		})
 	}
 	for i := 0; i < numChannels; i++ {
-		pkgName := fbc.Packages[rand.Intn(numPackages)].Name
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(numPackages)))
+		if err != nil {
+			b.Error(err)
+		}
+		pkgName := fbc.Packages[r.Int64()].Name
 		channelName := fmt.Sprintf("channel-%d", i)
 		fbc.Channels = append(fbc.Channels, declcfg.Channel{
 			Schema:  declcfg.SchemaChannel,
@@ -73,7 +79,11 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 		})
 	}
 	for i := 0; i < numBundles; i++ {
-		pkgName := fbc.Packages[rand.Intn(numPackages)].Name
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(numPackages)))
+		if err != nil {
+			b.Error(err)
+		}
+		pkgName := fbc.Packages[r.Int64()].Name
 		bundleName := fmt.Sprintf("bundle-%d", i)
 		version := fmt.Sprintf("0.%d.0", i)
 		bundle := declcfg.Bundle{
@@ -93,7 +103,11 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 		bundle.Properties = append(bundle.Properties, property.MustBuildCSVMetadata(csv))
 		fbc.Bundles = append(fbc.Bundles, bundle)
 
-		chIdx := rand.Intn(numChannels)
+		p, err := rand.Int(rand.Reader, big.NewInt(int64(numChannels)))
+		if err != nil {
+			b.Error(err)
+		}
+		chIdx := p.Int64()
 		ch := fbc.Channels[chIdx]
 		replaces := ""
 		if len(ch.Entries) > 0 {

@@ -99,16 +99,19 @@ func RunDockerRegistry(ctx context.Context, rootDir string, configOpts ...Config
 		}
 	}()
 
-	err = wait.Poll(100*time.Millisecond, 10*time.Second, func() (done bool, err error) {
+	// nolint:staticcheck
+	err = wait.Poll(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		tr := &http.Transport{TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: false,
 			RootCAs:            certPool,
+			MinVersion:         tls.VersionTLS12,
 		}}
 		client := &http.Client{Transport: tr}
 		r, err := client.Get("https://" + host + "/v2/")
 		if err != nil {
 			return false, nil
 		}
+		defer r.Body.Close()
 		if r.StatusCode == http.StatusOK {
 			return true, nil
 		}

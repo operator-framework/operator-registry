@@ -62,7 +62,9 @@ When FILE is '-' or not provided, the template is read from standard input`,
 			if err != nil {
 				log.Fatalf("creating containerd registry: %v", err)
 			}
-			defer reg.Destroy()
+			defer func() {
+				_ = reg.Destroy()
+			}()
 
 			var m *migrations.Migrations
 			if migrateLevel != "" {

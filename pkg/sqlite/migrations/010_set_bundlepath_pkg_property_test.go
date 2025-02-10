@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
 func TestBundlePathPropertyUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.BundlePathPkgMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.BundlePathPkgMigrationKey-1)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)
@@ -47,7 +48,7 @@ func TestBundlePathPropertyUp(t *testing.T) {
 }
 
 func TestBundlePathPropertyDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.BundlePathPkgMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.BundlePathPkgMigrationKey)
 	defer cleanup()
 
 	_, err := db.Exec(`PRAGMA foreign_keys = 0`)

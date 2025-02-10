@@ -57,7 +57,6 @@ func newIndexExportCmd() *cobra.Command {
 	}
 
 	return indexCmd
-
 }
 
 func runIndexExportCmdFunc(cmd *cobra.Command, _ []string) error {

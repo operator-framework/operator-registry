@@ -2,12 +2,13 @@ package migrations_test
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -16,12 +17,11 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/sqlite/migrations"
 )
 
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
+func CreateTestDBAt(t *testing.T, key int) (*sql.DB, sqlite.Migrator, func()) {
+	r, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	require.NoError(t, err)
 
-func CreateTestDbAt(t *testing.T, key int) (*sql.DB, sqlite.Migrator, func()) {
-	dbName := fmt.Sprintf("%d.db", rand.Int())
+	dbName := fmt.Sprintf("%d.db", r)
 	logrus.SetLevel(logrus.DebugLevel)
 
 	db, err := sqlite.Open(dbName)
@@ -48,7 +48,7 @@ func CreateTestDbAt(t *testing.T, key int) (*sql.DB, sqlite.Migrator, func()) {
 
 func TestRelatedImagesUp(t *testing.T) {
 	// migrate up to, but not including, this migration
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RelatedImagesMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RelatedImagesMigrationKey-1)
 	defer cleanup()
 
 	// Add a test bundle without extracting related_images
@@ -78,7 +78,7 @@ func TestRelatedImagesUp(t *testing.T) {
 }
 
 func TestRelatedImagesDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.RelatedImagesMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.RelatedImagesMigrationKey)
 	defer cleanup()
 
 	// Add a test bundle that has related images

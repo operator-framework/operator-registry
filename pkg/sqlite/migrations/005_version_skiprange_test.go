@@ -11,7 +11,7 @@ import (
 )
 
 func TestVersioningUp(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.VersionSkipRangeMigrationKey-1)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.VersionSkipRangeMigrationKey-1)
 	defer cleanup()
 
 	err := migrator.Up(context.TODO(), migrations.Only(migrations.VersionSkipRangeMigrationKey))
@@ -29,7 +29,7 @@ func TestVersioningUp(t *testing.T) {
 }
 
 func TestVersioningDown(t *testing.T) {
-	db, migrator, cleanup := CreateTestDbAt(t, migrations.VersionSkipRangeMigrationKey)
+	db, migrator, cleanup := CreateTestDBAt(t, migrations.VersionSkipRangeMigrationKey)
 	defer cleanup()
 
 	// Add a bundle without extracting required_apis
@@ -57,11 +57,11 @@ func TestVersioningDown(t *testing.T) {
 	var skipRange sql.NullString
 	rows.Next()
 	require.NoError(t, rows.Scan(&name, &csv, &bundle, &version, &skipRange))
-	require.Equal(t, name.String, "etcdoperator.v0.6.1")
+	require.Equal(t, "etcdoperator.v0.6.1", name.String)
 	require.Equal(t, csv.String, testCSV)
 	require.Equal(t, bundle.String, testBundle)
-	require.Equal(t, version.String, "0.6.1")
-	require.Equal(t, skipRange.String, ">0.5.0 <0.6.1")
+	require.Equal(t, "0.6.1", version.String)
+	require.Equal(t, ">0.5.0 <0.6.1", skipRange.String)
 	require.NoError(t, rows.Close())
 
 	// run down migration
@@ -73,7 +73,7 @@ func TestVersioningDown(t *testing.T) {
 	require.NoError(t, err)
 	rows.Next()
 	require.NoError(t, rows.Scan(&name, &csv, &bundle))
-	require.Equal(t, name.String, "etcdoperator.v0.6.1")
+	require.Equal(t, "etcdoperator.v0.6.1", name.String)
 	require.Equal(t, csv.String, testCSV)
 	require.Equal(t, bundle.String, testBundle)
 	require.NoError(t, rows.Close())
