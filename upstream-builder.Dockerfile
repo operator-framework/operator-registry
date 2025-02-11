@@ -1,11 +1,11 @@
-FROM golang:1.23-alpine as builder
+FROM golang:1.23-alpine AS builder
 
 RUN apk update && apk add sqlite build-base git mercurial bash linux-headers
 WORKDIR /build
 
 COPY . .
 RUN make static
-RUN GRPC_HEALTH_PROBE_VERSION=v0.4.37 && \
+RUN GRPC_HEALTH_PROBE_VERSION=$(go list -m github.com/grpc-ecosystem/grpc-health-probe| awk '{print $2}') && \
     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-$(go env GOARCH) && \
     chmod +x /bin/grpc_health_probe
 
