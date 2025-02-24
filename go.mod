@@ -16,7 +16,7 @@ require (
 	github.com/docker/cli v28.0.0+incompatible
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.2.0
 	github.com/grpc-ecosystem/grpc-health-probe v0.4.37
 	github.com/h2non/filetype v1.1.3
