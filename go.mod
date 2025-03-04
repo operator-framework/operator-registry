@@ -9,7 +9,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.7.26
 	github.com/containerd/errdefs v1.0.0
-	github.com/containers/common v0.62.0
+	github.com/containers/common v0.62.1
 	github.com/containers/image/v5 v5.34.1
 	github.com/distribution/distribution/v3 v3.0.0-rc.3
 	github.com/distribution/reference v0.6.0
