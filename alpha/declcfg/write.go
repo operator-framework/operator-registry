@@ -396,73 +396,6 @@ type encoder interface {
 	Encode(interface{}) error
 }
 
-func organizeByPackage(cfg DeclarativeConfig) map[string]DeclarativeConfig {
-	pkgNames := sets.New[string]()
-	packagesByName := map[string][]Package{}
-	for _, p := range cfg.Packages {
-		pkgName := p.Name
-		pkgNames.Insert(pkgName)
-		packagesByName[pkgName] = append(packagesByName[pkgName], p)
-	}
-	packageV2sByName := map[string][]PackageV2{}
-	for _, p := range cfg.PackageV2s {
-		pkgName := p.Package
-		pkgNames.Insert(pkgName)
-		packageV2sByName[pkgName] = append(packageV2sByName[pkgName], p)
-	}
-	packageIconsByPackage := map[string][]PackageIcon{}
-	for _, pi := range cfg.PackageIcons {
-		pkgName := pi.Package
-		pkgNames.Insert(pkgName)
-		packageIconsByPackage[pkgName] = append(packageIconsByPackage[pkgName], pi)
-	}
-	channelsByPackage := map[string][]Channel{}
-	for _, c := range cfg.Channels {
-		pkgName := c.Package
-		pkgNames.Insert(pkgName)
-		channelsByPackage[pkgName] = append(channelsByPackage[pkgName], c)
-	}
-	bundlesByPackage := map[string][]Bundle{}
-	for _, b := range cfg.Bundles {
-		pkgName := b.Package
-		pkgNames.Insert(pkgName)
-		bundlesByPackage[pkgName] = append(bundlesByPackage[pkgName], b)
-	}
-	bundleV2sByPackage := map[string][]BundleV2{}
-	for _, b := range cfg.BundleV2s {
-		pkgName := b.Package
-		pkgNames.Insert(pkgName)
-		bundleV2sByPackage[pkgName] = append(bundleV2sByPackage[pkgName], b)
-	}
-	othersByPackage := map[string][]Meta{}
-	for _, o := range cfg.Others {
-		pkgName := o.Package
-		pkgNames.Insert(pkgName)
-		othersByPackage[pkgName] = append(othersByPackage[pkgName], o)
-	}
-	deprecationsByPackage := map[string][]Deprecation{}
-	for _, d := range cfg.Deprecations {
-		pkgName := d.Package
-		pkgNames.Insert(pkgName)
-		deprecationsByPackage[pkgName] = append(deprecationsByPackage[pkgName], d)
-	}
-
-	fbcsByPackageName := make(map[string]DeclarativeConfig, len(pkgNames))
-	for _, pkgName := range sets.List(pkgNames) {
-		fbcsByPackageName[pkgName] = DeclarativeConfig{
-			Packages:     packagesByName[pkgName],
-			PackageV2s:   packageV2sByName[pkgName],
-			PackageIcons: packageIconsByPackage[pkgName],
-			Channels:     channelsByPackage[pkgName],
-			Bundles:      bundlesByPackage[pkgName],
-			BundleV2s:    bundleV2sByPackage[pkgName],
-			Deprecations: deprecationsByPackage[pkgName],
-			Others:       othersByPackage[pkgName],
-		}
-	}
-	return fbcsByPackageName
-}
-
 func encodeAll[T any](values []T) func(encoder) error {
 	return func(enc encoder) error {
 		for _, v := range values {
@@ -475,15 +408,21 @@ func encodeAll[T any](values []T) func(encoder) error {
 }
 
 func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
-	byPackage := organizeByPackage(cfg)
+	byPackage := OrganizeByPackage(cfg)
 
 	for _, pkgName := range sets.List(sets.KeySet(byPackage)) {
 		slices.SortFunc(byPackage[pkgName].Packages, func(i, j Package) int { return cmp.Compare(i.Name, j.Name) })
-		slices.SortFunc(byPackage[pkgName].PackageV2s, func(i, j PackageV2) int { return cmp.Compare(i.Package, j.Package) })
-		slices.SortFunc(byPackage[pkgName].PackageIcons, func(i, j PackageIcon) int { return cmp.Compare(i.Package, j.Package) })
 		slices.SortFunc(byPackage[pkgName].Channels, func(i, j Channel) int { return cmp.Compare(i.Name, j.Name) })
 		slices.SortFunc(byPackage[pkgName].Bundles, func(i, j Bundle) int { return cmp.Compare(i.Name, j.Name) })
+
+		slices.SortFunc(byPackage[pkgName].PackageV2s, func(i, j PackageV2) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].PackageV2Metadatas, func(i, j PackageV2Metadata) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].PackageV2Icons, func(i, j PackageV2Icon) int { return cmp.Compare(i.Package, j.Package) })
+		slices.SortFunc(byPackage[pkgName].ChannelV2s, func(i, j ChannelV2) int { return cmp.Compare(i.Name, j.Name) })
 		slices.SortFunc(byPackage[pkgName].BundleV2s, func(i, j BundleV2) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].BundleV2RelatedReferences, func(i, j BundleV2RelatedReferences) int { return cmp.Compare(i.Name, j.Name) })
+		slices.SortFunc(byPackage[pkgName].BundleV2Metadatas, func(i, j BundleV2Metadata) int { return cmp.Compare(i.Name, j.Name) })
+
 		slices.SortFunc(byPackage[pkgName].Deprecations, func(i, j Deprecation) int { return cmp.Compare(i.Package, j.Package) })
 		slices.SortFunc(byPackage[pkgName].Others, func(i, j Meta) int {
 			if bySchema := cmp.Compare(i.Schema, j.Schema); bySchema != 0 {
@@ -493,10 +432,12 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		})
 		for _, f := range []func(enc encoder) error{
 			encodeAll(byPackage[pkgName].Packages),
-			encodeAll(byPackage[pkgName].PackageV2s),
-			encodeAll(byPackage[pkgName].PackageIcons),
 			encodeAll(byPackage[pkgName].Channels),
 			encodeAll(byPackage[pkgName].Bundles),
+			encodeAll(byPackage[pkgName].PackageV2s),
+			encodeAll(byPackage[pkgName].PackageV2Metadatas),
+			encodeAll(byPackage[pkgName].PackageV2Icons),
+			encodeAll(byPackage[pkgName].ChannelV2s),
 			encodeAll(byPackage[pkgName].BundleV2s),
 			encodeAll(byPackage[pkgName].Deprecations),
 			encodeAll(byPackage[pkgName].Others),
@@ -512,7 +453,7 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 type WriteFunc func(config DeclarativeConfig, w io.Writer) error
 
 func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
-	for pkgName, fcfg := range organizeByPackage(cfg) {
+	for pkgName, fcfg := range OrganizeByPackage(cfg) {
 		pkgDir := filepath.Join(rootDir, pkgName)
 		if err := os.MkdirAll(pkgDir, 0777); err != nil {
 			return err

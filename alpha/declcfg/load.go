@@ -273,14 +273,18 @@ func LoadSlice(metas []*Meta) (*DeclarativeConfig, error) {
 type fbcBuilder struct {
 	cfg DeclarativeConfig
 
-	packagesMu     sync.Mutex
-	packageV2sMu   sync.Mutex
-	packageIconsMu sync.Mutex
-	channelsMu     sync.Mutex
-	bundlesMu      sync.Mutex
-	bundleV2sMu    sync.Mutex
-	deprecationsMu sync.Mutex
-	othersMu       sync.Mutex
+	packagesMu                  sync.Mutex
+	channelsMu                  sync.Mutex
+	bundlesMu                   sync.Mutex
+	packageV2sMu                sync.Mutex
+	packageV2IconsMu            sync.Mutex
+	packageV2MetadatasMu        sync.Mutex
+	channelV2sMu                sync.Mutex
+	bundleV2sMu                 sync.Mutex
+	bundleV2MetadatasMu         sync.Mutex
+	bundleV2RelatedReferencesMu sync.Mutex
+	deprecationsMu              sync.Mutex
+	othersMu                    sync.Mutex
 }
 
 func (c *fbcBuilder) addMeta(in *Meta) error {
@@ -293,22 +297,6 @@ func (c *fbcBuilder) addMeta(in *Meta) error {
 		c.packagesMu.Lock()
 		c.cfg.Packages = append(c.cfg.Packages, p)
 		c.packagesMu.Unlock()
-	case SchemaPackageV2:
-		var p PackageV2
-		if err := json.Unmarshal(in.Blob, &p); err != nil {
-			return fmt.Errorf("parse package: %v", err)
-		}
-		c.packageV2sMu.Lock()
-		c.cfg.PackageV2s = append(c.cfg.PackageV2s, p)
-		c.packageV2sMu.Unlock()
-	case SchemaPackageIcon:
-		var p PackageIcon
-		if err := json.Unmarshal(in.Blob, &p); err != nil {
-			return fmt.Errorf("parse package icon: %v", err)
-		}
-		c.packageIconsMu.Lock()
-		c.cfg.PackageIcons = append(c.cfg.PackageIcons, p)
-		c.packageIconsMu.Unlock()
 	case SchemaChannel:
 		var ch Channel
 		if err := json.Unmarshal(in.Blob, &ch); err != nil {
@@ -328,6 +316,38 @@ func (c *fbcBuilder) addMeta(in *Meta) error {
 		c.bundlesMu.Lock()
 		c.cfg.Bundles = append(c.cfg.Bundles, b)
 		c.bundlesMu.Unlock()
+	case SchemaPackageV2:
+		var p PackageV2
+		if err := json.Unmarshal(in.Blob, &p); err != nil {
+			return fmt.Errorf("parse package: %v", err)
+		}
+		c.packageV2sMu.Lock()
+		c.cfg.PackageV2s = append(c.cfg.PackageV2s, p)
+		c.packageV2sMu.Unlock()
+	case SchemaPackageV2Icon:
+		var p PackageV2Icon
+		if err := json.Unmarshal(in.Blob, &p); err != nil {
+			return fmt.Errorf("parse package icon: %v", err)
+		}
+		c.packageV2IconsMu.Lock()
+		c.cfg.PackageV2Icons = append(c.cfg.PackageV2Icons, p)
+		c.packageV2IconsMu.Unlock()
+	case SchemaPackageV2Metadata:
+		var p PackageV2Metadata
+		if err := json.Unmarshal(in.Blob, &p); err != nil {
+			return fmt.Errorf("parse package metadata: %v", err)
+		}
+		c.packageV2MetadatasMu.Lock()
+		c.cfg.PackageV2Metadatas = append(c.cfg.PackageV2Metadatas, p)
+		c.packageV2MetadatasMu.Unlock()
+	case SchemaChannelV2:
+		var u ChannelV2
+		if err := json.Unmarshal(in.Blob, &u); err != nil {
+			return fmt.Errorf("parse channel v2: %v", err)
+		}
+		c.channelV2sMu.Lock()
+		c.cfg.ChannelV2s = append(c.cfg.ChannelV2s, u)
+		c.channelV2sMu.Unlock()
 	case SchemaBundleV2:
 		var b BundleV2
 		if err := json.Unmarshal(in.Blob, &b); err != nil {
@@ -336,6 +356,22 @@ func (c *fbcBuilder) addMeta(in *Meta) error {
 		c.bundleV2sMu.Lock()
 		c.cfg.BundleV2s = append(c.cfg.BundleV2s, b)
 		c.bundleV2sMu.Unlock()
+	case SchemaBundleV2Metadata:
+		var b BundleV2Metadata
+		if err := json.Unmarshal(in.Blob, &b); err != nil {
+			return fmt.Errorf("parse bundle metadata: %v", err)
+		}
+		c.bundleV2MetadatasMu.Lock()
+		c.cfg.BundleV2Metadatas = append(c.cfg.BundleV2Metadatas, b)
+		c.bundleV2MetadatasMu.Unlock()
+	case SchemaBundleV2RelatedReferences:
+		var b BundleV2RelatedReferences
+		if err := json.Unmarshal(in.Blob, &b); err != nil {
+			return fmt.Errorf("parse bundle related references: %v", err)
+		}
+		c.bundleV2RelatedReferencesMu.Lock()
+		c.cfg.BundleV2RelatedReferences = append(c.cfg.BundleV2RelatedReferences, b)
+		c.bundleV2RelatedReferencesMu.Unlock()
 	case SchemaDeprecation:
 		var d Deprecation
 		if err := json.Unmarshal(in.Blob, &d); err != nil {

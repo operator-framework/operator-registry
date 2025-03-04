@@ -13,7 +13,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
+	"github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
 
 const (
@@ -21,19 +21,28 @@ const (
 	SchemaChannel     = "olm.channel"
 	SchemaBundle      = "olm.bundle"
 	SchemaDeprecation = "olm.deprecations"
-	SchemaPackageV2   = "olm.package.v2"
-	SchemaBundleV2    = "olm.bundle.v2"
-	SchemaPackageIcon = "olm.package.icon"
+
+	SchemaPackageV2                 = "olm.package.v2"
+	SchemaPackageV2Metadata         = "olm.package.v2.metadata"
+	SchemaPackageV2Icon             = "olm.package.v2.icon"
+	SchemaChannelV2                 = "olm.channel.v2"
+	SchemaBundleV2                  = "olm.bundle.v2"
+	SchemaBundleV2Metadata          = "olm.bundle.v2.metadata"
+	SchemaBundleV2RelatedReferences = "olm.bundle.v2.relatedReferences"
 )
 
 type DeclarativeConfig struct {
-	Packages     []Package
-	PackageV2s   []PackageV2
-	PackageIcons []PackageIcon
+	Packages []Package
+	Channels []Channel
+	Bundles  []Bundle
 
-	Channels  []Channel
-	Bundles   []Bundle
-	BundleV2s []BundleV2
+	PackageV2s                []PackageV2
+	PackageV2Icons            []PackageV2Icon
+	PackageV2Metadatas        []PackageV2Metadata
+	ChannelV2s                []ChannelV2
+	BundleV2s                 []BundleV2
+	BundleV2Metadatas         []BundleV2Metadata
+	BundleV2RelatedReferences []BundleV2RelatedReferences
 
 	Deprecations []Deprecation
 	Others       []Meta
@@ -102,10 +111,22 @@ type RelatedImage struct {
 }
 
 type PackageV2 struct {
-	Schema      string            `json:"schema"`
-	Package     string            `json:"package"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+}
 
+type PackageV2Icon struct {
+	Schema    string `json:"schema"`
+	Package   string `json:"package"`
+	Data      []byte `json:"data"`
+	MediaType string `json:"mediaType"`
+}
+
+type PackageV2Metadata struct {
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+
+	Annotations      map[string]string     `json:"annotations,omitempty"`
 	DisplayName      string                `json:"displayName,omitempty"`
 	ShortDescription string                `json:"shortDescription,omitempty"`
 	LongDescription  string                `json:"longDescription,omitempty"`
@@ -115,27 +136,47 @@ type PackageV2 struct {
 	Maintainers      []v1alpha1.Maintainer `json:"maintainers,omitempty"`
 }
 
-type PackageIcon struct {
-	Schema    string `json:"schema"`
-	Package   string `json:"package"`
-	Data      []byte `json:"data"`
-	MediaType string `json:"mediaType"`
+type ChannelV2 struct {
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
+
+	Edges []UpgradeEdgeV2 `json:"edges"`
+}
+
+type UpgradeEdgeV2 struct {
+	Version      string `json:"version"`
+	UpgradesFrom string `json:"upgradesFrom"`
 }
 
 type BundleV2 struct {
-	Schema      string            `json:"schema"`
-	Package     string            `json:"package"`
-	Name        string            `json:"name"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
 
 	Version string `json:"version"`
 	Release uint32 `json:"release"`
 
-	Reference         string   `json:"ref"`
-	RelatedReferences []string `json:"relatedReferences,omitempty"`
+	Reference string `json:"ref"`
 
 	Properties  map[string][]json.RawMessage `json:"properties,omitempty"`
 	Constraints map[string][]json.RawMessage `json:"constraints,omitempty"`
+}
+
+type BundleV2Metadata struct {
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
+
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type BundleV2RelatedReferences struct {
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+	Name    string `json:"name"`
+
+	References []string `json:"references,omitempty"`
 }
 
 type Deprecation struct {
@@ -248,11 +289,19 @@ func extractUniqueMetaKeys(blobMap map[string]any, m *Meta) error {
 
 func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Packages = append(destination.Packages, src.Packages...)
-	destination.PackageV2s = append(destination.PackageV2s, src.PackageV2s...)
-	destination.PackageIcons = append(destination.PackageIcons, src.PackageIcons...)
 	destination.Channels = append(destination.Channels, src.Channels...)
 	destination.Bundles = append(destination.Bundles, src.Bundles...)
+
+	destination.PackageV2s = append(destination.PackageV2s, src.PackageV2s...)
+	destination.PackageV2Icons = append(destination.PackageV2Icons, src.PackageV2Icons...)
+	destination.PackageV2Metadatas = append(destination.PackageV2Metadatas, src.PackageV2Metadatas...)
+	destination.ChannelV2s = append(destination.ChannelV2s, src.ChannelV2s...)
 	destination.BundleV2s = append(destination.BundleV2s, src.BundleV2s...)
-	destination.Others = append(destination.Others, src.Others...)
+	destination.BundleV2Metadatas = append(destination.BundleV2Metadatas, src.BundleV2Metadatas...)
+	destination.BundleV2RelatedReferences = append(destination.BundleV2RelatedReferences, src.BundleV2RelatedReferences...)
+
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
+
+	destination.Others = append(destination.Others, src.Others...)
+
 }

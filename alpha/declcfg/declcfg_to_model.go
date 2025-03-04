@@ -57,14 +57,12 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		mpkg := &model.Package{
-			Name:        p.Package,
-			Description: p.ShortDescription,
-			Channels:    map[string]*model.Channel{},
+			Name:     p.Package,
+			Channels: map[string]*model.Channel{},
 		}
-		defaultChannels[p.Package] = p.Annotations["olm.operatorframework.io/olmv0-compatibility-default-channel"]
 		mpkgs[p.Package] = mpkg
 	}
-	for _, pi := range cfg.PackageIcons {
+	for _, pi := range cfg.PackageV2Icons {
 		mpkg, ok := mpkgs[pi.Package]
 		if !ok {
 			return nil, fmt.Errorf("found package icon for non-existent package %q", pi.Package)
@@ -73,6 +71,14 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			Data:      pi.Data,
 			MediaType: pi.MediaType,
 		}
+	}
+	for _, pm := range cfg.PackageV2Metadatas {
+		mpkg, ok := mpkgs[pm.Package]
+		if !ok {
+			return nil, fmt.Errorf("found package metadata for non-existent package %q", pm.Package)
+		}
+		mpkg.Description = pm.ShortDescription
+		defaultChannels[pm.Package] = pm.Annotations["olm.operatorframework.io/olmv0-compatibility-default-channel"]
 	}
 
 	channelDefinedEntries := map[string]sets.Set[string]{}
@@ -237,17 +243,28 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 					}
 				}
 				mb.Properties = append(mb.Properties, property.MustBuildPackage(b.Package, b.Name))
-				for _, rr := range b.RelatedReferences {
-					if !strings.HasPrefix(rr, "docker://") {
-						return nil, fmt.Errorf("bundle %q related reference %q must be a docker reference (with prefix 'docker://')", b.Name, rr)
-					}
-					mb.RelatedImages = append(mb.RelatedImages, model.RelatedImage{Image: strings.TrimPrefix(rr, "docker://")})
-				}
 				mb.Version = ver
 			}
 		}
 		if !found {
 			return nil, fmt.Errorf("package %q, bundle %q not found in any channel entries", b.Package, b.Name)
+		}
+	}
+	for _, bRefs := range cfg.BundleV2RelatedReferences {
+		mpkg, ok := mpkgs[bRefs.Package]
+		if !ok {
+			return nil, fmt.Errorf("unknown package %q for bundle related references %q", bRefs.Package, bRefs.Name)
+		}
+		for _, ch := range mpkg.Channels {
+			for _, b := range ch.Bundles {
+				if b.Name == bRefs.Name {
+					for _, ref := range bRefs.References {
+						if strings.HasPrefix(ref, "docker://") {
+							b.RelatedImages = append(b.RelatedImages, model.RelatedImage{Image: strings.TrimPrefix(ref, "docker://")})
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -329,7 +346,7 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 				}
 				mpkg.Deprecation = &model.Deprecation{Message: entry.Message}
 			default:
-				return nil, fmt.Errorf("cannot deprecate object %#v referenced by entry %v for package %q: object schema unknown", entry.Reference, j, deprecation.Package)
+				return nil, fmt.Errorf("cannot deprecate object %#v referenced by entry %v for package %q: object schema unknown or deprecation not supported", entry.Reference, j, deprecation.Package)
 			}
 		}
 	}
