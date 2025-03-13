@@ -10,7 +10,7 @@ require (
 	github.com/containerd/containerd v1.7.26
 	github.com/containerd/errdefs v1.0.0
 	github.com/containers/common v0.62.1
-	github.com/containers/image/v5 v5.34.1
+	github.com/containers/image/v5 v5.34.2
 	github.com/distribution/distribution/v3 v3.0.0-rc.3
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.0.1+incompatible
@@ -83,7 +83,7 @@ require (
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.2.1 // indirect
-	github.com/containers/storage v1.57.1 // indirect
+	github.com/containers/storage v1.57.2 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
