@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
 )
 
 // GetTLSOptions validates and returns TLS options set by opm flags
@@ -45,27 +45,15 @@ func GetTLSOptions(cmd *cobra.Command) (bool, bool, error) {
 
 // This works in tandem with opm/index/cmd, which adds the relevant flags as persistent
 // as part of the root command (cmd/root/cmd) initialization
-func CreateCLIRegistry(cmd *cobra.Command) (*containerdregistry.Registry, error) {
+func CreateCLIRegistry(cmd *cobra.Command) (image.Registry, error) {
 	skipTLSVerify, useHTTP, err := GetTLSOptions(cmd)
 	if err != nil {
 		return nil, err
 	}
-
-	cacheDir, err := os.MkdirTemp("", "opm-registry-")
-	if err != nil {
-		return nil, err
-	}
-
-	reg, err := containerdregistry.NewRegistry(
-		containerdregistry.WithCacheDir(cacheDir),
-		containerdregistry.SkipTLSVerify(skipTLSVerify),
-		containerdregistry.WithPlainHTTP(useHTTP),
-		containerdregistry.WithLog(log.Null()),
+	return containersimageregistry.New(
+		containersimageregistry.DefaultSystemContext,
+		containersimageregistry.InsecureSkipTLSVerify(skipTLSVerify || useHTTP),
 	)
-	if err != nil {
-		return nil, err
-	}
-	return reg, nil
 }
 
 func OpenFileOrStdin(cmd *cobra.Command, args []string) (io.ReadCloser, string, error) {

@@ -22,9 +22,8 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/property"
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
@@ -66,7 +65,7 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 		logDeprecationMessage.Do(func() {})
 	}
 	if r.Registry == nil {
-		reg, err := r.createRegistry()
+		reg, err := containersimageregistry.NewDefault()
 		if err != nil {
 			return nil, fmt.Errorf("create registry: %v", err)
 		}
@@ -99,26 +98,6 @@ func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
 	}
 
 	return combineConfigs(cfgs), nil
-}
-
-func (r Render) createRegistry() (*containerdregistry.Registry, error) {
-	cacheDir, err := os.MkdirTemp("", "render-registry-")
-	if err != nil {
-		return nil, fmt.Errorf("create tempdir: %v", err)
-	}
-
-	reg, err := containerdregistry.NewRegistry(
-		containerdregistry.WithCacheDir(cacheDir),
-
-		// The containerd registry impl is somewhat verbose, even on the happy path,
-		// so discard all logger logs. Any important failures will be returned from
-		// registry methods and eventually logged as fatal errors.
-		containerdregistry.WithLog(log.Null()),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return reg, nil
 }
 
 func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.DeclarativeConfig, error) {

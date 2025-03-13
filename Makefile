@@ -27,7 +27,7 @@ null  :=
 space := $(null) #
 comma := ,
 # default to json1 for sqlite3
-TAGS := -tags=json1
+TAGS := -tags=json1,containers_image_openpgp
 
 # Cluster to use for e2e testing
 CLUSTER ?= ""
