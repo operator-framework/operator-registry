@@ -10,7 +10,7 @@ import (
 
 	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
 	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 )
@@ -69,7 +69,7 @@ func validateFunc(cmd *cobra.Command, _ []string) error {
 	case containertools.PodmanTool, containertools.DockerTool:
 		registry, err = execregistry.NewRegistry(tool, logger)
 	case containertools.NoneTool:
-		registry, err = containerdregistry.NewRegistry(containerdregistry.WithLog(logger))
+		registry, err = containersimageregistry.NewDefault()
 	default:
 		err = fmt.Errorf("unrecognized container-tool option: %s", containerTool)
 	}
