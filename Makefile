@@ -73,7 +73,7 @@ static: build
 
 .PHONY: unit
 unit:
-	$(GO) test -coverprofile=coverage.out $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
+	$(GO) test -coverprofile=coverage.out --coverpkg=./... $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
 
 .PHONY: tidy
 tidy:
