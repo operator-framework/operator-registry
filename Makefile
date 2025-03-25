@@ -26,16 +26,14 @@ $(PROTOC):
 null  :=
 space := $(null) #
 comma := ,
-# default to json1 for sqlite3
-TAGS := -tags=json1,containers_image_openpgp
+# default to json1 for sqlite3 and containers_image_openpgp for containers/image
+TAGS := json1,containers_image_openpgp
 
 # Cluster to use for e2e testing
 CLUSTER ?= ""
 ifeq ($(CLUSTER), kind)
 # add kind to the list of tags
-TAGS += kind
-# convert tag format from space to comma list
-TAGS := $(subst $(space),$(comma),$(strip $(TAGS)))
+TAGS := $(TAGS),kind
 endif
 
 # -race is only supported on linux/amd64, linux/ppc64le, linux/arm64, freebsd/amd64, netbsd/amd64, darwin/amd64 and windows/amd64
@@ -49,12 +47,12 @@ endif
 all: clean test build
 
 $(CMDS):
-	$(extra_env) $(GO) build $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
+	$(extra_env) $(GO) build $(extra_flags) -tags=$(TAGS) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: $(OPM)
 $(OPM): opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 $(OPM):
-	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) $(TAGS) -o $@ ./cmd/$(notdir $@)
+	$(extra_env) $(GO) build $(opm_version_flags) $(extra_flags) -tags=$(TAGS) -o $@ ./cmd/$(notdir $@)
 
 .PHONY: build
 build: clean $(CMDS) $(OPM)
@@ -63,8 +61,8 @@ build: clean $(CMDS) $(OPM)
 cross: opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 cross:
 ifeq ($(shell go env GOARCH),amd64)
-	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) $(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang" ./cmd/opm
-	GOOS=windows CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) $(TAGS)  -o "bin/windows-amd64-opm" --ldflags "-extld=x86_64-w64-mingw32-gcc" -buildmode=exe ./cmd/opm
+	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang" ./cmd/opm
+	GOOS=windows CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) -tags=$(TAGS)  -o "bin/windows-amd64-opm" --ldflags "-extld=x86_64-w64-mingw32-gcc" -buildmode=exe ./cmd/opm
 endif
 
 .PHONY: static
@@ -73,7 +71,7 @@ static: build
 
 .PHONY: unit
 unit:
-	$(GO) test -coverprofile=coverage.out --coverpkg=./... $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) $(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
+	$(GO) test -coverprofile=coverage.out --coverpkg=./... $(SPECIFIC_UNIT_TEST) $(SPECIFIC_SKIP_UNIT_TEST) -tags=$(TAGS) $(TEST_RACE) -count=1 ./pkg/... ./alpha/...
 
 .PHONY: tidy
 tidy:
@@ -102,10 +100,8 @@ image-upstream:
 	docker build -f upstream-example.Dockerfile .
 
 .PHONY: lint
-#lint:
-#	find . -type f -name '*.go' ! -name '*.pb.go' -print0 | xargs -0 goimports -w
 lint: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_ARGS)
+	$(GOLANGCI_LINT) run --build-tags=$(TAGS) $(GOLANGCI_LINT_ARGS)
 
 .PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT)
@@ -133,7 +129,7 @@ clean:
 
 .PHONY: e2e
 e2e: $(GINKGO)
-	$(GINKGO) --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') $(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
+	$(GINKGO) --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') -tags=$(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
 
 .PHONY: release
 export OPM_IMAGE_REPO ?= quay.io/operator-framework/opm
