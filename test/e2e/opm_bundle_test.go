@@ -3,7 +3,10 @@ package e2e_test
 import (
 	"bytes"
 	"context"
+	"encoding/pem"
 	"io"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -32,29 +35,34 @@ var _ = Describe("opm alpha bundle", func() {
 			bundleChecksum string
 			tmpDir         string
 			rootCA         string
-			stopRegistry   func()
+			server         *httptest.Server
 		)
 
 		BeforeEach(func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			stopRegistry = func() {
-				cancel()
-				<-ctx.Done()
-			}
+			defer cancel()
 
 			// Spin up an in-process docker registry with a set of preconfigured test images
 			var (
 				// Directory containing the docker registry filesystem
 				goldenFiles = "../../pkg/image/testdata/golden"
-
-				host string
-				err  error
 			)
-			host, rootCA, err = libimage.RunDockerRegistry(ctx, goldenFiles)
-			Expect(err).ToNot(HaveOccurred())
+			server := libimage.RunDockerRegistry(ctx, goldenFiles)
+			serverURL, err := url.Parse(server.URL)
+			Expect(err).NotTo(HaveOccurred())
+
+			caFile, err := os.CreateTemp("", "ca")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pem.Encode(caFile, &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: server.Certificate().Raw,
+			})).To(Succeed())
+			rootCA = caFile.Name()
+			caFile.Close()
 
 			// Create a bundle ref using the local registry host name and the namespace/name of a bundle we already know the content of
-			bundleRef = host + "/" + imageDomain + "/kiali@sha256:a1bec450c104ceddbb25b252275eb59f1f1e6ca68e0ced76462042f72f7057d8"
+			bundleRef = serverURL.Host + imageDomain + "/kiali@sha256:a1bec450c104ceddbb25b252275eb59f1f1e6ca68e0ced76462042f72f7057d8"
 
 			// Generate a checksum of the expected content for the bundle under test
 			bundleChecksum, err = dirhash.HashDir(filepath.Join(goldenFiles, "bundles/kiali"), "", dirhash.DefaultHash)
@@ -66,12 +74,13 @@ var _ = Describe("opm alpha bundle", func() {
 		})
 
 		AfterEach(func() {
-			stopRegistry()
+			server.Close()
 			if CurrentGinkgoTestDescription().Failed {
 				// Skip additional cleanup
 				return
 			}
 
+			Expect(os.RemoveAll(rootCA)).To(Succeed())
 			Expect(os.RemoveAll(tmpDir)).To(Succeed())
 		})
 
