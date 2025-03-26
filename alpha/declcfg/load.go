@@ -183,13 +183,18 @@ func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, wal
 			if !ok {
 				return nil
 			}
-			file, err := root.Open(path)
+			err := func() error { // using closure to ensure file is closed immediately after use
+				file, err := root.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				return WalkMetasReader(file, func(meta *Meta, err error) error {
+					return walkFn(path, meta, err)
+				})
+			}()
 			if err != nil {
-				return err
-			}
-			if err := WalkMetasReader(file, func(meta *Meta, err error) error {
-				return walkFn(path, meta, err)
-			}); err != nil {
 				return err
 			}
 		}
