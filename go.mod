@@ -2,7 +2,7 @@ module github.com/operator-framework/operator-registry
 
 go 1.23.0
 
-toolchain go1.23.4
+toolchain go1.24.1
 
 require (
 	github.com/akrylysov/pogreb v0.10.2
@@ -10,7 +10,7 @@ require (
 	github.com/containerd/containerd v1.7.27
 	github.com/containerd/errdefs v1.0.0
 	github.com/containers/common v0.62.2
-	github.com/containers/image/v5 v5.34.2
+	github.com/containers/image/v5 v5.34.3
 	github.com/distribution/distribution/v3 v3.0.0-rc.3
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.0.2+incompatible
