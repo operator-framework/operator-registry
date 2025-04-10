@@ -9,7 +9,7 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/containers/common v0.62.3
 	github.com/containers/image/v5 v5.34.3
-	github.com/distribution/distribution/v3 v3.0.0-rc.4
+	github.com/distribution/distribution/v3 v3.0.0
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.0.4+incompatible
 	github.com/golang-migrate/migrate/v4 v4.18.2
@@ -152,7 +152,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5 // indirect
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5 // indirect
-	github.com/redis/go-redis/v9 v9.1.0 // indirect
+	github.com/redis/go-redis/v9 v9.7.3 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.4.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
@@ -183,7 +183,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
