@@ -62,7 +62,9 @@ func TestLoad(t *testing.T) {
 
 				unst, err := unstructuredlib.FromString(csvGot)
 				require.NoError(t, err)
-				assert.True(t, unst.GetName() == "first" || unst.GetName() == "second")
+
+				// The last CSV (by lexicographical sort of configmap data keys) always wins.
+				assert.Equal(t, "second", unst.GetName())
 			},
 		},
 		{
@@ -167,7 +169,9 @@ func TestLoadWriteRead(t *testing.T) {
 			bundleObjects, err := unstructuredlib.FromBundle(bundle)
 			require.NoError(t, err)
 
-			assert.ElementsMatch(t, expectedObjects, bundleObjects)
+			// Assert that the order of manifests from the original manifests
+			// directory is preserved (by lexicographical sorting by filename)
+			assert.Equal(t, expectedObjects, bundleObjects)
 		})
 	}
 }
