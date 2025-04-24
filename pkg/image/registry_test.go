@@ -38,8 +38,7 @@ type cleanupFunc func()
 type newRegistryFunc func(t *testing.T, serverCert *x509.Certificate) (image.Registry, cleanupFunc)
 
 func caDirForCert(t *testing.T, serverCert *x509.Certificate) string {
-	caDir, err := os.MkdirTemp("", "opm-registry-test-ca-")
-	require.NoError(t, err)
+	caDir := t.TempDir()
 	caFile, err := os.Create(filepath.Join(caDir, "ca.crt"))
 	require.NoError(t, err)
 
@@ -49,6 +48,29 @@ func caDirForCert(t *testing.T, serverCert *x509.Certificate) string {
 	}))
 	require.NoError(t, caFile.Close())
 	return caDir
+}
+
+const insecureSignaturePolicy = `{
+    "default": [
+        {
+            "type": "insecureAcceptAnything"
+        }
+    ],
+    "transports":
+        {
+            "docker-daemon":
+                {
+                    "": [{"type":"insecureAcceptAnything"}]
+                }
+        }
+}`
+
+func createSignaturePolicyFile(t *testing.T) string {
+	policyDir := t.TempDir()
+	policyFilePath := filepath.Join(policyDir, "policy.json")
+	err := os.WriteFile(policyFilePath, []byte(insecureSignaturePolicy), 0600)
+	require.NoError(t, err)
+	return policyFilePath
 }
 
 func poolForCert(serverCert *x509.Certificate) *x509.CertPool {
@@ -61,10 +83,12 @@ func TestRegistries(t *testing.T) {
 	registries := map[string]newRegistryFunc{
 		"containersimage": func(t *testing.T, serverCert *x509.Certificate) (image.Registry, cleanupFunc) {
 			caDir := caDirForCert(t, serverCert)
+			policyFile := createSignaturePolicyFile(t)
 			sourceCtx := &types.SystemContext{
 				OCICertPath:              caDir,
 				DockerCertPath:           caDir,
 				DockerPerHostCertDirPath: caDir,
+				SignaturePolicyPath:      policyFile,
 			}
 			r, err := containersimageregistry.New(sourceCtx, containersimageregistry.WithTemporaryImageCache())
 			require.NoError(t, err)
