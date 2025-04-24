@@ -52,7 +52,7 @@ func CreateCLIRegistry(cmd *cobra.Command) (image.Registry, error) {
 	}
 	return containersimageregistry.New(
 		containersimageregistry.DefaultSystemContext,
-		containersimageregistry.InsecureSkipTLSVerify(skipTLSVerify || useHTTP),
+		containersimageregistry.WithInsecureSkipTLSVerify(skipTLSVerify || useHTTP),
 	)
 }
 

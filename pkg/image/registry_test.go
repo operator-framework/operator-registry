@@ -25,10 +25,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/mod/sumdb/dirhash"
 
+	libimage "github.com/operator-framework/operator-registry/internal/testutil/image"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
 	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
-	libimage "github.com/operator-framework/operator-registry/pkg/lib/image"
 )
 
 // cleanupFunc is a function that cleans up after some test infra.
@@ -66,7 +66,7 @@ func TestRegistries(t *testing.T) {
 				DockerCertPath:           caDir,
 				DockerPerHostCertDirPath: caDir,
 			}
-			r, err := containersimageregistry.New(sourceCtx, containersimageregistry.ForceTemporaryImageCache())
+			r, err := containersimageregistry.New(sourceCtx, containersimageregistry.WithTemporaryImageCache())
 			require.NoError(t, err)
 			cleanup := func() {
 				require.NoError(t, os.RemoveAll(caDir))

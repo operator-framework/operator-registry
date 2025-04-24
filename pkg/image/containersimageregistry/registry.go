@@ -34,6 +34,9 @@ type Registry struct {
 var DefaultSystemContext = &types.SystemContext{OSChoice: "linux"}
 
 func New(sourceCtx *types.SystemContext, opts ...Option) (orimage.Registry, error) {
+	if sourceCtx == nil {
+		sourceCtx = &types.SystemContext{}
+	}
 	reg := &Registry{
 		sourceCtx: sourceCtx,
 	}
@@ -101,7 +104,7 @@ func newCacheConfig(dir string, preserve bool) *cacheConfig {
 	}
 }
 
-func ForceTemporaryImageCache() Option {
+func WithTemporaryImageCache() Option {
 	return func(r *Registry) error {
 		var err error
 		r.cache, err = getTemporaryImageCache()
@@ -112,11 +115,8 @@ func ForceTemporaryImageCache() Option {
 	}
 }
 
-func InsecureSkipTLSVerify(insecureSkipTLSVerify bool) Option {
+func WithInsecureSkipTLSVerify(insecureSkipTLSVerify bool) Option {
 	return func(r *Registry) error {
-		if r.sourceCtx == nil {
-			r.sourceCtx = &types.SystemContext{}
-		}
 		r.sourceCtx.DockerDaemonInsecureSkipTLSVerify = insecureSkipTLSVerify
 		r.sourceCtx.DockerInsecureSkipTLSVerify = types.NewOptionalBool(insecureSkipTLSVerify)
 		r.sourceCtx.OCIInsecureSkipTLSVerify = insecureSkipTLSVerify
@@ -154,9 +154,6 @@ func (r *Registry) Pull(ctx context.Context, ref orimage.Reference) error {
 	sourceCtx := r.sourceCtx
 	authFile := getAuthFile(r.sourceCtx, namedRef.String())
 	if authFile != "" {
-		if sourceCtx == nil {
-			sourceCtx = &types.SystemContext{}
-		}
 		sourceCtx.AuthFilePath = authFile
 	}
 

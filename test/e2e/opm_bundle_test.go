@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/mod/sumdb/dirhash"
 
-	libimage "github.com/operator-framework/operator-registry/pkg/lib/image"
+	libimage "github.com/operator-framework/operator-registry/internal/testutil/image"
 )
 
 var _ = Describe("opm alpha bundle", func() {
