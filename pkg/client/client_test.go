@@ -20,6 +20,10 @@ type RegistryClientStub struct {
 	Error             error
 }
 
+func (s *RegistryClientStub) List(ctx context.Context, in *grpc_health_v1.HealthListRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthListResponse, error) {
+	return nil, nil
+}
+
 func (s *RegistryClientStub) ListPackages(ctx context.Context, in *api.ListPackageRequest, opts ...grpc.CallOption) (api.Registry_ListPackagesClient, error) {
 	return nil, nil
 }
