@@ -1,8 +1,8 @@
 module github.com/operator-framework/operator-registry
 
-go 1.23.3
+go 1.23.7
 
-toolchain go1.23.6
+toolchain go1.24.1
 
 require (
 	github.com/akrylysov/pogreb v0.10.2
@@ -11,7 +11,7 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/containers/common v0.63.0
 	github.com/containers/image/v5 v5.35.0
-	github.com/distribution/distribution/v3 v3.0.0-rc.3
+	github.com/distribution/distribution/v3 v3.0.0
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.1.1+incompatible
 	github.com/golang-migrate/migrate/v4 v4.18.2
