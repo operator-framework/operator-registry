@@ -161,6 +161,13 @@ func (r *Registry) Pull(ctx context.Context, ref orimage.Reference) error {
 		SourceCtx:                             sourceCtx,
 		DestinationCtx:                        r.cache.getSystemContext(),
 		OptimizeDestinationImageAlreadyExists: true,
+
+		// We use the OCI layout as a temporary storage and
+		// pushing signatures for OCI images is not supported
+		// so we remove the source signatures when copying.
+		// Signature validation will still be performed
+		// accordingly to a provided policy context.
+		RemoveSignatures: true,
 	}); err != nil {
 		return err
 	}
