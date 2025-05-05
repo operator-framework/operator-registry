@@ -2,8 +2,6 @@ module github.com/operator-framework/operator-registry
 
 go 1.23.7
 
-toolchain go1.24.1
-
 require (
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/blang/semver/v4 v4.0.0
