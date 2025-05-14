@@ -1,14 +1,17 @@
 # approval == this is a good idea /approve
 approvers:
+  - camilamacedo86
   - grokspawn
   - joelanford
   - kevinrizza
   - oceanc80
   - perdasilva
+  - tmshort
 # review == this code is good /lgtm
 reviewers:
   - anik120
   - ankitathomas
+  - camilamacedo86
   - everettraven
   - exdx
   - grokspawn
@@ -17,6 +20,7 @@ reviewers:
   - oceanc80
   - perdasilva
   - rashmigottipati
+  - tmshort
 
 
 # Bugzilla component
