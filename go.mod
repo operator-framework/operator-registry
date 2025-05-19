@@ -54,7 +54,7 @@ require (
 	k8s.io/kubectl v0.32.0
 	oras.land/oras-go/v2 v2.6.0
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/kind v0.27.0
+	sigs.k8s.io/kind v0.28.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -128,7 +128,6 @@ require (
 	github.com/google/go-containerregistry v0.20.3 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
-	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
