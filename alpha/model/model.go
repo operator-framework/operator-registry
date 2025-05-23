@@ -14,6 +14,8 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
@@ -50,6 +52,13 @@ type Package struct {
 	DefaultChannel *Channel
 	Channels       map[string]*Channel
 	Deprecation    *Deprecation
+
+	DisplayName      string
+	ShortDescription string
+	Provider         *v1alpha1.AppLink
+	Maintainers      []v1alpha1.Maintainer
+	Links            []v1alpha1.AppLink
+	Keywords         []string
 }
 
 func (m *Package) Validate() error {
@@ -57,6 +66,27 @@ func (m *Package) Validate() error {
 
 	if m.Name == "" {
 		result.subErrors = append(result.subErrors, errors.New("package name must not be empty"))
+	}
+
+	const maxShortDescriptionLength = 256
+	if len(m.ShortDescription) > maxShortDescriptionLength {
+		result.subErrors = append(result.subErrors, fmt.Errorf("short description must not be more than %d characters, found %d characters", maxShortDescriptionLength, len(m.ShortDescription)))
+	}
+
+	for i, maintainer := range m.Maintainers {
+		if maintainer.Name == "" && maintainer.Email == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("maintainer at index %d must not be empty", i))
+		}
+	}
+	for i, link := range m.Links {
+		if link.Name == "" && link.URL == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("link at index %d must not be empty", i))
+		}
+	}
+	for i, keyword := range m.Keywords {
+		if keyword == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("keyword at index %d must not be empty", i))
+		}
 	}
 
 	if err := m.Icon.Validate(); err != nil {
