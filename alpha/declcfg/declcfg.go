@@ -11,6 +11,8 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"github.com/operator-framework/operator-registry/alpha/property"
 	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
@@ -36,12 +38,12 @@ type Package struct {
 	Schema string `json:"schema"`
 	Name   string `json:"name"`
 
-	//DisplayName      string                `json:"displayName,omitempty"`
-	//ShortDescription string                `json:"shortDescription,omitempty"`
-	//Provider         v1alpha1.AppLink      `json:"provider,omitempty"`
-	//Maintainers      []v1alpha1.Maintainer `json:"maintainers,omitempty"`
-	//Links            []v1alpha1.AppLink    `json:"links,omitempty"`
-	//Keywords         []string              `json:"keywords,omitempty"`
+	DisplayName      string                `json:"displayName,omitempty"`
+	ShortDescription string                `json:"shortDescription,omitempty"`
+	Provider         v1alpha1.AppLink      `json:"provider,omitempty"`
+	Maintainers      []v1alpha1.Maintainer `json:"maintainers,omitempty"`
+	Links            []v1alpha1.AppLink    `json:"links,omitempty"`
+	Keywords         []string              `json:"keywords,omitempty"`
 
 	DefaultChannel string              `json:"defaultChannel"`
 	Description    string              `json:"description,omitempty"`

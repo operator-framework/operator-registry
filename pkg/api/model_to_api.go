@@ -30,7 +30,7 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 				MediaType: b.Package.Icon.MediaType,
 			}}
 		}
-		csv := csvMetadataToCsv(props.CSVMetadatas[0])
+		csv := bundleToCSV(b)
 		csv.Name = b.Name
 		csv.Spec.Icon = icons
 		csv.Spec.InstallStrategy = v1alpha1.NamedInstallStrategy{
@@ -101,7 +101,28 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 	return props, nil
 }
 
-func csvMetadataToCsv(m property.CSVMetadata) v1alpha1.ClusterServiceVersion {
+func bundleToCSV(b model.Bundle) v1alpha1.ClusterServiceVersion {
+	p := b.Package
+	m := b.PropertiesP.CSVMetadatas[0]
+
+	if m.DisplayName == "" {
+		m.DisplayName = p.DisplayName
+	}
+	if _, ok := m.Annotations["description"]; !ok {
+		m.Annotations["description"] = p.ShortDescription
+	}
+	if m.Provider.Name == "" && m.Provider.URL == "" {
+		m.Provider = p.Provider
+	}
+	if m.Maintainers == nil {
+		m.Maintainers = p.Maintainers
+	}
+	if m.Links == nil {
+		m.Links = p.Links
+	}
+	if m.Keywords == nil {
+		m.Keywords = p.Keywords
+	}
 	return v1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       operators.ClusterServiceVersionKind,

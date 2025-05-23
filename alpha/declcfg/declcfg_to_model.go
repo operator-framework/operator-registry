@@ -32,12 +32,12 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			Description: p.Description,
 			Channels:    map[string]*model.Channel{},
 
-			//DisplayName:      p.DisplayName,
-			//ShortDescription: p.ShortDescription,
-			//Provider:         p.Provider,
-			//Maintainers:      p.Maintainers,
-			//Links:            p.Links,
-			//Keywords:         p.Keywords,
+			DisplayName:      p.DisplayName,
+			ShortDescription: p.ShortDescription,
+			Provider:         p.Provider,
+			Maintainers:      p.Maintainers,
+			Links:            p.Links,
+			Keywords:         p.Keywords,
 		}
 		if p.Icon != nil {
 			mpkg.Icon = &model.Icon{

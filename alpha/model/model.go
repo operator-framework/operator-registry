@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"sort"
 	"strings"
 
@@ -52,12 +53,12 @@ type Package struct {
 	Channels       map[string]*Channel
 	Deprecation    *Deprecation
 
-	//DisplayName      string
-	//ShortDescription string
-	//Provider         v1alpha1.AppLink
-	//Maintainers      []v1alpha1.Maintainer
-	//Links            []v1alpha1.AppLink
-	//Keywords         []string
+	DisplayName      string
+	ShortDescription string
+	Provider         v1alpha1.AppLink
+	Maintainers      []v1alpha1.Maintainer
+	Links            []v1alpha1.AppLink
+	Keywords         []string
 }
 
 func (m *Package) Validate() error {
