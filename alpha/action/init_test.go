@@ -73,7 +73,7 @@ func TestInit(t *testing.T) {
 			},
 			expectPkg: &declcfg.Package{
 				Schema: "olm.package",
-				Icon: &declcfg.Icon{
+				Icon: &declcfg.PackageIcon{
 					Data:      bytes.NewBufferString(svgIcon).Bytes(),
 					MediaType: "image/svg+xml",
 				},
@@ -93,7 +93,7 @@ func TestInit(t *testing.T) {
 				Name:           "a",
 				DefaultChannel: "b",
 				Description:    "c",
-				Icon: &declcfg.Icon{
+				Icon: &declcfg.PackageIcon{
 					Data:      bytes.NewBufferString(svgIcon).Bytes(),
 					MediaType: "image/svg+xml",
 				},

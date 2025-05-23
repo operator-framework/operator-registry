@@ -191,7 +191,7 @@ func newTestPackage(packageName, defaultChannel, svgData string) Package {
 		Schema:         SchemaPackage,
 		Name:           packageName,
 		DefaultChannel: defaultChannel,
-		Icon:           &Icon{Data: []byte(svgData), MediaType: "image/svg+xml"},
+		Icon:           &PackageIcon{Data: []byte(svgData), MediaType: "image/svg+xml"},
 		Description:    testPackageDescription(packageName),
 	}
 	return p

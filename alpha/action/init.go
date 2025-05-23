@@ -43,7 +43,7 @@ func (i Init) Run() (*declcfg.Package, error) {
 		if iconType.MIME.Type != "image" {
 			return nil, fmt.Errorf("detected invalid type %q: not an image", iconType.MIME.Value)
 		}
-		pkg.Icon = &declcfg.Icon{
+		pkg.Icon = &declcfg.PackageIcon{ //nolint:staticcheck
 			Data:      iconData,
 			MediaType: iconType.MIME.Value,
 		}

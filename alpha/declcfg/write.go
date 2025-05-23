@@ -405,6 +405,12 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgNames.Insert(pkgName)
 		packagesByName[pkgName] = append(packagesByName[pkgName], p)
 	}
+	iconsByPackage := map[string][]Icon{}
+	for _, i := range cfg.Icons {
+		pkgName := i.Package
+		pkgNames.Insert(pkgName)
+		iconsByPackage[pkgName] = append(iconsByPackage[pkgName], i)
+	}
 	channelsByPackage := map[string][]Channel{}
 	for _, c := range cfg.Channels {
 		pkgName := c.Package
@@ -437,6 +443,13 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		pkgs := packagesByName[pName]
 		for _, p := range pkgs {
 			if err := enc.Encode(p); err != nil {
+				return err
+			}
+		}
+
+		icons := iconsByPackage[pName]
+		for _, i := range icons {
+			if err := enc.Encode(i); err != nil {
 				return err
 			}
 		}
@@ -501,6 +514,10 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 type WriteFunc func(config DeclarativeConfig, w io.Writer) error
 
 func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
+	iconsByPackage := map[string][]Icon{}
+	for _, i := range cfg.Icons {
+		iconsByPackage[i.Package] = append(iconsByPackage[i.Package], i)
+	}
 	channelsByPackage := map[string][]Channel{}
 	for _, c := range cfg.Channels {
 		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
@@ -509,6 +526,14 @@ func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt
 	for _, b := range cfg.Bundles {
 		bundlesByPackage[b.Package] = append(bundlesByPackage[b.Package], b)
 	}
+	deprecationsByPackage := map[string][]Deprecation{}
+	for _, d := range cfg.Deprecations {
+		deprecationsByPackage[d.Package] = append(deprecationsByPackage[d.Package], d)
+	}
+	othersByPackage := map[string][]Meta{}
+	for _, o := range cfg.Others {
+		othersByPackage[o.Package] = append(othersByPackage[o.Package], o)
+	}
 
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return err
@@ -516,9 +541,12 @@ func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt
 
 	for _, p := range cfg.Packages {
 		fcfg := DeclarativeConfig{
-			Packages: []Package{p},
-			Channels: channelsByPackage[p.Name],
-			Bundles:  bundlesByPackage[p.Name],
+			Packages:     []Package{p},
+			Icons:        iconsByPackage[p.Name],
+			Channels:     channelsByPackage[p.Name],
+			Bundles:      bundlesByPackage[p.Name],
+			Deprecations: deprecationsByPackage[p.Name],
+			Others:       othersByPackage[p.Name],
 		}
 		pkgDir := filepath.Join(rootDir, p.Name)
 		if err := os.MkdirAll(pkgDir, 0777); err != nil {

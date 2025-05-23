@@ -16,6 +16,7 @@ import (
 
 const (
 	SchemaPackage     = "olm.package"
+	SchemaIcon        = "olm.icon"
 	SchemaChannel     = "olm.channel"
 	SchemaBundle      = "olm.bundle"
 	SchemaDeprecation = "olm.deprecations"
@@ -23,6 +24,7 @@ const (
 
 type DeclarativeConfig struct {
 	Packages     []Package
+	Icons        []Icon
 	Channels     []Channel
 	Bundles      []Bundle
 	Deprecations []Deprecation
@@ -30,15 +32,27 @@ type DeclarativeConfig struct {
 }
 
 type Package struct {
-	Schema         string              `json:"schema"`
-	Name           string              `json:"name"`
-	DefaultChannel string              `json:"defaultChannel"`
-	Icon           *Icon               `json:"icon,omitempty"`
-	Description    string              `json:"description,omitempty"`
-	Properties     []property.Property `json:"properties,omitempty" hash:"set"`
+	Schema         string `json:"schema"`
+	Name           string `json:"name"`
+	DefaultChannel string `json:"defaultChannel"`
+
+	// Deprecated: It is no longer recommended to embed an icon in the package.
+	//   Instead, use separate a Icon item alongside the Package.
+	Icon *PackageIcon `json:"icon,omitempty"`
+
+	Description string              `json:"description,omitempty"`
+	Properties  []property.Property `json:"properties,omitempty" hash:"set"`
 }
 
 type Icon struct {
+	Schema  string `json:"schema"`
+	Package string `json:"package"`
+
+	MediaType string `json:"mediaType"`
+	Data      []byte `json:"data"`
+}
+
+type PackageIcon struct {
 	Data      []byte `json:"base64data"`
 	MediaType string `json:"mediatype"`
 }
@@ -201,6 +215,7 @@ func extractUniqueMetaKeys(blobMap map[string]any, m *Meta) error {
 
 func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Packages = append(destination.Packages, src.Packages...)
+	destination.Icons = append(destination.Icons, src.Icons...)
 	destination.Channels = append(destination.Channels, src.Channels...)
 	destination.Bundles = append(destination.Bundles, src.Bundles...)
 	destination.Others = append(destination.Others, src.Others...)

@@ -41,6 +41,19 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		defaultChannels[p.Name] = p.DefaultChannel
 		mpkgs[p.Name] = mpkg
 	}
+	for _, i := range cfg.Icons {
+		mpkg, ok := mpkgs[i.Package]
+		if !ok {
+			return nil, fmt.Errorf("unknown package %q found in olm.icon", i.Package)
+		}
+		if mpkg.Icon != nil {
+			return nil, fmt.Errorf("duplicate icon found for package %q; expecting no more than one icon per package", i.Package)
+		}
+		mpkg.Icon = &model.Icon{
+			MediaType: i.MediaType,
+			Data:      i.Data,
+		}
+	}
 
 	channelDefinedEntries := map[string]sets.Set[string]{}
 	for _, c := range cfg.Channels {
