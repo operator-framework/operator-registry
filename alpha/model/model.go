@@ -391,7 +391,7 @@ func (b *Bundle) Validate() error {
 	//	}
 	//}
 
-	if props != nil && len(props.Packages) != 1 {
+	if b.Version.String() == "0.0.0" && props != nil && len(props.Packages) != 1 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
 	}
 
