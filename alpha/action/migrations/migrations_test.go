@@ -37,7 +37,8 @@ func TestMigrations(t *testing.T) {
 			}
 			return nil
 		},
-		MigrationToken("split-icon"): func(d *declcfg.DeclarativeConfig) error { return nil },
+		MigrationToken("split-icon"):             func(d *declcfg.DeclarativeConfig) error { return nil },
+		MigrationToken("promote-bundle-version"): func(d *declcfg.DeclarativeConfig) error { return nil },
 	}
 
 	tests := []struct {

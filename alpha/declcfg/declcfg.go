@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -83,8 +84,9 @@ type ChannelEntry struct {
 //     evaluation in bundlesEqual().
 type Bundle struct {
 	Schema        string              `json:"schema"`
-	Name          string              `json:"name,omitempty"`
-	Package       string              `json:"package,omitempty"`
+	Name          string              `json:"name"`
+	Package       string              `json:"package"`
+	Version       *semver.Version     `json:"version,omitempty"`
 	Image         string              `json:"image"`
 	Properties    []property.Property `json:"properties,omitempty" hash:"set"`
 	RelatedImages []RelatedImage      `json:"relatedImages,omitempty" hash:"set"`

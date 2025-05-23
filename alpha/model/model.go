@@ -310,6 +310,7 @@ type Bundle struct {
 	Package       *Package
 	Channel       *Channel
 	Name          string
+	Version       semver.Version
 	Image         string
 	Replaces      string
 	Skips         []string
@@ -326,7 +327,6 @@ type Bundle struct {
 
 	// These fields are used to compare bundles in a diff.
 	PropertiesP *property.Properties
-	Version     semver.Version
 }
 
 func (b *Bundle) Validate() error {
@@ -363,8 +363,20 @@ func (b *Bundle) Validate() error {
 	//	}
 	//}
 
-	if props != nil && len(props.Packages) != 1 {
-		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
+	if b.Version.String() == "0.0.0" {
+		result.subErrors = append(result.subErrors, errors.New("version must be set"))
+	}
+
+	if props != nil {
+		if len(props.Packages) > 1 {
+			result.subErrors = append(result.subErrors, errors.New("no more than one olm.package property can be defined"))
+		}
+		if len(props.Packages) == 1 {
+			pkgProp := props.Packages[0]
+			if pkgProp.PackageName != b.Package.Name || pkgProp.Version != b.Version.String() {
+				result.subErrors = append(result.subErrors, errors.New("olm.package property does not match bundle's package name and version"))
+			}
+		}
 	}
 
 	if b.Image == "" && len(b.Objects) == 0 {

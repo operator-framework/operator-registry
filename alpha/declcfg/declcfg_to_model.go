@@ -133,16 +133,18 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
 		}
 
-		if len(props.Packages) != 1 {
-			return nil, fmt.Errorf("package %q bundle %q must have exactly 1 %q property, found %d", b.Package, b.Name, property.TypePackage, len(props.Packages))
+		var rawVersion string
+		if b.Version != nil {
+			rawVersion = b.Version.String()
+		} else if len(props.Packages) == 1 {
+			if b.Package != props.Packages[0].PackageName {
+				return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
+			}
+			rawVersion = props.Packages[0].Version
+		} else {
+			return nil, fmt.Errorf("package %q bundle %q requires either version being set or exactly one property with type %q", b.Package, b.Name, property.TypePackage)
 		}
 
-		if b.Package != props.Packages[0].PackageName {
-			return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
-		}
-
-		// Parse version from the package property.
-		rawVersion := props.Packages[0].Version
 		ver, err := semver.Parse(rawVersion)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing bundle %q version %q: %v", b.Name, rawVersion, err)

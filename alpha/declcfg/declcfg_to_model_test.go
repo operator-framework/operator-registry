@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	mmsemver "github.com/Masterminds/semver/v3"
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,8 +121,8 @@ func TestConvertToModel(t *testing.T) {
 			},
 		},
 		{
-			name:      "Error/BundleMissingPackageProperty",
-			assertion: hasError(`package "foo" bundle "foo.v0.1.0" must have exactly 1 "olm.package" property, found 0`),
+			name:      "Error/BundleMissingVersionAndPackageProperty",
+			assertion: hasError(`package "foo" bundle "foo.v0.1.0" requires either version being set or exactly one property with type "olm.package"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withNoProperties())},
@@ -129,7 +130,7 @@ func TestConvertToModel(t *testing.T) {
 		},
 		{
 			name:      "Error/BundleMultiplePackageProperty",
-			assertion: hasError(`package "foo" bundle "foo.v0.1.0" must have exactly 1 "olm.package" property, found 2`),
+			assertion: hasError(`package "foo" bundle "foo.v0.1.0" requires either version being set or exactly one property with type "olm.package"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
@@ -138,6 +139,15 @@ func TestConvertToModel(t *testing.T) {
 						property.MustBuildPackage("foo", "0.1.0"),
 					}
 				})},
+			},
+		},
+		{
+			name:      "Success/BundleWithVersionButNoProperties",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles:  []Bundle{newTestBundle("foo", "0.1.0", withVersionField(mmsemver.MustParse("0.1.0")), withNoProperties())},
 			},
 		},
 		{

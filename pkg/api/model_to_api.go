@@ -64,6 +64,11 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("convert model properties to api dependencies: %v", err)
 	}
+
+	properties := b.Properties
+	if len(props.Packages) == 0 {
+		properties = append(properties, property.MustBuildPackage(b.Package.Name, b.Version.String()))
+	}
 	return &Bundle{
 		CsvName:      b.Name,
 		PackageName:  b.Package.Name,
@@ -71,10 +76,10 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 		BundlePath:   b.Image,
 		ProvidedApis: gvksProvidedtoAPIGVKs(props.GVKs),
 		RequiredApis: gvksRequirestoAPIGVKs(props.GVKsRequired),
-		Version:      props.Packages[0].Version,
+		Version:      b.Version.String(),
 		SkipRange:    b.SkipRange,
 		Dependencies: apiDeps,
-		Properties:   convertModelPropertiesToAPIProperties(b.Properties),
+		Properties:   convertModelPropertiesToAPIProperties(properties),
 		Replaces:     b.Replaces,
 		Skips:        b.Skips,
 		CsvJson:      csvJSON,
@@ -87,10 +92,6 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 	props, err := property.Parse(in)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(props.Packages) != 1 {
-		return nil, fmt.Errorf("expected exactly 1 property of type %q, found %d", property.TypePackage, len(props.Packages))
 	}
 
 	if len(props.CSVMetadatas) > 1 {

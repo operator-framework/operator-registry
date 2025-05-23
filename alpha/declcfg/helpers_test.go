@@ -6,7 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/blang/semver/v4"
+	mmsemver "github.com/Masterminds/semver/v3"
+	bsemver "github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -126,6 +127,12 @@ func buildValidDeclarativeConfig(spec validDeclarativeConfigSpec) DeclarativeCon
 
 type bundleOpt func(*Bundle)
 
+func withVersionField(version *mmsemver.Version) func(*Bundle) {
+	return func(bundle *Bundle) {
+		bundle.Version = version
+	}
+}
+
 func withNoProperties() func(*Bundle) {
 	return func(b *Bundle) {
 		b.Properties = []property.Property{}
@@ -147,6 +154,7 @@ func withNoBundleData() func(*Bundle) {
 
 func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 	csvJSON := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
+
 	b := Bundle{
 		Schema:  SchemaBundle,
 		Name:    testBundleName(packageName, version),
@@ -245,7 +253,7 @@ func getBundle(pkg *model.Package, ch *model.Channel, version, replaces string, 
 			getCSVJson(pkg.Name, version),
 			getCRDJSON(),
 		},
-		Version: semver.MustParse(version),
+		Version: bsemver.MustParse(version),
 	}
 }
 
