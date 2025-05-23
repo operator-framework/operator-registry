@@ -31,6 +31,13 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			Name:        p.Name,
 			Description: p.Description,
 			Channels:    map[string]*model.Channel{},
+
+			DisplayName:      p.DisplayName,
+			ShortDescription: p.ShortDescription,
+			Provider:         p.Provider,
+			Maintainers:      p.Maintainers,
+			Links:            p.Links,
+			Keywords:         p.Keywords,
 		}
 		if p.Icon != nil {
 			mpkg.Icon = &model.Icon{
@@ -40,6 +47,19 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 		defaultChannels[p.Name] = p.DefaultChannel
 		mpkgs[p.Name] = mpkg
+	}
+	for _, i := range cfg.Icons {
+		mpkg, ok := mpkgs[i.Package]
+		if !ok {
+			return nil, fmt.Errorf("unknown package %q found in olm.icon", i.Package)
+		}
+		if mpkg.Icon != nil {
+			return nil, fmt.Errorf("duplicate icon found for package %q; expecting no more than one icon per package", i.Package)
+		}
+		mpkg.Icon = &model.Icon{
+			MediaType: i.MediaType,
+			Data:      i.Data,
+		}
 	}
 
 	channelDefinedEntries := map[string]sets.Set[string]{}
@@ -120,19 +140,22 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
 		}
 
-		if len(props.Packages) != 1 {
-			return nil, fmt.Errorf("package %q bundle %q must have exactly 1 %q property, found %d", b.Package, b.Name, property.TypePackage, len(props.Packages))
-		}
+		var ver semver.Version
+		if b.Version != nil {
+			ver = semver.MustParse(b.Version.String())
+		} else if len(props.Packages) == 1 {
+			if b.Package != props.Packages[0].PackageName {
+				return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
+			}
 
-		if b.Package != props.Packages[0].PackageName {
-			return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
-		}
-
-		// Parse version from the package property.
-		rawVersion := props.Packages[0].Version
-		ver, err := semver.Parse(rawVersion)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing bundle %q version %q: %v", b.Name, rawVersion, err)
+			// Parse version from the package property.
+			rawVersion := props.Packages[0].Version
+			ver, err = semver.Parse(rawVersion)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing bundle %q version %q: %v", b.Name, rawVersion, err)
+			}
+		} else {
+			return nil, fmt.Errorf("package %q bundle %q requires either version being set or exactly one property with type %q", b.Package, b.Name, props.Packages[0].PackageName)
 		}
 
 		channelDefinedEntries[b.Package] = channelDefinedEntries[b.Package].Delete(b.Name)

@@ -30,7 +30,7 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 				MediaType: b.Package.Icon.MediaType,
 			}}
 		}
-		csv := csvMetadataToCsv(props.CSVMetadatas[0])
+		csv := bundleToCSV(b)
 		csv.Name = b.Name
 		csv.Spec.Icon = icons
 		csv.Spec.InstallStrategy = v1alpha1.NamedInstallStrategy{
@@ -64,6 +64,11 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("convert model properties to api dependencies: %v", err)
 	}
+
+	properties := b.Properties
+	if len(props.Packages) == 0 {
+		properties = append(properties, property.MustBuildPackage(b.Package.Name, b.Version.String()))
+	}
 	return &Bundle{
 		CsvName:      b.Name,
 		PackageName:  b.Package.Name,
@@ -71,10 +76,10 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 		BundlePath:   b.Image,
 		ProvidedApis: gvksProvidedtoAPIGVKs(props.GVKs),
 		RequiredApis: gvksRequirestoAPIGVKs(props.GVKsRequired),
-		Version:      props.Packages[0].Version,
+		Version:      b.Version.String(),
 		SkipRange:    b.SkipRange,
 		Dependencies: apiDeps,
-		Properties:   convertModelPropertiesToAPIProperties(b.Properties),
+		Properties:   convertModelPropertiesToAPIProperties(properties),
 		Replaces:     b.Replaces,
 		Skips:        b.Skips,
 		CsvJson:      csvJSON,
@@ -89,10 +94,6 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 		return nil, err
 	}
 
-	if len(props.Packages) != 1 {
-		return nil, fmt.Errorf("expected exactly 1 property of type %q, found %d", property.TypePackage, len(props.Packages))
-	}
-
 	if len(props.CSVMetadatas) > 1 {
 		return nil, fmt.Errorf("expected at most 1 property of type %q, found %d", property.TypeCSVMetadata, len(props.CSVMetadatas))
 	}
@@ -100,7 +101,28 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 	return props, nil
 }
 
-func csvMetadataToCsv(m property.CSVMetadata) v1alpha1.ClusterServiceVersion {
+func bundleToCSV(b model.Bundle) v1alpha1.ClusterServiceVersion {
+	p := b.Package
+	m := b.PropertiesP.CSVMetadatas[0]
+
+	if m.DisplayName == "" {
+		m.DisplayName = p.DisplayName
+	}
+	if _, ok := m.Annotations["description"]; !ok {
+		m.Annotations["description"] = p.ShortDescription
+	}
+	if m.Provider.Name == "" && m.Provider.URL == "" {
+		m.Provider = p.Provider
+	}
+	if m.Maintainers == nil {
+		m.Maintainers = p.Maintainers
+	}
+	if m.Links == nil {
+		m.Links = p.Links
+	}
+	if m.Keywords == nil {
+		m.Keywords = p.Keywords
+	}
 	return v1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       operators.ClusterServiceVersionKind,

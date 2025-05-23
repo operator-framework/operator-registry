@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"sort"
 	"strings"
 
@@ -44,12 +45,20 @@ func (m Model) Validate() error {
 }
 
 type Package struct {
-	Name           string
+	Name string
+
 	Description    string
 	Icon           *Icon
 	DefaultChannel *Channel
 	Channels       map[string]*Channel
 	Deprecation    *Deprecation
+
+	DisplayName      string
+	ShortDescription string
+	Provider         v1alpha1.AppLink
+	Maintainers      []v1alpha1.Maintainer
+	Links            []v1alpha1.AppLink
+	Keywords         []string
 }
 
 func (m *Package) Validate() error {
@@ -58,6 +67,26 @@ func (m *Package) Validate() error {
 	if m.Name == "" {
 		result.subErrors = append(result.subErrors, errors.New("package name must not be empty"))
 	}
+
+	//if len(m.ShortDescription) > 128 {
+	//	result.subErrors = append(result.subErrors, errors.New("short description must not be more than 128 characters"))
+	//}
+	//
+	//for i, maintainer := range m.Maintainers {
+	//	if maintainer.Name == "" && maintainer.Email == "" {
+	//		result.subErrors = append(result.subErrors, fmt.Errorf("maintainer at index %d must not be empty", i))
+	//	}
+	//}
+	//for i, link := range m.Links {
+	//	if link.Name == "" && link.URL == "" {
+	//		result.subErrors = append(result.subErrors, fmt.Errorf("link at index %d must not be empty", i))
+	//	}
+	//}
+	//for i, keyword := range m.Keywords {
+	//	if keyword == "" {
+	//		result.subErrors = append(result.subErrors, fmt.Errorf("keyword at index %d must not be empty", i))
+	//	}
+	//}
 
 	if err := m.Icon.Validate(); err != nil {
 		result.subErrors = append(result.subErrors, err)
@@ -133,8 +162,8 @@ func (m *Package) validateUniqueBundleVersions() error {
 }
 
 type Icon struct {
-	Data      []byte `json:"base64data"`
-	MediaType string `json:"mediatype"`
+	Data      []byte
+	MediaType string
 }
 
 func (i *Icon) Validate() error {
@@ -363,7 +392,7 @@ func (b *Bundle) Validate() error {
 	//	}
 	//}
 
-	if props != nil && len(props.Packages) != 1 {
+	if b.Version.String() == "0.0.0" && props != nil && len(props.Packages) != 1 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
 	}
 
