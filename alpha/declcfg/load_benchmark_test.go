@@ -59,7 +59,7 @@ func generateFBC(b *testing.B, numPackages, numChannels, numBundles int) *declcf
 			Schema:      declcfg.SchemaPackage,
 			Name:        pkgName,
 			Description: fmt.Sprintf("%s description", pkgName),
-			Icon: &declcfg.Icon{
+			Icon: &declcfg.PackageIcon{
 				Data:      pngData,
 				MediaType: "image/png",
 			},
