@@ -7,7 +7,7 @@ FROM golang:1.23-alpine AS builder
 
 RUN apk update && apk add ca-certificates
 COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
-RUN apk update && apk add sqlite build-base git mercurial bash
+RUN apk update && apk add sqlite build-base git mercurial bash linux-headers
 RUN set -eux;     apk add --no-cache --virtual .build-deps         bash         gcc
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 WORKDIR /build
