@@ -3,7 +3,7 @@
 ##             GoReleaser to build and push multi-arch images for opm
 ##
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 RUN apk update && apk add ca-certificates
 COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
