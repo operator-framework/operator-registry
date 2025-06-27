@@ -466,6 +466,7 @@ func TestValidators(t *testing.T) {
 				Package:  pkg,
 				Channel:  ch,
 				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
 				Image:    "registry.io/image",
 				Replaces: "anakin.v0.0.1",
 				Skips:    []string{"anakin.v0.0.2"},
@@ -477,11 +478,28 @@ func TestValidators(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
+			name: "Bundle/Success/NoPackageProperty",
+			v: &Bundle{
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
+				Image:    "registry.io/image",
+				Replaces: "anakin.v0.0.1",
+				Skips:    []string{"anakin.v0.0.2"},
+				Properties: []property.Property{
+					property.MustBuildGVK("skywalker.me", "v1alpha1", "PodRacer"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
 			name: "Bundle/Success/ReplacesNotInChannel",
 			v: &Bundle{
 				Package:  pkg,
 				Channel:  ch,
 				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
 				Image:    "registry.io/image",
 				Replaces: "anakin.v0.0.0",
 				Properties: []property.Property{
@@ -496,6 +514,7 @@ func TestValidators(t *testing.T) {
 				Package: pkg,
 				Channel: ch,
 				Name:    "anakin.v0.1.0",
+				Version: semver.MustParse("0.1.0"),
 				Image:   "",
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
@@ -513,6 +532,7 @@ func TestValidators(t *testing.T) {
 				Package: pkg,
 				Channel: ch,
 				Name:    "anakin.v0.1.0",
+				Version: semver.MustParse("0.1.0"),
 				Image:   "",
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
@@ -574,17 +594,48 @@ func TestValidators(t *testing.T) {
 			assertion: hasError(`skip[0] is empty`),
 		},
 		{
-			name: "Bundle/Error/MissingPackage",
+			name: "Bundle/Error/MissingVersion",
 			v: &Bundle{
-				Package:    pkg,
-				Channel:    ch,
-				Name:       "anakin.v0.1.0",
-				Image:      "",
-				Replaces:   "anakin.v0.0.1",
-				Skips:      []string{"anakin.v0.0.2"},
-				Properties: []property.Property{},
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Image:    "",
+				Replaces: "anakin.v0.0.1",
+				Skips:    []string{"anakin.v0.0.2"},
 			},
-			assertion: hasError(`must be exactly one property with type "olm.package"`),
+			assertion: hasError(`version must be set`),
+		},
+		{
+			name: "Bundle/Error/PackagePropertyMismatchedPackageName",
+			v: &Bundle{
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
+				Image:    "",
+				Replaces: "anakin.v0.0.1",
+				Skips:    []string{"anakin.v0.0.2"},
+				Properties: []property.Property{
+					property.MustBuildPackage("vader", "0.1.0"),
+				},
+			},
+			assertion: hasError(`olm.package property does not match bundle's package name and version`),
+		},
+		{
+			name: "Bundle/Error/PackagePropertyMismatchedVersion",
+			v: &Bundle{
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
+				Image:    "",
+				Replaces: "anakin.v0.0.1",
+				Skips:    []string{"anakin.v0.0.2"},
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.2.0"),
+				},
+			},
+			assertion: hasError(`olm.package property does not match bundle's package name and version`),
 		},
 		{
 			name: "Bundle/Error/MultiplePackages",
@@ -592,6 +643,7 @@ func TestValidators(t *testing.T) {
 				Package:  pkg,
 				Channel:  ch,
 				Name:     "anakin.v0.1.0",
+				Version:  semver.MustParse("0.1.0"),
 				Image:    "",
 				Replaces: "anakin.v0.0.1",
 				Skips:    []string{"anakin.v0.0.2"},
@@ -600,7 +652,7 @@ func TestValidators(t *testing.T) {
 					property.MustBuildPackage("anakin", "0.2.0"),
 				},
 			},
-			assertion: hasError(`must be exactly one property with type "olm.package"`),
+			assertion: hasError(`no more than one olm.package property can be defined`),
 		},
 		{
 			name: "RelatedImage/Success/Valid",
