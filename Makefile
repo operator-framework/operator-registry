@@ -107,13 +107,6 @@ lint: $(GOLANGCI_LINT)
 fix-lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run --fix $(GOLANGCI_LINT_ARGS)
 
-.PHONY: bingo-upgrade
-bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
-	@for pkg in $$($(BINGO) list | awk '{ print $$3 }' | tail -n +3 | sed 's/@.*//'); do \
-		echo -e "Upgrading \033[35m$$pkg\033[0m to latest..."; \
-		$(BINGO) get "$$pkg@latest"; \
-	done
-
 .PHONY: codegen
 codegen: $(PROTOC) $(PROTOC_GEN_GO_GRPC)
 	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
