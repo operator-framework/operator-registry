@@ -23,26 +23,7 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 
 	csvJSON := b.CsvJSON
 	if csvJSON == "" && len(props.CSVMetadatas) == 1 {
-		var icons []v1alpha1.Icon
-		if b.Package.Icon != nil {
-			icons = []v1alpha1.Icon{{
-				Data:      base64.StdEncoding.EncodeToString(b.Package.Icon.Data),
-				MediaType: b.Package.Icon.MediaType,
-			}}
-		}
-		csv := csvMetadataToCsv(props.CSVMetadatas[0])
-		csv.Name = b.Name
-		csv.Spec.Icon = icons
-		csv.Spec.InstallStrategy = v1alpha1.NamedInstallStrategy{
-			// This stub is required to avoid a panic in OLM's package server that results in
-			// attemptint to write to a nil map.
-			StrategyName: "deployment",
-		}
-		csv.Spec.Version = version.OperatorVersion{Version: b.Version}
-		csv.Spec.RelatedImages = convertModelRelatedImagesToCSVRelatedImages(b.RelatedImages)
-		if csv.Spec.Description == "" {
-			csv.Spec.Description = b.Package.Description
-		}
+		csv := newSyntheticCSV(b)
 		csvData, err := json.Marshal(csv)
 		if err != nil {
 			return nil, err
@@ -64,6 +45,11 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("convert model properties to api dependencies: %v", err)
 	}
+
+	properties := b.Properties
+	if len(props.Packages) == 0 {
+		properties = append(properties, property.MustBuildPackage(b.Package.Name, b.Version.String()))
+	}
 	return &Bundle{
 		CsvName:      b.Name,
 		PackageName:  b.Package.Name,
@@ -71,10 +57,10 @@ func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {
 		BundlePath:   b.Image,
 		ProvidedApis: gvksProvidedtoAPIGVKs(props.GVKs),
 		RequiredApis: gvksRequirestoAPIGVKs(props.GVKsRequired),
-		Version:      props.Packages[0].Version,
+		Version:      b.Version.String(),
 		SkipRange:    b.SkipRange,
 		Dependencies: apiDeps,
-		Properties:   convertModelPropertiesToAPIProperties(b.Properties),
+		Properties:   convertModelPropertiesToAPIProperties(properties),
 		Replaces:     b.Replaces,
 		Skips:        b.Skips,
 		CsvJson:      csvJSON,
@@ -89,10 +75,6 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 		return nil, err
 	}
 
-	if len(props.Packages) != 1 {
-		return nil, fmt.Errorf("expected exactly 1 property of type %q, found %d", property.TypePackage, len(props.Packages))
-	}
-
 	if len(props.CSVMetadatas) > 1 {
 		return nil, fmt.Errorf("expected at most 1 property of type %q, found %d", property.TypeCSVMetadata, len(props.CSVMetadatas))
 	}
@@ -100,29 +82,74 @@ func parseProperties(in []property.Property) (*property.Properties, error) {
 	return props, nil
 }
 
-func csvMetadataToCsv(m property.CSVMetadata) v1alpha1.ClusterServiceVersion {
+func newSyntheticCSV(b model.Bundle) v1alpha1.ClusterServiceVersion {
+	pkg := b.Package
+	csvMetadata := b.PropertiesP.CSVMetadatas[0]
+
+	var icons []v1alpha1.Icon
+	if pkg.Icon != nil {
+		icons = []v1alpha1.Icon{{
+			Data:      base64.StdEncoding.EncodeToString(pkg.Icon.Data),
+			MediaType: pkg.Icon.MediaType,
+		}}
+	}
+
+	// Copy package-level metadata into CSV if fields are unset in CSV
+	if csvMetadata.DisplayName == "" {
+		csvMetadata.DisplayName = pkg.DisplayName
+	}
+	if _, ok := csvMetadata.Annotations["description"]; !ok {
+		csvMetadata.Annotations["description"] = pkg.ShortDescription
+	}
+	if csvMetadata.Description == "" {
+		csvMetadata.Description = pkg.Description
+	}
+	if csvMetadata.Provider.Name == "" && csvMetadata.Provider.URL == "" && pkg.Provider != nil {
+		csvMetadata.Provider = *pkg.Provider
+	}
+	if csvMetadata.Maintainers == nil {
+		csvMetadata.Maintainers = pkg.Maintainers
+	}
+	if csvMetadata.Links == nil {
+		csvMetadata.Links = pkg.Links
+	}
+	if csvMetadata.Keywords == nil {
+		csvMetadata.Keywords = pkg.Keywords
+	}
+
+	// Return syntheticly generated CSV
 	return v1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       operators.ClusterServiceVersionKind,
 			APIVersion: v1alpha1.ClusterServiceVersionAPIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: m.Annotations,
-			Labels:      m.Labels,
+			Name:        b.Name,
+			Annotations: csvMetadata.Annotations,
+			Labels:      csvMetadata.Labels,
 		},
 		Spec: v1alpha1.ClusterServiceVersionSpec{
-			APIServiceDefinitions:     m.APIServiceDefinitions,
-			CustomResourceDefinitions: m.CustomResourceDefinitions,
-			Description:               m.Description,
-			DisplayName:               m.DisplayName,
-			InstallModes:              m.InstallModes,
-			Keywords:                  m.Keywords,
-			Links:                     m.Links,
-			Maintainers:               m.Maintainers,
-			Maturity:                  m.Maturity,
-			MinKubeVersion:            m.MinKubeVersion,
-			NativeAPIs:                m.NativeAPIs,
-			Provider:                  m.Provider,
+			APIServiceDefinitions:     csvMetadata.APIServiceDefinitions,
+			CustomResourceDefinitions: csvMetadata.CustomResourceDefinitions,
+			Description:               csvMetadata.Description,
+			DisplayName:               csvMetadata.DisplayName,
+			InstallModes:              csvMetadata.InstallModes,
+			Keywords:                  csvMetadata.Keywords,
+			Links:                     csvMetadata.Links,
+			Maintainers:               csvMetadata.Maintainers,
+			Maturity:                  csvMetadata.Maturity,
+			MinKubeVersion:            csvMetadata.MinKubeVersion,
+			NativeAPIs:                csvMetadata.NativeAPIs,
+			Provider:                  csvMetadata.Provider,
+
+			Icon: icons,
+			InstallStrategy: v1alpha1.NamedInstallStrategy{
+				// This stub is required to avoid a panic in OLM's package server that results in
+				// attemptint to write to a nil map.
+				StrategyName: "deployment",
+			},
+			Version:       version.OperatorVersion{Version: b.Version},
+			RelatedImages: convertModelRelatedImagesToCSVRelatedImages(b.RelatedImages),
 		},
 	}
 }
