@@ -54,6 +54,9 @@ type Migrations struct {
 var allMigrations = []Migration{
 	newMigration(NoMigrations, "do nothing", func(_ *declcfg.DeclarativeConfig) error { return nil }),
 	newMigration("bundle-object-to-csv-metadata", `migrates bundles' "olm.bundle.object" to "olm.csv.metadata"`, bundleObjectToCSVMetadata),
+	newMigration("split-icon", `split package icon out into separate "olm.icon" blob`, splitIcon),
+	newMigration("promote-bundle-version", `promote bundle version into first-class bundle field, remove olm.package properties`, promoteBundleVersion),
+	newMigration("promote-package-metadata", `promote package metadata from "olm.csv.metadata" properties to "olm.package" blob`, promotePackageMetadata),
 }
 
 func NewMigrations(name string) (*Migrations, error) {

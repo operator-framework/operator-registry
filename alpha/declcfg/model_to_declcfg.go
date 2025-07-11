@@ -12,9 +12,9 @@ func ConvertFromModel(mpkgs model.Model) DeclarativeConfig {
 	for _, mpkg := range mpkgs {
 		channels, bundles := traverseModelChannels(*mpkg)
 
-		var i *Icon
+		var i *PackageIcon
 		if mpkg.Icon != nil {
-			i = &Icon{
+			i = &PackageIcon{
 				Data:      mpkg.Icon.Data,
 				MediaType: mpkg.Icon.MediaType,
 			}
