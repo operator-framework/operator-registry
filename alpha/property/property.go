@@ -35,6 +35,111 @@ func (p Property) String() string {
 	return fmt.Sprintf("type: %q, value: %q", p.Type, p.Value)
 }
 
+// ExtractValue extracts and validates the value from a SearchMetadataItem.
+// It returns the properly typed value (string, []string, or map[string]bool) as an interface{}.
+// The returned value is guaranteed to be valid according to the item's Type field.
+func (item SearchMetadataItem) ExtractValue() (any, error) {
+	switch item.Type {
+	case SearchMetadataTypeString:
+		return item.extractStringValue()
+	case SearchMetadataTypeListString:
+		return item.extractListStringValue()
+	case SearchMetadataTypeMapStringBoolean:
+		return item.extractMapStringBooleanValue()
+	default:
+		return nil, fmt.Errorf("unsupported type: %s", item.Type)
+	}
+}
+
+// extractStringValue extracts and validates a string value from a SearchMetadataItem.
+// This is an internal method used by ExtractValue.
+func (item SearchMetadataItem) extractStringValue() (string, error) {
+	str, ok := item.Value.(string)
+	if !ok {
+		return "", fmt.Errorf("type is 'String' but value is not a string: %T", item.Value)
+	}
+	if len(str) == 0 {
+		return "", errors.New("string value must have length >= 1")
+	}
+	return str, nil
+}
+
+// extractListStringValue extracts and validates a []string value from a SearchMetadataItem.
+// This is an internal method used by ExtractValue.
+func (item SearchMetadataItem) extractListStringValue() ([]string, error) {
+	switch v := item.Value.(type) {
+	case []string:
+		for i, str := range v {
+			if len(str) == 0 {
+				return nil, fmt.Errorf("ListString item[%d] must have length >= 1", i)
+			}
+		}
+		return v, nil
+	case []interface{}:
+		result := make([]string, len(v))
+		for i, val := range v {
+			if str, ok := val.(string); !ok {
+				return nil, fmt.Errorf("ListString item[%d] is not a string: %T", i, val)
+			} else if len(str) == 0 {
+				return nil, fmt.Errorf("ListString item[%d] must have length >= 1", i)
+			} else {
+				result[i] = str
+			}
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("type is 'ListString' but value is not a string list: %T", item.Value)
+	}
+}
+
+// extractMapStringBooleanValue extracts and validates a map[string]bool value from a SearchMetadataItem.
+// This is an internal method used by ExtractValue.
+func (item SearchMetadataItem) extractMapStringBooleanValue() (map[string]bool, error) {
+	switch v := item.Value.(type) {
+	case map[string]bool:
+		for key := range v {
+			if len(key) == 0 {
+				return nil, errors.New("MapStringBoolean keys must have length >= 1")
+			}
+		}
+		return v, nil
+	case map[string]interface{}:
+		result := make(map[string]bool)
+		for key, val := range v {
+			if len(key) == 0 {
+				return nil, errors.New("MapStringBoolean keys must have length >= 1")
+			}
+			if boolVal, ok := val.(bool); !ok {
+				return nil, fmt.Errorf("MapStringBoolean value for key '%s' is not a boolean: %T", key, val)
+			} else {
+				result[key] = boolVal
+			}
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("type is 'MapStringBoolean' but value is not a string-to-boolean map: %T", item.Value)
+	}
+}
+
+// validateSearchMetadataItem validates a single SearchMetadataItem.
+// This is an internal helper function used during JSON unmarshaling.
+func validateSearchMetadataItem(item SearchMetadataItem) error {
+	if item.Name == "" {
+		return errors.New("name must be set")
+	}
+	if item.Type == "" {
+		return errors.New("type must be set")
+	}
+	if item.Value == nil {
+		return errors.New("value must be set")
+	}
+
+	if _, err := item.ExtractValue(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type Package struct {
 	PackageName string `json:"packageName"`
 	Version     string `json:"version"`
@@ -88,6 +193,46 @@ type CSVMetadata struct {
 	Provider                  v1alpha1.AppLink                   `json:"provider,omitempty"`
 }
 
+// SearchMetadataItem represents a single search metadata item with a name, type, and value.
+// Supported types are defined by the SearchMetadataType* constants.
+type SearchMetadataItem struct {
+	Name  string      `json:"name"`  // The name/key of the search metadata
+	Type  string      `json:"type"`  // The type of the value (String, ListString, MapStringBoolean)
+	Value interface{} `json:"value"` // The actual value, validated according to Type
+}
+
+// SearchMetadata represents a collection of search metadata items.
+// It validates that all items are valid and that there are no duplicate names.
+type SearchMetadata []SearchMetadataItem
+
+// UnmarshalJSON implements custom JSON unmarshaling for SearchMetadata.
+// It validates each item and ensures there are no duplicate names.
+func (sm *SearchMetadata) UnmarshalJSON(data []byte) error {
+	// First unmarshal into a slice of SearchMetadataItem
+	var items []SearchMetadataItem
+	if err := json.Unmarshal(data, &items); err != nil {
+		return err
+	}
+
+	// Validate each item and check for duplicate names
+	namesSeen := make(map[string]bool)
+	for i, item := range items {
+		if err := validateSearchMetadataItem(item); err != nil {
+			return fmt.Errorf("item[%d]: %v", i, err)
+		}
+
+		// Check for duplicate names
+		if namesSeen[item.Name] {
+			return fmt.Errorf("item[%d]: duplicate name '%s'", i, item.Name)
+		}
+		namesSeen[item.Name] = true
+	}
+
+	// Set the validated items
+	*sm = SearchMetadata(items)
+	return nil
+}
+
 type Properties struct {
 	Packages         []Package         `hash:"set"`
 	PackagesRequired []PackageRequired `hash:"set"`
@@ -96,6 +241,7 @@ type Properties struct {
 	BundleObjects    []BundleObject    `hash:"set"`
 	Channels         []Channel         `hash:"set"`
 	CSVMetadatas     []CSVMetadata     `hash:"set"`
+	SearchMetadatas  []SearchMetadata  `hash:"set"`
 
 	Others []Property `hash:"set"`
 }
@@ -107,60 +253,52 @@ const (
 	TypeGVKRequired     = "olm.gvk.required"
 	TypeBundleObject    = "olm.bundle.object"
 	TypeCSVMetadata     = "olm.csv.metadata"
+	TypeSearchMetadata  = "olm.search.metadata"
 	TypeConstraint      = "olm.constraint"
 	TypeChannel         = "olm.channel"
 )
 
+// Search metadata item type constants define the supported types for SearchMetadataItem values.
+const (
+	SearchMetadataTypeString           = "String"
+	SearchMetadataTypeListString       = "ListString"
+	SearchMetadataTypeMapStringBoolean = "MapStringBoolean"
+)
+
+// appendParsed is a generic helper function that parses a property and appends it to a slice.
+// This is an internal helper used by the Parse function to reduce code duplication.
+func appendParsed[T any](slice *[]T, prop Property) error {
+	parsed, err := ParseOne[T](prop)
+	if err != nil {
+		return err
+	}
+	*slice = append(*slice, parsed)
+	return nil
+}
+
 func Parse(in []Property) (*Properties, error) {
 	var out Properties
+
+	// Map of property types to their parsing functions that directly append to output slices
+	parsers := map[string]func(Property) error{
+		TypePackage:         func(p Property) error { return appendParsed(&out.Packages, p) },
+		TypePackageRequired: func(p Property) error { return appendParsed(&out.PackagesRequired, p) },
+		TypeGVK:             func(p Property) error { return appendParsed(&out.GVKs, p) },
+		TypeGVKRequired:     func(p Property) error { return appendParsed(&out.GVKsRequired, p) },
+		TypeBundleObject:    func(p Property) error { return appendParsed(&out.BundleObjects, p) },
+		TypeCSVMetadata:     func(p Property) error { return appendParsed(&out.CSVMetadatas, p) },
+		TypeSearchMetadata:  func(p Property) error { return appendParsed(&out.SearchMetadatas, p) },
+		TypeChannel:         func(p Property) error { return appendParsed(&out.Channels, p) },
+	}
+
+	// Parse each property using the appropriate parser
 	for i, prop := range in {
-		switch prop.Type {
-		case TypePackage:
-			var p Package
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
+		if parser, exists := parsers[prop.Type]; exists {
+			if err := parser(prop); err != nil {
 				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
 			}
-			out.Packages = append(out.Packages, p)
-		case TypePackageRequired:
-			var p PackageRequired
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.PackagesRequired = append(out.PackagesRequired, p)
-		case TypeGVK:
-			var p GVK
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.GVKs = append(out.GVKs, p)
-		case TypeGVKRequired:
-			var p GVKRequired
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.GVKsRequired = append(out.GVKsRequired, p)
-		case TypeBundleObject:
-			var p BundleObject
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.BundleObjects = append(out.BundleObjects, p)
-		case TypeCSVMetadata:
-			var p CSVMetadata
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.CSVMetadatas = append(out.CSVMetadatas, p)
-		// NOTICE: The Channel properties are for internal use only.
-		//   DO NOT use it for any public-facing functionalities.
-		//   This API is in alpha stage and it is subject to change.
-		case TypeChannel:
-			var p Channel
-			if err := json.Unmarshal(prop.Value, &p); err != nil {
-				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
-			}
-			out.Channels = append(out.Channels, p)
-		default:
+		} else {
+			// For unknown types, use direct unmarshaling to preserve existing behavior
 			var p json.RawMessage
 			if err := json.Unmarshal(prop.Value, &p); err != nil {
 				return nil, ParseError{Idx: i, Typ: prop.Type, Err: err}
@@ -168,7 +306,43 @@ func Parse(in []Property) (*Properties, error) {
 			out.Others = append(out.Others, prop)
 		}
 	}
+
 	return &out, nil
+}
+
+// ParseOne parses a single property into the specified type T.
+// It validates that the property's Type field matches what the scheme expects for type T,
+// ensuring type safety between the property metadata and the generic type parameter.
+func ParseOne[T any](p Property) (T, error) {
+	var zero T
+
+	// Get the type of T
+	targetType := reflect.TypeOf((*T)(nil)).Elem()
+
+	// Check if T is a pointer type, if so get the element type
+	if targetType.Kind() == reflect.Ptr {
+		targetType = targetType.Elem()
+	}
+
+	// Look up the expected property type for this Go type
+	expectedPropertyType, ok := scheme[reflect.PointerTo(targetType)]
+	if !ok {
+		return zero, fmt.Errorf("type %s is not registered in the scheme", targetType)
+	}
+
+	// Verify the property type matches what we expect
+	if p.Type != expectedPropertyType {
+		return zero, fmt.Errorf("property type %q does not match expected type %q for %s", p.Type, expectedPropertyType, targetType)
+	}
+
+	// Unmarshal the property value into the target type
+	// Any validation will happen automatically via custom UnmarshalJSON methods
+	var result T
+	if err := json.Unmarshal(p.Value, &result); err != nil {
+		return zero, fmt.Errorf("failed to unmarshal property value: %v", err)
+	}
+
+	return result, nil
 }
 
 func Deduplicate(in []Property) []Property {
@@ -277,6 +451,12 @@ func MustBuildCSVMetadata(csv v1alpha1.ClusterServiceVersion) Property {
 		NativeAPIs:                csv.Spec.NativeAPIs,
 		Provider:                  csv.Spec.Provider,
 	})
+}
+
+// MustBuildSearchMetadata creates a search metadata property from a SearchMetadata.
+// It panics if the items are invalid or if there are duplicate names.
+func MustBuildSearchMetadata(searchMetadata SearchMetadata) Property {
+	return MustBuild(&searchMetadata)
 }
 
 // NOTICE: The Channel properties are for internal use only.
