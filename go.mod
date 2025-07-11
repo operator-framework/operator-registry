@@ -39,7 +39,7 @@ require (
 	golang.org/x/mod v0.26.0
 	golang.org/x/net v0.41.0
 	golang.org/x/sync v0.16.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.34.0
 	golang.org/x/text v0.27.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
