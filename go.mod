@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/blang/semver/v4 v4.0.0
-	github.com/containerd/containerd v1.7.27
+	github.com/containerd/containerd v1.7.28
 	github.com/containerd/errdefs v1.0.0
 	github.com/containers/common v0.64.0
 	github.com/containers/image/v5 v5.36.0
