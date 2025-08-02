@@ -3,6 +3,7 @@ module github.com/operator-framework/operator-registry
 go 1.24.4
 
 require (
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.7.27

@@ -14,6 +14,8 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
@@ -50,6 +52,13 @@ type Package struct {
 	DefaultChannel *Channel
 	Channels       map[string]*Channel
 	Deprecation    *Deprecation
+
+	DisplayName      string
+	ShortDescription string
+	Provider         *v1alpha1.AppLink
+	Maintainers      []v1alpha1.Maintainer
+	Links            []v1alpha1.AppLink
+	Keywords         []string
 }
 
 func (m *Package) Validate() error {
@@ -57,6 +66,27 @@ func (m *Package) Validate() error {
 
 	if m.Name == "" {
 		result.subErrors = append(result.subErrors, errors.New("package name must not be empty"))
+	}
+
+	const maxShortDescriptionLength = 256
+	if len(m.ShortDescription) > maxShortDescriptionLength {
+		result.subErrors = append(result.subErrors, fmt.Errorf("short description must not be more than %d characters, found %d characters", maxShortDescriptionLength, len(m.ShortDescription)))
+	}
+
+	for i, maintainer := range m.Maintainers {
+		if maintainer.Name == "" && maintainer.Email == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("maintainer at index %d must not be empty", i))
+		}
+	}
+	for i, link := range m.Links {
+		if link.Name == "" && link.URL == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("link at index %d must not be empty", i))
+		}
+	}
+	for i, keyword := range m.Keywords {
+		if keyword == "" {
+			result.subErrors = append(result.subErrors, fmt.Errorf("keyword at index %d must not be empty", i))
+		}
 	}
 
 	if err := m.Icon.Validate(); err != nil {
@@ -310,6 +340,7 @@ type Bundle struct {
 	Package       *Package
 	Channel       *Channel
 	Name          string
+	Version       semver.Version
 	Image         string
 	Replaces      string
 	Skips         []string
@@ -326,7 +357,6 @@ type Bundle struct {
 
 	// These fields are used to compare bundles in a diff.
 	PropertiesP *property.Properties
-	Version     semver.Version
 }
 
 func (b *Bundle) Validate() error {
@@ -363,8 +393,20 @@ func (b *Bundle) Validate() error {
 	//	}
 	//}
 
-	if props != nil && len(props.Packages) != 1 {
-		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
+	if b.Version.String() == "0.0.0" {
+		result.subErrors = append(result.subErrors, errors.New("version must be set"))
+	}
+
+	if props != nil {
+		if len(props.Packages) > 1 {
+			result.subErrors = append(result.subErrors, errors.New("no more than one olm.package property can be defined"))
+		}
+		if len(props.Packages) == 1 {
+			pkgProp := props.Packages[0]
+			if pkgProp.PackageName != b.Package.Name || pkgProp.Version != b.Version.String() {
+				result.subErrors = append(result.subErrors, errors.New("olm.package property does not match bundle's package name and version"))
+			}
+		}
 	}
 
 	if b.Image == "" && len(b.Objects) == 0 {
