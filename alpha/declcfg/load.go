@@ -279,6 +279,7 @@ type fbcBuilder struct {
 	cfg DeclarativeConfig
 
 	packagesMu     sync.Mutex
+	iconsMu        sync.Mutex
 	channelsMu     sync.Mutex
 	bundlesMu      sync.Mutex
 	deprecationsMu sync.Mutex
@@ -295,6 +296,14 @@ func (c *fbcBuilder) addMeta(in *Meta) error {
 		c.packagesMu.Lock()
 		c.cfg.Packages = append(c.cfg.Packages, p)
 		c.packagesMu.Unlock()
+	case SchemaIcon:
+		var i Icon
+		if err := json.Unmarshal(in.Blob, &i); err != nil {
+			return fmt.Errorf("parse icon: %v", err)
+		}
+		c.iconsMu.Lock()
+		c.cfg.Icons = append(c.cfg.Icons, i)
+		c.iconsMu.Unlock()
 	case SchemaChannel:
 		var ch Channel
 		if err := json.Unmarshal(in.Blob, &ch); err != nil {
