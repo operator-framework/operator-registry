@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -20,7 +21,7 @@ import (
 type MermaidWriter struct {
 	MinEdgeName          string
 	SpecifiedPackageName string
-	UseV0Semantics       bool
+	DrawV0Semantics      bool
 }
 
 type MermaidOption func(*MermaidWriter)
@@ -33,6 +34,7 @@ func NewMermaidWriter(opts ...MermaidOption) *MermaidWriter {
 	m := &MermaidWriter{
 		MinEdgeName:          minEdgeName,
 		SpecifiedPackageName: specifiedPackageName,
+		DrawV0Semantics:      true,
 	}
 
 	for _, opt := range opts {
@@ -53,9 +55,9 @@ func WithSpecifiedPackageName(specifiedPackageName string) MermaidOption {
 	}
 }
 
-func WithV0Semantics() MermaidOption {
+func WithV0Semantics(drawV0Semantics bool) MermaidOption {
 	return func(o *MermaidWriter) {
-		o.UseV0Semantics = true
+		o.DrawV0Semantics = drawV0Semantics
 	}
 }
 
@@ -131,7 +133,8 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 	}
 
 	var deprecatedPackage string
-	deprecatedChannels := []string{}
+	deprecatedChannelIDs := []string{}
+	decoratedBundleIDs := map[string][]string{"deprecated": {}, "skipped": {}, "deprecatedskipped": {}}
 	linkID := 0
 	skippedLinkIDs := []string{}
 
@@ -154,7 +157,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			}
 
 			if depByChannel.Has(filteredChannel.Name) {
-				deprecatedChannels = append(deprecatedChannels, channelID)
+				deprecatedChannelIDs = append(deprecatedChannelIDs, channelID)
 			}
 
 			// sort edges by decreasing version
@@ -169,29 +172,45 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 			skippedEntities := sets.Set[string]{}
 
+			const (
+				captureNewEntry = true
+				processExisting = false
+			)
+			handleSemantics := func(edge string, linkID int, captureNew bool) {
+				if writer.DrawV0Semantics {
+					if captureNew {
+						if skippedEntities.Has(edge) {
+							skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
+						} else {
+							skippedEntities.Insert(edge)
+						}
+					} else {
+						if skippedEntities.Has(edge) {
+							skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
+						}
+					}
+				}
+			}
+
 			for _, ce := range sortedEntries {
-				bundleDecoration := ""
+				entryID := fmt.Sprintf("%s-%s", channelID, ce.Name)
+				fmt.Fprintf(pkgBuilder, "      %s[%q]\n", entryID, ce.Name)
+
+				// mermaid allows specification of only a single decoration class, so any combinations must be independently represented
 				switch {
 				case depByBundle.Has(ce.Name) && skippedEntities.Has(ce.Name):
-					bundleDecoration = ":::depandskip"
+					decoratedBundleIDs["deprecatedskipped"] = append(decoratedBundleIDs["deprecatedskipped"], entryID)
 				case depByBundle.Has(ce.Name):
-					bundleDecoration = ":::deprecated"
+					decoratedBundleIDs["deprecated"] = append(decoratedBundleIDs["deprecated"], entryID)
 				case skippedEntities.Has(ce.Name):
-					bundleDecoration = ":::skipped"
+					decoratedBundleIDs["skipped"] = append(decoratedBundleIDs["skipped"], entryID)
 				}
-
-				entryID := fmt.Sprintf("%s-%s", channelID, ce.Name)
-				fmt.Fprintf(pkgBuilder, "      %s[%q]%s\n", entryID, ce.Name, bundleDecoration)
 
 				if len(ce.Skips) > 0 {
 					for _, s := range ce.Skips {
 						skipsID := fmt.Sprintf("%s-%s", channelID, s)
 						fmt.Fprintf(pkgBuilder, "      %s[%q]-- %s --> %s[%q]\n", skipsID, s, "skip", entryID, ce.Name)
-						if skippedEntities.Has(s) {
-							skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
-						} else {
-							skippedEntities.Insert(s)
-						}
+						handleSemantics(s, linkID, captureNewEntry)
 						linkID++
 					}
 				}
@@ -202,9 +221,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 							if skipRange(versionMap[edgeName.Name]) {
 								skipRangeID := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
 								fmt.Fprintf(pkgBuilder, "      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeID, edgeName.Name, "skipRange", ce.SkipRange, entryID, ce.Name)
-								if skippedEntities.Has(ce.Name) {
-									skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
-								}
+								handleSemantics(ce.Name, linkID, processExisting)
 								linkID++
 							}
 						}
@@ -216,9 +233,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 				if len(ce.Replaces) > 0 {
 					replacesID := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
 					fmt.Fprintf(pkgBuilder, "      %s[%q]-- %s --> %s[%q]\n", replacesID, ce.Replaces, "replace", entryID, ce.Name)
-					if skippedEntities.Has(ce.Name) {
-						skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
-					}
+					handleSemantics(ce.Name, linkID, processExisting)
 					linkID++
 				}
 			}
@@ -229,7 +244,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 	_, _ = out.Write([]byte("graph LR\n"))
 	_, _ = out.Write([]byte("  classDef deprecated fill:#E8960F\n"))
 	_, _ = out.Write([]byte("  classDef skipped stroke:#FF0000,stroke-width:4px\n"))
-	_, _ = out.Write([]byte("  classDef depandskip fill:#E8960,stroke:#FF0000,stroke-width:4px\n"))
+	_, _ = out.Write([]byte("  classDef deprecatedskipped fill:#E8960F,stroke:#FF0000,stroke-width:4px\n"))
 	pkgNames := []string{}
 	for pname := range pkgs {
 		pkgNames = append(pkgNames, pname)
@@ -248,14 +263,23 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
 	}
 
-	if len(deprecatedChannels) > 0 {
-		for _, deprecatedChannel := range deprecatedChannels {
+	if len(deprecatedChannelIDs) > 0 {
+		for _, deprecatedChannel := range deprecatedChannelIDs {
 			_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
 		}
 	}
 
+	// express the decoration classes
+	for key := range decoratedBundleIDs {
+		if len(decoratedBundleIDs[key]) > 0 {
+			b := slices.Clone(decoratedBundleIDs[key])
+			slices.Sort(b)
+			_, _ = out.Write([]byte(fmt.Sprintf("class %s %s\n", strings.Join(b, ","), key)))
+		}
+	}
+
 	if len(skippedLinkIDs) > 0 {
-		_, _ = out.Write([]byte("linkStyle " + strings.Join(skippedLinkIDs, ",") + " stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;"))
+		_, _ = out.Write([]byte("linkStyle " + strings.Join(skippedLinkIDs, ",") + " stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;\n"))
 	}
 
 	return nil
