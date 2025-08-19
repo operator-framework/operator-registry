@@ -2,6 +2,7 @@ package declcfg
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -65,6 +66,14 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			//   DO NOT use it for any public-facing functionalities.
 			//   This API is in alpha stage and it is subject to change.
 			Properties: c.Properties,
+		}
+		for _, entry := range c.Entries {
+			// invalid if there is a skips edge which matches a replacement edge
+			if entry.Replaces != "" && len(entry.Skips) > 0 {
+				if slices.Contains(entry.Skips, entry.Replaces) {
+					return nil, fmt.Errorf("invalid package %q, channel %q: entry %q has identical replaces and skips: %q", c.Package, c.Name, entry.Name, entry.Replaces)
+				}
+			}
 		}
 
 		cde := sets.Set[string]{}
