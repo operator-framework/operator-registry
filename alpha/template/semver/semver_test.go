@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/blang/semver/v4"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -157,8 +158,8 @@ func TestLinkChannels(t *testing.T) {
 					Package: "a",
 					Entries: []declcfg.ChannelEntry{
 						{Name: "a-v1.1.0", Replaces: ""},
-						{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{"a-v1.1.0"}},
-						{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.2.1"}},
+						{Name: "a-v1.2.1", Replaces: "a-v1.1.0"},
+						{Name: "a-v1.3.1", Replaces: "a-v1.2.1"},
 					},
 				},
 				{
@@ -169,7 +170,7 @@ func TestLinkChannels(t *testing.T) {
 						{Name: "a-v2.1.0", Replaces: ""},
 						{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
 						{Name: "a-v2.3.1", Replaces: ""},
-						{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.1", "a-v2.3.1"}},
+						{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.3.1"}},
 					},
 				},
 			},
@@ -195,8 +196,8 @@ func TestLinkChannels(t *testing.T) {
 					Package: "a",
 					Entries: []declcfg.ChannelEntry{
 						{Name: "a-v1.1.0", Replaces: ""},
-						{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{"a-v1.1.0"}},
-						{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.2.1"}},
+						{Name: "a-v1.2.1", Replaces: "a-v1.1.0"},
+						{Name: "a-v1.3.1", Replaces: "a-v1.2.1"},
 					},
 				},
 				{
@@ -229,8 +230,8 @@ func TestLinkChannels(t *testing.T) {
 					Package: "a",
 					Entries: []declcfg.ChannelEntry{
 						{Name: "a-v1.1.0", Replaces: ""},
-						{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{"a-v1.1.0"}},
-						{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.2.1"}},
+						{Name: "a-v1.2.1", Replaces: "a-v1.1.0"},
+						{Name: "a-v1.3.1", Replaces: "a-v1.2.1"},
 					},
 				},
 				{
@@ -240,7 +241,7 @@ func TestLinkChannels(t *testing.T) {
 					Entries: []declcfg.ChannelEntry{
 						{Name: "a-v2.1.0", Replaces: ""},
 						{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
-						{Name: "a-v2.3.1", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.1"}},
+						{Name: "a-v2.3.1", Replaces: "a-v2.1.1"},
 					},
 				},
 			},
@@ -250,7 +251,10 @@ func TestLinkChannels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sv := &semverTemplate{pkg: "a", GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels}
-			require.ElementsMatch(t, tt.out, sv.linkChannels(tt.unlinkedChannels, &channelOperatorVersions))
+			diff := cmp.Diff(tt.out, sv.linkChannels(tt.unlinkedChannels, &channelOperatorVersions))
+			if diff != "" {
+				t.Errorf("unexpected channel diff (-expected +received):\n%s", diff)
+			}
 		})
 	}
 }
@@ -294,13 +298,13 @@ func TestGenerateChannels(t *testing.T) {
 			Package: "a",
 			Entries: []declcfg.ChannelEntry{
 				{Name: "a-v1.1.0", Replaces: ""},
-				{Name: "a-v1.2.1", Replaces: "a-v1.1.0", Skips: []string{"a-v1.1.0"}},
+				{Name: "a-v1.2.1", Replaces: "a-v1.1.0"},
 				{Name: "a-v1.3.1-alpha", Replaces: ""},
 				{Name: "a-v1.3.1-beta", Replaces: ""},
-				{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.2.1", "a-v1.3.1-alpha", "a-v1.3.1-beta"}},
+				{Name: "a-v1.3.1", Replaces: "a-v1.2.1", Skips: []string{"a-v1.3.1-alpha", "a-v1.3.1-beta"}},
 				{Name: "a-v1.4.1-beta1", Replaces: ""},
 				{Name: "a-v1.4.1-beta2", Replaces: ""},
-				{Name: "a-v1.4.1", Replaces: "a-v1.3.1", Skips: []string{"a-v1.3.1", "a-v1.4.1-beta1", "a-v1.4.1-beta2"}},
+				{Name: "a-v1.4.1", Replaces: "a-v1.3.1", Skips: []string{"a-v1.4.1-beta1", "a-v1.4.1-beta2"}},
 			},
 		},
 		{
@@ -311,7 +315,7 @@ func TestGenerateChannels(t *testing.T) {
 				{Name: "a-v2.1.0", Replaces: ""},
 				{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
 				{Name: "a-v2.3.1", Replaces: ""},
-				{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.1", "a-v2.3.1"}},
+				{Name: "a-v2.3.2", Replaces: "a-v2.1.1", Skips: []string{"a-v2.3.1"}},
 			},
 		},
 		{
