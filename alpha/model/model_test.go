@@ -130,44 +130,139 @@ func TestValidReplacesChain(t *testing.T) {
 		{
 			name: "Success/Valid",
 			ch: Channel{Bundles: map[string]*Bundle{
-				"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
-				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Skips: []string{"anakin.v0.0.1"}},
-				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
-				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.1":     {Name: "anakin.v0.0.1", Replaces: "anakin.v0.0.1-alpha1"},
+				"anakin.v0.0.2-rc1": {Name: "anakin.v0.0.2-rc1"},
+				"anakin.v0.0.2":     {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1", Skips: []string{"anakin.v0.0.2-beta1", "anakin.v0.0.2-rc1"}},
+				"anakin.v0.0.3":     {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4":     {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
 			}},
 			assertion: require.NoError,
 		},
 		{
-			name: "Error/CycleNoHops",
+			name: "Error/CycleNoHopsReplaces",
 			ch: Channel{Bundles: map[string]*Bundle{
-				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.4"},
-				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Replaces: "anakin.v0.0.4"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.4"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4"},
 			}},
-			assertion: hasError(`detected cycle in replaces chain of upgrade graph: anakin.v0.0.4 -> anakin.v0.0.4`),
+			assertion: hasError(`anakin.v0.0.4 -> anakin.v0.0.4`),
 		},
 		{
-			name: "Error/CycleMultipleHops",
+			name: "Error/CycleNoHopsSkips",
 			ch: Channel{Bundles: map[string]*Bundle{
-				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Replaces: "anakin.v0.0.3"},
-				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1"},
-				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2"},
-				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Skips: []string{"anakin.v0.0.4"}},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4"},
 			}},
-			assertion: hasError(`detected cycle in replaces chain of upgrade graph: anakin.v0.0.3 -> anakin.v0.0.2 -> anakin.v0.0.1 -> anakin.v0.0.3`),
+			assertion: hasError(`anakin.v0.0.4 -> anakin.v0.0.4`),
 		},
 		{
-			name: "Error/Stranded",
+			name: "Error/CycleMultipleHopsAllReplaces",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Replaces: "anakin.v0.0.4"},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3"},
+			}},
+			assertion: hasError(`anakin.v0.0.4 -> anakin.v0.0.1 -> anakin.v0.0.2 -> anakin.v0.0.3 -> anakin.v0.0.4`),
+		},
+		{
+			name: "Error/CycleMultipleHopsTailSkips",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Skips: []string{"anakin.v0.0.3"}},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4"},
+			}},
+			assertion: hasError(`anakin.v0.0.3 -> anakin.v0.0.1 -> anakin.v0.0.2 -> anakin.v0.0.3`),
+		},
+		{
+			name: "Error/CycleMultipleHopsAllSkipsNotCyclic",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Skips: []string{"anakin.v0.0.7"}},
+				"anakin.v0.0.6": {Name: "anakin.v0.0.6", Version: semver.MustParse("0.0.6"), Skips: []string{"anakin.v0.0.5"}},
+				"anakin.v0.0.7": {Name: "anakin.v0.0.7", Version: semver.MustParse("0.0.7"), Skips: []string{"anakin.v0.0.6"}},
+				"anakin.v0.0.8": {Name: "anakin.v0.0.8", Version: semver.MustParse("0.0.8"), Skips: []string{"anakin.v0.0.7"}},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.5, anakin.v0.0.6`),
+		},
+		{
+			name: "Error/MultipleSeparateCycles",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1", Skips: []string{"anakin.v0.0.4"}},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4", Skips: []string{"anakin.v0.0.7"}},
+				"anakin.v0.0.6": {Name: "anakin.v0.0.6", Version: semver.MustParse("0.0.6"), Replaces: "anakin.v0.0.5"},
+				"anakin.v0.0.7": {Name: "anakin.v0.0.7", Version: semver.MustParse("0.0.7"), Replaces: "anakin.v0.0.6"},
+				"anakin.v0.0.8": {Name: "anakin.v0.0.8", Version: semver.MustParse("0.0.8"), Replaces: "anakin.v0.0.7"},
+			}},
+			assertion: func(t require.TestingT, err error, _ ...interface{}) {
+				hasError(`anakin.v0.0.4 -> anakin.v0.0.2 -> anakin.v0.0.3 -> anakin.v0.0.4`)(t, err)
+				hasError(`anakin.v0.0.7 -> anakin.v0.0.5 -> anakin.v0.0.6 -> anakin.v0.0.7`)(t, err)
+			},
+		},
+		{
+			name: "Error/MultipleCyclesFromTheSameNode",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Replaces: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3"},
+			}},
+			assertion: func(t require.TestingT, err error, _ ...interface{}) {
+				hasError(`anakin.v0.0.3 -> anakin.v0.0.1 -> anakin.v0.0.2 -> anakin.v0.0.3`)(t, err)
+				hasError(`anakin.v0.0.2 -> anakin.v0.0.1 -> anakin.v0.0.2`)(t, err)
+			},
+		},
+		{
+			name: "Error/StrandedSkipsBeforeReplaces",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4", Skips: []string{"anakin.v0.0.3"}},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1, anakin.v0.0.2`),
+		},
+		{
+			name: "Error/StrandedSkipsWithReplaces",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.3"}},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Replaces: "anakin.v0.0.4"},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1, anakin.v0.0.2`),
+		},
+		{
+			name: "Error/StrandingIsCommutative",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.2"), Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Version: semver.MustParse("0.0.3"), Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Version: semver.MustParse("0.0.4"), Replaces: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Version: semver.MustParse("0.0.5"), Skips: []string{"anakin.v0.0.4"}},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1, anakin.v0.0.2, anakin.v0.0.3`),
+		},
+		{
+			name: "Success/StrandedSkipsTheTail",
 			ch: Channel{Bundles: map[string]*Bundle{
 				"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
-				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1"},
-				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Skips: []string{"anakin.v0.0.2"}},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1", Skips: []string{"anakin.v0.0.1"}},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2"},
+				"anakin.v0.0.4": {Name: "anakin.v0.0.4", Replaces: "anakin.v0.0.3"},
+				"anakin.v0.0.5": {Name: "anakin.v0.0.5", Replaces: "anakin.v0.0.4"},
 			}},
-			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1`),
+			assertion: require.NoError,
 		},
 	}
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
-			err := s.ch.validateReplacesChain()
+			err := s.ch.validateUpgradeGraph()
 			s.assertion(t, err)
 		})
 	}
@@ -196,7 +291,7 @@ func hasError(expectedError string) require.ErrorAssertionFunc {
 			}
 		}
 		t.Errorf("expected error to be or contain suberror `%s`, got `%s`", expectedError, actualError)
-		t.FailNow()
+		//t.FailNow()
 	}
 }
 
