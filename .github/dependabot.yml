@@ -16,7 +16,7 @@ updates:
       golang-x-deps:
         patterns:
           - "golang.org/x/*"
-  - package-exosystem: "docker"
+  - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "daily"
