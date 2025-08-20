@@ -1,9 +1,9 @@
 package model
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
+	libsemver "github.com/operator-framework/operator-registry/pkg/lib/semver"
 )
 
 type Deprecation struct {
@@ -187,38 +188,15 @@ type Channel struct {
 	Properties []property.Property
 }
 
-// TODO(joelanford): This function determines the channel head by finding the bundle that has 0
-//
-//	incoming edges, based on replaces and skips. It also expects to find exactly one such bundle.
-//	Is this the correct algorithm?
+// Head  determines the channel head by finding the bundle that has 0 incoming edges,
+// based on replaces and skips. It also expects to find exactly one such bundle.
 func (c Channel) Head() (*Bundle, error) {
-	incoming := map[string]int{}
-	for _, b := range c.Bundles {
-		if b.Replaces != "" {
-			incoming[b.Replaces]++
-		}
-		for _, skip := range b.Skips {
-			incoming[skip]++
-		}
+	g := newGraph(&c)
+	head, err := g.head()
+	if err != nil {
+		return nil, err
 	}
-	var heads []*Bundle
-	for _, b := range c.Bundles {
-		if _, ok := incoming[b.Name]; !ok {
-			heads = append(heads, b)
-		}
-	}
-	if len(heads) == 0 {
-		return nil, fmt.Errorf("no channel head found in graph")
-	}
-	if len(heads) > 1 {
-		var headNames []string
-		for _, head := range heads {
-			headNames = append(headNames, head.Name)
-		}
-		sort.Strings(headNames)
-		return nil, fmt.Errorf("multiple channel heads found in graph: %s", strings.Join(headNames, ", "))
-	}
-	return heads[0], nil
+	return c.Bundles[head.bundle.Name], nil
 }
 
 func (c *Channel) Validate() error {
@@ -237,7 +215,7 @@ func (c *Channel) Validate() error {
 	}
 
 	if len(c.Bundles) > 0 {
-		if err := c.validateReplacesChain(); err != nil {
+		if err := c.validateUpgradeGraph(); err != nil {
 			result.subErrors = append(result.subErrors, err)
 		}
 	}
@@ -261,49 +239,18 @@ func (c *Channel) Validate() error {
 	return result.orNil()
 }
 
-// validateReplacesChain checks the replaces chain of a channel.
+// validateUpgradeGraph checks the replaces chain of a channel.
 // Specifically the following rules must be followed:
 //  1. There must be exactly 1 channel head.
-//  2. Beginning at the head, the replaces chain must reach all non-skipped entries.
-//     Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
-//  3. There must be no cycles in the replaces chain.
-//  4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
-func (c *Channel) validateReplacesChain() error {
-	head, err := c.Head()
-	if err != nil {
-		return err
-	}
-
-	allBundles := sets.NewString()
-	skippedBundles := sets.NewString()
-	for _, b := range c.Bundles {
-		allBundles = allBundles.Insert(b.Name)
-		skippedBundles = skippedBundles.Insert(b.Skips...)
-	}
-
-	chainFrom := map[string][]string{}
-	replacesChainFromHead := sets.NewString(head.Name)
-	cur := head
-	for cur != nil {
-		if _, ok := chainFrom[cur.Name]; !ok {
-			chainFrom[cur.Name] = []string{cur.Name}
-		}
-		for k := range chainFrom {
-			chainFrom[k] = append(chainFrom[k], cur.Replaces)
-		}
-		if replacesChainFromHead.Has(cur.Replaces) {
-			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
-		}
-		replacesChainFromHead = replacesChainFromHead.Insert(cur.Replaces)
-		cur = c.Bundles[cur.Replaces]
-	}
-
-	strandedBundles := allBundles.Difference(replacesChainFromHead).Difference(skippedBundles).List()
-	if len(strandedBundles) > 0 {
-		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
-	}
-
-	return nil
+//  2. Beginning at the head, the replaces chain traversal must reach all entries.
+//     Unreached entries are considered "stranded" and cause a channel to be invalid.
+//  3. Skipped entries are always leaf nodes. We never follow replaces or skips edges
+//     of skipped entries during replaces chain traversal.
+//  4. There must be no cycles in the replaces chain.
+//  5. The tail entry in the replaces chain is permitted to replace a non-existent entry.
+func (c *Channel) validateUpgradeGraph() error {
+	g := newGraph(c)
+	return g.validate()
 }
 
 type Bundle struct {
@@ -376,6 +323,26 @@ func (b *Bundle) Validate() error {
 	}
 
 	return result.orNil()
+}
+
+// Compare compares bundles by their "registry+v1" version. That is,
+// it compares their semver versions, but if the semver versions are
+// the same, it uses compares their build metadata as if the build
+// metadata was actually a pre-release.
+//
+// If there is an error trying to compare build metadata as a pre-release,
+// then a simple string comparison is made on the build metadata instead.
+func (b *Bundle) Compare(other *Bundle) int {
+	if v := b.Version.Compare(other.Version); v != 0 {
+		return v
+	}
+	if v, err := libsemver.BuildIdCompare(b.Version, other.Version); err == nil {
+		return v
+	}
+	return cmp.Compare(
+		strings.Join(b.Version.Build, "."),
+		strings.Join(other.Version.Build, "."),
+	)
 }
 
 type RelatedImage struct {
