@@ -527,35 +527,40 @@ func TestWriteMermaidChannels(t *testing.T) {
 			packageFilter: "",
 			expected: `graph LR
   classDef deprecated fill:#E8960F
+  classDef skipped stroke:#FF0000,stroke-width:4px
+  classDef deprecatedskipped fill:#E8960F,stroke:#FF0000,stroke-width:4px
   %% package "anakin"
   subgraph "anakin"
     %% channel "dark"
     subgraph anakin-dark["dark"]
-      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]:::deprecated
+      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
       anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
-      anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
-      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
-      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.0.1["anakin.v0.0.1"]
     end
     %% channel "light"
     subgraph anakin-light["light"]
-      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]:::deprecated
       anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-light-anakin.v0.0.1["anakin.v0.0.1"]-- replace --> anakin-light-anakin.v0.1.0["anakin.v0.1.0"]
+      anakin-light-anakin.v0.0.1["anakin.v0.0.1"]
     end
   end
   %% package "boba-fett"
   subgraph "boba-fett"
     %% channel "mando"
     subgraph boba-fett-mando["mando"]
-      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
       boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
       boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
     end
   end
 style anakin fill:#989695
 style anakin-light fill:#DCD0FF
+class anakin-dark-anakin.v0.0.1,anakin-light-anakin.v0.0.1 deprecated
+class anakin-dark-anakin.v0.1.0 skipped
+linkStyle 2 stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;
 `,
 		},
 		{
@@ -565,13 +570,15 @@ style anakin-light fill:#DCD0FF
 			packageFilter: "",
 			expected: `graph LR
   classDef deprecated fill:#E8960F
+  classDef skipped stroke:#FF0000,stroke-width:4px
+  classDef deprecatedskipped fill:#E8960F,stroke:#FF0000,stroke-width:4px
   %% package "anakin"
   subgraph "anakin"
     %% channel "dark"
     subgraph anakin-dark["dark"]
-      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
       anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
       anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]-- skip --> anakin-dark-anakin.v0.1.1["anakin.v0.1.1"]
+      anakin-dark-anakin.v0.1.0["anakin.v0.1.0"]
     end
     %% channel "light"
     subgraph anakin-light["light"]
@@ -580,6 +587,7 @@ style anakin-light fill:#DCD0FF
   end
 style anakin fill:#989695
 style anakin-light fill:#DCD0FF
+class anakin-dark-anakin.v0.1.0 skipped
 `,
 		},
 		{
@@ -589,13 +597,15 @@ style anakin-light fill:#DCD0FF
 			packageFilter: "boba-fett",
 			expected: `graph LR
   classDef deprecated fill:#E8960F
+  classDef skipped stroke:#FF0000,stroke-width:4px
+  classDef deprecatedskipped fill:#E8960F,stroke:#FF0000,stroke-width:4px
   %% package "boba-fett"
   subgraph "boba-fett"
     %% channel "mando"
     subgraph boba-fett-mando["mando"]
-      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
       boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
       boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]-- replace --> boba-fett-mando-boba-fett.v2.0.0["boba-fett.v2.0.0"]
+      boba-fett-mando-boba-fett.v1.0.0["boba-fett.v1.0.0"]
     end
   end
 `,

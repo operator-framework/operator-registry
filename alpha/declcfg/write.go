@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -20,6 +21,7 @@ import (
 type MermaidWriter struct {
 	MinEdgeName          string
 	SpecifiedPackageName string
+	DrawV0Semantics      bool
 }
 
 type MermaidOption func(*MermaidWriter)
@@ -32,6 +34,7 @@ func NewMermaidWriter(opts ...MermaidOption) *MermaidWriter {
 	m := &MermaidWriter{
 		MinEdgeName:          minEdgeName,
 		SpecifiedPackageName: specifiedPackageName,
+		DrawV0Semantics:      true,
 	}
 
 	for _, opt := range opts {
@@ -49,6 +52,12 @@ func WithMinEdgeName(minEdgeName string) MermaidOption {
 func WithSpecifiedPackageName(specifiedPackageName string) MermaidOption {
 	return func(o *MermaidWriter) {
 		o.SpecifiedPackageName = specifiedPackageName
+	}
+}
+
+func WithV0Semantics(drawV0Semantics bool) MermaidOption {
+	return func(o *MermaidWriter) {
+		o.DrawV0Semantics = drawV0Semantics
 	}
 }
 
@@ -124,7 +133,10 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 	}
 
 	var deprecatedPackage string
-	deprecatedChannels := []string{}
+	deprecatedChannelIDs := []string{}
+	decoratedBundleIDs := map[string][]string{"deprecated": {}, "skipped": {}, "deprecatedskipped": {}}
+	linkID := 0
+	skippedLinkIDs := []string{}
 
 	for _, c := range cfg.Channels {
 		filteredChannel := writer.filterChannel(&c, versionMap, minVersion, minEdgePackage)
@@ -137,58 +149,102 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			}
 
 			channelID := fmt.Sprintf("%s-%s", filteredChannel.Package, filteredChannel.Name)
-			pkgBuilder.WriteString(fmt.Sprintf("    %%%% channel %q\n", filteredChannel.Name))
-			pkgBuilder.WriteString(fmt.Sprintf("    subgraph %s[%q]\n", channelID, filteredChannel.Name))
+			fmt.Fprintf(pkgBuilder, "    %%%% channel %q\n", filteredChannel.Name)
+			fmt.Fprintf(pkgBuilder, "    subgraph %s[%q]\n", channelID, filteredChannel.Name)
 
 			if depByPackage.Has(filteredChannel.Package) {
 				deprecatedPackage = filteredChannel.Package
 			}
 
 			if depByChannel.Has(filteredChannel.Name) {
-				deprecatedChannels = append(deprecatedChannels, channelID)
+				deprecatedChannelIDs = append(deprecatedChannelIDs, channelID)
 			}
 
-			for _, ce := range filteredChannel.Entries {
-				if versionMap[ce.Name].GE(minVersion) {
-					bundleDeprecation := ""
-					if depByBundle.Has(ce.Name) {
-						bundleDeprecation = ":::deprecated"
-					}
+			// sort edges by decreasing version
+			sortedEntries := make([]*ChannelEntry, 0, len(filteredChannel.Entries))
+			for i := range filteredChannel.Entries {
+				sortedEntries = append(sortedEntries, &filteredChannel.Entries[i])
+			}
+			sort.Slice(sortedEntries, func(i, j int) bool {
+				// Sort by decreasing version: greater version comes first
+				return versionMap[sortedEntries[i].Name].GT(versionMap[sortedEntries[j].Name])
+			})
 
-					entryID := fmt.Sprintf("%s-%s", channelID, ce.Name)
-					pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]%s\n", entryID, ce.Name, bundleDeprecation))
+			skippedEntities := sets.Set[string]{}
 
-					if len(ce.Replaces) > 0 {
-						replacesID := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
-						pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", replacesID, ce.Replaces, "replace", entryID, ce.Name))
-					}
-					if len(ce.Skips) > 0 {
-						for _, s := range ce.Skips {
-							skipsID := fmt.Sprintf("%s-%s", channelID, s)
-							pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- %s --> %s[%q]\n", skipsID, s, "skip", entryID, ce.Name))
-						}
-					}
-					if len(ce.SkipRange) > 0 {
-						skipRange, err := semver.ParseRange(ce.SkipRange)
-						if err == nil {
-							for _, edgeName := range filteredChannel.Entries {
-								if skipRange(versionMap[edgeName.Name]) {
-									skipRangeID := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
-									pkgBuilder.WriteString(fmt.Sprintf("      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeID, edgeName.Name, "skipRange", ce.SkipRange, entryID, ce.Name))
-								}
-							}
+			const (
+				captureNewEntry = true
+				processExisting = false
+			)
+			handleSemantics := func(edge string, linkID int, captureNew bool) {
+				if writer.DrawV0Semantics {
+					if captureNew {
+						if skippedEntities.Has(edge) {
+							skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
 						} else {
-							fmt.Fprintf(os.Stderr, "warning: ignoring invalid SkipRange for package/edge %q/%q: %v\n", c.Package, ce.Name, err)
+							skippedEntities.Insert(edge)
+						}
+					} else {
+						if skippedEntities.Has(edge) {
+							skippedLinkIDs = append(skippedLinkIDs, fmt.Sprintf("%d", linkID))
 						}
 					}
 				}
 			}
-			pkgBuilder.WriteString("    end\n")
+
+			for _, ce := range sortedEntries {
+				entryID := fmt.Sprintf("%s-%s", channelID, ce.Name)
+				fmt.Fprintf(pkgBuilder, "      %s[%q]\n", entryID, ce.Name)
+
+				// mermaid allows specification of only a single decoration class, so any combinations must be independently represented
+				switch {
+				case depByBundle.Has(ce.Name) && skippedEntities.Has(ce.Name):
+					decoratedBundleIDs["deprecatedskipped"] = append(decoratedBundleIDs["deprecatedskipped"], entryID)
+				case depByBundle.Has(ce.Name):
+					decoratedBundleIDs["deprecated"] = append(decoratedBundleIDs["deprecated"], entryID)
+				case skippedEntities.Has(ce.Name):
+					decoratedBundleIDs["skipped"] = append(decoratedBundleIDs["skipped"], entryID)
+				}
+
+				if len(ce.Skips) > 0 {
+					for _, s := range ce.Skips {
+						skipsID := fmt.Sprintf("%s-%s", channelID, s)
+						fmt.Fprintf(pkgBuilder, "      %s[%q]-- %s --> %s[%q]\n", skipsID, s, "skip", entryID, ce.Name)
+						handleSemantics(s, linkID, captureNewEntry)
+						linkID++
+					}
+				}
+				if len(ce.SkipRange) > 0 {
+					skipRange, err := semver.ParseRange(ce.SkipRange)
+					if err == nil {
+						for _, edgeName := range filteredChannel.Entries {
+							if skipRange(versionMap[edgeName.Name]) {
+								skipRangeID := fmt.Sprintf("%s-%s", channelID, edgeName.Name)
+								fmt.Fprintf(pkgBuilder, "      %s[%q]-- \"%s(%s)\" --> %s[%q]\n", skipRangeID, edgeName.Name, "skipRange", ce.SkipRange, entryID, ce.Name)
+								handleSemantics(ce.Name, linkID, processExisting)
+								linkID++
+							}
+						}
+					} else {
+						fmt.Fprintf(os.Stderr, "warning: ignoring invalid SkipRange for package/edge %q/%q: %v\n", c.Package, ce.Name, err)
+					}
+				}
+				// have to process replaces last, because applicablity can be impacted by skips
+				if len(ce.Replaces) > 0 {
+					replacesID := fmt.Sprintf("%s-%s", channelID, ce.Replaces)
+					fmt.Fprintf(pkgBuilder, "      %s[%q]-- %s --> %s[%q]\n", replacesID, ce.Replaces, "replace", entryID, ce.Name)
+					handleSemantics(ce.Name, linkID, processExisting)
+					linkID++
+				}
+			}
+			fmt.Fprintf(pkgBuilder, "    end\n")
 		}
 	}
 
 	_, _ = out.Write([]byte("graph LR\n"))
 	_, _ = out.Write([]byte("  classDef deprecated fill:#E8960F\n"))
+	_, _ = out.Write([]byte("  classDef skipped stroke:#FF0000,stroke-width:4px\n"))
+	_, _ = out.Write([]byte("  classDef deprecatedskipped fill:#E8960F,stroke:#FF0000,stroke-width:4px\n"))
 	pkgNames := []string{}
 	for pname := range pkgs {
 		pkgNames = append(pkgNames, pname)
@@ -197,20 +253,33 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		return pkgNames[i] < pkgNames[j]
 	})
 	for _, pkgName := range pkgNames {
-		_, _ = out.Write([]byte(fmt.Sprintf("  %%%% package %q\n", pkgName)))
-		_, _ = out.Write([]byte(fmt.Sprintf("  subgraph %q\n", pkgName)))
+		_, _ = fmt.Fprintf(out, "  %%%% package %q\n", pkgName)
+		_, _ = fmt.Fprintf(out, "  subgraph %q\n", pkgName)
 		_, _ = out.Write([]byte(pkgs[pkgName].String()))
 		_, _ = out.Write([]byte("  end\n"))
 	}
 
 	if deprecatedPackage != "" {
-		_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+		_, _ = fmt.Fprintf(out, "style %s fill:#989695\n", deprecatedPackage)
 	}
 
-	if len(deprecatedChannels) > 0 {
-		for _, deprecatedChannel := range deprecatedChannels {
-			_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
+	if len(deprecatedChannelIDs) > 0 {
+		for _, deprecatedChannel := range deprecatedChannelIDs {
+			_, _ = fmt.Fprintf(out, "style %s fill:#DCD0FF\n", deprecatedChannel)
 		}
+	}
+
+	// express the decoration classes
+	for key := range decoratedBundleIDs {
+		if len(decoratedBundleIDs[key]) > 0 {
+			b := slices.Clone(decoratedBundleIDs[key])
+			slices.Sort(b)
+			_, _ = fmt.Fprintf(out, "class %s %s\n", strings.Join(b, ","), key)
+		}
+	}
+
+	if len(skippedLinkIDs) > 0 {
+		_, _ = fmt.Fprintf(out, "linkStyle %s %s\n", strings.Join(skippedLinkIDs, ","), "stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;")
 	}
 
 	return nil

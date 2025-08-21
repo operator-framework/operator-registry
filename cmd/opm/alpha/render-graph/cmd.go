@@ -18,6 +18,7 @@ func NewCmd() *cobra.Command {
 		render               action.Render
 		minEdge              string
 		specifiedPackageName string
+		drawV0Semantics      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "render-graph [index-image | fbc-dir]",
@@ -67,7 +68,10 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 				log.Fatal(err)
 			}
 
-			writer := declcfg.NewMermaidWriter(declcfg.WithMinEdgeName(minEdge), declcfg.WithSpecifiedPackageName(specifiedPackageName))
+			writer := declcfg.NewMermaidWriter(
+				declcfg.WithMinEdgeName(minEdge),
+				declcfg.WithSpecifiedPackageName(specifiedPackageName),
+				declcfg.WithV0Semantics(drawV0Semantics))
 			if err := writer.WriteChannels(*cfg, os.Stdout); err != nil {
 				log.Fatal(err)
 			}
@@ -75,5 +79,6 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 	}
 	cmd.Flags().StringVar(&minEdge, "minimum-edge", "", "the channel edge to be used as the lower bound of the set of edges composing the upgrade graph; default is to include all edges")
 	cmd.Flags().StringVarP(&specifiedPackageName, "package-name", "p", "", "a specific package name to filter output; default is to include all packages in reference")
+	cmd.Flags().BoolVar(&drawV0Semantics, "draw-v0-semantics", false, "whether to indicate OLMv0 semantics in the output; default is to simply represent the upgrade graph")
 	return cmd
 }
