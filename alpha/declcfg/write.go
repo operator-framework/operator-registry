@@ -253,19 +253,19 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		return pkgNames[i] < pkgNames[j]
 	})
 	for _, pkgName := range pkgNames {
-		_, _ = out.Write([]byte(fmt.Sprintf("  %%%% package %q\n", pkgName)))
-		_, _ = out.Write([]byte(fmt.Sprintf("  subgraph %q\n", pkgName)))
+		_, _ = fmt.Fprintf(out, "  %%%% package %q\n", pkgName)
+		_, _ = fmt.Fprintf(out, "  subgraph %q\n", pkgName)
 		_, _ = out.Write([]byte(pkgs[pkgName].String()))
 		_, _ = out.Write([]byte("  end\n"))
 	}
 
 	if deprecatedPackage != "" {
-		_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#989695\n", deprecatedPackage)))
+		_, _ = fmt.Fprintf(out, "style %s fill:#989695\n", deprecatedPackage)
 	}
 
 	if len(deprecatedChannelIDs) > 0 {
 		for _, deprecatedChannel := range deprecatedChannelIDs {
-			_, _ = out.Write([]byte(fmt.Sprintf("style %s fill:#DCD0FF\n", deprecatedChannel)))
+			_, _ = fmt.Fprintf(out, "style %s fill:#DCD0FF\n", deprecatedChannel)
 		}
 	}
 
@@ -274,12 +274,12 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		if len(decoratedBundleIDs[key]) > 0 {
 			b := slices.Clone(decoratedBundleIDs[key])
 			slices.Sort(b)
-			_, _ = out.Write([]byte(fmt.Sprintf("class %s %s\n", strings.Join(b, ","), key)))
+			_, _ = fmt.Fprintf(out, "class %s %s\n", strings.Join(b, ","), key)
 		}
 	}
 
 	if len(skippedLinkIDs) > 0 {
-		_, _ = out.Write([]byte("linkStyle " + strings.Join(skippedLinkIDs, ",") + " stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;\n"))
+		_, _ = fmt.Fprintf(out, "linkStyle %s %s\n", strings.Join(skippedLinkIDs, ","), "stroke:#FF0000,stroke-width:3px,stroke-dasharray:5;")
 	}
 
 	return nil

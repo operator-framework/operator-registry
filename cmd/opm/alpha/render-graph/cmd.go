@@ -18,7 +18,7 @@ func NewCmd() *cobra.Command {
 		render               action.Render
 		minEdge              string
 		specifiedPackageName string
-		drawV0Semantics   bool
+		drawV0Semantics      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "render-graph [index-image | fbc-dir]",
