@@ -43,7 +43,7 @@ func Test_fsToTar(t *testing.T) {
 				require.NoError(t, err)
 				hasher := fnv.New64a()
 				hasher.Write(i)
-				require.Equal(t, "6f9eec5b366c557f", fmt.Sprintf("%x", hasher.Sum(nil)))
+				require.Equal(t, "70c49ff8bb3476b0", fmt.Sprintf("%x", hasher.Sum(nil)))
 			},
 		},
 	}

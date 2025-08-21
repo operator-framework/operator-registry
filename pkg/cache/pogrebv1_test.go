@@ -28,7 +28,7 @@ func TestPogrebV1_StableDigest(t *testing.T) {
 	//
 	// If validFS needs to change DO NOT CHANGE the json cache implementation
 	// in the same pull request.
-	require.Equal(t, "485a767449dd66d4", actualDigest)
+	require.Equal(t, "badb5551e9b35e68", actualDigest)
 }
 
 func TestPogrebV1_CheckIntegrity(t *testing.T) {

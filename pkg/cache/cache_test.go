@@ -402,7 +402,7 @@ var validFS = fstest.MapFS{
 	"name": "clusterwide-alpha",
 	"entries": [
 		{"name": "etcdoperator.v0.9.0"},
-		{"name": "etcdoperator.v0.9.2-clusterwide", "replaces": "etcdoperator.v0.9.0", "skips": ["etcdoperator.v0.6.1","etcdoperator.v0.9.0"], "skipRange": ">=0.9.0 <=0.9.1"},
+		{"name": "etcdoperator.v0.9.2-clusterwide", "replaces": "etcdoperator.v0.9.0", "skips": ["etcdoperator.v0.6.1"], "skipRange": ">=0.9.0 <=0.9.1"},
 		{"name": "etcdoperator.v0.9.4-clusterwide", "replaces": "etcdoperator.v0.9.2-clusterwide"}
 	]
 }

@@ -28,7 +28,7 @@ func TestJSON_StableDigest(t *testing.T) {
 	//
 	// If validFS needs to change DO NOT CHANGE the json cache implementation
 	// in the same pull request.
-	require.Equal(t, "9adad9ff6cf54e4f", actualDigest)
+	require.Equal(t, "563a1febb83cdbd6", actualDigest)
 }
 
 func TestJSON_CheckIntegrity(t *testing.T) {
