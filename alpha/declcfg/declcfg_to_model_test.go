@@ -442,22 +442,6 @@ func TestConvertToModel(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:      "Error/DuplicateSkipsReplaces",
-			assertion: hasError(`invalid package "foo", channel "alpha": entry "foo.v0.1.0" has identical replaces and skips: "foo.v0.0.1"`),
-			cfg: DeclarativeConfig{
-				Packages: []Package{
-					addPackageProperties(
-						newTestPackage("foo", "alpha", svgSmallCircle),
-						[]property.Property{
-							{Type: "owner", Value: json.RawMessage("{\"group\":\"abc.com\",\"name\":\"admin\"}")},
-						},
-					),
-				},
-				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0", Replaces: "foo.v0.0.1", Skips: []string{"foo.v0.0.1"}})},
-				Bundles:  []Bundle{newTestBundle("foo", "0.1.0")},
-			},
-		},
 	}
 
 	for _, s := range specs {

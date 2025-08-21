@@ -164,7 +164,15 @@ func TestValidReplacesChain(t *testing.T) {
 			}},
 			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1`),
 		},
-	}
+		{
+			name: "Error/SkippedReplacesStranded",
+			ch: Channel{Bundles: map[string]*Bundle{
+				"anakin.v0.0.1": {Name: "anakin.v0.0.1"},
+				"anakin.v0.0.2": {Name: "anakin.v0.0.2", Replaces: "anakin.v0.0.1"},
+				"anakin.v0.0.3": {Name: "anakin.v0.0.3", Replaces: "anakin.v0.0.2", Skips: []string{"anakin.v0.0.2"}},
+			}},
+			assertion: hasError(`channel contains one or more stranded bundles: anakin.v0.0.1`),
+		}}
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			err := s.ch.validateReplacesChain()
