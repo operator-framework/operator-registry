@@ -1,8 +1,10 @@
 package model
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -261,49 +263,232 @@ func (c *Channel) Validate() error {
 	return result.orNil()
 }
 
-// validateReplacesChain checks the replaces chain of a channel.
-// Specifically the following rules must be followed:
-//  1. There must be exactly 1 channel head.
-//  2. Beginning at the head, the replaces chain must reach all non-skipped entries.
-//     Non-skipped entries are defined as entries that are not skipped by any other entry in the channel.
-//  3. There must be no cycles in the replaces chain.
-//  4. The tail entry in the replaces chain is permitted to replace a non-existent entry.
-func (c *Channel) validateReplacesChain() error {
-	head, err := c.Head()
+type node struct {
+	name       string
+	version    semver.Version
+	replacedBy map[string]*node
+	replaces   *node
+	skippedBy  map[string]*node
+	skips      map[string]*node
+	skipRange  string
+	hasEntry   bool
+}
+
+type graph struct {
+	nodes map[string]*node
+}
+
+func newGraph(c *Channel) *graph {
+	nodes := map[string]*node{}
+	for _, b := range c.Bundles {
+		nodes[b.Name] = &node{
+			name:       b.Name,
+			version:    b.Version,
+			skipRange:  b.SkipRange,
+			replacedBy: make(map[string]*node),
+			skippedBy:  make(map[string]*node),
+			skips:      make(map[string]*node),
+		}
+	}
+
+	for _, b := range c.Bundles {
+		n := nodes[b.Name]
+
+		if b.Replaces != "" {
+			replaces, ok := nodes[b.Replaces]
+			if !ok {
+				replaces = &node{
+					name:       b.Replaces,
+					replacedBy: make(map[string]*node),
+					hasEntry:   false,
+				}
+				nodes[b.Replaces] = replaces
+			}
+			n.replaces = replaces
+			n.replaces.replacedBy[n.name] = n
+		}
+
+		for _, skipName := range b.Skips {
+			skip, ok := nodes[skipName]
+			if !ok {
+				skip = &node{
+					name:      skipName,
+					skippedBy: make(map[string]*node),
+					skips:     make(map[string]*node),
+					hasEntry:  false,
+				}
+			}
+			skip.skippedBy[b.Name] = n
+			n.skips[skipName] = skip
+		}
+	}
+
+	return &graph{
+		nodes: nodes,
+	}
+}
+
+func (g *graph) validate() error {
+	result := newValidationError("invalid upgrade graph")
+	if err := g.validateNoCycles(); err != nil {
+		result.subErrors = append(result.subErrors, err)
+	}
+	if err := g.validateNoStranded(); err != nil {
+		result.subErrors = append(result.subErrors, err)
+	}
+	return result.orNil()
+}
+
+func (g *graph) validateNoCycles() error {
+	result := newValidationError("cycles found in graph")
+	allCycles := [][]*node{}
+	for _, n := range g.nodes {
+		ancestors := map[string]*node{}
+		maps.Copy(ancestors, n.replacedBy)
+		maps.Copy(ancestors, n.skippedBy)
+		allCycles = append(allCycles, paths([]*node{n}, ancestors, n)...)
+	}
+	dedupPaths(&allCycles)
+	for _, cycle := range allCycles {
+		cycleStr := strings.Join(mapSlice(cycle, nodeName), " -> ")
+		result.subErrors = append(result.subErrors, errors.New(cycleStr))
+	}
+
+	return result.orNil()
+}
+
+func (g *graph) validateNoStranded() error {
+	head, err := g.head()
 	if err != nil {
 		return err
 	}
+	all := sets.New[*node](maps.Values(g.nodes)...)
+	chain := sets.New[*node]()
+	skipped := sets.New[*node]()
 
-	allBundles := sets.NewString()
-	skippedBundles := sets.NewString()
-	for _, b := range c.Bundles {
-		allBundles = allBundles.Insert(b.Name)
-		skippedBundles = skippedBundles.Insert(b.Skips...)
-	}
-
-	chainFrom := map[string][]string{}
-	replacesChainFromHead := sets.NewString(head.Name)
 	cur := head
-	for cur != nil {
-		if _, ok := chainFrom[cur.Name]; !ok {
-			chainFrom[cur.Name] = []string{cur.Name}
-		}
-		for k := range chainFrom {
-			chainFrom[k] = append(chainFrom[k], cur.Replaces)
-		}
-		if replacesChainFromHead.Has(cur.Replaces) {
-			return fmt.Errorf("detected cycle in replaces chain of upgrade graph: %s", strings.Join(chainFrom[cur.Replaces], " -> "))
-		}
-		replacesChainFromHead = replacesChainFromHead.Insert(cur.Replaces)
-		cur = c.Bundles[cur.Replaces]
+	for cur != nil && !skipped.Has(cur) && !chain.Has(cur) {
+		chain.Insert(cur)
+		skipped.Insert(maps.Values(cur.skips)...)
+		cur = cur.replaces
 	}
 
-	strandedBundles := allBundles.Difference(replacesChainFromHead).Difference(skippedBundles).List()
-	if len(strandedBundles) > 0 {
-		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedBundles, ", "))
+	stranded := all.Difference(chain).Difference(skipped)
+	if stranded.Len() > 0 {
+		strandedNames := mapSlice(stranded.UnsortedList(), func(n *node) string {
+			return n.name
+		})
+		slices.Sort(strandedNames)
+		return fmt.Errorf("channel contains one or more stranded bundles: %s", strings.Join(strandedNames, ", "))
 	}
 
 	return nil
+}
+
+func (g *graph) head() (*node, error) {
+	heads := []*node{}
+	for _, n := range g.nodes {
+		if len(n.replacedBy) == 0 && len(n.skippedBy) == 0 {
+			heads = append(heads, n)
+		}
+	}
+	if len(heads) == 0 {
+		return nil, fmt.Errorf("no channel head found in graph")
+	}
+	if len(heads) > 1 {
+		var headNames []string
+		for _, head := range heads {
+			headNames = append(headNames, head.name)
+		}
+		sort.Strings(headNames)
+		return nil, fmt.Errorf("multiple channel heads found in graph: %s", strings.Join(headNames, ", "))
+	}
+	return heads[0], nil
+}
+
+func nodeName(n *node) string {
+	return n.name
+}
+
+func mapSlice[I, O any](s []I, fn func(I) O) []O {
+	result := make([]O, 0, len(s))
+	for _, i := range s {
+		result = append(result, fn(i))
+	}
+	return result
+}
+
+func paths(existingPath []*node, froms map[string]*node, to *node) [][]*node {
+	if len(froms) == 0 {
+		// we never found a path to "to"
+		return nil
+	}
+	var allPaths [][]*node
+	for _, f := range froms {
+		path := append(slices.Clone(existingPath), f)
+		if f == to {
+			// we found "to"!
+			allPaths = append(allPaths, path)
+		} else {
+			allPaths = append(allPaths, paths(path, f.replacedBy, to)...)
+		}
+	}
+	return allPaths
+}
+
+// dedupPaths removes rotations of the same cycle.
+// For example there are three paths:
+//  1. a -> b -> c -> a
+//  2. b -> c -> a -> b
+//  3. c -> a -> b -> c
+//
+// These are all the same cycle, so we want to choose just one of them.
+// dedupPaths chooses to keep the one whose first node has the highest version.
+func dedupPaths(paths *[][]*node) {
+	slices.SortFunc(*paths, func(a, b []*node) int {
+		if v := cmp.Compare(len(a), len(b)); v != 0 {
+			return v
+		}
+		return b[0].version.Compare(a[0].version)
+	})
+	deleteIndices := sets.New[int]()
+	for i, path := range *paths {
+		for j, other := range (*paths)[i+1:] {
+			if isSameRotation(path, other) {
+				deleteIndices.Insert(j + i + 1)
+			}
+		}
+	}
+
+	toDelete := sets.List(deleteIndices)
+	slices.Reverse(toDelete)
+	for _, i := range toDelete {
+		(*paths) = slices.Delete(*paths, i, i+1)
+	}
+}
+
+func isSameRotation(a, b []*node) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aStr := strings.Join(mapSlice(a[:len(a)-1], nodeName), " -> ")
+	bStr := strings.Join(mapSlice(b[:len(b)-1], nodeName), " -> ")
+	aPlusA := aStr + " -> " + aStr
+	return strings.Contains(aPlusA, bStr)
+}
+
+// validateReplacesChain checks the replaces chain of a channel.
+// Specifically the following rules must be followed:
+//  1. There must be exactly 1 channel head.
+//  2. Beginning at the head, the replaces chain traversal must reach all entries.
+//     Unreached entries are considered "stranded" and cause a channel to be invalid.
+//  3. Skipped entries are always leaf nodes. We never follow replaces or skips edges
+//     of skipped entries during replaces chain traversal.
+//  4. There must be no cycles in the replaces chain.
+//  5. The tail entry in the replaces chain is permitted to replace a non-existent entry.
+func (c *Channel) validateReplacesChain() error {
+	g := newGraph(c)
+	return g.validate()
 }
 
 type Bundle struct {
