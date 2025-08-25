@@ -1,9 +1,11 @@
 package semver
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 
 	"github.com/blang/semver/v4"
@@ -283,8 +285,6 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 }
 
 func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, harvestedVersions *bundleVersions) []declcfg.Channel {
-	channels := []declcfg.Channel{}
-
 	// bundle --> version lookup
 	bundleVersions := make(map[string]semver.Version)
 	for _, vs := range *harvestedVersions {
@@ -295,6 +295,7 @@ func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Chan
 		}
 	}
 
+	channels := make([]declcfg.Channel, 0, len(unlinkedChannels))
 	for _, channel := range unlinkedChannels {
 		entries := &channel.Entries
 		sort.Slice(*entries, func(i, j int) bool {
@@ -349,6 +350,10 @@ func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Chan
 		}
 		channels = append(channels, *channel)
 	}
+
+	slices.SortFunc(channels, func(a, b declcfg.Channel) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 
 	return channels
 }
