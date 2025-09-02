@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -270,7 +271,8 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 	}
 
 	// express the decoration classes
-	for key := range decoratedBundleIDs {
+	sortedKeys := slices.Sorted(maps.Keys(decoratedBundleIDs))
+	for _, key := range sortedKeys {
 		if len(decoratedBundleIDs[key]) > 0 {
 			b := slices.Clone(decoratedBundleIDs[key])
 			slices.Sort(b)
