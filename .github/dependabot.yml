@@ -16,6 +16,9 @@ updates:
       golang-x-deps:
         patterns:
           - "golang.org/x/*"
+      spf13-deps:
+        patterns:
+          - "github.com/spf13/*"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
