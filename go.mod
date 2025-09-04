@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.7.28
 	github.com/containerd/errdefs v1.0.0
-	github.com/containers/common v0.64.1
+	github.com/containers/common v0.64.2
 	github.com/containers/image/v5 v5.36.2
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/distribution/reference v0.6.0
@@ -169,7 +169,7 @@ require (
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
-	github.com/ulikunitz/xz v0.5.14 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vbauerster/mpb/v8 v8.10.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
