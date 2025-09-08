@@ -18,9 +18,23 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
+// Schema
 const schema string = "olm.semver"
 
-// IO structs -- BEGIN
+// Template types
+
+// StreamType represents the type of version stream for channel generation
+type StreamType string
+
+const (
+	// DefaultStreamType represents an unspecified stream type
+	DefaultStreamType StreamType = ""
+	// MinorStreamType represents minor version channels (e.g., stable-v1.2)
+	MinorStreamType StreamType = "minor"
+	// MajorStreamType represents major version channels (e.g., stable-v1)
+	MajorStreamType StreamType = "major"
+)
+
 type bundleEntry struct {
 	Image string `json:"image,omitempty"`
 }
@@ -33,7 +47,7 @@ type SemverTemplateData struct {
 	Schema                       string         `json:"schema"`
 	GenerateMajorChannels        bool           `json:"generateMajorChannels,omitempty"`
 	GenerateMinorChannels        bool           `json:"generateMinorChannels,omitempty"`
-	DefaultChannelTypePreference streamType     `json:"defaultChannelTypePreference,omitempty"`
+	DefaultChannelTypePreference StreamType     `json:"defaultChannelTypePreference,omitempty"`
 	Candidate                    channelBundles `json:"candidate,omitempty"`
 	Fast                         channelBundles `json:"fast,omitempty"`
 	Stable                       channelBundles `json:"stable,omitempty"`
@@ -41,8 +55,6 @@ type SemverTemplateData struct {
 	pkg            string `json:"-"` // the derived package name
 	defaultChannel string `json:"-"` // detected "most stable" channel head
 }
-
-// IO structs -- END
 
 // semverTemplate implements the common template interface
 type semverTemplate struct {
@@ -55,6 +67,8 @@ func new(renderBundle api.BundleRenderer) api.Template {
 		renderBundle: renderBundle,
 	}
 }
+
+// Template functions
 
 // RenderBundle expands the bundle image reference into a DeclarativeConfig fragment.
 func (t *semverTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
@@ -109,18 +123,7 @@ func (t *semverTemplate) Schema() string {
 	return schema
 }
 
-// Factory represents the semver template factory
-type Factory struct{}
-
-// CreateTemplate creates a new template instance with the given RenderBundle function
-func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
-	return new(renderBundle)
-}
-
-// Schema returns the schema supported by this factory
-func (f *Factory) Schema() string {
-	return schema
-}
+// Helper functions
 
 // channel "archetypes", restricted in this iteration to just these
 type channelArchetype string
@@ -143,14 +146,8 @@ func (b byChannelPriority) Less(i, j int) bool {
 }
 func (b byChannelPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
-type streamType string
-
-const defaultStreamType streamType = ""
-const minorStreamType streamType = "minor"
-const majorStreamType streamType = "major"
-
 // general preference for minor channels
-var streamTypePriorities = map[streamType]int{minorStreamType: 2, majorStreamType: 1, defaultStreamType: 0}
+var streamTypePriorities = map[StreamType]int{MinorStreamType: 2, MajorStreamType: 1, DefaultStreamType: 0}
 
 // map of archetypes --> bundles --> bundle-version from the input file
 type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv["stable"]["example-operator.v1.0.0"] = 1.0.0
@@ -159,15 +156,39 @@ type bundleVersions map[channelArchetype]map[string]semver.Version // e.g. srcv[
 // later as the package's defaultChannel attribute
 type highwaterChannel struct {
 	archetype channelArchetype
-	kind      streamType
+	kind      StreamType
 	version   semver.Version
 	name      string
+}
+
+// prefer (in descending order of preference):
+// - higher-rank archetype,
+// - semver version,
+// - a channel type matching the set preference, or
+// - a 'better' (higher value) channel type
+func (h *highwaterChannel) gt(ih *highwaterChannel, pref StreamType) bool {
+	if channelPriorities[h.archetype] != channelPriorities[ih.archetype] {
+		return channelPriorities[h.archetype] > channelPriorities[ih.archetype]
+	}
+	if h.version.NE(ih.version) {
+		return h.version.GT(ih.version)
+	}
+	if h.kind != ih.kind {
+		if h.kind == pref {
+			return true
+		}
+		if ih.kind == pref {
+			return false
+		}
+		return h.kind.gt((*ih).kind)
+	}
+	return false
 }
 
 // entryTuple represents a channel entry with its associated metadata
 type entryTuple struct {
 	arch    channelArchetype
-	kind    streamType
+	kind    StreamType
 	parent  string
 	name    string
 	version semver.Version
@@ -210,17 +231,17 @@ func readFile(reader io.Reader) (*SemverTemplateData, error) {
 	// if un-set, default to align to the selected generate option
 	// if set, error out if we mismatch the two
 	switch sv.DefaultChannelTypePreference {
-	case defaultStreamType:
+	case DefaultStreamType:
 		if sv.GenerateMinorChannels {
-			sv.DefaultChannelTypePreference = minorStreamType
+			sv.DefaultChannelTypePreference = MinorStreamType
 		} else if sv.GenerateMajorChannels {
-			sv.DefaultChannelTypePreference = majorStreamType
+			sv.DefaultChannelTypePreference = MajorStreamType
 		}
-	case minorStreamType:
+	case MinorStreamType:
 		if !sv.GenerateMinorChannels {
 			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'minor' doesn't make sense if not generating minor-version channels")
 		}
-	case majorStreamType:
+	case MajorStreamType:
 		if !sv.GenerateMajorChannels {
 			return nil, fmt.Errorf("schema attribute mismatch: DefaultChannelTypePreference set to 'major' doesn't make sense if not generating major-version channels")
 		}
@@ -368,12 +389,12 @@ func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) [
 		for _, bundleName := range bundleNamesByVersion {
 			// a dodge to avoid duplicating channel processing body; accumulate a map of the channels which need creating from the bundle
 			// we need to associate by kind so we can partition the resulting entries
-			channelNameKeys := make(map[streamType]string)
+			channelNameKeys := make(map[StreamType]string)
 			if sv.GenerateMajorChannels {
-				channelNameKeys[majorStreamType] = channelNameFromMajor(archetype, bundles[bundleName])
+				channelNameKeys[MajorStreamType] = channelNameFromMajor(archetype, bundles[bundleName])
 			}
 			if sv.GenerateMinorChannels {
-				channelNameKeys[minorStreamType] = channelNameFromMinor(archetype, bundles[bundleName])
+				channelNameKeys[MinorStreamType] = channelNameFromMinor(archetype, bundles[bundleName])
 			}
 
 			for cKey, cName := range channelNameKeys {
@@ -580,30 +601,23 @@ func stripBuildMetadata(v semver.Version) string {
 	return v.String()
 }
 
-// prefer (in descending order of preference):
-// - higher-rank archetype,
-// - semver version,
-// - a channel type matching the set preference, or
-// - a 'better' (higher value) channel type
-func (h *highwaterChannel) gt(ih *highwaterChannel, pref streamType) bool {
-	if channelPriorities[h.archetype] != channelPriorities[ih.archetype] {
-		return channelPriorities[h.archetype] > channelPriorities[ih.archetype]
-	}
-	if h.version.NE(ih.version) {
-		return h.version.GT(ih.version)
-	}
-	if h.kind != ih.kind {
-		if h.kind == pref {
-			return true
-		}
-		if ih.kind == pref {
-			return false
-		}
-		return h.kind.gt((*ih).kind)
-	}
-	return false
+func (t StreamType) gt(in StreamType) bool {
+	return streamTypePriorities[t] > streamTypePriorities[in]
 }
 
-func (t streamType) gt(in streamType) bool {
-	return streamTypePriorities[t] > streamTypePriorities[in]
+// Factory types
+
+// Factory represents the semver template factory
+type Factory struct{}
+
+// Factory functions
+
+// CreateTemplate creates a new template instance with the given RenderBundle function
+func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
+	return new(renderBundle)
+}
+
+// Schema returns the schema supported by this factory
+func (f *Factory) Schema() string {
+	return schema
 }

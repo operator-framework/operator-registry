@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -287,6 +288,41 @@ func TestValidators(t *testing.T) {
 				},
 			},
 			assertion: hasError(`duplicate versions found in bundles: [{0.0.1: [anakin.v0.0.1, anakin.v0.0.2]} {1.0.1: [anakin.v1.0.1, anakin.v1.0.2]}]`),
+		},
+		{
+			name: "Package/Error/DuplicateBundleVersionsReleases",
+			v: &Package{
+				Name: "anakin",
+				Channels: map[string]*Channel{
+					"light": {
+						Package: pkg,
+						Name:    "light",
+						Bundles: map[string]*Bundle{
+							"anakin.v0.0.1":     {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+							"anakin.v0.0.2":     {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1")},
+							"anakin-v0.0.1-100": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "100")), Package: pkg},
+							"anakin-v0.0.2-100": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "100")), Package: pkg},
+						},
+					},
+				},
+			},
+			assertion: hasError(`duplicate versions found in bundles: [{0.0.1: [anakin.v0.0.1, anakin.v0.0.2]} {0.0.1-100: [anakin.v0.0.1, anakin.v0.0.2]}]`),
+		},
+		{
+			name: "Package/Error/BundleReleaseNormalizedName",
+			v: &Package{
+				Name: "anakin",
+				Channels: map[string]*Channel{
+					"light": {
+						Package: pkg,
+						Name:    "light",
+						Bundles: map[string]*Bundle{
+							"anakin.v0.0.1.alpha1": {Name: "anakin.v0.0.1.alpha1", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "alpha1")), Package: pkg},
+						},
+					},
+				},
+			},
+			assertion: hasError(`name "anakin.v0.0.1.alpha1" does not match normalized name "anakin-v0.0.1-alpha1"`),
 		},
 		{
 			name: "Package/Error/NoDefaultChannel",

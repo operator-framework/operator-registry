@@ -58,6 +58,9 @@ const (
 	// expected to be semver and parseable by blang/semver/v4
 	version = "version"
 
+	// The yaml attribute that specifies the release version of the ClusterServiceVersion
+	release = "release"
+
 	// The yaml attribute that specifies the related images of the ClusterServiceVersion
 	relatedImages = "relatedImages"
 
@@ -179,6 +182,28 @@ func (csv *ClusterServiceVersion) GetVersion() (string, error) {
 	}
 
 	return v, nil
+}
+
+// GetRelease returns the release of the CSV
+//
+// If not defined, the function returns an empty string.
+func (csv *ClusterServiceVersion) GetRelease() (string, error) {
+	var objmap map[string]*json.RawMessage
+	if err := json.Unmarshal(csv.Spec, &objmap); err != nil {
+		return "", err
+	}
+
+	rawValue, ok := objmap[release]
+	if !ok || rawValue == nil {
+		return "", nil
+	}
+
+	var r string
+	if err := json.Unmarshal(*rawValue, &r); err != nil {
+		return "", err
+	}
+
+	return r, nil
 }
 
 // GetSkipRange returns the skiprange of the CSV
