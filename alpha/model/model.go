@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -103,24 +104,24 @@ func (m *Package) Validate() error {
 }
 
 func (m *Package) validateUniqueBundleVersions() error {
-	versionsMap := map[string]semver.Version{}
+	versionsMap := map[string]string{}
 	bundlesWithVersion := map[string]sets.Set[string]{}
 	for _, ch := range m.Channels {
 		for _, b := range ch.Bundles {
-			versionsMap[b.Version.String()] = b.Version
-			if bundlesWithVersion[b.Version.String()] == nil {
-				bundlesWithVersion[b.Version.String()] = sets.New[string]()
+			versionsMap[b.VersionString()] = b.VersionString()
+			if bundlesWithVersion[b.VersionString()] == nil {
+				bundlesWithVersion[b.VersionString()] = sets.New[string]()
 			}
-			bundlesWithVersion[b.Version.String()].Insert(b.Name)
+			bundlesWithVersion[b.VersionString()].Insert(b.Name)
 		}
 	}
 
 	versionsSlice := maps.Values(versionsMap)
-	semver.Sort(versionsSlice)
+	slices.Sort(versionsSlice)
 
 	var errs []error
 	for _, v := range versionsSlice {
-		bundles := sets.List(bundlesWithVersion[v.String()])
+		bundles := sets.List(bundlesWithVersion[v])
 		if len(bundles) > 1 {
 			errs = append(errs, fmt.Errorf("{%s: [%s]}", v, strings.Join(bundles, ", ")))
 		}
@@ -331,6 +332,47 @@ type Bundle struct {
 	// These fields are used to compare bundles in a diff.
 	PropertiesP *property.Properties
 	Version     semver.Version
+	Release     property.Release
+}
+
+func (b *Bundle) VersionString() string {
+	if b.Release.Label != "" || (b.Release.Version.Major != 0 || b.Release.Version.Minor != 0 || b.Release.Version.Patch != 0) {
+		return strings.Join([]string{b.Version.String(), b.Release.String()}, "-")
+	} else {
+		return b.Version.String()
+	}
+}
+
+func (b *Bundle) normalizeName() string {
+	// if the bundle has release versioning, then the name must include this in standard form:
+	// <package-name>-<version>-<release label>-<release version>
+	// if no release versioning exists, then just return the bundle name
+	if b.Release.Label != "" || (b.Release.Version.Major != 0 || b.Release.Version.Minor != 0 || b.Release.Version.Patch != 0) {
+		return strings.Join([]string{b.Package.Name, b.Version.String(), b.Release.String()}, "-")
+	} else {
+		return b.Name
+	}
+}
+
+// order by release, if present
+//   - label first, if present;
+//   - then version, if present;
+//
+// then version
+func (b *Bundle) Compare(other *Bundle) int {
+	if b.Name == other.Name {
+		return 0
+	}
+	if b.Release.Label != other.Release.Label {
+		return strings.Compare(b.Release.Label, other.Release.Label)
+	}
+	if b.Release.Version.NE(other.Release.Version) {
+		return b.Release.Version.Compare(other.Release.Version)
+	}
+	if b.Version.NE(other.Version) {
+		return b.Version.Compare(other.Version)
+	}
+	return 0
 }
 
 func (b *Bundle) Validate() error {
@@ -338,6 +380,9 @@ func (b *Bundle) Validate() error {
 
 	if b.Name == "" {
 		result.subErrors = append(result.subErrors, errors.New("name must be set"))
+	}
+	if b.Name != b.normalizeName() {
+		result.subErrors = append(result.subErrors, fmt.Errorf("name %q does not match normalized name %q", b.Name, b.normalizeName()))
 	}
 	if b.Channel == nil {
 		result.subErrors = append(result.subErrors, errors.New("channel must be set"))
