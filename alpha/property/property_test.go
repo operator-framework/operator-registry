@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -132,12 +133,12 @@ func TestParse(t *testing.T) {
 			},
 			expectProps: &Properties{
 				Packages: []Package{
-					{"package1", "0.1.0"},
-					{"package2", "0.2.0"},
+					{PackageName: "package1", Version: "0.1.0"},
+					{PackageName: "package2", Version: "0.2.0"},
 				},
 				PackagesRequired: []PackageRequired{
-					{"package3", ">=1.0.0 <2.0.0-0"},
-					{"package4", ">=2.0.0 <3.0.0-0"},
+					{PackageName: "package3", VersionRange: ">=1.0.0 <2.0.0-0"},
+					{PackageName: "package4", VersionRange: ">=2.0.0 <3.0.0-0"},
 				},
 				GVKs: []GVK{
 					{"group", "Kind1", "v1"},
@@ -206,9 +207,15 @@ func TestBuild(t *testing.T) {
 	specs := []spec{
 		{
 			name:             "Success/Package",
-			input:            &Package{"name", "0.1.0"},
+			input:            &Package{PackageName: "name", Version: "0.1.0"},
 			assertion:        require.NoError,
 			expectedProperty: propPtr(MustBuildPackage("name", "0.1.0")),
+		},
+		{
+			name:             "Success/Package-ReleaseVersion",
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: Release{Label: "alpha-whatsit", Version: semver.MustParse("1.1.0-bluefoot")}},
+			assertion:        require.NoError,
+			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "alpha-whatsit", "1.1.0-bluefoot")),
 		},
 		{
 			name:             "Success/PackageRequired",
