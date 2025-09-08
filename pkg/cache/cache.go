@@ -367,6 +367,10 @@ func (c *cache) processPackage(ctx context.Context, reader io.Reader) (packageIn
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: for each input channel, adjust the entries to respect re-ordering by release attributes as required
+	// do so as FBC so that the routine may be made common, and re-used for OLMv1
+
 	pkgModel, err := declcfg.ConvertToModel(*pkgFbc)
 	if err != nil {
 		return nil, err
