@@ -608,7 +608,9 @@ func writeFile(cfg DeclarativeConfig, filename string, writeFunc WriteFunc) erro
 	if err := writeFunc(cfg, buf); err != nil {
 		return fmt.Errorf("write to buffer for %q: %v", filename, err)
 	}
-	if err := os.WriteFile(filename, buf.Bytes(), 0600); err != nil {
+	// we explicitly want to generate content from this function which is limited only by the user's umask (G306)
+	// nolint:gosec
+	if err := os.WriteFile(filename, buf.Bytes(), 0666); err != nil {
 		return fmt.Errorf("write file %q: %v", filename, err)
 	}
 	return nil
