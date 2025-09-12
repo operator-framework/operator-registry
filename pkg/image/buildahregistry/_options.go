@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/containers/storage"
 	"github.com/sirupsen/logrus"
+	"go.podman.io/storage"
 )
 
 type RegistryConfig struct {
