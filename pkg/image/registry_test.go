@@ -17,12 +17,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/containers/image/v5/types"
 	"github.com/distribution/distribution/v3"
 	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"go.podman.io/image/v5/types"
 	"golang.org/x/mod/sumdb/dirhash"
 
 	libimage "github.com/operator-framework/operator-registry/internal/testutil/image"

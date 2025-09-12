@@ -8,10 +8,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/containers/buildah"
-	"github.com/containers/image/v5/types"
-	"github.com/containers/storage"
 	"github.com/sirupsen/logrus"
+	"go.podman.io/buildah"
+	"go.podman.io/image/v5/types"
+	"go.podman.io/storage"
 
 	"github.com/operator-framework/operator-registry/pkg/image"
 )
