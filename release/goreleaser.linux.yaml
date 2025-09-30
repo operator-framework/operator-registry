@@ -87,6 +87,7 @@ dockers:
     use: buildx
     build_flag_templates:
       - --platform=linux/amd64
+      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
   - image_templates:
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
     ids: ["linux-arm64"]
@@ -97,6 +98,7 @@ dockers:
     use: buildx
     build_flag_templates:
       - --platform=linux/arm64
+      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
   - image_templates:
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
     ids: ["linux-ppc64le"]
@@ -107,6 +109,7 @@ dockers:
     use: buildx
     build_flag_templates:
       - --platform=linux/ppc64le
+      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
   - image_templates:
       - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
     ids: ["linux-s390x"]
@@ -117,6 +120,7 @@ dockers:
     use: buildx
     build_flag_templates:
       - --platform=linux/s390x
+      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
 docker_manifests:
   # IMAGE_TAG is either set by the Makefile or the goreleaser action workflow,
   # This image is intended to be tagged/pushed on all trunk (master, release branch) commits and tags.
