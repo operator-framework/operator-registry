@@ -9,6 +9,7 @@ export PKG := github.com/operator-framework/operator-registry
 export GIT_COMMIT := $(or $(SOURCE_GIT_COMMIT),$(shell git rev-parse --short HEAD))
 export OPM_VERSION := $(or $(SOURCE_GIT_TAG),$(shell git describe --always --tags HEAD))
 export BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+export GRPC_HEALTH_PROBE_VERSION := $(shell $(GO) list -m github.com/grpc-ecosystem/grpc-health-probe | awk '{print $$2}')
 
 .DEFAULT_GOAL := all
 
@@ -143,7 +144,7 @@ export LATEST_IMAGE_OR_EMPTY := $(shell \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
 	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
 RELEASE_GOOS := $(shell go env GOOS)
-RELEASE_ARGS ?= release --clean --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
+RELEASE_ARGS ?= release --verbose --clean --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
 
 # Note: bingo does not yet support windows (https://github.com/bwplotka/bingo/issues/26)
 # so GOOS=windows gets its own way to install goreleaser
