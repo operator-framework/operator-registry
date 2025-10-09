@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/blang/semver/v4"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 )
 
