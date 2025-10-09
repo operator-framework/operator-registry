@@ -289,6 +289,41 @@ func TestValidators(t *testing.T) {
 			assertion: hasError(`duplicate versions found in bundles: [{0.0.1: [anakin.v0.0.1, anakin.v0.0.2]} {1.0.1: [anakin.v1.0.1, anakin.v1.0.2]}]`),
 		},
 		{
+			name: "Package/Error/DuplicateBundleVersionsReleases",
+			v: &Package{
+				Name: "anakin",
+				Channels: map[string]*Channel{
+					"light": {
+						Package: pkg,
+						Name:    "light",
+						Bundles: map[string]*Bundle{
+							"anakin.v0.0.1":             {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
+							"anakin.v0.0.2":             {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1")},
+							"anakin-v0.0.1-alpha-0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Release: property.Release{Label: "alpha", Version: semver.MustParse("0.0.1")}, Package: pkg},
+							"anakin-v0.0.2-alpha-0.0.1": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1"), Release: property.Release{Label: "alpha", Version: semver.MustParse("0.0.1")}, Package: pkg},
+						},
+					},
+				},
+			},
+			assertion: hasError(`duplicate versions found in bundles: [{0.0.1: [anakin.v0.0.1, anakin.v0.0.2]} {0.0.1-alpha-0.0.1: [anakin.v0.0.1, anakin.v0.0.2]}]`),
+		},
+		{
+			name: "Package/Error/BundleReleaseNormalizedName",
+			v: &Package{
+				Name: "anakin",
+				Channels: map[string]*Channel{
+					"light": {
+						Package: pkg,
+						Name:    "light",
+						Bundles: map[string]*Bundle{
+							"anakin.v0.0.1.alpha.0.0.1": {Name: "anakin.v0.0.1.alpha.0.0.1", Version: semver.MustParse("0.0.1"), Release: property.Release{Label: "alpha", Version: semver.MustParse("0.0.1")}, Package: pkg},
+						},
+					},
+				},
+			},
+			assertion: hasError(`name "anakin.v0.0.1.alpha.0.0.1" does not match normalized name "anakin-v0.0.1-alpha-0.0.1"`),
+		},
+		{
 			name: "Package/Error/NoDefaultChannel",
 			v: &Package{
 				Name:     "anakin",

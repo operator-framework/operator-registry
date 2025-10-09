@@ -15,16 +15,21 @@ type Template struct {
 	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
 }
 
-type SubstitutesTemplate struct {
-	Schema      string          `json:"schema"`
-	Entries     []*declcfg.Meta `json:"entries"`
-	Substitutes []string        `json:"substitutes"`
+type Substitute struct {
+	Name string `json:"name"`
+	Base string `json:"base"`
+}
+
+type SubstitutesForTemplate struct {
+	Schema        string          `json:"schema"`
+	Entries       []*declcfg.Meta `json:"entries"`
+	Substitutions []Substitute    `json:"substitutions"`
 }
 
 const schema string = "olm.template.substitutes"
 
-func parseSpec(reader io.Reader) (*SubstitutesTemplate, error) {
-	st := &SubstitutesTemplate{}
+func parseSpec(reader io.Reader) (*SubstitutesForTemplate, error) {
+	st := &SubstitutesForTemplate{}
 	stDoc := json.RawMessage{}
 	stDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
 	err := stDecoder.Decode(&stDoc)
