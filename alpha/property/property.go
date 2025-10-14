@@ -45,7 +45,7 @@ type Release struct {
 type Package struct {
 	PackageName string  `json:"packageName"`
 	Version     string  `json:"version"`
-	Release     Release `json:"release,omitzero"`
+	Release     *Release `json:"release,omitempty"`
 }
 
 // NOTICE: The Channel properties are for internal use only.
@@ -256,7 +256,7 @@ func MustBuildPackage(name, version string) Property {
 	return MustBuild(&Package{PackageName: name, Version: version})
 }
 func MustBuildPackageRelease(name, version, relLabel, relVersion string) Property {
-	return MustBuild(&Package{PackageName: name, Version: version, Release: Release{Label: relLabel, Version: semver.MustParse(relVersion)}})
+	return MustBuild(&Package{PackageName: name, Version: version, Release: &Release{Label: relLabel, Version: semver.MustParse(relVersion)}})
 }
 func MustBuildPackageRequired(name, versionRange string) Property {
 	return MustBuild(&PackageRequired{name, versionRange})

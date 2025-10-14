@@ -147,7 +147,9 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 				mb.Objects = b.Objects
 				mb.PropertiesP = props
 				mb.Version = ver
-				mb.Release = props.Packages[0].Release
+				if props.Packages[0].Release != nil {
+					mb.Release = *(props.Packages[0].Release)
+				}
 			}
 		}
 		if !found {
