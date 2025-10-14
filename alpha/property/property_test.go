@@ -213,7 +213,7 @@ func TestBuild(t *testing.T) {
 		},
 		{
 			name:             "Success/Package-ReleaseVersion",
-			input:            &Package{PackageName: "name", Version: "0.1.0", Release: Release{Label: "alpha-whatsit", Version: semver.MustParse("1.1.0-bluefoot")}},
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: &Release{Label: "alpha-whatsit", Version: semver.MustParse("1.1.0-bluefoot")}},
 			assertion:        require.NoError,
 			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "alpha-whatsit", "1.1.0-bluefoot")),
 		},
