@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -299,8 +300,8 @@ func TestValidators(t *testing.T) {
 						Bundles: map[string]*Bundle{
 							"anakin.v0.0.1":              {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1")},
 							"anakin.v0.0.2":              {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1")},
-							"anakin-v0.0.1-hotfix.0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Release: property.MustBuildPackageReleaseVersion("100"), Package: pkg},
-							"anakin-v0.0.2-hotfix.0.0.1": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1"), Release: property.MustBuildPackageReleaseVersion("100"), Package: pkg},
+							"anakin-v0.0.1-hotfix.0.0.1": {Name: "anakin.v0.0.1", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "100")), Package: pkg},
+							"anakin-v0.0.2-hotfix.0.0.1": {Name: "anakin.v0.0.2", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "100")), Package: pkg},
 						},
 					},
 				},
@@ -316,7 +317,7 @@ func TestValidators(t *testing.T) {
 						Package: pkg,
 						Name:    "light",
 						Bundles: map[string]*Bundle{
-							"anakin.v0.0.1.alpha1": {Name: "anakin.v0.0.1.alpha1", Version: semver.MustParse("0.0.1"), Release: property.MustBuildPackageReleaseVersion("alpha1"), Package: pkg},
+							"anakin.v0.0.1.alpha1": {Name: "anakin.v0.0.1.alpha1", Version: semver.MustParse("0.0.1"), Release: semver.MustParse(fmt.Sprintf("0.0.0-%s", "alpha1")), Package: pkg},
 						},
 					},
 				},
