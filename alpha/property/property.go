@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/blang/semver/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,15 +36,10 @@ func (p Property) String() string {
 	return fmt.Sprintf("type: %q, value: %q", p.Type, p.Value)
 }
 
-type Release struct {
-	Label   string         `json:"label"`
-	Version semver.Version `json:"version"`
-}
-
 type Package struct {
-	PackageName string  `json:"packageName"`
-	Version     string  `json:"version"`
-	Release     *Release `json:"release,omitempty"`
+	PackageName string           `json:"packageName"`
+	Version     string           `json:"version"`
+	Release     semver.PRVersion `json:"release,omitzero"`
 }
 
 // NOTICE: The Channel properties are for internal use only.
@@ -255,8 +249,15 @@ func jsonMarshal(p interface{}) ([]byte, error) {
 func MustBuildPackage(name, version string) Property {
 	return MustBuild(&Package{PackageName: name, Version: version})
 }
-func MustBuildPackageRelease(name, version, relLabel, relVersion string) Property {
-	return MustBuild(&Package{PackageName: name, Version: version, Release: &Release{Label: relLabel, Version: semver.MustParse(relVersion)}})
+func MustBuildPackageReleaseVersion(relVersion string) semver.PRVersion {
+	val, err := semver.NewPRVersion(relVersion)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+func MustBuildPackageRelease(name, version, relVersion string) Property {
+	return MustBuild(&Package{PackageName: name, Version: version, Release: MustBuildPackageReleaseVersion(relVersion)})
 }
 func MustBuildPackageRequired(name, versionRange string) Property {
 	return MustBuild(&PackageRequired{name, versionRange})
@@ -296,15 +297,4 @@ func MustBuildCSVMetadata(csv v1alpha1.ClusterServiceVersion) Property {
 //	This API is in alpha stage and it is subject to change.
 func MustBuildChannelPriority(name string, priority int) Property {
 	return MustBuild(&Channel{ChannelName: name, Priority: priority})
-}
-
-func (r *Release) String() string {
-	segments := []string{}
-	if r.Label != "" {
-		segments = append(segments, r.Label)
-	}
-	if r.Version.Major != 0 || r.Version.Minor != 0 || r.Version.Patch != 0 {
-		segments = append(segments, r.Version.String())
-	}
-	return strings.Join(segments, "-")
 }
