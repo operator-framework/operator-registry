@@ -145,16 +145,6 @@ func withNoBundleData() func(*Bundle) {
 	}
 }
 
-func withReleaseVersion(packageName, version string, rel property.Release) func(*Bundle) {
-	return func(b *Bundle) {
-		for i, p := range b.Properties {
-			if p.Type == property.TypePackage {
-				b.Properties[i] = property.MustBuildPackageRelease(packageName, version, rel.Label, rel.Version.String())
-			}
-		}
-	}
-}
-
 func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 	csvJSON := fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(packageName, version))
 	b := Bundle{
