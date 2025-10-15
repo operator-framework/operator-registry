@@ -332,32 +332,30 @@ type Bundle struct {
 	// These fields are used to compare bundles in a diff.
 	PropertiesP *property.Properties
 	Version     semver.Version
-	Release     property.Release
+	Release     semver.PRVersion
 }
 
 func (b *Bundle) VersionString() string {
-	if b.Release.Label != "" || (b.Release.Version.Major != 0 || b.Release.Version.Minor != 0 || b.Release.Version.Patch != 0) {
-		return strings.Join([]string{b.Version.String(), b.Release.String()}, "-")
-	} else {
-		return b.Version.String()
+	relString := b.Release.String()
+	if relString != "" {
+		return strings.Join([]string{b.Version.String(), relString}, "-")
 	}
+	return b.Version.String()
 }
 
 func (b *Bundle) normalizeName() string {
 	// if the bundle has release versioning, then the name must include this in standard form:
-	// <package-name>-v<version>-<release label>-<release version>
+	// <package-name>-v<version>-<release version>
 	// if no release versioning exists, then just return the bundle name
-	if b.Release.Label != "" || (b.Release.Version.Major != 0 || b.Release.Version.Minor != 0 || b.Release.Version.Patch != 0) {
+	relString := b.Release.String()
+	if relString != "" {
 		return strings.Join([]string{b.Package.Name, "v" + b.Version.String(), b.Release.String()}, "-")
-	} else {
-		return b.Name
 	}
+	return b.Name
 }
 
 // order by version, then
 // release, if present
-//   - label first, if present
-//   - then version, if present
 func (b *Bundle) Compare(other *Bundle) int {
 	if b.Name == other.Name {
 		return 0
@@ -365,13 +363,7 @@ func (b *Bundle) Compare(other *Bundle) int {
 	if b.Version.NE(other.Version) {
 		return b.Version.Compare(other.Version)
 	}
-	if b.Release.Label != other.Release.Label {
-		return strings.Compare(b.Release.Label, other.Release.Label)
-	}
-	if b.Release.Version.NE(other.Release.Version) {
-		return b.Release.Version.Compare(other.Release.Version)
-	}
-	return 0
+	return b.Release.Compare(other.Release)
 }
 
 func (b *Bundle) Validate() error {
