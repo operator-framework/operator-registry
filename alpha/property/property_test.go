@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -212,10 +211,22 @@ func TestBuild(t *testing.T) {
 			expectedProperty: propPtr(MustBuildPackage("name", "0.1.0")),
 		},
 		{
-			name:             "Success/Package-ReleaseVersion",
-			input:            &Package{PackageName: "name", Version: "0.1.0", Release: &Release{Label: "alpha-whatsit", Version: semver.MustParse("1.1.0-bluefoot")}},
+			name:             "Success/Package-ReleaseVersionNumber",
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("1")},
 			assertion:        require.NoError,
-			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "alpha-whatsit", "1.1.0-bluefoot")),
+			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "1")),
+		},
+		{
+			name:             "Success/Package-ReleaseVersionAlpha",
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("gamma")},
+			assertion:        require.NoError,
+			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "gamma")),
+		},
+		{
+			name:             "Success/Package-ReleaseVersionMixed",
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("gamma1")},
+			assertion:        require.NoError,
+			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "gamma1")),
 		},
 		{
 			name:             "Success/PackageRequired",
