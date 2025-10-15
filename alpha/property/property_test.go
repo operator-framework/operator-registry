@@ -212,19 +212,19 @@ func TestBuild(t *testing.T) {
 		},
 		{
 			name:             "Success/Package-ReleaseVersionNumber",
-			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("1")},
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: "1"},
 			assertion:        require.NoError,
 			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "1")),
 		},
 		{
 			name:             "Success/Package-ReleaseVersionAlpha",
-			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("gamma")},
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: "gamma"},
 			assertion:        require.NoError,
 			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "gamma")),
 		},
 		{
 			name:             "Success/Package-ReleaseVersionMixed",
-			input:            &Package{PackageName: "name", Version: "0.1.0", Release: MustBuildPackageReleaseVersion("gamma1")},
+			input:            &Package{PackageName: "name", Version: "0.1.0", Release: "gamma1"},
 			assertion:        require.NoError,
 			expectedProperty: propPtr(MustBuildPackageRelease("name", "0.1.0", "gamma1")),
 		},
