@@ -332,12 +332,16 @@ type Bundle struct {
 	// These fields are used to compare bundles in a diff.
 	PropertiesP *property.Properties
 	Version     semver.Version
-	Release     semver.PRVersion
+	Release     semver.Version
 }
 
 func (b *Bundle) VersionString() string {
-	relString := b.Release.String()
-	if relString != "" {
+	if len(b.Release.Pre) > 0 {
+		pres := []string{}
+		for _, pre := range b.Release.Pre {
+			pres = append(pres, pre.String())
+		}
+		relString := strings.Join(pres, ".")
 		return strings.Join([]string{b.Version.String(), relString}, "-")
 	}
 	return b.Version.String()
@@ -347,9 +351,8 @@ func (b *Bundle) normalizeName() string {
 	// if the bundle has release versioning, then the name must include this in standard form:
 	// <package-name>-v<version>-<release version>
 	// if no release versioning exists, then just return the bundle name
-	relString := b.Release.String()
-	if relString != "" {
-		return strings.Join([]string{b.Package.Name, "v" + b.Version.String(), b.Release.String()}, "-")
+	if len(b.Release.Pre) > 0 {
+		return strings.Join([]string{b.Package.Name, "v" + b.VersionString()}, "-")
 	}
 	return b.Name
 }
@@ -413,6 +416,10 @@ func (b *Bundle) Validate() error {
 
 	if err := b.Deprecation.Validate(); err != nil {
 		result.subErrors = append(result.subErrors, fmt.Errorf("invalid deprecation: %v", err))
+	}
+
+	if len(b.Version.Build) > 0 && len(b.Release.Pre) > 0 {
+		result.subErrors = append(result.subErrors, fmt.Errorf("cannot use build metadata in version with a release version"))
 	}
 
 	return result.orNil()
