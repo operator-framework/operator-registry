@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/blang/semver/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -37,9 +36,9 @@ func (p Property) String() string {
 }
 
 type Package struct {
-	PackageName string           `json:"packageName"`
-	Version     string           `json:"version"`
-	Release     semver.PRVersion `json:"release,omitzero"`
+	PackageName string `json:"packageName"`
+	Version     string `json:"version"`
+	Release     string `json:"release,omitzero"`
 }
 
 // NOTICE: The Channel properties are for internal use only.
@@ -249,15 +248,8 @@ func jsonMarshal(p interface{}) ([]byte, error) {
 func MustBuildPackage(name, version string) Property {
 	return MustBuild(&Package{PackageName: name, Version: version})
 }
-func MustBuildPackageReleaseVersion(relVersion string) semver.PRVersion {
-	val, err := semver.NewPRVersion(relVersion)
-	if err != nil {
-		panic(err)
-	}
-	return val
-}
 func MustBuildPackageRelease(name, version, relVersion string) Property {
-	return MustBuild(&Package{PackageName: name, Version: version, Release: MustBuildPackageReleaseVersion(relVersion)})
+	return MustBuild(&Package{PackageName: name, Version: version, Release: relVersion})
 }
 func MustBuildPackageRequired(name, versionRange string) Property {
 	return MustBuild(&PackageRequired{name, versionRange})
