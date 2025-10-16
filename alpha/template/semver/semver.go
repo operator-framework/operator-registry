@@ -343,27 +343,29 @@ func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Chan
 		}
 	}
 
-	// add edges for the last entry
-	// note:  this is substantially similar to the main iteration, but there are some subtle differences since the main loop mode
-	//  design is to write the edges and then accumulate new info for subsequent edges (and this is the last edge):
-	// - we only need to watch for arch/kind/x change
-	// - we don't need to accumulate skips/replaces, since we're not writing edges for subsequent entries
-	lastTuple := entries[len(entries)-1]
-	penultimateTuple := entries[len(entries)-2]
-	prevX := getMajorVersion(penultimateTuple.version)
-	curX := getMajorVersion(lastTuple.version)
+	if len(entries) > 1 {
+		// add edges for the last entry
+		// note:  this is substantially similar to the main iteration, but there are some subtle differences since the main loop mode
+		//  design is to write the edges and then accumulate new info for subsequent edges (and this is the last edge):
+		// - we only need to watch for arch/kind/x change
+		// - we don't need to accumulate skips/replaces, since we're not writing edges for subsequent entries
+		lastTuple := entries[len(entries)-1]
+		penultimateTuple := entries[len(entries)-2]
+		prevX := getMajorVersion(penultimateTuple.version)
+		curX := getMajorVersion(lastTuple.version)
 
-	archChange := penultimateTuple.arch != lastTuple.arch
-	kindChange := penultimateTuple.kind != lastTuple.kind
-	xChange := !prevX.EQ(curX)
-	// for arch / kind / x changes, we don't maintain skips/replaces
-	if !archChange && !kindChange && !xChange {
-		prevChannel := unlinkedChannels[lastTuple.parent]
-		finalEntry := &prevChannel.Entries[lastTuple.index]
-		finalEntry.Replaces = prevZMax
-		skips := sets.List(curSkips.Difference(sets.New(finalEntry.Replaces)))
-		if len(skips) > 0 {
-			finalEntry.Skips = skips
+		archChange := penultimateTuple.arch != lastTuple.arch
+		kindChange := penultimateTuple.kind != lastTuple.kind
+		xChange := !prevX.EQ(curX)
+		// for arch / kind / x changes, we don't maintain skips/replaces
+		if !archChange && !kindChange && !xChange {
+			prevChannel := unlinkedChannels[lastTuple.parent]
+			finalEntry := &prevChannel.Entries[lastTuple.index]
+			finalEntry.Replaces = prevZMax
+			skips := sets.List(curSkips.Difference(sets.New(finalEntry.Replaces)))
+			if len(skips) > 0 {
+				finalEntry.Skips = skips
+			}
 		}
 	}
 

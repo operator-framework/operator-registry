@@ -25,6 +25,10 @@ func TestLinkChannels(t *testing.T) {
 	// 	version semver.Version
 	// }
 
+	minimumChannelEntries := []entryTuple{
+		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v0.1.0", parent: "stable-v0.1", index: 0, version: semver.MustParse("0.1.0")},
+	}
+
 	majorChannelEntries := []entryTuple{
 		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v0.1.0", parent: "stable-v0", index: 0, version: semver.MustParse("0.1.0")},
 		{arch: stableChannelArchetype, kind: majorStreamType, name: "a-v0.1.1", parent: "stable-v0", index: 1, version: semver.MustParse("0.1.1")},
@@ -150,6 +154,17 @@ func TestLinkChannels(t *testing.T) {
 		},
 	}
 
+	minimumGeneratedUnlinkedChannels := map[string]*declcfg.Channel{
+		"stable-v0": {
+			Schema:  "olm.channel",
+			Name:    "stable-v0",
+			Package: "a",
+			Entries: []declcfg.ChannelEntry{
+				{Name: "a-v0.1.0"},
+			},
+		},
+	}
+
 	tests := []struct {
 		name                  string
 		unlinkedChannels      map[string]*declcfg.Channel
@@ -266,6 +281,23 @@ func TestLinkChannels(t *testing.T) {
 						{Name: "a-v2.1.0", Replaces: ""},
 						{Name: "a-v2.1.1", Replaces: "", Skips: []string{"a-v2.1.0"}},
 						{Name: "a-v2.3.1", Replaces: "a-v2.1.1", Skips: []string{"a-v2.1.0"}},
+					},
+				},
+			},
+		},
+		{
+			name:                  "Minimum viable major channel",
+			unlinkedChannels:      minimumGeneratedUnlinkedChannels,
+			channelEntries:        minimumChannelEntries,
+			generateMinorChannels: false,
+			generateMajorChannels: true,
+			out: []declcfg.Channel{
+				{
+					Schema:  "olm.channel",
+					Name:    "stable-v0",
+					Package: "a",
+					Entries: []declcfg.ChannelEntry{
+						{Name: "a-v0.1.0", Replaces: ""},
 					},
 				},
 			},
