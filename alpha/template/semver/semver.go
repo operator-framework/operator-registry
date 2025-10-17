@@ -10,6 +10,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -225,6 +226,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	hwc := highwaterChannel{archetype: archetypesByPriority[0], version: semver.Version{Major: 0, Minor: 0}}
 
 	unlinkedChannels := make(map[string]*declcfg.Channel)
+	unassociatedEdges := []entryTuple{}
 
 	for _, archetype := range archetypesByPriority {
 		bundles := (*semverChannels)[archetype]
@@ -272,6 +274,7 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 					}
 				}
 				ch.Entries = append(ch.Entries, declcfg.ChannelEntry{Name: bundleName})
+				unassociatedEdges = append(unassociatedEdges, entryTuple{arch: archetype, kind: cKey, parent: cName, name: bundleName, version: bundles[bundleName], index: len(ch.Entries) - 1})
 			}
 		}
 	}
@@ -279,76 +282,95 @@ func (sv *semverTemplate) generateChannels(semverChannels *bundleVersions) []dec
 	// save off the name of the high-water-mark channel for the default for this package
 	sv.defaultChannel = hwc.name
 
-	outChannels = append(outChannels, sv.linkChannels(unlinkedChannels, semverChannels)...)
+	outChannels = append(outChannels, sv.linkChannels(unlinkedChannels, unassociatedEdges)...)
 
 	return outChannels
 }
 
-func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, harvestedVersions *bundleVersions) []declcfg.Channel {
-	// bundle --> version lookup
-	bundleVersions := make(map[string]semver.Version)
-	for _, vs := range *harvestedVersions {
-		for b, v := range vs {
-			if _, ok := bundleVersions[b]; !ok {
-				bundleVersions[b] = v
+func (sv *semverTemplate) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries []entryTuple) []declcfg.Channel {
+	channels := []declcfg.Channel{}
+
+	// sort to force partitioning by archetype --> kind --> semver
+	sort.Slice(entries, func(i, j int) bool {
+		if channelPriorities[entries[i].arch] != channelPriorities[entries[j].arch] {
+			return channelPriorities[entries[i].arch] < channelPriorities[entries[j].arch]
+		}
+		if streamTypePriorities[entries[i].kind] != streamTypePriorities[entries[j].kind] {
+			return streamTypePriorities[entries[i].kind] < streamTypePriorities[entries[j].kind]
+		}
+		return entries[i].version.LT(entries[j].version)
+	})
+
+	prevZMax := ""
+	var curSkips = sets.Set[string]{}
+
+	// iterate over the entries, starting from the second
+	// write any skips/replaces for the previous entry to the current entry
+	// then accumulate the skips/replaces for the current entry to be used in subsequent iterations
+	for index := 1; index < len(entries); index++ {
+		prevTuple := entries[index-1]
+		curTuple := entries[index]
+		prevX := getMajorVersion(prevTuple.version)
+		prevY := getMinorVersion(prevTuple.version)
+		curX := getMajorVersion(curTuple.version)
+		curY := getMinorVersion(curTuple.version)
+
+		archChange := curTuple.arch != prevTuple.arch
+		kindChange := curTuple.kind != prevTuple.kind
+		xChange := !prevX.EQ(curX)
+		yChange := !prevY.EQ(curY)
+
+		if archChange || kindChange || xChange || yChange {
+			// if we passed any kind of change besides Z, then we need to set skips/replaces for previous max-Z
+			prevChannel := unlinkedChannels[prevTuple.parent]
+			finalEntry := &prevChannel.Entries[prevTuple.index]
+			finalEntry.Replaces = prevZMax
+			skips := sets.List(curSkips.Difference(sets.New(finalEntry.Replaces)))
+			if len(skips) > 0 {
+				finalEntry.Skips = skips
+			}
+		}
+
+		if archChange || kindChange || xChange {
+			// we don't maintain skips/replaces over these transitions
+			curSkips = sets.Set[string]{}
+			prevZMax = ""
+		} else {
+			if yChange {
+				prevZMax = prevTuple.name
+			}
+			curSkips.Insert(prevTuple.name)
+		}
+	}
+
+	if len(entries) > 1 {
+		// add edges for the last entry
+		// note:  this is substantially similar to the main iteration, but there are some subtle differences since the main loop mode
+		//  design is to write the edges and then accumulate new info for subsequent edges (and this is the last edge):
+		// - we only need to watch for arch/kind/x change
+		// - we don't need to accumulate skips/replaces, since we're not writing edges for subsequent entries
+		lastTuple := entries[len(entries)-1]
+		penultimateTuple := entries[len(entries)-2]
+		prevX := getMajorVersion(penultimateTuple.version)
+		curX := getMajorVersion(lastTuple.version)
+
+		archChange := penultimateTuple.arch != lastTuple.arch
+		kindChange := penultimateTuple.kind != lastTuple.kind
+		xChange := !prevX.EQ(curX)
+		// for arch / kind / x changes, we don't maintain skips/replaces
+		if !archChange && !kindChange && !xChange {
+			prevChannel := unlinkedChannels[lastTuple.parent]
+			finalEntry := &prevChannel.Entries[lastTuple.index]
+			finalEntry.Replaces = prevZMax
+			skips := sets.List(curSkips.Difference(sets.New(finalEntry.Replaces)))
+			if len(skips) > 0 {
+				finalEntry.Skips = skips
 			}
 		}
 	}
 
-	channels := make([]declcfg.Channel, 0, len(unlinkedChannels))
-	for _, channel := range unlinkedChannels {
-		entries := &channel.Entries
-		sort.Slice(*entries, func(i, j int) bool {
-			return bundleVersions[(*entries)[i].Name].LT(bundleVersions[(*entries)[j].Name])
-		})
-
-		// "inchworm" through the sorted entries, iterating curEdge but extending yProbe to the next Y-transition
-		// then catch up curEdge to yProbe as 'skips', and repeat until we reach the end of the entries
-		// finally, because the inchworm will always fail to pick up the last Y-transition, we test for it and link it up as a 'replaces'
-		curEdge, yProbe := 0, 0
-		zmaxQueue := ""
-		entryCount := len(*entries)
-
-		for curEdge < entryCount {
-			for yProbe < entryCount {
-				curVersion := bundleVersions[(*entries)[curEdge].Name]
-				yProbeVersion := bundleVersions[(*entries)[yProbe].Name]
-				if getMinorVersion(yProbeVersion).EQ(getMinorVersion(curVersion)) {
-					yProbe += 1
-				} else {
-					break
-				}
-			}
-			// if yProbe crossed a threshold, the previous entry is the last of the previous Y-stream
-			preChangeIndex := yProbe - 1
-
-			if curEdge != yProbe {
-				if zmaxQueue != "" {
-					(*entries)[preChangeIndex].Replaces = zmaxQueue
-				}
-				zmaxQueue = (*entries)[preChangeIndex].Name
-			}
-			for curEdge < preChangeIndex {
-				// add skips edges to y-1 from z < y
-				if (*entries)[preChangeIndex].Replaces != (*entries)[curEdge].Name {
-					(*entries)[preChangeIndex].Skips = append((*entries)[preChangeIndex].Skips, (*entries)[curEdge].Name)
-				}
-				curEdge += 1
-			}
-			curEdge += 1
-			yProbe = curEdge + 1
-		}
-		// since probe will always fail to pick up a y-change in the last item, test for it
-		if entryCount > 1 {
-			penultimateEntry := &(*entries)[len(*entries)-2]
-			ultimateEntry := &(*entries)[len(*entries)-1]
-			penultimateVersion := bundleVersions[penultimateEntry.Name]
-			ultimateVersion := bundleVersions[ultimateEntry.Name]
-			if ultimateVersion.Minor != penultimateVersion.Minor {
-				ultimateEntry.Replaces = penultimateEntry.Name
-			}
-		}
-		channels = append(channels, *channel)
+	for _, ch := range unlinkedChannels {
+		channels = append(channels, *ch)
 	}
 
 	slices.SortFunc(channels, func(a, b declcfg.Channel) int {

@@ -82,3 +82,12 @@ type highwaterChannel struct {
 	version   semver.Version
 	name      string
 }
+
+type entryTuple struct {
+	arch    channelArchetype
+	kind    streamType
+	name    string
+	parent  string
+	index   int
+	version semver.Version
+}
