@@ -9,46 +9,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/template"
 )
 
-type Template struct {
-	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
+const substitutesSchema string = "olm.template.substitutes"
+
+type SubstitutesTemplate struct {
+	renderBundle template.BundleRenderer
 }
 
-type Substitute struct {
-	Name string `json:"name"` // the bundle image pullspec to substitute
-	Base string `json:"base"` // the bundle name to substitute for
-}
-
-type SubstitutesForTemplate struct {
-	Schema        string          `json:"schema"`
-	Entries       []*declcfg.Meta `json:"entries"`
-	Substitutions []Substitute    `json:"substitutions"`
-}
-
-const schema string = "olm.template.substitutes"
-
-func parseSpec(reader io.Reader) (*SubstitutesForTemplate, error) {
-	st := &SubstitutesForTemplate{}
-	stDoc := json.RawMessage{}
-	stDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
-	err := stDecoder.Decode(&stDoc)
-	if err != nil {
-		return nil, fmt.Errorf("decoding template schema: %v", err)
+// NewTemplate creates a new substitutes template instance
+func NewTemplate(renderBundle template.BundleRenderer) template.Template {
+	return &SubstitutesTemplate{
+		renderBundle: renderBundle,
 	}
-	err = json.Unmarshal(stDoc, st)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshalling template: %v", err)
-	}
-
-	if st.Schema != schema {
-		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", st.Schema, schema)
-	}
-
-	return st, nil
 }
 
-func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+// RenderBundle implements the template.Template interface
+func (t *SubstitutesTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+	return t.renderBundle(ctx, image)
+}
+
+// Render implements the template.Template interface
+func (t *SubstitutesTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	st, err := parseSpec(reader)
 	if err != nil {
 		return nil, fmt.Errorf("render: unable to parse template: %v", err)
@@ -76,8 +59,57 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	return cfg, nil
 }
 
+// Schema implements the template.Template interface
+func (t *SubstitutesTemplate) Schema() string {
+	return substitutesSchema
+}
+
+// Factory implements the template.TemplateFactory interface
+type Factory struct{}
+
+// CreateTemplate implements the template.TemplateFactory interface
+func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
+	return NewTemplate(renderBundle)
+}
+
+// Schema implements the template.TemplateFactory interface
+func (f *Factory) Schema() string {
+	return substitutesSchema
+}
+
+type Substitute struct {
+	Name string `json:"name"` // the bundle image pullspec to substitute
+	Base string `json:"base"` // the bundle name to substitute for
+}
+
+type SubstitutesTemplateData struct {
+	Schema        string          `json:"schema"`
+	Entries       []*declcfg.Meta `json:"entries"`
+	Substitutions []Substitute    `json:"substitutions"`
+}
+
+func parseSpec(reader io.Reader) (*SubstitutesTemplateData, error) {
+	st := &SubstitutesTemplateData{}
+	stDoc := json.RawMessage{}
+	stDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
+	err := stDecoder.Decode(&stDoc)
+	if err != nil {
+		return nil, fmt.Errorf("decoding template schema: %v", err)
+	}
+	err = json.Unmarshal(stDoc, st)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling template: %v", err)
+	}
+
+	if st.Schema != substitutesSchema {
+		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", st.Schema, substitutesSchema)
+	}
+
+	return st, nil
+}
+
 // processSubstitution handles the complex logic for processing a single substitution
-func (t Template) processSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
+func (t *SubstitutesTemplate) processSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
 	// Validate substitution fields - all are required
 	if substitution.Name == "" {
 		return fmt.Errorf("substitution name cannot be empty")

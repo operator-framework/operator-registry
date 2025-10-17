@@ -11,12 +11,13 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/alpha/template"
 )
 
 // Helper function to create a mock template for testing
-func createMockTemplate() Template {
-	return Template{
-		RenderBundle: func(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
+func createMockTemplate() *SubstitutesTemplate {
+	return &SubstitutesTemplate{
+		renderBundle: template.BundleRenderer(func(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
 			// Extract package and version from image reference (simplified for testing)
 			packageName := "testoperator"
 			version := "1.2.0"
@@ -65,7 +66,7 @@ func createMockTemplate() Template {
 					},
 				},
 			}, nil
-		},
+		}),
 	}
 }
 
@@ -229,7 +230,7 @@ func TestParseSpec(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
-		expected    *SubstitutesForTemplate
+		expected    *SubstitutesTemplateData
 		expectError bool
 		errorMsg    string
 	}{
@@ -246,7 +247,7 @@ substitutions:
   - name: testoperator.v1.1.0
     base: testoperator.v1.0.0
 `,
-			expected: &SubstitutesForTemplate{
+			expected: &SubstitutesTemplateData{
 				Schema: "olm.template.substitutes",
 				Entries: []*declcfg.Meta{
 					{
@@ -298,7 +299,7 @@ schema: olm.template.substitutes
 entries: []
 substitutions: []
 `,
-			expected: &SubstitutesForTemplate{
+			expected: &SubstitutesTemplateData{
 				Schema:        "olm.template.substitutes",
 				Entries:       []*declcfg.Meta{},
 				Substitutions: []Substitute{},
@@ -320,7 +321,7 @@ substitutions:
   - name: testoperator.v1.2.0
     base: testoperator.v1.1.0
 `,
-			expected: &SubstitutesForTemplate{
+			expected: &SubstitutesTemplateData{
 				Schema: "olm.template.substitutes",
 				Entries: []*declcfg.Meta{
 					{
@@ -549,19 +550,19 @@ func TestRender(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create template with test data
-			template := SubstitutesForTemplate{
+			templateData := SubstitutesTemplateData{
 				Schema:        "olm.template.substitutes",
 				Entries:       tt.entries,
 				Substitutions: tt.substitutions,
 			}
 
 			// Convert to JSON and create reader
-			templateJSON, err := json.Marshal(template)
+			templateJSON, err := json.Marshal(templateData)
 			require.NoError(t, err)
 
 			reader := strings.NewReader(string(templateJSON))
-			templateInstance := Template{
-				RenderBundle: func(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
+			templateInstance := &SubstitutesTemplate{
+				renderBundle: template.BundleRenderer(func(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
 					// Mock implementation that creates a bundle from the image reference
 					// Extract version from image reference (simplified for testing)
 					version := "1.2.0"
@@ -598,7 +599,7 @@ func TestRender(t *testing.T) {
 							},
 						},
 					}, nil
-				},
+				}),
 			}
 			ctx := context.Background()
 
@@ -1120,7 +1121,7 @@ func TestBoundaryCases(t *testing.T) {
 					Blob:    json.RawMessage(`{"invalid": json, "missing": quote}`),
 				}
 
-				template := SubstitutesForTemplate{
+				template := SubstitutesTemplateData{
 					Schema:        "olm.template.substitutes",
 					Entries:       []*declcfg.Meta{invalidMeta},
 					Substitutions: []Substitute{},
@@ -1143,7 +1144,7 @@ func TestBoundaryCases(t *testing.T) {
 					createValidTestBundleMeta("testoperator-v1.0.0-alpha", "testoperator", "1.0.0", "alpha"),
 				}
 
-				template := SubstitutesForTemplate{
+				template := SubstitutesTemplateData{
 					Schema:        "olm.template.substitutes",
 					Entries:       entries,
 					Substitutions: []Substitute{},
@@ -1153,7 +1154,7 @@ func TestBoundaryCases(t *testing.T) {
 				require.NoError(t, err)
 
 				reader := strings.NewReader(string(templateJSON))
-				templateInstance := Template{}
+				templateInstance := &SubstitutesTemplate{}
 
 				result, err := templateInstance.Render(context.TODO(), reader)
 				require.NoError(t, err) // Context is not used in current implementation
