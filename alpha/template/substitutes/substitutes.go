@@ -158,3 +158,26 @@ func (t Template) processSubstitution(ctx context.Context, cfg *declcfg.Declarat
 
 	return nil
 }
+
+// FromReader reads FBC from a reader and generates a BasicTemplate from it
+func FromReader(r io.Reader) (*SubstitutesForTemplate, error) {
+	var entries []*declcfg.Meta
+	if err := declcfg.WalkMetasReader(r, func(meta *declcfg.Meta, err error) error {
+		if err != nil {
+			return err
+		}
+
+		entries = append(entries, meta)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	bt := &SubstitutesForTemplate{
+		Schema:        schema,
+		Entries:       entries,
+		Substitutions: []Substitute{},
+	}
+
+	return bt, nil
+}
