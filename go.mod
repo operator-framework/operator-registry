@@ -36,8 +36,8 @@ require (
 	go.podman.io/common v0.65.0
 	go.podman.io/image/v5 v5.38.0
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
-	golang.org/x/mod v0.28.0
-	golang.org/x/net v0.45.0
+	golang.org/x/mod v0.29.0
+	golang.org/x/net v0.46.0
 	golang.org/x/sync v0.17.0
 	golang.org/x/sys v0.37.0
 	golang.org/x/text v0.30.0
