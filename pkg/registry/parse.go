@@ -203,10 +203,30 @@ func (b *bundleParser) derivedProperties(bundle *Bundle) ([]Property, error) {
 		if err != nil {
 			return nil, err
 		}
+		release, err := bundle.Release()
+		if err != nil {
+			return nil, err
+		}
+		if release == "" && csv.GetSubstitutesFor() != "" {
+			// if the bundle expresses no release version, but
+			// includes the substitutesFor annotation, then we
+			// interpret any build metadata in the version as
+			// the release version.
+			// failure to parse build metadata under these conditions is fatal,
+			// though validation is later
+			parts := strings.SplitN(version, "+", 2)
+			if len(parts) == 2 {
+				version = parts[0]
+				release = parts[1]
+			} else {
+				return nil, fmt.Errorf("bundle %q with has substitutesFor annotation but release version not expressed as build metadata: %q", bundle.Name, version)
+			}
+		}
 
 		value, err := json.Marshal(PackageProperty{
 			PackageName: pkg,
 			Version:     version,
+			Release:     release,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal package property: %s", err)
