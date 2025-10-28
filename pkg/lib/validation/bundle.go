@@ -39,13 +39,9 @@ func validateBundle(bundle *registry.Bundle) errors.ManifestResult {
 		result.Add(errors.ErrInvalidParse("error getting bundle CSV version", err))
 		return result
 	}
-	if result.Name, err = csv.GetRelease(); err != nil {
+	if _, err = csv.GetRelease(); err != nil {
 		result.Add(errors.ErrInvalidParse("error getting bundle CSV release version", err))
 		return result
-	}
-	rel, _ := csv.GetRelease()
-	if rel == "" {
-		result.Add(errors.ErrInvalidParse("bundle CSV release version is not defined", errors.Error{}))
 	}
 	return result
 }

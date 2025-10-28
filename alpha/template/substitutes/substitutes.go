@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -143,6 +144,13 @@ func (t Template) processSubstitution(ctx context.Context, cfg *declcfg.Declarat
 			if entry.Replaces == substitution.Base {
 				entry.Replaces = substituteBundle.Name
 				entry.Skips = append(entry.Skips, substitution.Base)
+			} else if entry.Skips != nil && slices.Contains(entry.Skips, substitution.Base) {
+				// If this entry skips substitution.base, update it to skip substitution.name
+				// and remove substitution.base from the skips list
+				entry.Skips = append(entry.Skips, substituteBundle.Name)
+				entry.Skips = slices.DeleteFunc(entry.Skips, func(skip string) bool {
+					return skip == substitution.Base
+				})
 			}
 		}
 	}
