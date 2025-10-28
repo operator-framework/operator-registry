@@ -142,8 +142,9 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
 			}
-			if relver.Major != 0 || relver.Minor != 0 || relver.Patch != 0 || len(relver.Build) != 0 {
-				return nil, fmt.Errorf("bundle %q release version %q must only contain prerelease", b.Name, props.Packages[0].Release)
+			// only need to check for build metadata since we are using explicit zero major, minor, and patch versions above
+			if len(relver.Build) != 0 {
+				return nil, fmt.Errorf("bundle %q release version %q cannot contain build metadata", b.Name, props.Packages[0].Release)
 			}
 		}
 
