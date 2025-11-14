@@ -256,6 +256,9 @@ type PackageProperty struct {
 
 	// The version of package in semver format
 	Version string `json:"version" yaml:"version"`
+
+	// The release version of the package in semver pre-release format
+	Release string `json:"release,omitzero" yaml:"release,omitzero"`
 }
 
 type DeprecatedProperty struct {
