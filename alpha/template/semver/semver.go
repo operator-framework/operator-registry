@@ -42,25 +42,25 @@ type SemverTemplateData struct {
 
 // IO structs -- END
 
-// SemverTemplate implements the common template interface
-type SemverTemplate struct {
+// semverTemplate implements the common template interface
+type semverTemplate struct {
 	renderBundle template.BundleRenderer
 }
 
-// NewTemplate creates a new semver template instance
-func NewTemplate(renderBundle template.BundleRenderer) template.Template {
-	return &SemverTemplate{
+// New creates a new semver template instance
+func New(renderBundle template.BundleRenderer) template.Template {
+	return &semverTemplate{
 		renderBundle: renderBundle,
 	}
 }
 
 // RenderBundle implements the template.Template interface
-func (t *SemverTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+func (t *semverTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
 	return t.renderBundle(ctx, image)
 }
 
 // Render implements the template.Template interface
-func (t *SemverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+func (t *semverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 
 	sv, err := readFile(reader)
@@ -102,7 +102,7 @@ func (t *SemverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg
 }
 
 // Schema implements the template.Template interface
-func (t *SemverTemplate) Schema() string {
+func (t *semverTemplate) Schema() string {
 	return schema
 }
 
@@ -111,7 +111,7 @@ type Factory struct{}
 
 // CreateTemplate implements the template.TemplateFactory interface
 func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
-	return NewTemplate(renderBundle)
+	return New(renderBundle)
 }
 
 // Schema implements the template.TemplateFactory interface

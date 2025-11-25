@@ -529,7 +529,9 @@ func TestGenerateChannels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sv := &SemverTemplateData{GenerateMajorChannels: tt.generateMajorChannels, GenerateMinorChannels: tt.generateMinorChannels, pkg: "a", DefaultChannelTypePreference: tt.channelTypePreference}
 			out := sv.generateChannels(&channelOperatorVersions)
-			require.ElementsMatch(t, tt.out, out)
+			if diff := gocmp.Diff(tt.out, out); diff != "" {
+				t.Errorf("unexpected generated channels (-expected +received):\n%s", diff)
+			}
 			require.Equal(t, tt.defaultChannel, sv.defaultChannel)
 		})
 	}

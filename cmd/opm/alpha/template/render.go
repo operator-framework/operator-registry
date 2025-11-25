@@ -30,7 +30,7 @@ func runRenderTemplate(cmd *cobra.Command, args []string) error {
 		filePath = "-"
 	case 1:
 		// One argument - could be type or file
-		if tr.HasSchema(args[0]) {
+		if tr.HasType(args[0]) {
 			// It's a template type, read from stdin
 			templateType = args[0]
 			filePath = "-"
@@ -42,8 +42,8 @@ func runRenderTemplate(cmd *cobra.Command, args []string) error {
 		// Two arguments - type and file
 		templateType = args[0]
 		filePath = args[1]
-		if !tr.HasSchema(templateType) {
-			return fmt.Errorf("invalid template type %q, must be one of: %s", templateType, tr.GetSupportedSchemas())
+		if !tr.HasType(templateType) {
+			return fmt.Errorf("invalid template type %q, must be one of: %s", templateType, tr.GetSupportedTypes())
 		}
 	}
 

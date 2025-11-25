@@ -9,11 +9,11 @@ import (
 var tr = NewTemplateRegistry()
 
 // GetTemplateRegistry returns the global template registry
-func GetTemplateRegistry() *TemplateRegistry {
+func GetTemplateRegistry() *templateRegistry {
 	return tr
 }
 
-func (r *TemplateRegistry) HelpText() string {
+func (r *templateRegistry) HelpText() string {
 	var help strings.Builder
 	supportedTypes := r.GetSupportedTypes()
 	help.WriteString("\n")

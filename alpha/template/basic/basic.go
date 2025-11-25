@@ -18,24 +18,24 @@ func init() {
 	template.GetTemplateRegistry().Register(&Factory{})
 }
 
-type BasicTemplate struct {
+type basicTemplate struct {
 	renderBundle template.BundleRenderer
 }
 
-// NewTemplate creates a new basic template instance
-func NewTemplate(renderBundle template.BundleRenderer) template.Template {
-	return &BasicTemplate{
+// New creates a new basic template instance
+func New(renderBundle template.BundleRenderer) template.Template {
+	return &basicTemplate{
 		renderBundle: renderBundle,
 	}
 }
 
 // RenderBundle implements the template.Template interface
-func (t *BasicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+func (t *basicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
 	return t.renderBundle(ctx, image)
 }
 
 // Render implements the template.Template interface
-func (t *BasicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+func (t *basicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	bt, err := parseSpec(reader)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (t *BasicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.
 }
 
 // Schema implements the template.Template interface
-func (t *BasicTemplate) Schema() string {
+func (t *basicTemplate) Schema() string {
 	return schema
 }
 
@@ -71,7 +71,7 @@ type Factory struct{}
 
 // CreateTemplate implements the template.TemplateFactory interface
 func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
-	return NewTemplate(renderBundle)
+	return New(renderBundle)
 }
 
 // Schema implements the template.TemplateFactory interface
