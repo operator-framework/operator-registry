@@ -5,58 +5,71 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
-// BundleRenderer defines the function signature for rendering bundle images
+// BundleRenderer defines the function signature for rendering a string containing a bundle image/path/file into a DeclarativeConfig fragment
+// It's provided as a discrete type to allow for easy mocking in tests as well as facilitating variable
+// restrictions on reference types
 type BundleRenderer func(context.Context, string) (*declcfg.DeclarativeConfig, error)
 
 // Template defines the common interface for all template types
 type Template interface {
-	// RenderBundle renders a bundle image reference into a DeclarativeConfig
-	RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error)
-	// Render processes the template input and returns a DeclarativeConfig
+	// RenderBundle renders a bundle image reference into a DeclarativeConfig fragment.
+	// This function is used to render a single bundle image reference by a template instance,
+	// and is provided to the template on construction.
+	// This is typically used in the call to Render the template to DeclarativeConfig, and
+	// needs to be configurable to handle different bundle image formats and configurations.
+	RenderBundle(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error)
+	// Render processes the raw template yaml/json input and returns an expanded DeclarativeConfig
+	// in the case where expansion fails, it returns an error
 	Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error)
 	// Schema returns the schema identifier for this template type
 	Schema() string
 }
 
-// TemplateFactory creates template instances based on schema
-type TemplateFactory interface {
+// Factory creates template instances based on schema
+type Factory interface {
 	// CreateTemplate creates a new template instance with the given RenderBundle function
 	CreateTemplate(renderBundle BundleRenderer) Template
 	// Schema returns the schema identifier this factory handles
 	Schema() string
 }
 
-// TemplateRegistry maintains a mapping of schema identifiers to template factories
-type TemplateRegistry struct {
-	factories map[string]TemplateFactory
+// templateRegistry maintains a mapping of schema identifiers to template factories
+type templateRegistry struct {
+	mu        sync.RWMutex
+	factories map[string]Factory
 }
 
 // NewTemplateRegistry creates a new template registry
-func NewTemplateRegistry() *TemplateRegistry {
-	return &TemplateRegistry{
-		factories: make(map[string]TemplateFactory),
+func NewTemplateRegistry() *templateRegistry {
+	return &templateRegistry{
+		factories: make(map[string]Factory),
 	}
 }
 
 // Register adds a template factory to the registry
-func (r *TemplateRegistry) Register(factory TemplateFactory) {
+func (r *templateRegistry) Register(factory Factory) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.factories[factory.Schema()] = factory
 }
 
 // CreateTemplateBySchema creates a template instance based on the schema found in the input
 // and returns a reader that can be used to render the template. The returned reader includes
 // both the data consumed during schema detection and the remaining unconsumed data.
-func (r *TemplateRegistry) CreateTemplateBySchema(reader io.Reader, renderBundle BundleRenderer) (Template, io.Reader, error) {
+func (r *templateRegistry) CreateTemplateBySchema(reader io.Reader, renderBundle BundleRenderer) (Template, io.Reader, error) {
 	schema, replayReader, err := detectSchema(reader)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	r.mu.RLock()
 	factory, exists := r.factories[schema]
+	r.mu.RUnlock()
 	if !exists {
 		return nil, nil, &UnknownSchemaError{Schema: schema}
 	}
@@ -64,8 +77,10 @@ func (r *TemplateRegistry) CreateTemplateBySchema(reader io.Reader, renderBundle
 	return factory.CreateTemplate(renderBundle), replayReader, nil
 }
 
-func (r *TemplateRegistry) CreateTemplateByType(templateType string, renderBundle BundleRenderer) (Template, error) {
+func (r *templateRegistry) CreateTemplateByType(templateType string, renderBundle BundleRenderer) (Template, error) {
+	r.mu.RLock()
 	factory, exists := r.factories[templateType]
+	r.mu.RUnlock()
 	if !exists {
 		return nil, &UnknownSchemaError{Schema: templateType}
 	}
@@ -74,7 +89,9 @@ func (r *TemplateRegistry) CreateTemplateByType(templateType string, renderBundl
 }
 
 // GetSupportedSchemas returns all supported schema identifiers
-func (r *TemplateRegistry) GetSupportedSchemas() []string {
+func (r *templateRegistry) GetSupportedSchemas() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	schemas := make([]string, 0, len(r.factories))
 	for schema := range r.factories {
 		schemas = append(schemas, schema)
@@ -86,7 +103,9 @@ func (r *TemplateRegistry) GetSupportedSchemas() []string {
 // GetSupportedTypes returns all supported template types
 // TODO: in future, might store the type separately from the schema
 // right now it's just the last part of the schema string
-func (r *TemplateRegistry) GetSupportedTypes() []string {
+func (r *templateRegistry) GetSupportedTypes() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	types := make([]string, 0, len(r.factories))
 	for schema := range r.factories {
 		types = append(types, schema[strings.LastIndex(schema, ".")+1:])
@@ -95,9 +114,16 @@ func (r *TemplateRegistry) GetSupportedTypes() []string {
 	return types
 }
 
-func (r *TemplateRegistry) HasSchema(schema string) bool {
+func (r *templateRegistry) HasSchema(schema string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	_, exists := r.factories[schema]
 	return exists
+}
+
+func (r *templateRegistry) HasType(templateType string) bool {
+	types := r.GetSupportedTypes()
+	return slices.Contains(types, templateType)
 }
 
 // UnknownSchemaError is returned when a schema is not recognized
