@@ -9,40 +9,33 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/template"
 )
 
 const schema string = "olm.template.basic"
 
-type Template struct {
-	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
+func init() {
+	template.GetTemplateRegistry().Register(&Factory{})
 }
 
 type BasicTemplate struct {
-	Schema  string          `json:"schema"`
-	Entries []*declcfg.Meta `json:"entries"`
+	renderBundle template.BundleRenderer
 }
 
-func parseSpec(reader io.Reader) (*BasicTemplate, error) {
-	bt := &BasicTemplate{}
-	btDoc := json.RawMessage{}
-	btDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
-	err := btDecoder.Decode(&btDoc)
-	if err != nil {
-		return nil, fmt.Errorf("decoding template schema: %v", err)
+// NewTemplate creates a new basic template instance
+func NewTemplate(renderBundle template.BundleRenderer) template.Template {
+	return &BasicTemplate{
+		renderBundle: renderBundle,
 	}
-	err = json.Unmarshal(btDoc, bt)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshalling template: %v", err)
-	}
-
-	if bt.Schema != schema {
-		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", bt.Schema, schema)
-	}
-
-	return bt, nil
 }
 
-func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+// RenderBundle implements the template.Template interface
+func (t *BasicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+	return t.renderBundle(ctx, image)
+}
+
+// Render implements the template.Template interface
+func (t *BasicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	bt, err := parseSpec(reader)
 	if err != nil {
 		return nil, err
@@ -68,14 +61,57 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	return cfg, nil
 }
 
+// Schema implements the template.Template interface
+func (t *BasicTemplate) Schema() string {
+	return schema
+}
+
+// Factory implements the template.TemplateFactory interface
+type Factory struct{}
+
+// CreateTemplate implements the template.TemplateFactory interface
+func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
+	return NewTemplate(renderBundle)
+}
+
+// Schema implements the template.TemplateFactory interface
+func (f *Factory) Schema() string {
+	return schema
+}
+
+type BasicTemplateData struct {
+	Schema  string          `json:"schema"`
+	Entries []*declcfg.Meta `json:"entries"`
+}
+
+func parseSpec(reader io.Reader) (*BasicTemplateData, error) {
+	bt := &BasicTemplateData{}
+	btDoc := json.RawMessage{}
+	btDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
+	err := btDecoder.Decode(&btDoc)
+	if err != nil {
+		return nil, fmt.Errorf("decoding template schema: %v", err)
+	}
+	err = json.Unmarshal(btDoc, bt)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling template: %v", err)
+	}
+
+	if bt.Schema != schema {
+		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", bt.Schema, schema)
+	}
+
+	return bt, nil
+}
+
 // isBundleTemplate identifies a Bundle template source as having a Schema and Image defined
 // but no Properties, RelatedImages or Package defined
 func isBundleTemplate(b *declcfg.Bundle) bool {
 	return b.Schema != "" && b.Image != "" && b.Package == "" && len(b.Properties) == 0 && len(b.RelatedImages) == 0
 }
 
-// FromReader reads FBC from a reader and generates a BasicTemplate from it
-func FromReader(r io.Reader) (*BasicTemplate, error) {
+// FromReader reads FBC from a reader and generates a BasicTemplateData from it
+func FromReader(r io.Reader) (*BasicTemplateData, error) {
 	var entries []*declcfg.Meta
 	if err := declcfg.WalkMetasReader(r, func(meta *declcfg.Meta, err error) error {
 		if err != nil {
@@ -101,7 +137,7 @@ func FromReader(r io.Reader) (*BasicTemplate, error) {
 		return nil, err
 	}
 
-	bt := &BasicTemplate{
+	bt := &BasicTemplateData{
 		Schema:  schema,
 		Entries: entries,
 	}
