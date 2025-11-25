@@ -100,6 +100,11 @@ func (r *TemplateRegistry) HasSchema(schema string) bool {
 	return exists
 }
 
+func (r *TemplateRegistry) HasType(templateType string) bool {
+	types := r.GetSupportedTypes()
+	return slices.Contains(types, templateType)
+}
+
 // UnknownSchemaError is returned when a schema is not recognized
 type UnknownSchemaError struct {
 	Schema string
