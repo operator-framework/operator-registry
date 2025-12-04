@@ -17,6 +17,7 @@ import (
 	"github.com/operator-framework/operator-registry/cmd/opm/render"
 	"github.com/operator-framework/operator-registry/cmd/opm/serve"
 	"github.com/operator-framework/operator-registry/cmd/opm/validate"
+	validatefreshmaker "github.com/operator-framework/operator-registry/cmd/opm/validate-freshmaker"
 	"github.com/operator-framework/operator-registry/cmd/opm/version"
 )
 
@@ -44,7 +45,7 @@ To view help related to alpha features, set HELP_ALPHA=true in the environment.`
 		logrus.Panic(err.Error())
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(showAlphaHelp), alpha.NewCmd(showAlphaHelp), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(showAlphaHelp), validate.NewCmd(), generate.NewCmd())
+	cmd.AddCommand(registry.NewOpmRegistryCmd(showAlphaHelp), alpha.NewCmd(showAlphaHelp), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(showAlphaHelp), validate.NewCmd(), validatefreshmaker.NewCmd(), generate.NewCmd())
 	index.AddCommand(cmd, showAlphaHelp)
 	version.AddCommand(cmd)
 
