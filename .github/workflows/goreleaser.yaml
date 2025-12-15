@@ -64,7 +64,7 @@ jobs:
           RELEASE_ARGS: release --verbose --skip=validate --clean -f release/goreleaser.windows.yaml ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: tar -cvf dist-windows.tar dist
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-windows
           path: dist-windows.tar
@@ -88,7 +88,7 @@ jobs:
           RELEASE_ARGS: release --verbose --clean -f release/goreleaser.darwin.yaml --skip=validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: gtar -cvf dist-darwin.tar dist
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-darwin
           path: dist-darwin.tar
@@ -143,7 +143,7 @@ jobs:
           RELEASE_ARGS: release --verbose --clean -f release/goreleaser.linux.yaml --skip=validate ${{ github.event_name == 'pull_request' && '--snapshot' || '' }}
 
       - run: tar -cvf dist-linux.tar dist
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-linux
           path: dist-linux.tar
