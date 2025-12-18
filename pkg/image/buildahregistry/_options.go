@@ -4,7 +4,6 @@
 package buildahregistry
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -95,7 +94,7 @@ func NewRegistry(options ...RegistryOption) (registry *Registry, destroy func() 
 	}
 
 	// TODO: probably don't want the signature policy to be here
-	ioutil.WriteFile(path.Join(config.CacheDir, "policy.json"), []byte(`
+	os.WriteFile(path.Join(config.CacheDir, "policy.json"), []byte(`
 {
     "default": [
         {
