@@ -149,7 +149,8 @@ func TestLoadWriteRead(t *testing.T) {
 					Namespace: configMapNamespace,
 				},
 			}
-			clientset := fake.NewSimpleClientset()
+
+			clientset := fake.NewClientset()
 			_, _ = clientset.CoreV1().ConfigMaps(configMapNamespace).Create(context.TODO(), cm, metav1.CreateOptions{})
 
 			cmLoader := NewConfigMapLoaderWithClient(configMapName, configMapNamespace, tt.source, tt.gzip, clientset)
