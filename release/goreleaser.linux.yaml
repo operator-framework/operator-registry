@@ -12,7 +12,7 @@ builds:
       - CGO_ENABLED=1
     mod_timestamp: "{{ .CommitTimestamp }}"
     flags: &build-flags
-      - -tags=json1,netgo,osusergo,containers_image_openpgp
+      - -tags=json1,netgo,osusergo,containers_image_openpgp,sqlite_omit_load_extension
     asmflags: &build-asmflags
       - all=-trimpath={{ .Env.PWD }}
     gcflags: &build-gcflags
