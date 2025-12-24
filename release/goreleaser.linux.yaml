@@ -1,3 +1,4 @@
+version: 2
 builds:
   - id: linux-amd64
     main: ./cmd/opm
@@ -69,90 +70,40 @@ builds:
     ldflags: *build-ldflags
 archives:
   - id: opm
-    builds:
+    ids:
       - linux-amd64
       - linux-arm64
       - linux-ppc64le
       - linux-s390x
-    format: binary
+    formats:
+      - binary
     name_template: "{{ .Os }}-{{ .Arch }}-{{ .Binary }}"
-dockers:
-  - image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-    ids: ["linux-amd64"]
-    goos: linux
-    goarch: amd64
-    dockerfile: release/goreleaser.opm.Dockerfile
-    extra_files: ["nsswitch.conf"]
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/amd64
-      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
-  - image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-    ids: ["linux-arm64"]
-    goos: linux
-    goarch: arm64
-    dockerfile: release/goreleaser.opm.Dockerfile
-    extra_files: ["nsswitch.conf"]
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/arm64
-      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
-  - image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-    ids: ["linux-ppc64le"]
-    goos: linux
-    goarch: ppc64le
-    dockerfile: release/goreleaser.opm.Dockerfile
-    extra_files: ["nsswitch.conf"]
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/ppc64le
-      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
-  - image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
-    ids: ["linux-s390x"]
-    goos: linux
-    goarch: s390x
-    dockerfile: release/goreleaser.opm.Dockerfile
-    extra_files: ["nsswitch.conf"]
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/s390x
-      - --build-arg=GRPC_HEALTH_PROBE_VERSION={{ .Env.GRPC_HEALTH_PROBE_VERSION }}
-docker_manifests:
+dockers_v2:
   # IMAGE_TAG is either set by the Makefile or the goreleaser action workflow,
   # This image is intended to be tagged/pushed on all trunk (master, release branch) commits and tags.
-  - name_template: "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}"
-    image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
-  # Release image builds will be skipped if *_IMAGE_OR_EMPTY variables are empty.
-  # https://github.com/goreleaser/goreleaser/blob/9ed3c0c/internal/pipe/docker/manifest.go#L105
-  - name_template: "{{ .Env.MAJ_MIN_IMAGE_OR_EMPTY }}"
-    image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
-  - name_template: "{{ .Env.MAJ_IMAGE_OR_EMPTY }}"
-    image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
-  - name_template: "{{ .Env.LATEST_IMAGE_OR_EMPTY }}"
-    image_templates:
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-amd64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-arm64"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-ppc64le"
-      - "{{ .Env.OPM_IMAGE_REPO }}:{{ .Env.IMAGE_TAG }}-s390x"
+  - id: opm-multi-arch
+    ids:
+      - linux-amd64
+      - linux-arm64
+      - linux-ppc64le
+      - linux-s390x
+    dockerfile: release/goreleaser.opm.Dockerfile
+    extra_files:
+      - nsswitch.conf
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/ppc64le
+      - linux/s390x
+    build_args:
+      GRPC_HEALTH_PROBE_VERSION: "{{ .Env.GRPC_HEALTH_PROBE_VERSION }}"
+    images:
+      - "{{ .Env.OPM_IMAGE_REPO }}"
+    tags:
+      - "{{ .Env.IMAGE_TAG }}"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Env.OPM_VERSION }}"
+  version_template: "{{ .Env.OPM_VERSION }}"
 release:
   disable: true
