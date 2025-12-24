@@ -1,4 +1,3 @@
-version: 2
 builds:
   - id: darwin-amd64
     main: ./cmd/opm
@@ -37,15 +36,14 @@ builds:
     ldflags: *build-ldflags
 archives:
   - id: opm
-    ids:
+    builds:
      - darwin-amd64
      - darwin-arm64
-    formats:
-      - binary
+    format: binary
     name_template: "{{ .Os }}-{{ .Arch }}-{{ .Binary }}"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  version_template: "{{ .Env.OPM_VERSION }}"
+  name_template: "{{ .Env.OPM_VERSION }}"
 release:
   disable: true

@@ -1,4 +1,3 @@
-version: 2
 builds:
   - id: windows-amd64
     main: ./cmd/opm
@@ -24,14 +23,13 @@ builds:
       - -X {{ .Env.PKG }}/cmd/opm/version.buildDate={{ .Env.BUILD_DATE }}
 archives:
   - id: opm
-    ids:
+    builds:
       - windows-amd64
-    formats:
-      - binary
+    format: binary
     name_template: "{{ .Os }}-{{ .Arch }}-{{ .Binary }}"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  version_template: "{{ .Env.OPM_VERSION }}"
+  name_template: "{{ .Env.OPM_VERSION }}"
 release:
   disable: true

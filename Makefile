@@ -62,7 +62,7 @@ build: clean $(CMDS) $(OPM)
 cross: opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 cross:
 ifeq ($(shell go env GOARCH),amd64)
-	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 CGO_LDFLAGS='-Wl,-undefined,dynamic_lookup' $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang -extldflags=-Wl,-undefined,dynamic_lookup" ./cmd/opm
+	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang" ./cmd/opm
 	GOOS=windows CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) -tags=$(TAGS)  -o "bin/windows-amd64-opm" --ldflags "-extld=x86_64-w64-mingw32-gcc" -buildmode=exe ./cmd/opm
 endif
 
@@ -163,7 +163,7 @@ windows-goreleaser-install:
 	# This is done to ensure the same version of goreleaser is used across all platforms
 	mkdir -p $(dir $(GORELEASER))
 	@echo "(re)installing $(GORELEASER)"
-	GOWORK=off $(GO) build -mod=mod -modfile=.bingo/goreleaser.mod -o=$(GORELEASER) "github.com/goreleaser/goreleaser/v2"
+	GOWORK=off $(GO) build -mod=mod -modfile=.bingo/goreleaser.mod -o=$(GORELEASER) "github.com/goreleaser/goreleaser"
 
 # tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
