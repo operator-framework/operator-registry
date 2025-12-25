@@ -21,6 +21,10 @@ func NewCmd() *cobra.Command {
 	// sc.Hidden = true
 	runCmd.AddCommand(sc)
 
+	subs := newSubstitutesForTemplateCmd()
+	// subs.Hidden = true
+	runCmd.AddCommand(subs)
+
 	runCmd.PersistentFlags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 
 	return runCmd
