@@ -2,7 +2,7 @@ name: go-verdiff
 on:
   pull_request:
     branches:
-      - master
+    - master
 jobs:
   go-verdiff:
     runs-on: ubuntu-latest
@@ -11,12 +11,24 @@ jobs:
       with:
         fetch-depth: 0
     - name: Check golang version
+      id: check-version
+      continue-on-error: true
       run: |
-        export LABELS="$(gh api repos/$OWNER/$REPO/pulls/$PR --jq '.labels.[].name')"
         hack/tools/check-go-version.sh -b "${{ github.event.pull_request.base.sha }}"
       shell: bash
+    - name: Check for override label
+      if: ${{ steps.check-version.outcome == 'failure' }}
+      run: |
+        if gh api repos/$OWNER/$REPO/pulls/$PR --jq '.labels.[].name' | grep -q "${OVERRIDE_LABEL}"; then
+          echo "Found ${OVERRIDE_LABEL} label, overriding failed results."
+          exit 0
+        else
+          echo "No ${OVERRIDE_LABEL} label found, failing the job."
+          exit 1
+        fi
       env:
         GH_TOKEN: ${{ github.token }}
         OWNER: ${{ github.repository_owner }}
         REPO: ${{ github.event.repository.name }}
         PR: ${{ github.event.pull_request.number }}
+        OVERRIDE_LABEL: "go-verdiff-override"
