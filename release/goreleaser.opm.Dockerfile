@@ -6,7 +6,7 @@
 # by GoReleaser from the GRPC_HEALTH_PROBE_VERSION environment variable,
 # which is set in the Makefile from go.mod.
 
-ARG GRPC_HEALTH_PROBE_VERSION=v0.4.42
+ARG GRPC_HEALTH_PROBE_VERSION=v0.4.43
 FROM ghcr.io/grpc-ecosystem/grpc-health-probe:${GRPC_HEALTH_PROBE_VERSION} AS grpc_health_probe
 FROM gcr.io/distroless/static:debug
 ARG TARGETOS
