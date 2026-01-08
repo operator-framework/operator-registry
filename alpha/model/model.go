@@ -53,60 +53,60 @@ type Package struct {
 	Deprecation    *Deprecation
 }
 
-func (m *Package) Validate() error {
-	result := newValidationError(fmt.Sprintf("invalid package %q", m.Name))
+func (p *Package) Validate() error {
+	result := newValidationError(fmt.Sprintf("invalid package %q", p.Name))
 
-	if m.Name == "" {
+	if p.Name == "" {
 		result.subErrors = append(result.subErrors, errors.New("package name must not be empty"))
 	}
 
-	if err := m.Icon.Validate(); err != nil {
+	if err := p.Icon.Validate(); err != nil {
 		result.subErrors = append(result.subErrors, err)
 	}
 
-	if m.DefaultChannel == nil {
+	if p.DefaultChannel == nil {
 		result.subErrors = append(result.subErrors, fmt.Errorf("default channel must be set"))
 	}
 
-	if len(m.Channels) == 0 {
+	if len(p.Channels) == 0 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("package must contain at least one channel"))
 	}
 
 	foundDefault := false
-	for name, ch := range m.Channels {
+	for name, ch := range p.Channels {
 		if name != ch.Name {
 			result.subErrors = append(result.subErrors, fmt.Errorf("channel key %q does not match channel name %q", name, ch.Name))
 		}
 		if err := ch.Validate(); err != nil {
 			result.subErrors = append(result.subErrors, err)
 		}
-		if ch == m.DefaultChannel {
+		if ch == p.DefaultChannel {
 			foundDefault = true
 		}
-		if ch.Package != m {
+		if ch.Package != p {
 			result.subErrors = append(result.subErrors, fmt.Errorf("channel %q not correctly linked to parent package", ch.Name))
 		}
 	}
 
-	if err := m.validateUniqueBundleVersions(); err != nil {
+	if err := p.validateUniqueBundleVersions(); err != nil {
 		result.subErrors = append(result.subErrors, err)
 	}
 
-	if m.DefaultChannel != nil && !foundDefault {
-		result.subErrors = append(result.subErrors, fmt.Errorf("default channel %q not found in channels list", m.DefaultChannel.Name))
+	if p.DefaultChannel != nil && !foundDefault {
+		result.subErrors = append(result.subErrors, fmt.Errorf("default channel %q not found in channels list", p.DefaultChannel.Name))
 	}
 
-	if err := m.Deprecation.Validate(); err != nil {
+	if err := p.Deprecation.Validate(); err != nil {
 		result.subErrors = append(result.subErrors, fmt.Errorf("invalid deprecation: %v", err))
 	}
 
 	return result.orNil()
 }
 
-func (m *Package) validateUniqueBundleVersions() error {
+func (p *Package) validateUniqueBundleVersions() error {
 	versionsMap := map[string]string{}
 	bundlesWithVersion := map[string]sets.Set[string]{}
-	for _, ch := range m.Channels {
+	for _, ch := range p.Channels {
 		for _, b := range ch.Bundles {
 			versionsMap[b.VersionString()] = b.VersionString()
 			if bundlesWithVersion[b.VersionString()] == nil {

@@ -12,15 +12,22 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
 
+// Template implements a catalog template to make the substitutesFor mechanics less error prone.
+// It provides a customizable RenderBundle function that is used to produce declarative config for a supplied bundle.
 type Template struct {
 	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
 }
 
+// Substitute defines a replacement relationship between an existing bundle name and a superceding bundle image pullspec.
+// Since registry+v0 graphs are bundle name based, this uses the name instead of a version.
 type Substitute struct {
 	Name string `json:"name"` // the bundle image pullspec to substitute
 	Base string `json:"base"` // the bundle name to substitute for
 }
 
+// SubstitutesForTemplate represents a template for bundle substitutions.
+// It contains the schema identifier, an input declarative config, and substitution mappings
+// that define how bundles should be replaced in upgrade graphs.
 type SubstitutesForTemplate struct {
 	Schema        string          `json:"schema"`
 	Entries       []*declcfg.Meta `json:"entries"`
@@ -95,6 +102,12 @@ func (t Template) processSubstitution(ctx context.Context, cfg *declcfg.Declarat
 		return fmt.Errorf("failed to render bundle image reference %q: %v", substitution.Name, err)
 	}
 
+	// normally, we'd rely on RenderBundle to represent any failure via err, but since this is comes from input,
+	// we need to perform more validation of the results here before processing them
+	if substituteCfg == nil || len(substituteCfg.Bundles) == 0 {
+		return fmt.Errorf("rendered bundle image reference %q contains no bundles", substitution.Name)
+	}
+
 	substituteBundle := &substituteCfg.Bundles[0]
 
 	// Iterate over all channels
@@ -167,7 +180,7 @@ func (t Template) processSubstitution(ctx context.Context, cfg *declcfg.Declarat
 	return nil
 }
 
-// FromReader reads FBC from a reader and generates a BasicTemplate from it
+// FromReader reads FBC from a reader and generates a SubstitutesForTemplate from it
 func FromReader(r io.Reader) (*SubstitutesForTemplate, error) {
 	var entries []*declcfg.Meta
 	if err := declcfg.WalkMetasReader(r, func(meta *declcfg.Meta, err error) error {

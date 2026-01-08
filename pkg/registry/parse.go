@@ -280,7 +280,7 @@ func extractReleaseVersionFromBuildMetadata(substitutesFor string) (string, stri
 		version = parts[0]
 		release = parts[1]
 	} else {
-		return "", "", fmt.Errorf("no release version expressed as build metadata: %q", version)
+		return "", "", fmt.Errorf("no release version expressed as build metadata: %q", substitutesFor)
 	}
 	return version, release, nil
 }

@@ -22,19 +22,31 @@ type Converter struct {
 
 func (c *Converter) Convert() error {
 	var b []byte
+	var err error
 	switch c.DestinationTemplateType {
 	case "basic":
-		bt, err := basic.FromReader(c.FbcReader)
+		var bt *basic.BasicTemplate
+		bt, err = basic.FromReader(c.FbcReader)
 		if err != nil {
 			return err
 		}
-		b, _ = json.MarshalIndent(bt, "", "    ")
+		b, err = json.MarshalIndent(bt, "", "    ")
+		if err != nil {
+			return err
+		}
 	case "substitutes":
-		st, err := substitutes.FromReader(c.FbcReader)
+		var st *substitutes.SubstitutesForTemplate
+		st, err = substitutes.FromReader(c.FbcReader)
 		if err != nil {
 			return err
 		}
-		b, _ = json.MarshalIndent(st, "", "    ")
+		b, err = json.MarshalIndent(st, "", "    ")
+		if err != nil {
+			return err
+		}
+	default:
+		// usage pattern prevents us from getting here, so if we do it's a programmer failure and we should panic
+		panic(fmt.Sprintf("unknown template type %q", c.DestinationTemplateType))
 	}
 
 	if c.OutputFormat == "json" {
