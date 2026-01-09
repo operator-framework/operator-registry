@@ -547,8 +547,8 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 		{
 			name: "sunny day case",
 			sv: SemverTemplateData{
-				Stable: semverTemplateChannelBundles{
-					[]semverTemplateBundleEntry{
+				Stable: channelBundles{
+					[]bundleEntry{
 						{Image: "repo/origin/a-v0.1.0"},
 						{Image: "repo/origin/a-v0.1.1"},
 						{Image: "repo/origin/a-v1.1.0"},
@@ -613,8 +613,8 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 
 func TestBailOnVersionBuildMetadata(t *testing.T) {
 	sv := SemverTemplateData{
-		Stable: semverTemplateChannelBundles{
-			[]semverTemplateBundleEntry{
+		Stable: channelBundles{
+			[]bundleEntry{
 				{Image: "repo/origin/a-v0.1.0"},
 				{Image: "repo/origin/a-v0.1.1"},
 				{Image: "repo/origin/a-v1.1.0"},

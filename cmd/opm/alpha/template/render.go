@@ -12,15 +12,12 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/template"
-	_ "github.com/operator-framework/operator-registry/alpha/template/basic"
-	_ "github.com/operator-framework/operator-registry/alpha/template/semver"
+	alphatemplate "github.com/operator-framework/operator-registry/alpha/template"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
 )
 
 // runRenderTemplate handles the unified template rendering logic
-func runRenderTemplate(cmd *cobra.Command, args []string) error {
-	tr := template.GetTemplateRegistry()
+func runRenderTemplate(cmd *cobra.Command, args []string, tr alphatemplate.Registry) error {
 	var templateType, filePath string
 
 	// Parse arguments based on number provided
@@ -98,7 +95,7 @@ func runRenderTemplate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create render bundle function
-	renderBundle := template.BundleRenderer(func(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+	renderBundle := alphatemplate.BundleRenderer(func(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
 		renderer := action.Render{
 			Refs:           []string{image},
 			Registry:       reg,
@@ -108,7 +105,7 @@ func runRenderTemplate(cmd *cobra.Command, args []string) error {
 		return renderer.Run(ctx)
 	})
 
-	var tmpl template.Template
+	var tmpl alphatemplate.Template
 	// a reader for the schema data.  in the simple case, this is just 'data'.
 	// in the case where we auto-detect the schema, this is a reader that
 	// includes the consumed schema data plus any remainder.

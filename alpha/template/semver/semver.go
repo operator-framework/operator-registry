@@ -15,26 +15,28 @@ import (
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/operator-framework/operator-registry/alpha/template"
+	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
+const schema string = "olm.semver"
+
 // IO structs -- BEGIN
-type semverTemplateBundleEntry struct {
+type bundleEntry struct {
 	Image string `json:"image,omitempty"`
 }
 
-type semverTemplateChannelBundles struct {
-	Bundles []semverTemplateBundleEntry `json:"bundles,omitempty"`
+type channelBundles struct {
+	Bundles []bundleEntry `json:"bundles,omitempty"`
 }
 
 type SemverTemplateData struct {
-	Schema                       string                       `json:"schema"`
-	GenerateMajorChannels        bool                         `json:"generateMajorChannels,omitempty"`
-	GenerateMinorChannels        bool                         `json:"generateMinorChannels,omitempty"`
-	DefaultChannelTypePreference streamType                   `json:"defaultChannelTypePreference,omitempty"`
-	Candidate                    semverTemplateChannelBundles `json:"candidate,omitempty"`
-	Fast                         semverTemplateChannelBundles `json:"fast,omitempty"`
-	Stable                       semverTemplateChannelBundles `json:"stable,omitempty"`
+	Schema                       string         `json:"schema"`
+	GenerateMajorChannels        bool           `json:"generateMajorChannels,omitempty"`
+	GenerateMinorChannels        bool           `json:"generateMinorChannels,omitempty"`
+	DefaultChannelTypePreference streamType     `json:"defaultChannelTypePreference,omitempty"`
+	Candidate                    channelBundles `json:"candidate,omitempty"`
+	Fast                         channelBundles `json:"fast,omitempty"`
+	Stable                       channelBundles `json:"stable,omitempty"`
 
 	pkg            string `json:"-"` // the derived package name
 	defaultChannel string `json:"-"` // detected "most stable" channel head
@@ -44,22 +46,23 @@ type SemverTemplateData struct {
 
 // semverTemplate implements the common template interface
 type semverTemplate struct {
-	renderBundle template.BundleRenderer
+	renderBundle api.BundleRenderer
 }
 
-// New creates a new semver template instance
-func New(renderBundle template.BundleRenderer) template.Template {
+// new creates a new semver template instance
+func new(renderBundle api.BundleRenderer) api.Template {
 	return &semverTemplate{
 		renderBundle: renderBundle,
 	}
 }
 
-// RenderBundle implements the template.Template interface
+// RenderBundle expands the bundle image reference into a DeclarativeConfig fragment.
 func (t *semverTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
 	return t.renderBundle(ctx, image)
 }
 
-// Render implements the template.Template interface
+// Render takes all provided entries and converts them to a standalone DeclarativeConfig,
+// generating channels based on the bundles listed in the template and expanding any bundle image references into full olm.bundle DeclarativeConfig
 func (t *semverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	var out declcfg.DeclarativeConfig
 
@@ -101,28 +104,22 @@ func (t *semverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg
 	return &out, nil
 }
 
-// Schema implements the template.Template interface
+// Schema returns the schema identifier for this template type
 func (t *semverTemplate) Schema() string {
 	return schema
 }
 
-// Factory implements the template.TemplateFactory interface
+// Factory represents the semver template factory
 type Factory struct{}
 
-// CreateTemplate implements the template.TemplateFactory interface
-func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
-	return New(renderBundle)
+// CreateTemplate creates a new template instance with the given RenderBundle function
+func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
+	return new(renderBundle)
 }
 
-// Schema implements the template.TemplateFactory interface
+// Schema returns the schema supported by this factory
 func (f *Factory) Schema() string {
 	return schema
-}
-
-const schema string = "olm.semver"
-
-func init() {
-	template.GetTemplateRegistry().Register(&Factory{})
 }
 
 // channel "archetypes", restricted in this iteration to just these
@@ -179,7 +176,7 @@ type entryTuple struct {
 
 func buildBundleList(t SemverTemplateData) map[string]string {
 	dict := make(map[string]string)
-	for _, bl := range []semverTemplateChannelBundles{t.Candidate, t.Fast, t.Stable} {
+	for _, bl := range []channelBundles{t.Candidate, t.Fast, t.Stable} {
 		for _, b := range bl.Bundles {
 			if _, ok := dict[b.Image]; !ok {
 				dict[b.Image] = b.Image
@@ -267,7 +264,7 @@ func (sv *SemverTemplateData) getVersionsFromStandardChannels(cfg *declcfg.Decla
 	return &versions, nil
 }
 
-func (sv *SemverTemplateData) getVersionsFromChannel(semverBundles []semverTemplateBundleEntry, bundleDict map[string]string, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
+func (sv *SemverTemplateData) getVersionsFromChannel(semverBundles []bundleEntry, bundleDict map[string]string, cfg *declcfg.DeclarativeConfig) (map[string]semver.Version, error) {
 	entries := make(map[string]semver.Version)
 
 	// we iterate over the channel bundles from the template, to:
@@ -323,12 +320,11 @@ func (sv *SemverTemplateData) getVersionsFromChannel(semverBundles []semverTempl
 	return entries, nil
 }
 
-// generates an unlinked channel for each channel as per the input template config (major || minor), then link up the edges of the set of channels so that:
+// generateChannels generates an unlinked channel for each channel as per the input template config (major || minor), then link up the edges of the set of channels so that:
 // - for minor version increase, the new edge replaces the previous
 // - (for major channels) iterating to a new minor version channel (traversing between Y-streams) creates a 'replaces' edge between the predecessor and successor bundles
 // - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser Y.Z versions of the bundle enumerated in the template.
 // along the way, uses a highwaterChannel marker to identify the "most stable" channel head to be used as the default channel for the generated package
-
 func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) []declcfg.Channel {
 	outChannels := []declcfg.Channel{}
 
