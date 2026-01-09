@@ -96,9 +96,9 @@ func TestPackageGraphLoader(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.EqualValues(t, tt.packageName, p.Name)
-			assert.EqualValues(t, tt.defaultChannel, p.DefaultChannel)
-			assert.EqualValues(t, tt.channel, p.Channels)
+			assert.Equal(t, tt.packageName, p.Name)
+			assert.Equal(t, tt.defaultChannel, p.DefaultChannel)
+			assert.Equal(t, tt.channel, p.Channels)
 		})
 	}
 }

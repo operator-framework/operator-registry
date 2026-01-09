@@ -40,7 +40,7 @@ func TestSubstitutesForUp(t *testing.T) {
 	if rows.Next() {
 		require.NoError(t, rows.Scan(&substitutesFor))
 	}
-	require.Equal(t, "", substitutesFor.String)
+	require.Empty(t, substitutesFor.String)
 }
 
 func TestSubstitutesForDown(t *testing.T) {

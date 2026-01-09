@@ -3,7 +3,6 @@
 #
 #  This file is duplicated in the following repos:
 #    - operator-framework/kubectl-operator
-#    - operator-framework/catalogd
 #    - operator-framework/operator-controller
 #    - operator-framework/operator-registry
 #
@@ -12,72 +11,80 @@
 #
 #  TODO: Find a way to have a shared golangci config.
 ########
-
-run:
-  # Default timeout is 1m, up to give more room
-  timeout: 4m
-
-linters:
-  enable:
-  - asciicheck
-  - bodyclose
-  - errorlint
-  - gci
-  - gofmt
-  - govet
-  - gosec
-  - importas
-  - misspell
-  - nestif
-  - nonamedreturns
-  - prealloc
-  - stylecheck
-  - testifylint
-  - tparallel
-  - unconvert
-  - unparam
-  - unused
-  - whitespace
-
-linters-settings:
-  gci:
-    sections:
-      - standard
-      - dot
-      - default
-      - prefix(github.com/operator-framework)
-      - localmodule
-    custom-order: true
-
-  errorlint:
-    errorf: false
-
-  importas:
-    alias:
-    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-      alias: metav1
-    - pkg: k8s.io/apimachinery/pkg/api/errors
-      alias: apierrors
-    - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-      alias: apiextensionsv1
-    - pkg: k8s.io/apimachinery/pkg/util/runtime
-      alias: utilruntime
-    - pkg: "^k8s\\.io/api/([^/]+)/(v[^/]+)$"
-      alias: $1$2
-    - pkg: sigs.k8s.io/controller-runtime
-      alias: ctrl
-    - pkg: github.com/blang/semver/v4
-      alias: bsemver
-
-issues:
-  # exclusion rules, mostly to avoid functionally complete areas and reduce unit test noise
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - unused
-        - govet
-
-
+version: "2"
 output:
   formats:
-    - format: tab
+    tab:
+      path: stdout
+      colors: false
+linters:
+  enable:
+    - asciicheck
+    - bodyclose
+    - errorlint
+    - gosec
+    - importas
+    - misspell
+    - nestif
+    - nonamedreturns
+    - prealloc
+    - staticcheck
+    - testifylint
+    - tparallel
+    - unconvert
+    - unparam
+    - whitespace
+  settings:
+    errorlint:
+      errorf: false
+    importas:
+      alias:
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+          alias: metav1
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: apierrors
+        - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+          alias: apiextensionsv1
+        - pkg: k8s.io/apimachinery/pkg/util/runtime
+          alias: utilruntime
+        - pkg: ^k8s\.io/api/([^/]+)/(v[^/]+)$
+          alias: $1$2
+        - pkg: sigs.k8s.io/controller-runtime
+          alias: ctrl
+        - pkg: github.com/blang/semver/v4
+          alias: bsemver
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - govet
+          - unused
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - dot
+        - default
+        - prefix(github.com/operator-framework)
+        - localmodule
+      custom-order: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

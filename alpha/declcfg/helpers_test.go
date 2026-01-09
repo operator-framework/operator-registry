@@ -342,7 +342,7 @@ func equalsDeclarativeConfig(t *testing.T, expected, actual DeclarativeConfig) {
 	// root elements, so we need to manually sort bundles and use
 	// assert.ElementsMatch on the properties fields between
 	// expected and actual.
-	require.Equal(t, len(expected.Bundles), len(actual.Bundles))
+	require.Len(t, actual.Bundles, len(expected.Bundles))
 	sort.SliceStable(expected.Bundles, func(i, j int) bool {
 		return expected.Bundles[i].Name < expected.Bundles[j].Name
 	})

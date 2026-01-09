@@ -605,8 +605,8 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 			iosv := tt.sv
 			versions, err := iosv.getVersionsFromStandardChannels(&tt.dc, buildBundleList(tt.sv))
 			require.NoError(t, err)
-			require.EqualValues(t, tt.outVersions, *versions)
-			require.EqualValues(t, "a", iosv.pkg) // verify that we learned the package name and stashed it in the receiver
+			require.Equal(t, tt.outVersions, *versions)
+			require.Equal(t, "a", iosv.pkg) // verify that we learned the package name and stashed it in the receiver
 		})
 	}
 }

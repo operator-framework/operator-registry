@@ -71,7 +71,7 @@ func TestPropertiesUp(t *testing.T) {
 				value:    `{"group":"test.coreos.com","kind":"testapi","version":"v1"}`,
 			},
 		}
-		require.EqualValues(t, expectedProperties, properties)
+		require.Equal(t, expectedProperties, properties)
 	})
 
 	t.Run("verify dependencies", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestPropertiesUp(t *testing.T) {
 				value:    `{"packageName":"etcd","version":">0.6.0"}`,
 			},
 		}
-		require.EqualValues(t, expectedDeps, deps)
+		require.Equal(t, expectedDeps, deps)
 	})
 }
 
