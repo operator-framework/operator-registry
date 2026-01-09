@@ -157,7 +157,7 @@ func (b *bundleParser) addMetadata(metadata fs.FS, bundle *Bundle) error {
 		bundle.Package = af.Annotations.PackageName
 		bundle.Channels = af.GetChannels()
 	} else {
-		// nolint:stylecheck
+		//nolint:staticcheck // ST1005: error message is intentionally capitalized
 		return fmt.Errorf("Could not find annotations file")
 	}
 

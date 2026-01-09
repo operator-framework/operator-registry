@@ -286,7 +286,7 @@ func (gd *GVKDependency) Validate() []error {
 func (ld *LabelDependency) Validate() []error {
 	errs := []error{}
 	if *ld == (LabelDependency{}) {
-		// nolint:stylecheck
+		//nolint:staticcheck // ST1005: error message is intentionally capitalized
 		errs = append(errs, fmt.Errorf("Label information is missing"))
 	}
 	return errs
@@ -296,16 +296,14 @@ func (ld *LabelDependency) Validate() []error {
 func (pd *PackageDependency) Validate() []error {
 	errs := []error{}
 	if pd.PackageName == "" {
-		// nolint:stylecheck
 		errs = append(errs, fmt.Errorf("Package name is empty"))
 	}
 	if pd.Version == "" {
-		// nolint:stylecheck
 		errs = append(errs, fmt.Errorf("Package version is empty"))
 	} else {
 		_, err := semver.ParseRange(pd.Version)
 		if err != nil {
-			// nolint:stylecheck
+			//nolint:staticcheck // ST1005: error message is intentionally capitalized
 			errs = append(errs, fmt.Errorf("Invalid semver format version"))
 		}
 	}
@@ -316,18 +314,18 @@ func (pd *PackageDependency) Validate() []error {
 func (cc *CelConstraint) Validate() []error {
 	errs := []error{}
 	if cc.Cel == nil {
-		// nolint:stylecheck
+		//nolint:staticcheck // ST1005: error message is intentionally capitalized
 		errs = append(errs, fmt.Errorf("The CEL field is missing"))
 	} else {
 		if cc.Cel.Rule == "" {
-			// nolint:stylecheck
+			//nolint:staticcheck // ST1005: error message is intentionally capitalized
 			errs = append(errs, fmt.Errorf("The CEL expression is missing"))
 			return errs
 		}
 		validator := constraints.NewCelEnvironment()
 		_, err := validator.Validate(cc.Cel.Rule)
 		if err != nil {
-			// nolint:stylecheck
+			//nolint:staticcheck // ST1005: error message is intentionally capitalized
 			errs = append(errs, fmt.Errorf("Invalid CEL expression: %s", err.Error()))
 		}
 	}

@@ -261,7 +261,6 @@ func (csv *ClusterServiceVersion) GetCustomResourceDefintions() ([]*DefinitionKe
 //
 // If owned or required is not defined in the spec then an empty list is
 // returned respectively.
-// nolint:stylecheck
 func (csv *ClusterServiceVersion) GetApiServiceDefinitions() ([]*DefinitionKey, []*DefinitionKey, error) {
 	var objmap map[string]*json.RawMessage
 
