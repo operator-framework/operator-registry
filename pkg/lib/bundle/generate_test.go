@@ -273,5 +273,5 @@ func TestGenerateFunc(t *testing.T) {
 	outputAnnotationsFile := filepath.Join(outputPath, "metadata/", "annotations.yaml")
 	annotationsBlob, err := os.ReadFile(outputAnnotationsFile)
 	require.NoError(t, err)
-	require.EqualValues(t, output, string(annotationsBlob))
+	require.Equal(t, output, string(annotationsBlob))
 }

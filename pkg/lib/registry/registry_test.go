@@ -223,8 +223,8 @@ func TestCheckForBundlePaths(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			require.EqualValues(t, tt.expected.found, found)
-			require.EqualValues(t, tt.expected.missing, missing)
+			require.Equal(t, tt.expected.found, found)
+			require.Equal(t, tt.expected.missing, missing)
 		})
 	}
 }

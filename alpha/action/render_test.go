@@ -1202,16 +1202,16 @@ func TestRender(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			actualCfg, actualErr := s.render.Run(context.Background())
 			s.assertion(t, actualErr)
-			require.Equal(t, len(s.expectCfg.Packages), len(actualCfg.Packages))
+			require.Len(t, actualCfg.Packages, len(s.expectCfg.Packages))
 			require.Equal(t, s.expectCfg.Packages, actualCfg.Packages)
-			require.Equal(t, len(s.expectCfg.Channels), len(actualCfg.Channels))
+			require.Len(t, actualCfg.Channels, len(s.expectCfg.Channels))
 			require.Equal(t, s.expectCfg.Channels, actualCfg.Channels)
-			require.Equal(t, len(s.expectCfg.Bundles), len(actualCfg.Bundles))
+			require.Len(t, actualCfg.Bundles, len(s.expectCfg.Bundles))
 			for i := range s.expectCfg.Bundles {
 				actual, expected := actualCfg.Bundles[i], s.expectCfg.Bundles[i]
 				require.Equal(t, expected, actual, "bundle %d", i)
 			}
-			require.Equal(t, len(s.expectCfg.Others), len(actualCfg.Others))
+			require.Len(t, actualCfg.Others, len(s.expectCfg.Others))
 			require.Equal(t, s.expectCfg.Others, actualCfg.Others)
 		})
 	}

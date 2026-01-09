@@ -93,7 +93,7 @@ func TestQuerierForDirectory(t *testing.T) {
 
 	etcdPackage, err := store.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
-	require.EqualValues(t, &registry.PackageManifest{
+	require.Equal(t, &registry.PackageManifest{
 		PackageName:        "etcd",
 		DefaultChannelName: "alpha",
 		Channels: []registry.PackageChannel{
@@ -277,5 +277,5 @@ func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	require.ElementsMatch(t, expected.Properties, actual.Properties)
 	expected.RequiredApis, expected.ProvidedApis, actual.RequiredApis, actual.ProvidedApis = nil, nil, nil, nil
 	expected.Dependencies, expected.Properties, actual.Dependencies, actual.Properties = nil, nil, nil, nil
-	require.EqualValues(t, expected, actual)
+	require.Equal(t, expected, actual)
 }

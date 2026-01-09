@@ -37,7 +37,7 @@ const (
 	concurrencyLimitForExport = 10
 )
 
-// nolint:stylecheck
+//nolint:staticcheck // ST1005: error message intentionally ends with punctuation (URL)
 var ErrFileBasedCatalogPrune = errors.New("`opm index prune` only supports sqlite-based catalogs. See https://github.com/redhat-openshift-ecosystem/community-operators-prod/issues/793 for instructions on pruning a plaintext files backed catalog.")
 
 // ImageIndexer is a struct implementation of the Indexer interface

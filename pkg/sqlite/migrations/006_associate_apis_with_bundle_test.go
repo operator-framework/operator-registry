@@ -66,7 +66,7 @@ func TestAssociateApisWithBundleUp(t *testing.T) {
 	require.Len(t, entries, 1)
 	require.Equal(t, "etcdoperator.v0.6.1", entries[0].BundleName)
 
-	require.EqualValues(t, oldEntries, entries)
+	require.Equal(t, oldEntries, entries)
 }
 
 func TestAssociateApisWithBundleDown(t *testing.T) {
@@ -115,7 +115,7 @@ func TestAssociateApisWithBundleDown(t *testing.T) {
 	require.NoError(t, err)
 
 	// Migrating down entails sensitive operations. Ensure data is preserved across down migration
-	require.EqualValues(t, entriesBeforeMigration, entriesAfterMigration)
+	require.Equal(t, entriesBeforeMigration, entriesAfterMigration)
 }
 
 func oldGetChannelEntriesThatProvide(db *sql.DB, group, version, kind string) ([]*registry.ChannelEntry, error) {

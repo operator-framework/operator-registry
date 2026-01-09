@@ -817,21 +817,21 @@ func TestLoadingCsvFromBundleDirectory(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			assert.EqualValues(t, tt.name, csv.GetName())
+			assert.Equal(t, tt.name, csv.GetName())
 
 			csvVersion, err := csv.GetVersion()
 			require.NoError(t, err)
-			assert.EqualValues(t, tt.version, csvVersion)
+			assert.Equal(t, tt.version, csvVersion)
 
-			assert.EqualValues(t, tt.skipRange, csv.GetSkipRange())
+			assert.Equal(t, tt.skipRange, csv.GetSkipRange())
 
 			csvReplace, err := csv.GetReplaces()
 			require.NoError(t, err)
-			assert.EqualValues(t, tt.replace, csvReplace)
+			assert.Equal(t, tt.replace, csvReplace)
 
 			csvSkips, err := csv.GetSkips()
 			require.NoError(t, err)
-			assert.EqualValues(t, tt.skips, csvSkips)
+			assert.Equal(t, tt.skips, csvSkips)
 		})
 	}
 }

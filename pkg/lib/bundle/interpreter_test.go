@@ -58,11 +58,11 @@ func TestBundleDirectoryInterpreter(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			assert.EqualValues(t, tt.bundleChannels, bundle.GetBundleChannels())
+			assert.Equal(t, tt.bundleChannels, bundle.GetBundleChannels())
 
-			assert.EqualValues(t, tt.defaultChannel, bundle.GetDefaultChannel())
+			assert.Equal(t, tt.defaultChannel, bundle.GetDefaultChannel())
 
-			assert.EqualValues(t, tt.PackageName, bundle.GetPackageName())
+			assert.Equal(t, tt.PackageName, bundle.GetPackageName())
 		})
 	}
 }
