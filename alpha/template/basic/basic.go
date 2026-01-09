@@ -9,32 +9,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/template"
+	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
 const schema string = "olm.template.basic"
 
-func init() {
-	template.GetTemplateRegistry().Register(&Factory{})
-}
-
 type basicTemplate struct {
-	renderBundle template.BundleRenderer
+	renderBundle api.BundleRenderer
 }
 
-// New creates a new basic template instance
-func New(renderBundle template.BundleRenderer) template.Template {
+// new creates a new basic template instance
+func new(renderBundle api.BundleRenderer) api.Template {
 	return &basicTemplate{
 		renderBundle: renderBundle,
 	}
 }
 
-// RenderBundle implements the template.Template interface
+// RenderBundle expands the bundle image reference into a DeclarativeConfig fragment.
 func (t *basicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
 	return t.renderBundle(ctx, image)
 }
 
-// Render implements the template.Template interface
+// Render extracts the spec from the reader and converts it to a standalone DeclarativeConfig,
+// expanding any bundle image references into full olm.bundle DeclarativeConfig
 func (t *basicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	bt, err := parseSpec(reader)
 	if err != nil {
@@ -61,20 +58,20 @@ func (t *basicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.
 	return cfg, nil
 }
 
-// Schema implements the template.Template interface
+// Schema returns the schema identifier for this template type
 func (t *basicTemplate) Schema() string {
 	return schema
 }
 
-// Factory implements the template.TemplateFactory interface
+// Factory represents the basic template factory
 type Factory struct{}
 
-// CreateTemplate implements the template.TemplateFactory interface
-func (f *Factory) CreateTemplate(renderBundle template.BundleRenderer) template.Template {
-	return New(renderBundle)
+// CreateTemplate creates a new template instance with the given RenderBundle function
+func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
+	return new(renderBundle)
 }
 
-// Schema implements the template.TemplateFactory interface
+// Schema returns the schema supported by this factory
 func (f *Factory) Schema() string {
 	return schema
 }

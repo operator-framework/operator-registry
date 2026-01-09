@@ -48,8 +48,16 @@ func (f *mockFactory) Schema() string {
 	return f.schema
 }
 
+// newEmptyTemplateRegistry creates an empty template registry for testing purposes.
+// Unlike newEmptyTemplateRegistry(), this does not register any built-in factories.
+func newEmptyTemplateRegistry() *registry {
+	return &registry{
+		factories: make(map[string]Factory),
+	}
+}
+
 func TestNewTemplateRegistry(t *testing.T) {
-	registry := NewTemplateRegistry()
+	registry := newEmptyTemplateRegistry()
 
 	require.NotNil(t, registry)
 	require.NotNil(t, registry.factories)
@@ -88,7 +96,7 @@ func TestTemplateRegistry_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, factory := range tt.factories {
 				registry.Register(factory)
 			}
@@ -137,7 +145,7 @@ func TestTemplateRegistry_CreateTemplateByType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, schema := range tt.setupSchemas {
 				registry.Register(&mockFactory{schema: schema})
 			}
@@ -211,7 +219,7 @@ bundles:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, schema := range tt.setupSchemas {
 				registry.Register(&mockFactory{schema: schema})
 			}
@@ -268,7 +276,7 @@ func TestTemplateRegistry_GetSupportedSchemas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, schema := range tt.schemas {
 				registry.Register(&mockFactory{schema: schema})
 			}
@@ -319,7 +327,7 @@ func TestTemplateRegistry_GetSupportedTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, schema := range tt.schemas {
 				registry.Register(&mockFactory{schema: schema})
 			}
@@ -377,7 +385,7 @@ func TestTemplateRegistry_HasSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			for _, schema := range tt.registeredSchemas {
 				registry.Register(&mockFactory{schema: schema})
 			}
@@ -449,7 +457,7 @@ func TestTemplateRegistry_RenderBundlePropagation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewTemplateRegistry()
+			registry := newEmptyTemplateRegistry()
 			registry.Register(&mockFactory{schema: "olm.semver"})
 
 			var template Template
