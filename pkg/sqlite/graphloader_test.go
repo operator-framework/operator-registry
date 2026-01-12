@@ -80,7 +80,7 @@ func TestLoadPackageGraph_Etcd(t *testing.T) {
 	for channelName, channel := range result.Channels {
 		expectedChannel := expectedGraph.Channels[channelName]
 		require.Equal(t, expectedChannel.Head, channel.Head)
-		require.EqualValues(t, expectedChannel.Nodes, channel.Nodes)
+		require.Equal(t, expectedChannel.Nodes, channel.Nodes)
 	}
 }
 

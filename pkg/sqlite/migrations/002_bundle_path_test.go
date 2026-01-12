@@ -43,5 +43,5 @@ func TestBundlePathDown(t *testing.T) {
 	require.NoError(t, err)
 
 	// Migrating down entails sensitive operations. Ensure data is preserved across down migration
-	require.Equal(t, len(imagesBeforeMigration), len(imagesAfterMigration))
+	require.Len(t, imagesAfterMigration, len(imagesBeforeMigration))
 }

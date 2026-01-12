@@ -280,7 +280,7 @@ func TestClearNonHeadBundles(t *testing.T) {
 
 func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
-	csv.TypeMeta.Kind = "ClusterServiceVersion"
+	csv.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
 	csv.Spec = json.RawMessage(fmt.Sprintf(`{"replaces": "%s"}`, replaces))
 
@@ -291,7 +291,7 @@ func newUnstructuredCSV(t *testing.T, name, replaces string) *unstructured.Unstr
 
 func newUnstructuredCSVWithSkips(t *testing.T, name, replaces string, skips ...string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
-	csv.TypeMeta.Kind = "ClusterServiceVersion"
+	csv.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
 	allSkips, err := json.Marshal(skips)
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func newUnstructuredCSVWithSkips(t *testing.T, name, replaces string, skips ...s
 
 func newUnstructuredCSVWithVersion(t *testing.T, name, version string) *unstructured.Unstructured {
 	csv := &registry.ClusterServiceVersion{}
-	csv.TypeMeta.Kind = "ClusterServiceVersion"
+	csv.Kind = "ClusterServiceVersion"
 	csv.SetName(name)
 	versionJSON := fmt.Sprintf(`{"version": "%s"}`, version)
 	csv.Spec = json.RawMessage(versionJSON)
@@ -887,7 +887,7 @@ func TestGetTailFromBundle(t *testing.T) {
 			tail, err := getTailFromBundle(tx, tt.args.bundle)
 
 			require.Equal(t, tt.expected.err, err)
-			require.EqualValues(t, tt.expected.tail, tail)
+			require.Equal(t, tt.expected.tail, tail)
 		})
 	}
 }

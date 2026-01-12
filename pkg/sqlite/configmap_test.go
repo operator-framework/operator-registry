@@ -119,7 +119,7 @@ func TestQuerierForConfigmap(t *testing.T) {
 
 	etcdPackage, err := store.GetPackage(context.TODO(), "etcd")
 	require.NoError(t, err)
-	require.EqualValues(t, &registry.PackageManifest{
+	require.Equal(t, &registry.PackageManifest{
 		PackageName:        "etcd",
 		DefaultChannelName: "alpha",
 		Channels: []registry.PackageChannel{

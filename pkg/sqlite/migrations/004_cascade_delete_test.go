@@ -64,7 +64,7 @@ func TestAferCascadeDeleteDown(t *testing.T) {
 func removeWhiteSpaces(s string) string {
 	unwanted := []string{" ", "\n", "\t"}
 	for _, char := range unwanted {
-		s = strings.Replace(s, char, "", -1)
+		s = strings.ReplaceAll(s, char, "")
 	}
 	return s
 }

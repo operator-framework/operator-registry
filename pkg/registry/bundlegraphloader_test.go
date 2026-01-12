@@ -308,8 +308,8 @@ func TestBundleGraphLoader(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.EqualValues(t, tt.expectedGraph.Name, newGraph.Name)
-			assert.EqualValues(t, tt.expectedGraph, newGraph)
+			assert.Equal(t, tt.expectedGraph.Name, newGraph.Name)
+			assert.Equal(t, tt.expectedGraph, newGraph)
 		})
 	}
 }

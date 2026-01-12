@@ -201,8 +201,8 @@ func TestCache_ListBundles(t *testing.T) {
 			require.NotNil(t, bundles)
 			require.Len(t, bundles, 12)
 			for _, b := range bundles {
-				require.Zero(t, b.CsvJson)
-				require.Zero(t, b.Object)
+				require.Empty(t, b.CsvJson)
+				require.Empty(t, b.Object)
 			}
 		})
 	}

@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	// nolint: stylecheck
-	. "github.com/onsi/ginkgo/v2"
-
+	ginkgo "github.com/onsi/ginkgo/v2"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +40,7 @@ func (ctx TestContext) Logf(f string, v ...interface{}) {
 	if !strings.HasSuffix(f, "\n") {
 		f += "\n"
 	}
-	_, _ = fmt.Fprintf(GinkgoWriter, f, v...)
+	_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, f, v...)
 }
 
 func (ctx TestContext) Scheme() *runtime.Scheme {
