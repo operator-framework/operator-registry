@@ -25,4 +25,22 @@ jobs:
         go-version-file: 'go.mod'
       id: go
     - name: Run go-apidiff
+      id: check-api
+      continue-on-error: true
       uses: joelanford/go-apidiff@main
+    - name: Check for override label
+      if: ${{ steps.check-api.outcome == 'failure' }}
+      run: |
+        if gh api repos/$OWNER/$REPO/pulls/$PR --jq '.labels.[].name' | grep -q "${OVERRIDE_LABEL}"; then
+          echo "Found ${OVERRIDE_LABEL} label, overriding failed results."
+          exit 0
+        else
+          echo "No ${OVERRIDE_LABEL} label found, failing the job."
+          exit 1
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+        OWNER: ${{ github.repository_owner }}
+        REPO: ${{ github.event.repository.name }}
+        PR: ${{ github.event.pull_request.number }}
+        OVERRIDE_LABEL: "go-apidiff-override"
