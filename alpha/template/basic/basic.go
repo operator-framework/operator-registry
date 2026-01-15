@@ -9,40 +9,30 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
 const schema string = "olm.template.basic"
 
-type Template struct {
-	RenderBundle func(context.Context, string) (*declcfg.DeclarativeConfig, error)
+type basicTemplate struct {
+	renderBundle api.BundleRenderer
 }
 
-type BasicTemplate struct {
-	Schema  string          `json:"schema"`
-	Entries []*declcfg.Meta `json:"entries"`
+// new creates a new basic template instance
+func new(renderBundle api.BundleRenderer) api.Template {
+	return &basicTemplate{
+		renderBundle: renderBundle,
+	}
 }
 
-func parseSpec(reader io.Reader) (*BasicTemplate, error) {
-	bt := &BasicTemplate{}
-	btDoc := json.RawMessage{}
-	btDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
-	err := btDecoder.Decode(&btDoc)
-	if err != nil {
-		return nil, fmt.Errorf("decoding template schema: %v", err)
-	}
-	err = json.Unmarshal(btDoc, bt)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshalling template: %v", err)
-	}
-
-	if bt.Schema != schema {
-		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", bt.Schema, schema)
-	}
-
-	return bt, nil
+// RenderBundle expands the bundle image reference into a DeclarativeConfig fragment.
+func (t *basicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
+	return t.renderBundle(ctx, image)
 }
 
-func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
+// Render extracts the spec from the reader and converts it to a standalone DeclarativeConfig,
+// expanding any bundle image references into full olm.bundle DeclarativeConfig
+func (t *basicTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error) {
 	bt, err := parseSpec(reader)
 	if err != nil {
 		return nil, err
@@ -68,14 +58,57 @@ func (t Template) Render(ctx context.Context, reader io.Reader) (*declcfg.Declar
 	return cfg, nil
 }
 
+// Schema returns the schema identifier for this template type
+func (t *basicTemplate) Schema() string {
+	return schema
+}
+
+// Factory represents the basic template factory
+type Factory struct{}
+
+// CreateTemplate creates a new template instance with the given RenderBundle function
+func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
+	return new(renderBundle)
+}
+
+// Schema returns the schema supported by this factory
+func (f *Factory) Schema() string {
+	return schema
+}
+
+type BasicTemplateData struct {
+	Schema  string          `json:"schema"`
+	Entries []*declcfg.Meta `json:"entries"`
+}
+
+func parseSpec(reader io.Reader) (*BasicTemplateData, error) {
+	bt := &BasicTemplateData{}
+	btDoc := json.RawMessage{}
+	btDecoder := yaml.NewYAMLOrJSONDecoder(reader, 4096)
+	err := btDecoder.Decode(&btDoc)
+	if err != nil {
+		return nil, fmt.Errorf("decoding template schema: %v", err)
+	}
+	err = json.Unmarshal(btDoc, bt)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling template: %v", err)
+	}
+
+	if bt.Schema != schema {
+		return nil, fmt.Errorf("template has unknown schema (%q), should be %q", bt.Schema, schema)
+	}
+
+	return bt, nil
+}
+
 // isBundleTemplate identifies a Bundle template source as having a Schema and Image defined
 // but no Properties, RelatedImages or Package defined
 func isBundleTemplate(b *declcfg.Bundle) bool {
 	return b.Schema != "" && b.Image != "" && b.Package == "" && len(b.Properties) == 0 && len(b.RelatedImages) == 0
 }
 
-// FromReader reads FBC from a reader and generates a BasicTemplate from it
-func FromReader(r io.Reader) (*BasicTemplate, error) {
+// FromReader reads FBC from a reader and generates a BasicTemplateData from it
+func FromReader(r io.Reader) (*BasicTemplateData, error) {
 	var entries []*declcfg.Meta
 	if err := declcfg.WalkMetasReader(r, func(meta *declcfg.Meta, err error) error {
 		if err != nil {
@@ -101,7 +134,7 @@ func FromReader(r io.Reader) (*BasicTemplate, error) {
 		return nil, err
 	}
 
-	bt := &BasicTemplate{
+	bt := &BasicTemplateData{
 		Schema:  schema,
 		Entries: entries,
 	}
