@@ -375,8 +375,8 @@ substitutions:
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expected.Schema, result.Schema)
-				require.Equal(t, len(tt.expected.Entries), len(result.Entries))
-				require.Equal(t, len(tt.expected.Substitutions), len(result.Substitutions))
+				require.Len(t, result.Entries, len(tt.expected.Entries))
+				require.Len(t, result.Substitutions, len(tt.expected.Substitutions))
 
 				// Check substitutions
 				for i, expectedSub := range tt.expected.Substitutions {
@@ -463,8 +463,8 @@ func TestRender(t *testing.T) {
 					}
 				}
 				require.NotNil(t, firstSub)
-				require.Equal(t, "", firstSub.Replaces) // Cleared by second substitution
-				require.Nil(t, firstSub.Skips)          // Cleared by second substitution
+				require.Empty(t, firstSub.Replaces) // Cleared by second substitution
+				require.Nil(t, firstSub.Skips)      // Cleared by second substitution
 
 				// Check second substitution
 				var secondSub *declcfg.ChannelEntry
