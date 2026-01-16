@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/blang/semver/v4"
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -205,4 +206,72 @@ func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Bundles = append(destination.Bundles, src.Bundles...)
 	destination.Others = append(destination.Others, src.Others...)
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
+}
+
+type CompositeVersion struct {
+	Version semver.Version
+	Release semver.Version
+}
+
+func (cv *CompositeVersion) Compare(other *CompositeVersion) int {
+	if cv.Version.NE(other.Version) {
+		return cv.Version.Compare(other.Version)
+	}
+	hasrelease := len(cv.Release.Pre) > 0
+	otherhasrelease := len(other.Release.Pre) > 0
+	if hasrelease && !otherhasrelease {
+		return 1
+	}
+	if !hasrelease && otherhasrelease {
+		return -1
+	}
+	return cv.Release.Compare(other.Release)
+}
+
+// order by version, then
+// release, if present
+func (b *Bundle) Compare(other *Bundle) int {
+	if b.Name == other.Name {
+		return 0
+	}
+	acv, err := b.CompositeVersion()
+	if err != nil {
+		return 0
+	}
+	otherCv, err := other.CompositeVersion()
+	if err != nil {
+		return 0
+	}
+	return acv.Compare(otherCv)
+}
+
+func (b *Bundle) CompositeVersion() (*CompositeVersion, error) {
+	props, err := property.Parse(b.Properties)
+	if err != nil {
+		return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
+	}
+	if len(props.Packages) != 1 {
+		return nil, fmt.Errorf("bundle %q must have exactly 1 \"olm.package\" property, found %v", b.Name, len(props.Packages))
+	}
+	v, err := semver.Parse(props.Packages[0].Version)
+	if err != nil {
+		return nil, fmt.Errorf("bundle %q has invalid version %q: %v", b.Name, props.Packages[0].Version, err)
+	}
+
+	var r semver.Version
+	if props.Packages[0].Release != "" {
+		r, err = semver.Parse(fmt.Sprintf("0.0.0-%s", props.Packages[0].Release))
+		if err != nil {
+			return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
+		}
+		// only need to check for build metadata since we are using explicit zero major, minor, and patch versions above
+		if len(r.Build) != 0 {
+			return nil, fmt.Errorf("bundle %q release version %q cannot contain build metadata", b.Name, props.Packages[0].Release)
+		}
+	}
+
+	return &CompositeVersion{
+		Version: v,
+		Release: r,
+	}, nil
 }

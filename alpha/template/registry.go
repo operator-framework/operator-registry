@@ -11,6 +11,7 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/template/api"
 	"github.com/operator-framework/operator-registry/alpha/template/basic"
 	"github.com/operator-framework/operator-registry/alpha/template/semver"
+	"github.com/operator-framework/operator-registry/alpha/template/substitutes"
 )
 
 // Re-export api types for backward compatibility
@@ -44,6 +45,7 @@ func NewRegistry() Registry {
 	}
 	r.Register(&basic.Factory{})
 	r.Register(&semver.Factory{})
+	r.Register(&substitutes.Factory{})
 	return r
 }
 
