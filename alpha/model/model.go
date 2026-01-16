@@ -366,6 +366,14 @@ func (b *Bundle) Compare(other *Bundle) int {
 	if b.Version.NE(other.Version) {
 		return b.Version.Compare(other.Version)
 	}
+	bhasrelease := len(b.Release.Pre) > 0
+	otherhasrelease := len(other.Release.Pre) > 0
+	if bhasrelease && !otherhasrelease {
+		return 1
+	}
+	if !bhasrelease && otherhasrelease {
+		return -1
+	}
 	return b.Release.Compare(other.Release)
 }
 

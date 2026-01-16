@@ -1066,7 +1066,19 @@ func TestBoundaryCases(t *testing.T) {
 		{
 			name: "Error/empty DeclarativeConfig",
 			testFunc: func(t *testing.T) {
-				cfg := &declcfg.DeclarativeConfig{}
+				cfg := &declcfg.DeclarativeConfig{
+					Bundles: []declcfg.Bundle{
+						{
+							Schema:  "olm.bundle",
+							Name:    "test.v0.9.0",
+							Package: "test",
+							Image:   "quay.io/test/test-bundle:v0.9.0",
+							Properties: []property.Property{
+								property.MustBuildPackage("test", "0.9.0"),
+							},
+						},
+					},
+				}
 				substitution := Substitute{Name: "quay.io/test/test-bundle:v1.0.0-alpha", Base: "test.v0.9.0"}
 				template := createMockTemplate()
 				ctx := context.Background()
@@ -1080,6 +1092,17 @@ func TestBoundaryCases(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				cfg := &declcfg.DeclarativeConfig{
 					Channels: []declcfg.Channel{},
+					Bundles: []declcfg.Bundle{
+						{
+							Schema:  "olm.bundle",
+							Name:    "test.v0.9.0",
+							Package: "test",
+							Image:   "quay.io/test/test-bundle:v0.9.0",
+							Properties: []property.Property{
+								property.MustBuildPackage("test", "0.9.0"),
+							},
+						},
+					},
 				}
 				substitution := Substitute{Name: "quay.io/test/test-bundle:v1.0.0-alpha", Base: "test.v0.9.0"}
 				template := createMockTemplate()
@@ -1106,6 +1129,17 @@ func TestBoundaryCases(t *testing.T) {
 							Name:    "stable",
 							Package: "testoperator",
 							Entries: []declcfg.ChannelEntry{},
+						},
+					},
+					Bundles: []declcfg.Bundle{
+						{
+							Schema:  "olm.bundle",
+							Name:    "test.v0.9.0",
+							Package: "test",
+							Image:   "quay.io/test/test-bundle:v0.9.0",
+							Properties: []property.Property{
+								property.MustBuildPackage("test", "0.9.0"),
+							},
 						},
 					},
 				}
@@ -1213,24 +1247,38 @@ func TestBoundaryCases(t *testing.T) {
 		{
 			name: "Error/substitution with invalid declarative config - missing package",
 			testFunc: func(t *testing.T) {
-				// Create a config with a bundle that references a non-existent package
+				// Create a config with a bundle in the catalog that is not referenced in any channels
 				cfg := &declcfg.DeclarativeConfig{
 					Packages: []declcfg.Package{
 						{
 							Schema:         "olm.package",
-							Name:           "nonexistent",
+							Name:           "testoperator",
 							DefaultChannel: "stable",
+						},
+					},
+					Channels: []declcfg.Channel{
+						{
+							Schema:  "olm.channel",
+							Name:    "stable",
+							Package: "testoperator",
+							Entries: []declcfg.ChannelEntry{
+								{Name: "testoperator.v1.0.0"},
+							},
 						},
 					},
 					Bundles: []declcfg.Bundle{
 						{
-							Name:    "testoperator.v1.1.0", // This is the substitution name we're testing
-							Package: "nonexistent",         // This package exists but bundle name doesn't match
+							Name:    "testoperator.v1.0.0", // Base bundle for substitution
+							Package: "testoperator",
 							Properties: []property.Property{
-								{
-									Type:  property.TypePackage,
-									Value: json.RawMessage(`{"packageName":"nonexistent","version":"1.1.0"}`),
-								},
+								property.MustBuildPackage("testoperator", "1.0.0"),
+							},
+						},
+						{
+							Name:    "testoperator.v1.1.0", // Extra bundle not in any channel
+							Package: "testoperator",
+							Properties: []property.Property{
+								property.MustBuildPackage("testoperator", "1.1.0"),
 							},
 						},
 					},
@@ -1246,7 +1294,7 @@ func TestBoundaryCases(t *testing.T) {
 		{
 			name: "Error/substitution with invalid declarative config - bundle missing olm.package property",
 			testFunc: func(t *testing.T) {
-				// Create a config with a bundle that has no olm.package property
+				// Create a config where the base bundle has no olm.package property
 				cfg := &declcfg.DeclarativeConfig{
 					Packages: []declcfg.Package{
 						{
@@ -1257,7 +1305,7 @@ func TestBoundaryCases(t *testing.T) {
 					},
 					Bundles: []declcfg.Bundle{
 						{
-							Name:       "testoperator.v1.1.0", // This is the substitution name we're testing
+							Name:       "testoperator.v1.0.0", // Base bundle for substitution, missing olm.package property
 							Package:    "testoperator",
 							Properties: []property.Property{}, // No olm.package property
 						},
@@ -1269,6 +1317,65 @@ func TestBoundaryCases(t *testing.T) {
 				err := template.processSubstitution(ctx, cfg, substitution)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "must have exactly 1 \"olm.package\" property")
+			},
+		},
+		{
+			name: "Error/base bundle does not exist in catalog",
+			testFunc: func(t *testing.T) {
+				cfg := &declcfg.DeclarativeConfig{
+					Packages: []declcfg.Package{
+						{
+							Schema:         "olm.package",
+							Name:           "testoperator",
+							DefaultChannel: "stable",
+						},
+					},
+					Bundles: []declcfg.Bundle{
+						{
+							Name:    "testoperator.v1.1.0",
+							Package: "testoperator",
+							Properties: []property.Property{
+								property.MustBuildPackage("testoperator", "1.1.0"),
+							},
+						},
+					},
+				}
+				substitution := Substitute{Name: "quay.io/test/testoperator-bundle:v1.2.0-alpha", Base: "testoperator.v1.0.0"}
+				template := createMockTemplate()
+				ctx := context.Background()
+				err := template.processSubstitution(ctx, cfg, substitution)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "does not exist in catalog")
+			},
+		},
+		{
+			name: "Error/substitute bundle version not greater than base bundle",
+			testFunc: func(t *testing.T) {
+				cfg := &declcfg.DeclarativeConfig{
+					Packages: []declcfg.Package{
+						{
+							Schema:         "olm.package",
+							Name:           "testoperator",
+							DefaultChannel: "stable",
+						},
+					},
+					Bundles: []declcfg.Bundle{
+						{
+							Name:    "testoperator-v1.2.0-beta",
+							Package: "testoperator",
+							Properties: []property.Property{
+								property.MustBuildPackageRelease("testoperator", "1.2.0", "beta"),
+							},
+						},
+					},
+				}
+				// Trying to substitute with an alpha release (lower than beta)
+				substitution := Substitute{Name: "quay.io/test/testoperator-bundle:v1.2.0-alpha", Base: "testoperator-v1.2.0-beta"}
+				template := createMockTemplate()
+				ctx := context.Background()
+				err := template.processSubstitution(ctx, cfg, substitution)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "is not less than")
 			},
 		},
 	}

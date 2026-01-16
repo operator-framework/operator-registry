@@ -106,8 +106,8 @@ func parseSpec(reader io.Reader) (*SubstitutesTemplateData, error) {
 	return st, nil
 }
 
-// processSubstitution handles the complex logic for processing a single substitution
-func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
+// validateSubstitution validates the substitution references
+func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
 	// Validate substitution fields - all are required
 	if substitution.Name == "" {
 		return fmt.Errorf("substitution name cannot be empty")
@@ -117,6 +117,53 @@ func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.Declara
 	}
 	if substitution.Name == substitution.Base {
 		return fmt.Errorf("substitution name and base cannot be the same")
+	}
+
+	// determine the versions of the base and substitute bundles and ensure that
+	// the composite version of the substitute bundle is greater than the composite version of the base bundle
+
+	// 1. Render the pullspec represented by substitution.Name
+	substituteCfg, err := t.renderBundle(ctx, substitution.Name)
+	if err != nil {
+		return fmt.Errorf("failed to render bundle image reference %q: %v", substitution.Name, err)
+	}
+	if substituteCfg == nil || len(substituteCfg.Bundles) == 0 {
+		return fmt.Errorf("rendered bundle image reference %q contains no bundles", substitution.Name)
+	}
+	substituteBundle := &substituteCfg.Bundles[0]
+	substituteCv, err := substituteBundle.CompositeVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get composite version for substitute bundle %q: %v", substitution.Name, err)
+	}
+
+	// 2. Examine cfg to find the bundle which has matching name to substitution.Base
+	var baseBundle *declcfg.Bundle
+	for i := range cfg.Bundles {
+		if cfg.Bundles[i].Name == substitution.Base {
+			baseBundle = &cfg.Bundles[i]
+			break
+		}
+	}
+	if baseBundle == nil {
+		return fmt.Errorf("base bundle %q does not exist in catalog", substitution.Base)
+	}
+	baseCv, err := baseBundle.CompositeVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get composite version for base bundle %q: %v", substitution.Base, err)
+	}
+
+	// 3. Ensure that the base bundle composite version is less than the substitute bundle composite version
+	if baseCv.Compare(substituteCv) >= 0 {
+		return fmt.Errorf("base bundle %q is not less than substitute bundle %q", substitution.Base, substitution.Name)
+	}
+
+	return nil
+}
+
+// processSubstitution handles the complex logic for processing a single substitution
+func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
+	if err := t.validateSubstitution(ctx, cfg, substitution); err != nil {
+		return err
 	}
 
 	substituteCfg, err := t.RenderBundle(ctx, substitution.Name)
