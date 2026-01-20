@@ -442,6 +442,70 @@ func TestConvertToModel(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "Error/InvalidReleaseVersion",
+			assertion: hasError(`error parsing bundle "foo.v0.1.0" release version "!!!": Invalid character(s) found in prerelease "!!!"`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Properties = []property.Property{
+						property.MustBuildPackageRelease("foo", "0.1.0", "!!!"),
+					}
+				})},
+			},
+		},
+		{
+			name: "Error/InvalidBundleNormalizedName",
+			assertion: hasError(`invalid index:
+└── invalid package "foo":
+    └── invalid channel "alpha":
+        └── invalid bundle "foo.v0.1.0-alpha.1.0.0":
+            └── name "foo.v0.1.0-alpha.1.0.0" does not match normalized name "foo-v0.1.0-alpha.1.0.0"`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0-alpha.1.0.0"})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Properties = []property.Property{
+						property.MustBuildPackageRelease("foo", "0.1.0", "alpha.1.0.0"),
+					}
+					b.Name = "foo.v0.1.0-alpha.1.0.0"
+				})},
+			},
+		},
+		{
+			name:      "Success/ValidBundleReleaseVersion",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo-v0.1.0-alpha.1.0.0"})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Properties = []property.Property{
+						property.MustBuildPackageRelease("foo", "0.1.0", "alpha.1.0.0"),
+					}
+					b.Name = "foo-v0.1.0-alpha.1.0.0"
+				})},
+			},
+		},
+		{
+			name: "Error/BundleReleaseWithBuildMetadata",
+			assertion: hasError(`invalid index:
+└── invalid package "foo":
+    └── invalid channel "alpha":
+        └── invalid bundle "foo.v0.1.0+alpha.1.0.0-0.0.1":
+            ├── name "foo.v0.1.0+alpha.1.0.0-0.0.1" does not match normalized name "foo-v0.1.0+alpha.1.0.0-0.0.1"
+            └── cannot use build metadata in version with a release version`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0+alpha.1.0.0-0.0.1"})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Properties = []property.Property{
+						property.MustBuildPackageRelease("foo", "0.1.0+alpha.1.0.0", "0.0.1"),
+					}
+					b.Name = "foo.v0.1.0+alpha.1.0.0-0.0.1"
+				})},
+			},
+		},
 	}
 
 	for _, s := range specs {

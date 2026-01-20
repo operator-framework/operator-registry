@@ -12,7 +12,15 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
+// Schema
 const schema string = "olm.template.basic"
+
+// Template types
+
+type BasicTemplateData struct {
+	Schema  string          `json:"schema"`
+	Entries []*declcfg.Meta `json:"entries"`
+}
 
 type basicTemplate struct {
 	renderBundle api.BundleRenderer
@@ -24,6 +32,8 @@ func new(renderBundle api.BundleRenderer) api.Template {
 		renderBundle: renderBundle,
 	}
 }
+
+// Template functions
 
 // RenderBundle expands the bundle image reference into a DeclarativeConfig fragment.
 func (t *basicTemplate) RenderBundle(ctx context.Context, image string) (*declcfg.DeclarativeConfig, error) {
@@ -63,23 +73,7 @@ func (t *basicTemplate) Schema() string {
 	return schema
 }
 
-// Factory represents the basic template factory
-type Factory struct{}
-
-// CreateTemplate creates a new template instance with the given RenderBundle function
-func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
-	return new(renderBundle)
-}
-
-// Schema returns the schema supported by this factory
-func (f *Factory) Schema() string {
-	return schema
-}
-
-type BasicTemplateData struct {
-	Schema  string          `json:"schema"`
-	Entries []*declcfg.Meta `json:"entries"`
-}
+// Helper functions
 
 func parseSpec(reader io.Reader) (*BasicTemplateData, error) {
 	bt := &BasicTemplateData{}
@@ -140,4 +134,21 @@ func FromReader(r io.Reader) (*BasicTemplateData, error) {
 	}
 
 	return bt, nil
+}
+
+// Factory types
+
+// Factory represents the basic template factory
+type Factory struct{}
+
+// Factory functions
+
+// CreateTemplate creates a new template instance with the given RenderBundle function
+func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
+	return new(renderBundle)
+}
+
+// Schema returns the schema supported by this factory
+func (f *Factory) Schema() string {
+	return schema
 }
