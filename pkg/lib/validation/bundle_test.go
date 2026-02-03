@@ -40,11 +40,11 @@ func TestValidateBundle(t *testing.T) {
 	}
 
 	for _, tt := range table {
-		unstObjs := []*unstructured.Unstructured{}
-
 		// Read all files in manifests directory
 		items, err := os.ReadDir(tt.directory)
 		require.NoError(t, err, "Unable to read directory: %s", tt.description)
+
+		unstObjs := make([]*unstructured.Unstructured, 0, len(items))
 
 		for _, item := range items {
 			fileWithPath := filepath.Join(tt.directory, item.Name())

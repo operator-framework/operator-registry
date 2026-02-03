@@ -54,7 +54,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 }
 
 func (pkgs packageIndex) GetChannelEntriesThatReplace(_ context.Context, name string) ([]*registry.ChannelEntry, error) {
-	var entries []*registry.ChannelEntry
+	entries := make([]*registry.ChannelEntry, 0, len(pkgs))
 
 	for _, pkg := range pkgs {
 		for _, ch := range pkg.Channels {

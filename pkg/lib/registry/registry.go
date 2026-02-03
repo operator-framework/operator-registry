@@ -436,7 +436,7 @@ func checkForBundles(_ context.Context, _ *sqlite.SQLQuerier, g registry.GraphLo
 				continue
 			}
 
-			var headSkips []string
+			headSkips := make([]string, 0, len(graph.Channels[channel].Nodes[graph.Channels[channel].Head]))
 			for b := range graph.Channels[channel].Nodes[graph.Channels[channel].Head] {
 				headSkips = append(headSkips, b.CsvName)
 			}

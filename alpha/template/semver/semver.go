@@ -347,7 +347,7 @@ func (sv *SemverTemplateData) getVersionsFromChannel(semverBundles []bundleEntry
 // - within the same minor version (Y-stream), the head of the channel should have a 'skips' encompassing all lesser Y.Z versions of the bundle enumerated in the template.
 // along the way, uses a highwaterChannel marker to identify the "most stable" channel head to be used as the default channel for the generated package
 func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) []declcfg.Channel {
-	outChannels := []declcfg.Channel{}
+	outChannels := make([]declcfg.Channel, 0, len(*semverChannels)*2)
 
 	// sort the channel archetypes in ascending order so we can traverse the bundles in order of
 	// their source channel's priority
@@ -372,7 +372,7 @@ func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) [
 		}
 
 		// sort the bundle names according to their semver, so we can walk in ascending order
-		bundleNamesByVersion := []string{}
+		bundleNamesByVersion := make([]string, 0, len(bundles))
 		for b := range bundles {
 			bundleNamesByVersion = append(bundleNamesByVersion, b)
 		}
@@ -424,7 +424,7 @@ func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) [
 }
 
 func (sv *SemverTemplateData) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries []entryTuple) []declcfg.Channel {
-	channels := []declcfg.Channel{}
+	channels := make([]declcfg.Channel, 0, len(unlinkedChannels))
 
 	// sort to force partitioning by archetype --> kind --> semver
 	sort.Slice(entries, func(i, j int) bool {

@@ -602,7 +602,7 @@ func TestQuerierForDependencies(t *testing.T) {
 		},
 	}
 
-	dependencies := []*api.Dependency{}
+	dependencies := make([]*api.Dependency, 0, len(bundlesList))
 	for _, b := range bundlesList {
 		dep, err := store.GetDependenciesForBundle(context.TODO(), b.name, b.version, b.path)
 		require.NoError(t, err)
@@ -926,7 +926,7 @@ func TestDeprecateBundle(t *testing.T) {
 			// Ensure remaining bundlePaths in db match
 			bundles, err := querier.ListBundles(context.Background())
 			require.NoError(t, err)
-			var bundlePaths []string
+			bundlePaths := make([]string, 0, len(bundles))
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
@@ -955,7 +955,7 @@ func TestDeprecateBundle(t *testing.T) {
 				require.NoError(t, err)
 
 				uniqueChannels := make(map[string]struct{})
-				var channels []string
+				channels := make([]string, 0, len(uniqueChannels))
 				for _, ch := range channelEntries {
 					uniqueChannels[ch.ChannelName] = struct{}{}
 				}
@@ -1142,7 +1142,7 @@ func TestDeprecatePackage(t *testing.T) {
 			// Ensure remaining bundlePaths in db match
 			bundles, err := querier.ListBundles(context.Background())
 			require.NoError(t, err)
-			var bundlePaths []string
+			bundlePaths := make([]string, 0, len(bundles))
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
@@ -1171,7 +1171,7 @@ func TestDeprecatePackage(t *testing.T) {
 				require.NoError(t, err)
 
 				uniqueChannels := make(map[string]struct{})
-				var channels []string
+				channels := make([]string, 0, len(uniqueChannels))
 				for _, ch := range channelEntries {
 					uniqueChannels[ch.ChannelName] = struct{}{}
 				}
@@ -1667,7 +1667,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
 			require.NoError(t, err)
-			var remaining []string
+			remaining := make([]string, 0, len(bundles))
 			for _, bundle := range bundles {
 				remaining = append(remaining, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
@@ -1696,7 +1696,7 @@ func TestAddAfterDeprecate(t *testing.T) {
 				require.NoError(t, err)
 
 				uniqueChannels := make(map[string]struct{})
-				var channels []string
+				channels := make([]string, 0, len(uniqueChannels))
 				for _, ch := range channelEntries {
 					uniqueChannels[ch.ChannelName] = struct{}{}
 				}
@@ -2084,7 +2084,7 @@ func TestOverwrite(t *testing.T) {
 			// Ensure remaining bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
 			require.NoError(t, err)
-			var bundlePaths []string
+			bundlePaths := make([]string, 0, len(bundles))
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, strings.Join([]string{bundle.BundlePath, bundle.ChannelName}, "/"))
 			}
@@ -2099,7 +2099,7 @@ func TestOverwrite(t *testing.T) {
 				require.NoError(t, err)
 
 				uniqueChannels := make(map[string]struct{})
-				var channels []string
+				channels := make([]string, 0, len(uniqueChannels))
 				for _, ch := range channelEntries {
 					uniqueChannels[ch.ChannelName] = struct{}{}
 				}
@@ -2913,7 +2913,7 @@ func TestSubstitutesFor(t *testing.T) {
 			// Ensure bundlePaths in db match
 			bundles, err := query.ListBundles(context.Background())
 			require.NoError(t, err)
-			var bundlePaths []string
+			bundlePaths := make([]string, 0, len(bundles))
 			for _, bundle := range bundles {
 				bundlePaths = append(bundlePaths, bundle.BundlePath)
 				bundleThatReplaces, _ := query.GetBundleThatReplaces(context.Background(), bundle.CsvName, bundle.PackageName, bundle.ChannelName)
