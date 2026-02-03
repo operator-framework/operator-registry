@@ -52,6 +52,11 @@ func (t *template) Schema() string {
 	return schema
 }
 
+// Type returns the registration type for this template
+func (t *template) Type() string {
+	return api.TypeFromSchema(schema)
+}
+
 func (t *template) RenderBundle(ctx context.Context, bundleRef string) (*declcfg.DeclarativeConfig, error) {
 	return t.renderBundle(ctx, bundleRef)
 }
@@ -284,4 +289,9 @@ func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
 
 func (f *Factory) Schema() string {
 	return schema
+}
+
+// Type returns the registration type for this template
+func (f *Factory) Type() string {
+	return api.TypeFromSchema(schema)
 }
