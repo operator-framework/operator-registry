@@ -135,14 +135,14 @@ export MAJ_IMAGE_OR_EMPTY := $(call tagged-or-empty,$(shell echo $(OPM_VERSION) 
 # NOTE: this can only be relied upon if full git history is present.
 # An actions/checkout step must use "fetch-depth: 0", for example.
 LATEST_TAG := $(shell git tag -l | tr - \~ | sort -V | tr \~ - | tail -n1)
-# LATEST_IMAGE_OR_EMPTY is set to OPM_IMAGE_REPO:latest when OPM_VERSION
+# LATEST_IMAGE_OR_EMPTY is set to "latest" when OPM_VERSION
 # is not a prerelase tag and == LATEST_TAG, otherwise the empty string.
 # An empty string causes goreleaser to skip building the manifest image for latest,
 # which we do not want when cutting a non-latest release (old minor/patch tag).
 export LATEST_IMAGE_OR_EMPTY := $(shell \
 	echo $(OPM_VERSION) | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
 	&& [ "$(shell echo -e "$(OPM_VERSION)\n$(LATEST_TAG)" | sort -rV | head -n1)" == "$(OPM_VERSION)" ] \
-	&& echo "$(OPM_IMAGE_REPO):latest" || echo "")
+	&& echo "latest" || echo "")
 RELEASE_GOOS := $(shell go env GOOS)
 RELEASE_ARGS ?= release --verbose --clean --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
 
@@ -165,7 +165,7 @@ windows-goreleaser-install:
 	@echo "(re)installing $(GORELEASER)"
 	GOWORK=off $(GO) build -mod=mod -modfile=.bingo/goreleaser.mod -o=$(GORELEASER) "github.com/goreleaser/goreleaser/v2"
 
-# tagged-or-empty returns $(OPM_IMAGE_REPO):$(1) when HEAD is assigned a non-prerelease semver tag,
+# tagged-or-empty returns $(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
 # the manifest image for a trunk commit when it is not a release commit.
 # In other words, this function will return "" if the tag is not in vX.Y.Z format.
@@ -173,6 +173,6 @@ define tagged-or-empty
 $(shell \
 	echo $(OPM_VERSION) | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$' \
 	&& git describe --tags --exact-match HEAD >/dev/null 2>&1 \
-	&& echo "$(OPM_IMAGE_REPO):$(1)" || echo "" )
+	&& echo "$(1)" || echo "" )
 endef
 
