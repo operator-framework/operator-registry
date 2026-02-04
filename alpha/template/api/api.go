@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
@@ -25,6 +26,8 @@ type Template interface {
 	Render(ctx context.Context, reader io.Reader) (*declcfg.DeclarativeConfig, error)
 	// Schema returns the schema identifier for this template type
 	Schema() string
+	// Type returns the registration type for this template (typically the last segment of the schema)
+	Type() string
 }
 
 // Factory creates template instances based on schema
@@ -33,4 +36,12 @@ type Factory interface {
 	CreateTemplate(renderBundle BundleRenderer) Template
 	// Schema returns the schema identifier this factory handles
 	Schema() string
+	// Type returns the registration type for this factory (typically the last segment of the schema)
+	Type() string
+}
+
+// TypeFromSchema extracts the type name from a schema identifier
+// (e.g., "olm.semver" -> "semver")
+func TypeFromSchema(schema string) string {
+	return schema[strings.LastIndex(schema, ".")+1:]
 }

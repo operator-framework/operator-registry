@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/alpha/template/api"
 )
 
 // mockTemplate is a test implementation of the Template interface
@@ -32,6 +33,10 @@ func (m *mockTemplate) Schema() string {
 	return m.schema
 }
 
+func (m *mockTemplate) Type() string {
+	return api.TypeFromSchema(m.schema)
+}
+
 // mockFactory is a test implementation of the TemplateFactory interface
 type mockFactory struct {
 	schema string
@@ -46,6 +51,10 @@ func (f *mockFactory) CreateTemplate(renderBundle BundleRenderer) Template {
 
 func (f *mockFactory) Schema() string {
 	return f.schema
+}
+
+func (f *mockFactory) Type() string {
+	return api.TypeFromSchema(f.schema)
 }
 
 // newEmptyTemplateRegistry creates an empty template registry for testing purposes.
@@ -118,28 +127,28 @@ func TestTemplateRegistry_CreateTemplateByType(t *testing.T) {
 		{
 			name:         "create template for registered type",
 			setupSchemas: []string{"olm.semver"},
-			requestType:  "olm.semver",
+			requestType:  "semver",
 			expectError:  false,
 		},
 		{
 			name:         "create template for multiple registered types",
-			setupSchemas: []string{"olm.semver", "olm.basic", "olm.composite"},
-			requestType:  "olm.basic",
+			setupSchemas: []string{"olm.semver", "olm.basic", "olm.subtitutes"},
+			requestType:  "basic",
 			expectError:  false,
 		},
 		{
 			name:         "error on unregistered type",
 			setupSchemas: []string{"olm.semver"},
-			requestType:  "olm.unknown",
+			requestType:  "unknown",
 			expectError:  true,
-			expectedErr:  "unknown template schema: olm.unknown",
+			expectedErr:  "unknown template type: unknown",
 		},
 		{
 			name:         "error on empty registry",
 			setupSchemas: []string{},
-			requestType:  "olm.semver",
+			requestType:  "semver",
 			expectError:  true,
-			expectedErr:  "unknown template schema: olm.semver",
+			expectedErr:  "unknown template type: semver",
 		},
 	}
 
@@ -157,13 +166,13 @@ func TestTemplateRegistry_CreateTemplateByType(t *testing.T) {
 				require.Nil(t, template)
 				require.Contains(t, err.Error(), tt.expectedErr)
 
-				var unknownSchemaErr *UnknownSchemaError
-				require.ErrorAs(t, err, &unknownSchemaErr)
-				require.Equal(t, tt.requestType, unknownSchemaErr.Schema)
+				var unknownTypeErr *UnknownTypeError
+				require.ErrorAs(t, err, &unknownTypeErr)
+				require.Equal(t, tt.requestType, unknownTypeErr.Type)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, template)
-				require.Equal(t, tt.requestType, template.Schema())
+				require.Equal(t, tt.requestType, template.Type())
 			}
 		})
 	}
@@ -464,7 +473,7 @@ func TestTemplateRegistry_RenderBundlePropagation(t *testing.T) {
 			var err error
 
 			if tt.method == "byType" {
-				template, err = registry.CreateTemplateByType("olm.semver", mockRenderBundle)
+				template, err = registry.CreateTemplateByType("semver", mockRenderBundle)
 				require.NoError(t, err)
 			} else {
 				input := `schema: olm.semver`

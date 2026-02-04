@@ -89,13 +89,14 @@ func (r *registry) CreateTemplateBySchema(reader io.Reader, renderBundle BundleR
 
 func (r *registry) CreateTemplateByType(templateType string, renderBundle BundleRenderer) (Template, error) {
 	r.mu.RLock()
-	factory, exists := r.factories[templateType]
 	defer r.mu.RUnlock()
-	if !exists {
-		return nil, &UnknownSchemaError{Schema: templateType}
-	}
 
-	return factory.CreateTemplate(renderBundle), nil
+	for _, f := range r.factories {
+		if f.Type() == templateType {
+			return f.CreateTemplate(renderBundle), nil
+		}
+	}
+	return nil, &UnknownTypeError{Type: templateType}
 }
 
 // GetSupportedSchemas returns all supported schema identifiers
@@ -117,8 +118,8 @@ func (r *registry) GetSupportedTypes() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	types := make([]string, 0, len(r.factories))
-	for schema := range r.factories {
-		types = append(types, schema[strings.LastIndex(schema, ".")+1:])
+	for _, f := range r.factories {
+		types = append(types, f.Type())
 	}
 	slices.Sort(types)
 	return types
@@ -143,4 +144,13 @@ type UnknownSchemaError struct {
 
 func (e *UnknownSchemaError) Error() string {
 	return "unknown template schema: " + e.Schema
+}
+
+// UnknownTypeError is returned when a template type is not recognized
+type UnknownTypeError struct {
+	Type string
+}
+
+func (e *UnknownTypeError) Error() string {
+	return "unknown template type: " + e.Type
 }

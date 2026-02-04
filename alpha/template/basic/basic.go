@@ -73,6 +73,11 @@ func (t *basicTemplate) Schema() string {
 	return schema
 }
 
+// Type returns the registration type for this template
+func (t *basicTemplate) Type() string {
+	return api.TypeFromSchema(schema)
+}
+
 // Helper functions
 
 func parseSpec(reader io.Reader) (*BasicTemplateData, error) {
@@ -151,4 +156,9 @@ func (f *Factory) CreateTemplate(renderBundle api.BundleRenderer) api.Template {
 // Schema returns the schema supported by this factory
 func (f *Factory) Schema() string {
 	return schema
+}
+
+// Type returns the registration type for this template
+func (f *Factory) Type() string {
+	return api.TypeFromSchema(schema)
 }
