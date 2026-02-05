@@ -198,12 +198,14 @@ func (csv *ClusterServiceVersion) GetRelease() (string, error) {
 		return "", nil
 	}
 
-	var r string
-	if err := json.Unmarshal(*rawValue, &r); err != nil {
+	// Try to unmarshal as interface{} to support both string and numeric types
+	var v interface{}
+	if err := json.Unmarshal(*rawValue, &v); err != nil {
 		return "", err
 	}
 
-	return r, nil
+	// Convert to string based on the actual type
+	return fmt.Sprintf("%v", v), nil
 }
 
 // GetSkipRange returns the skiprange of the CSV
