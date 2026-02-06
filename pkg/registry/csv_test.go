@@ -465,6 +465,101 @@ func TestClusterServiceVersion_GetVersion(t *testing.T) {
 	}
 }
 
+func TestClusterServiceVersion_GetRelease(t *testing.T) {
+	type fields struct {
+		TypeMeta   metav1.TypeMeta
+		ObjectMeta metav1.ObjectMeta
+		Spec       json.RawMessage
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "string release",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": "1.0.0"}`),
+			},
+			want: "1.0.0",
+		},
+		{
+			name: "integer numeric release",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": 20250104}`),
+			},
+			want: "20250104",
+		},
+		{
+			name: "float numeric release",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": 0.20250104}`),
+			},
+			want: "0.20250104",
+		},
+		{
+			name: "large integer release",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": 20250104235959}`),
+			},
+			want: "20250104235959",
+		},
+		{
+			name: "no release field",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"other": "field"}`),
+			},
+			want: "",
+		},
+		{
+			name: "null release",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": null}`),
+			},
+			want: "",
+		},
+		{
+			name: "invalid release type",
+			fields: fields{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       json.RawMessage(`{"release": true}`),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			csv := &ClusterServiceVersion{
+				TypeMeta:   tt.fields.TypeMeta,
+				ObjectMeta: tt.fields.ObjectMeta,
+				Spec:       tt.fields.Spec,
+			}
+			got, err := csv.GetRelease()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRelease() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GetRelease() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestClusterServiceVersion_GetRelatedImages(t *testing.T) {
 	type fields struct {
 		TypeMeta   metav1.TypeMeta
