@@ -36,7 +36,7 @@ func TestV1CRDsInBundle(t *testing.T) {
 	}
 
 	// unmarshal objects into unstructured
-	unstObjs := []*unstructured.Unstructured{}
+	unstObjs := make([]*unstructured.Unstructured, 0, len(items))
 	for _, item := range items {
 		fileWithPath := filepath.Join(manifestDir, item.Name())
 		data, err := os.ReadFile(fileWithPath)

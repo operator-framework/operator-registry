@@ -460,7 +460,7 @@ func TestGenerateChannels(t *testing.T) {
 		},
 	}
 
-	var combinedLinkedChannels []declcfg.Channel
+	combinedLinkedChannels := make([]declcfg.Channel, 0, len(minorLinkedChannels)+len(majorLinkedChannels))
 	combinedLinkedChannels = append(combinedLinkedChannels, minorLinkedChannels...)
 	combinedLinkedChannels = append(combinedLinkedChannels, majorLinkedChannels...)
 	slices.SortFunc(combinedLinkedChannels, func(a, b declcfg.Channel) int {
