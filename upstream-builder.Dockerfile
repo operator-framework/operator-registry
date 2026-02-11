@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 RUN apk update && apk add sqlite build-base git mercurial bash linux-headers
 WORKDIR /build
