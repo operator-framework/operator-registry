@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/blang/semver/v4"
+	"github.com/distribution/reference"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -126,6 +127,15 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 
 		if b.Package != props.Packages[0].PackageName {
 			return nil, fmt.Errorf("package %q does not match %q property %q", b.Package, property.TypePackage, props.Packages[0].PackageName)
+		}
+
+		if err := validateImagePullSpec(b.Image, "package %q bundle %q image", b.Package, b.Name); err != nil {
+			return nil, err
+		}
+		for i, rel := range b.RelatedImages {
+			if err := validateImagePullSpec(rel.Image, "package %q bundle %q relatedImages[%d].image", b.Package, b.Name, i); err != nil {
+				return nil, err
+			}
 		}
 
 		// Parse version from the package property.
@@ -268,4 +278,17 @@ func relatedImagesToModelRelatedImages(in []RelatedImage) []model.RelatedImage {
 		})
 	}
 	return out
+}
+
+// validateImagePullSpec checks that a non-empty image pull spec is valid
+// using github.com/distribution/reference.ParseNormalizedNamed.
+// Empty pull specs are not validated.
+func validateImagePullSpec(pullSpec, errFormat string, errArgs ...interface{}) error {
+	if pullSpec == "" {
+		return nil
+	}
+	if _, err := reference.ParseNormalizedNamed(pullSpec); err != nil {
+		return fmt.Errorf(errFormat+": invalid image pull spec %q: %w", append(errArgs, pullSpec, err)...)
+	}
+	return nil
 }

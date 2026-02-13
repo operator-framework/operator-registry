@@ -506,6 +506,57 @@ func TestConvertToModel(t *testing.T) {
 				})},
 			},
 		},
+		{
+			name:      "Error/BundleImageInvalidPullSpecUnsupportedDigestSsha256",
+			assertion: hasErrorContaining("invalid image pull spec"),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					// Misspelled digest algorithm: ssha256 instead of sha256 (unsupported hash type)
+					b.Image = "quay.io/operator-framework/foo-bundle@ssha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+				})},
+			},
+		},
+		{
+			name:      "Error/BundleImageInvalidPullSpecUnsupportedDigestMd5",
+			assertion: hasErrorContaining("invalid image pull spec"),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Image = "quay.io/operator-framework/foo-bundle@md5:abcd1234abcd1234abcd1234abcd1234"
+				})},
+			},
+		},
+		{
+			name:      "Error/BundleRelatedImageInvalidPullSpecSsha256",
+			assertion: hasErrorContaining("invalid image pull spec"),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.RelatedImages = []RelatedImage{
+						{Name: "bundle", Image: testBundleImage("foo", "0.1.0")},
+						{Name: "operator", Image: "quay.io/operator-framework/my-operator@ssha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"},
+					}
+				})},
+			},
+		},
+		{
+			name:      "Success/BundleImageValidSha256Digest",
+			assertion: require.NoError,
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
+				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},
+				Bundles: []Bundle{newTestBundle("foo", "0.1.0", func(b *Bundle) {
+					b.Image = "quay.io/operator-framework/foo-bundle@sha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+					b.RelatedImages = []RelatedImage{
+						{Name: "bundle", Image: "quay.io/operator-framework/foo-bundle@sha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"},
+					}
+				})},
+			},
+		},
 	}
 
 	for _, s := range specs {
@@ -575,5 +626,16 @@ func hasError(expectedError string) require.ErrorAssertionFunc {
 		}
 		t.Errorf("expected error to be `%s`, got `%s`", expectedError, actualError)
 		t.FailNow()
+	}
+}
+
+// hasErrorContaining returns an ErrorAssertionFunc that passes when the error message contains the given substring.
+func hasErrorContaining(substring string) require.ErrorAssertionFunc {
+	return func(t require.TestingT, actualError error, args ...interface{}) {
+		if stdt, ok := t.(*testing.T); ok {
+			stdt.Helper()
+		}
+		require.Error(t, actualError)
+		require.Contains(t, actualError.Error(), substring, "expected error to contain %q", substring)
 	}
 }
