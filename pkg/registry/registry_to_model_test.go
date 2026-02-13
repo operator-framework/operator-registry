@@ -47,18 +47,19 @@ func testExpectedProperties(t *testing.T) []property.Property {
 	if err := json.Unmarshal([]byte(expectedCSV), &csv); err != nil {
 		t.Fatalf("failed to unmarshal CSV: %v", err)
 	}
-	props := []property.Property{
+	props := make([]property.Property, 0, 7+len(testExpectedObjects()))
+	props = append(props,
 		property.MustBuildPackage("etcd", "0.9.2"),
 		property.MustBuildGVKRequired("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 		property.MustBuildGVKRequired("testapi.coreos.com", "v1", "testapi"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdCluster"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdBackup"),
 		property.MustBuildGVK("etcd.database.coreos.com", "v1beta2", "EtcdRestore"),
-		{
+		property.Property{
 			Type:  "olm.constraint",
 			Value: json.RawMessage(`{"cel":{"rule":"properties.exists(p, p.type == \"certified\")"},"failureMessage":"require to have \"certified\""}`),
 		},
-	}
+	)
 	for _, obj := range testExpectedObjects() {
 		props = append(props, property.MustBuildBundleObject([]byte(obj)))
 	}
