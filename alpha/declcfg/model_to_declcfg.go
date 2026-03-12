@@ -54,7 +54,7 @@ func ConvertFromModel(mpkgs model.Model) DeclarativeConfig {
 }
 
 func traverseModelChannels(mpkg model.Package) ([]Channel, []Bundle) {
-	channels := []Channel{}
+	channels := make([]Channel, 0, len(mpkg.Channels))
 	bundleMap := map[string]*Bundle{}
 
 	for _, ch := range mpkg.Channels {
