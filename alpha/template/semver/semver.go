@@ -117,9 +117,7 @@ func (t *semverTemplate) Render(ctx context.Context, reader io.Reader) (*declcfg
 	out.Channels = channels
 	out.Packages[0].DefaultChannel = sv.defaultChannel
 
-	if err := sv.populatePackageMetadata(&out); err != nil {
-		return nil, fmt.Errorf("render: unable to populate package metadata: %v", err)
-	}
+	sv.populatePackageMetadata(&out)
 
 	return &out, nil
 }
@@ -434,11 +432,12 @@ func (sv *SemverTemplateData) generateChannels(semverChannels *bundleVersions) [
 	return outChannels
 }
 
-// populatePackageMetadata extracts icon and description from the head bundle of the default channel
+// populatePackageMetadata extracts icon and description from the head bundle of the default channel -- if present --
 // and sets them on the package object
-func (sv *SemverTemplateData) populatePackageMetadata(cfg *declcfg.DeclarativeConfig) error {
+// this assumes that all schema have been validated as part of the declarative config aggregation
+func (sv *SemverTemplateData) populatePackageMetadata(cfg *declcfg.DeclarativeConfig) {
 	if len(cfg.Packages) == 0 {
-		return nil
+		return
 	}
 
 	// Find the default channel
@@ -446,7 +445,7 @@ func (sv *SemverTemplateData) populatePackageMetadata(cfg *declcfg.DeclarativeCo
 		return ch.Name == sv.defaultChannel
 	})
 	if channelIdx == -1 || len(cfg.Channels[channelIdx].Entries) == 0 {
-		return nil
+		return
 	}
 
 	// Find the head bundle (the bundle with the highest version, which is the last entry in the channel)
@@ -457,13 +456,13 @@ func (sv *SemverTemplateData) populatePackageMetadata(cfg *declcfg.DeclarativeCo
 		return b.Name == headBundleName
 	})
 	if bundleIdx == -1 || cfg.Bundles[bundleIdx].CsvJSON == "" {
-		return nil
+		return
 	}
 
 	// Parse CSV JSON to extract metadata
 	var csv registry.ClusterServiceVersion
 	if err := json.Unmarshal([]byte(cfg.Bundles[bundleIdx].CsvJSON), &csv); err != nil {
-		return fmt.Errorf("unmarshal CSV JSON for bundle %q: %v", cfg.Bundles[bundleIdx].Name, err)
+		return
 	}
 
 	// Extract and set description
@@ -478,8 +477,6 @@ func (sv *SemverTemplateData) populatePackageMetadata(cfg *declcfg.DeclarativeCo
 			MediaType: icons[0].MediaType,
 		}
 	}
-
-	return nil
 }
 
 func (sv *SemverTemplateData) linkChannels(unlinkedChannels map[string]*declcfg.Channel, entries []entryTuple) []declcfg.Channel {

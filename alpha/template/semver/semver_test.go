@@ -611,6 +611,380 @@ func TestGetVersionsFromStandardChannel(t *testing.T) {
 	}
 }
 
+func TestPopulatePackageMetadata(t *testing.T) {
+	tests := []struct {
+		name         string
+		cfg          declcfg.DeclarativeConfig
+		sv           SemverTemplateData
+		expectIcon   bool
+		expectDesc   bool
+		expectedDesc string
+		expectedIcon *declcfg.Icon
+	}{
+		{
+			name: "successfully populate icon and description from head bundle",
+			sv: SemverTemplateData{
+				defaultChannel: "stable-v1",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{
+						Schema: "olm.package",
+						Name:   "test-operator",
+					},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable-v1",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{
+							{Name: "test-operator-v1.0.0"},
+							{Name: "test-operator-v1.1.0"},
+						},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-operator-v1.0.0",
+						Image: "quay.io/test/operator:v1.0.0",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test-operator.v1.0.0"},
+							"spec": {
+								"description": "Old description",
+								"icon": [{"base64data": "b2xkZGF0YQ==", "mediatype": "image/png"}]
+							}
+						}`,
+					},
+					{
+						Name:  "test-operator-v1.1.0",
+						Image: "quay.io/test/operator:v1.1.0",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test-operator.v1.1.0"},
+							"spec": {
+								"description": "Test operator provides awesome functionality",
+								"icon": [{"base64data": "aGVsbG93b3JsZA==", "mediatype": "image/svg+xml"}]
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon:   true,
+			expectDesc:   true,
+			expectedDesc: "Test operator provides awesome functionality",
+			expectedIcon: &declcfg.Icon{
+				Data:      []byte("helloworld"),
+				MediaType: "image/svg+xml",
+			},
+		},
+		{
+			name: "no packages in config",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{},
+			},
+			expectIcon: false,
+			expectDesc: false,
+		},
+		{
+			name: "default channel not found",
+			sv: SemverTemplateData{
+				defaultChannel: "nonexistent",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{Name: "stable", Package: "test-operator"},
+				},
+			},
+			expectIcon: false,
+			expectDesc: false,
+		},
+		{
+			name: "empty channel entries",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{Name: "stable", Package: "test-operator", Entries: []declcfg.ChannelEntry{}},
+				},
+			},
+			expectIcon: false,
+			expectDesc: false,
+		},
+		{
+			name: "head bundle not found in bundles",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "missing-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{},
+			},
+			expectIcon: false,
+			expectDesc: false,
+		},
+		{
+			name: "bundle has no CSV JSON",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{Name: "test-bundle", Image: "quay.io/test:v1", CsvJSON: ""},
+				},
+			},
+			expectIcon: false,
+			expectDesc: false,
+		},
+		{
+			name: "CSV has no description",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-bundle",
+						Image: "quay.io/test:v1",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test.v1.0.0"},
+							"spec": {
+								"icon": [{"base64data": "aGVsbG8=", "mediatype": "image/png"}]
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon: true,
+			expectDesc: false,
+			expectedIcon: &declcfg.Icon{
+				Data:      []byte("hello"),
+				MediaType: "image/png",
+			},
+		},
+		{
+			name: "CSV has no icon",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-bundle",
+						Image: "quay.io/test:v1",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test.v1.0.0"},
+							"spec": {
+								"description": "Test description"
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon:   false,
+			expectDesc:   true,
+			expectedDesc: "Test description",
+		},
+		{
+			name: "CSV has empty description",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-bundle",
+						Image: "quay.io/test:v1",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test.v1.0.0"},
+							"spec": {
+								"description": "",
+								"icon": [{"base64data": "aGVsbG8=", "mediatype": "image/png"}]
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon: true,
+			expectDesc: false,
+			expectedIcon: &declcfg.Icon{
+				Data:      []byte("hello"),
+				MediaType: "image/png",
+			},
+		},
+		{
+			name: "CSV has empty icons array",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-bundle",
+						Image: "quay.io/test:v1",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test.v1.0.0"},
+							"spec": {
+								"description": "Test description",
+								"icon": []
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon:   false,
+			expectDesc:   true,
+			expectedDesc: "Test description",
+		},
+		{
+			name: "CSV has multiple icons - uses first one",
+			sv: SemverTemplateData{
+				defaultChannel: "stable",
+			},
+			cfg: declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{
+					{Schema: "olm.package", Name: "test-operator"},
+				},
+				Channels: []declcfg.Channel{
+					{
+						Name:    "stable",
+						Package: "test-operator",
+						Entries: []declcfg.ChannelEntry{{Name: "test-bundle"}},
+					},
+				},
+				Bundles: []declcfg.Bundle{
+					{
+						Name:  "test-bundle",
+						Image: "quay.io/test:v1",
+						CsvJSON: `{
+							"apiVersion": "operators.coreos.com/v1alpha1",
+							"kind": "ClusterServiceVersion",
+							"metadata": {"name": "test.v1.0.0"},
+							"spec": {
+								"description": "Test description",
+								"icon": [
+									{"base64data": "Zmlyc3Q=", "mediatype": "image/png"},
+									{"base64data": "c2Vjb25k", "mediatype": "image/svg+xml"}
+								]
+							}
+						}`,
+					},
+				},
+			},
+			expectIcon:   true,
+			expectDesc:   true,
+			expectedDesc: "Test description",
+			expectedIcon: &declcfg.Icon{
+				Data:      []byte("first"),
+				MediaType: "image/png",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.sv.populatePackageMetadata(&tt.cfg)
+
+			if len(tt.cfg.Packages) == 0 {
+				return
+			}
+
+			if tt.expectDesc {
+				require.Equal(t, tt.expectedDesc, tt.cfg.Packages[0].Description)
+			} else {
+				require.Empty(t, tt.cfg.Packages[0].Description)
+			}
+
+			if tt.expectIcon {
+				require.NotNil(t, tt.cfg.Packages[0].Icon)
+				require.Equal(t, tt.expectedIcon.Data, tt.cfg.Packages[0].Icon.Data)
+				require.Equal(t, tt.expectedIcon.MediaType, tt.cfg.Packages[0].Icon.MediaType)
+			} else {
+				require.Nil(t, tt.cfg.Packages[0].Icon)
+			}
+		})
+	}
+}
+
 func TestBailOnVersionBuildMetadata(t *testing.T) {
 	sv := SemverTemplateData{
 		Stable: channelBundles{
