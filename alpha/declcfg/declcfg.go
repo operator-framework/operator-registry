@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/blang/semver/v4"
 	"golang.org/x/text/cases"
@@ -208,24 +209,55 @@ func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
 }
 
+type Release []semver.PRVersion
+
+func (r Release) Compare(other Release) int {
+	if len(r) == 0 && len(other) > 0 {
+		return -1
+	}
+	if len(other) == 0 && len(r) > 0 {
+		return 1
+	}
+	a := semver.Version{Pre: r}
+	b := semver.Version{Pre: other}
+	return a.Compare(b)
+}
+
+func NewRelease(relStr string) (Release, error) {
+	// empty input is not an error, but results in an empty release slice
+	if relStr == "" {
+		return nil, nil
+	}
+
+	var (
+		segments = strings.Split(relStr, ".")
+		r        = make(Release, 0, len(segments))
+		errs     []error
+	)
+	for i, segment := range segments {
+		prVer, err := semver.NewPRVersion(segment)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("segment %d: %v", i, err))
+			continue
+		}
+		r = append(r, prVer)
+	}
+	if err := errors.Join(errs...); err != nil {
+		return nil, fmt.Errorf("invalid release %q: %v", relStr, err)
+	}
+	return r, nil
+}
+
 type CompositeVersion struct {
-	Version semver.Version
-	Release semver.Version
+	version semver.Version
+	release Release
 }
 
 func (cv *CompositeVersion) Compare(other *CompositeVersion) int {
-	if cv.Version.NE(other.Version) {
-		return cv.Version.Compare(other.Version)
+	if cmp := cv.version.Compare(other.version); cmp != 0 {
+		return cmp
 	}
-	hasrelease := len(cv.Release.Pre) > 0
-	otherhasrelease := len(other.Release.Pre) > 0
-	if hasrelease && !otherhasrelease {
-		return 1
-	}
-	if !hasrelease && otherhasrelease {
-		return -1
-	}
-	return cv.Release.Compare(other.Release)
+	return cv.release.Compare(other.release)
 }
 
 // order by version, then
@@ -258,20 +290,16 @@ func (b *Bundle) CompositeVersion() (*CompositeVersion, error) {
 		return nil, fmt.Errorf("bundle %q has invalid version %q: %v", b.Name, props.Packages[0].Version, err)
 	}
 
-	var r semver.Version
+	var r Release
 	if props.Packages[0].Release != "" {
-		r, err = semver.Parse(fmt.Sprintf("0.0.0-%s", props.Packages[0].Release))
+		r, err = NewRelease(props.Packages[0].Release)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
-		}
-		// only need to check for build metadata since we are using explicit zero major, minor, and patch versions above
-		if len(r.Build) != 0 {
-			return nil, fmt.Errorf("bundle %q release version %q cannot contain build metadata", b.Name, props.Packages[0].Release)
 		}
 	}
 
 	return &CompositeVersion{
-		Version: v,
-		Release: r,
+		version: v,
+		release: r,
 	}, nil
 }
