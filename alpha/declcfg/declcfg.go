@@ -229,12 +229,21 @@ func NewRelease(relStr string) (Release, error) {
 		return nil, nil
 	}
 
+	// Validate against CRD constraint from operators.coreos.com/v1alpha1 ClusterServiceVersion
+	// Maximum length of 20 characters
+	if len(relStr) > 20 {
+		return nil, fmt.Errorf("invalid release %q: exceeds maximum length of 20 characters", relStr)
+	}
+
 	var (
 		segments = strings.Split(relStr, ".")
 		r        = make(Release, 0, len(segments))
 		errs     []error
 	)
 	for i, segment := range segments {
+		// semver.NewPRVersion validates:
+		// - Pattern: alphanumerics and hyphens only
+		// - No leading zeros in numeric identifiers
 		prVer, err := semver.NewPRVersion(segment)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("segment %d: %v", i, err))
@@ -249,15 +258,15 @@ func NewRelease(relStr string) (Release, error) {
 }
 
 type CompositeVersion struct {
-	version semver.Version
-	release Release
+	Version semver.Version `json:"version"`
+	Release Release        `json:"release,omitempty"`
 }
 
 func (cv *CompositeVersion) Compare(other *CompositeVersion) int {
-	if cmp := cv.version.Compare(other.version); cmp != 0 {
+	if cmp := cv.Version.Compare(other.Version); cmp != 0 {
 		return cmp
 	}
-	return cv.release.Compare(other.release)
+	return cv.Release.Compare(other.Release)
 }
 
 // order by version, then
@@ -299,7 +308,7 @@ func (b *Bundle) CompositeVersion() (*CompositeVersion, error) {
 	}
 
 	return &CompositeVersion{
-		version: v,
-		release: r,
+		Version: v,
+		Release: r,
 	}, nil
 }

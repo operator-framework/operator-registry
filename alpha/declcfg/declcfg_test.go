@@ -1,0 +1,293 @@
+package declcfg
+
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/blang/semver/v4"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestCompositeVersion_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		cv       *CompositeVersion
+		expected string
+	}{
+		{
+			name: "version only",
+			cv: &CompositeVersion{
+				Version: semver.MustParse("1.2.3"),
+				Release: nil,
+			},
+			expected: `{"version":"1.2.3"}`,
+		},
+		{
+			name: "version with release",
+			cv: &CompositeVersion{
+				Version: semver.MustParse("1.2.3"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "alpha"},
+					semver.PRVersion{VersionNum: 1, IsNum: true},
+				},
+			},
+			expected: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+		},
+		{
+			name: "version with empty release",
+			cv: &CompositeVersion{
+				Version: semver.MustParse("0.1.0"),
+				Release: Release{},
+			},
+			expected: `{"version":"0.1.0"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.cv)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.expected, string(data))
+		})
+	}
+}
+
+func TestCompositeVersion_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected *CompositeVersion
+		wantErr  bool
+	}{
+		{
+			name:  "version only",
+			input: `{"version":"1.2.3"}`,
+			expected: &CompositeVersion{
+				Version: semver.MustParse("1.2.3"),
+				Release: nil,
+			},
+		},
+		{
+			name:  "version with release",
+			input: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+			expected: &CompositeVersion{
+				Version: semver.MustParse("1.2.3"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "alpha"},
+					semver.PRVersion{VersionNum: 1, IsNum: true},
+				},
+			},
+		},
+		{
+			name:  "version with empty release",
+			input: `{"version":"0.1.0","release":[]}`,
+			expected: &CompositeVersion{
+				Version: semver.MustParse("0.1.0"),
+				Release: Release{},
+			},
+		},
+		{
+			name:    "invalid json",
+			input:   `{invalid}`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid version",
+			input:   `{"version":"not-a-version"}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cv CompositeVersion
+			err := json.Unmarshal([]byte(tt.input), &cv)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected.Version, cv.Version)
+			assert.Equal(t, tt.expected.Release, cv.Release)
+		})
+	}
+}
+
+func TestCompositeVersion_MarshalUnmarshalRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		cv   *CompositeVersion
+	}{
+		{
+			name: "version only",
+			cv: &CompositeVersion{
+				Version: semver.MustParse("2.5.1"),
+				Release: nil,
+			},
+		},
+		{
+			name: "version with release",
+			cv: &CompositeVersion{
+				Version: semver.MustParse("1.0.0"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "beta"},
+					semver.PRVersion{VersionNum: 2, IsNum: true},
+				},
+			},
+		},
+		{
+			name: "complex version with metadata",
+			cv: &CompositeVersion{
+				Version: semver.Version{
+					Major: 3,
+					Minor: 4,
+					Patch: 5,
+					Pre: []semver.PRVersion{
+						{VersionStr: "rc"},
+						{VersionNum: 1, IsNum: true},
+					},
+					Build: []string{"build", "123"},
+				},
+				Release: Release{
+					semver.PRVersion{VersionStr: "rel"},
+					semver.PRVersion{VersionNum: 42, IsNum: true},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			data, err := json.Marshal(tt.cv)
+			require.NoError(t, err)
+
+			// Unmarshal
+			var result CompositeVersion
+			err = json.Unmarshal(data, &result)
+			require.NoError(t, err)
+
+			// Compare
+			assert.Equal(t, tt.cv.Version, result.Version)
+			assert.Equal(t, tt.cv.Release, result.Release)
+			assert.Equal(t, 0, tt.cv.Compare(&result), "round-tripped CompositeVersion should compare equal")
+		})
+	}
+}
+
+func TestNewRelease(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected Release
+		wantErr  bool
+		errMsg   string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+			wantErr:  false,
+		},
+		{
+			name:  "single alphanumeric segment",
+			input: "alpha",
+			expected: Release{
+				semver.PRVersion{VersionStr: "alpha"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "single numeric segment",
+			input: "1",
+			expected: Release{
+				semver.PRVersion{VersionNum: 1, IsNum: true},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "multiple segments",
+			input: "alpha.1.beta.2",
+			expected: Release{
+				semver.PRVersion{VersionStr: "alpha"},
+				semver.PRVersion{VersionNum: 1, IsNum: true},
+				semver.PRVersion{VersionStr: "beta"},
+				semver.PRVersion{VersionNum: 2, IsNum: true},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "hyphens allowed",
+			input: "rc-1.beta-2",
+			expected: Release{
+				semver.PRVersion{VersionStr: "rc-1"},
+				semver.PRVersion{VersionStr: "beta-2"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "max length 20 characters",
+			input: "12345678901234567890",
+			expected: Release{
+				semver.PRVersion{VersionNum: 12345678901234567890, IsNum: true},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "exceeds max length",
+			input:   "123456789012345678901",
+			wantErr: true,
+			errMsg:  "exceeds maximum length of 20 characters",
+		},
+		{
+			name:    "leading zeros in numeric segment",
+			input:   "01",
+			wantErr: true,
+			errMsg:  "Numeric PreRelease version must not contain leading zeroes",
+		},
+		{
+			name:    "leading zeros in multiple digit numeric segment",
+			input:   "001",
+			wantErr: true,
+			errMsg:  "Numeric PreRelease version must not contain leading zeroes",
+		},
+		{
+			name:  "zero without leading zeros is valid",
+			input: "0",
+			expected: Release{
+				semver.PRVersion{VersionNum: 0, IsNum: true},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "alphanumeric starting with zero is valid",
+			input: "0alpha",
+			expected: Release{
+				semver.PRVersion{VersionStr: "0alpha"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "invalid characters",
+			input:   "alpha_beta",
+			wantErr: true,
+			errMsg:  "Invalid character",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NewRelease(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
