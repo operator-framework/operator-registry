@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/blang/semver/v4"
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -207,108 +205,4 @@ func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Bundles = append(destination.Bundles, src.Bundles...)
 	destination.Others = append(destination.Others, src.Others...)
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
-}
-
-type Release []semver.PRVersion
-
-func (r Release) Compare(other Release) int {
-	if len(r) == 0 && len(other) > 0 {
-		return -1
-	}
-	if len(other) == 0 && len(r) > 0 {
-		return 1
-	}
-	a := semver.Version{Pre: r}
-	b := semver.Version{Pre: other}
-	return a.Compare(b)
-}
-
-func NewRelease(relStr string) (Release, error) {
-	// empty input is not an error, but results in an empty release slice
-	if relStr == "" {
-		return nil, nil
-	}
-
-	// Validate against CRD constraint from operators.coreos.com/v1alpha1 ClusterServiceVersion
-	// Maximum length of 20 characters
-	if len(relStr) > 20 {
-		return nil, fmt.Errorf("invalid release %q: exceeds maximum length of 20 characters", relStr)
-	}
-
-	var (
-		segments = strings.Split(relStr, ".")
-		r        = make(Release, 0, len(segments))
-		errs     []error
-	)
-	for i, segment := range segments {
-		// semver.NewPRVersion validates:
-		// - Pattern: alphanumerics and hyphens only
-		// - No leading zeros in numeric identifiers
-		prVer, err := semver.NewPRVersion(segment)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("segment %d: %v", i, err))
-			continue
-		}
-		r = append(r, prVer)
-	}
-	if err := errors.Join(errs...); err != nil {
-		return nil, fmt.Errorf("invalid release %q: %v", relStr, err)
-	}
-	return r, nil
-}
-
-type CompositeVersion struct {
-	Version semver.Version `json:"version"`
-	Release Release        `json:"release,omitempty"`
-}
-
-func (cv *CompositeVersion) Compare(other *CompositeVersion) int {
-	if cmp := cv.Version.Compare(other.Version); cmp != 0 {
-		return cmp
-	}
-	return cv.Release.Compare(other.Release)
-}
-
-// order by version, then
-// release, if present
-func (b *Bundle) Compare(other *Bundle) int {
-	if b.Name == other.Name {
-		return 0
-	}
-	acv, err := b.CompositeVersion()
-	if err != nil {
-		return 0
-	}
-	otherCv, err := other.CompositeVersion()
-	if err != nil {
-		return 0
-	}
-	return acv.Compare(otherCv)
-}
-
-func (b *Bundle) CompositeVersion() (*CompositeVersion, error) {
-	props, err := property.Parse(b.Properties)
-	if err != nil {
-		return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
-	}
-	if len(props.Packages) != 1 {
-		return nil, fmt.Errorf("bundle %q must have exactly 1 \"olm.package\" property, found %v", b.Name, len(props.Packages))
-	}
-	v, err := semver.Parse(props.Packages[0].Version)
-	if err != nil {
-		return nil, fmt.Errorf("bundle %q has invalid version %q: %v", b.Name, props.Packages[0].Version, err)
-	}
-
-	var r Release
-	if props.Packages[0].Release != "" {
-		r, err = NewRelease(props.Packages[0].Release)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
-		}
-	}
-
-	return &CompositeVersion{
-		Version: v,
-		Release: r,
-	}, nil
 }
