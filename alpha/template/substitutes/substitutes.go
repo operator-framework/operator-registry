@@ -136,7 +136,7 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 		return fmt.Errorf("rendered bundle image reference %q contains no bundles", substitution.Name)
 	}
 	substituteBundle := &substituteCfg.Bundles[0]
-	substituteCv, err := substituteBundle.CompositeVersion()
+	substituteVr, err := substituteBundle.VersionRelease()
 	if err != nil {
 		return fmt.Errorf("failed to get composite version for substitute bundle %q: %v", substitution.Name, err)
 	}
@@ -152,13 +152,13 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 	if baseBundle == nil {
 		return fmt.Errorf("base bundle %q does not exist in catalog", substitution.Base)
 	}
-	baseCv, err := baseBundle.CompositeVersion()
+	baseVr, err := baseBundle.VersionRelease()
 	if err != nil {
 		return fmt.Errorf("failed to get composite version for base bundle %q: %v", substitution.Base, err)
 	}
 
 	// 3. Ensure that the base bundle composite version is less than the substitute bundle composite version
-	if baseCv.Compare(substituteCv) >= 0 {
+	if baseVr.Compare(substituteVr) >= 0 {
 		return fmt.Errorf("base bundle %q is not less than substitute bundle %q", substitution.Base, substitution.Name)
 	}
 

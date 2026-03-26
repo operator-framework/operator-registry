@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCompositeVersion_MarshalJSON(t *testing.T) {
+func TestVersionRelease_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		cv       *CompositeVersion
+		vr       *VersionRelease
 		expected string
 	}{
 		{
 			name: "version only",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: nil,
 			},
@@ -25,7 +25,7 @@ func TestCompositeVersion_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "version with release",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: Release{
 					semver.PRVersion{VersionStr: "alpha"},
@@ -36,7 +36,7 @@ func TestCompositeVersion_MarshalJSON(t *testing.T) {
 		},
 		{
 			name: "version with empty release",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
 				Release: Release{},
 			},
@@ -46,24 +46,24 @@ func TestCompositeVersion_MarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := json.Marshal(tt.cv)
+			data, err := json.Marshal(tt.vr)
 			require.NoError(t, err)
 			assert.JSONEq(t, tt.expected, string(data))
 		})
 	}
 }
 
-func TestCompositeVersion_UnmarshalJSON(t *testing.T) {
+func TestVersionRelease_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected *CompositeVersion
+		expected *VersionRelease
 		wantErr  bool
 	}{
 		{
 			name:  "version only",
 			input: `{"version":"1.2.3"}`,
-			expected: &CompositeVersion{
+			expected: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: nil,
 			},
@@ -71,7 +71,7 @@ func TestCompositeVersion_UnmarshalJSON(t *testing.T) {
 		{
 			name:  "version with release",
 			input: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
-			expected: &CompositeVersion{
+			expected: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: Release{
 					semver.PRVersion{VersionStr: "alpha"},
@@ -82,7 +82,7 @@ func TestCompositeVersion_UnmarshalJSON(t *testing.T) {
 		{
 			name:  "version with empty release",
 			input: `{"version":"0.1.0","release":[]}`,
-			expected: &CompositeVersion{
+			expected: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
 				Release: Release{},
 			},
@@ -101,34 +101,34 @@ func TestCompositeVersion_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var cv CompositeVersion
-			err := json.Unmarshal([]byte(tt.input), &cv)
+			var vr VersionRelease
+			err := json.Unmarshal([]byte(tt.input), &vr)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected.Version, cv.Version)
-			assert.Equal(t, tt.expected.Release, cv.Release)
+			assert.Equal(t, tt.expected.Version, vr.Version)
+			assert.Equal(t, tt.expected.Release, vr.Release)
 		})
 	}
 }
 
-func TestCompositeVersion_MarshalUnmarshalRoundTrip(t *testing.T) {
+func TestVersionRelease_MarshalUnmarshalRoundTrip(t *testing.T) {
 	tests := []struct {
 		name string
-		cv   *CompositeVersion
+		vr   *VersionRelease
 	}{
 		{
 			name: "version only",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.MustParse("2.5.1"),
 				Release: nil,
 			},
 		},
 		{
 			name: "version with release",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.MustParse("1.0.0"),
 				Release: Release{
 					semver.PRVersion{VersionStr: "beta"},
@@ -138,7 +138,7 @@ func TestCompositeVersion_MarshalUnmarshalRoundTrip(t *testing.T) {
 		},
 		{
 			name: "complex version with metadata",
-			cv: &CompositeVersion{
+			vr: &VersionRelease{
 				Version: semver.Version{
 					Major: 3,
 					Minor: 4,
@@ -160,18 +160,18 @@ func TestCompositeVersion_MarshalUnmarshalRoundTrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Marshal
-			data, err := json.Marshal(tt.cv)
+			data, err := json.Marshal(tt.vr)
 			require.NoError(t, err)
 
 			// Unmarshal
-			var result CompositeVersion
+			var result VersionRelease
 			err = json.Unmarshal(data, &result)
 			require.NoError(t, err)
 
 			// Compare
-			assert.Equal(t, tt.cv.Version, result.Version)
-			assert.Equal(t, tt.cv.Release, result.Release)
-			assert.Equal(t, 0, tt.cv.Compare(&result), "round-tripped CompositeVersion should compare equal")
+			assert.Equal(t, tt.vr.Version, result.Version)
+			assert.Equal(t, tt.vr.Release, result.Release)
+			assert.Equal(t, 0, tt.vr.Compare(&result), "round-tripped VersionRelease should compare equal")
 		})
 	}
 }
