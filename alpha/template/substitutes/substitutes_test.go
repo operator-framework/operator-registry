@@ -568,6 +568,44 @@ func TestRender(t *testing.T) {
 			expectError:   true,
 			errorContains: "substitution name and base cannot be the same",
 		},
+		{
+			name: "Error/render with duplicate base in substitutions",
+			entries: []*declcfg.Meta{
+				createValidTestPackageMeta("testoperator", "stable"),
+				createValidTestChannelMeta("stable", "testoperator", []declcfg.ChannelEntry{
+					{Name: "testoperator.v1.0.0"},
+					{Name: "testoperator.v1.1.0", Replaces: "testoperator.v1.0.0"},
+				}),
+				createValidTestBundleMeta("testoperator.v1.0.0", "testoperator", "1.0.0", ""),
+				createValidTestBundleMeta("testoperator.v1.1.0", "testoperator", "1.1.0", ""),
+			},
+			substitutions: []Substitute{
+				{Name: "quay.io/test/testoperator-bundle:v1.2.0-alpha", Base: "testoperator.v1.1.0"},
+				{Name: "quay.io/test/testoperator-bundle:v1.3.0-alpha", Base: "testoperator.v1.1.0"}, // Invalid: reusing same base
+			},
+			expectError:   true,
+			errorContains: "cannot reuse the same substitution base",
+		},
+		{
+			name: "Error/render with same substitution name for different bases",
+			entries: []*declcfg.Meta{
+				createValidTestPackageMeta("testoperator", "stable"),
+				createValidTestChannelMeta("stable", "testoperator", []declcfg.ChannelEntry{
+					{Name: "testoperator.v1.0.0"},
+					{Name: "testoperator.v1.1.0", Replaces: "testoperator.v1.0.0"},
+					{Name: "testoperator.v1.2.0", Replaces: "testoperator.v1.1.0"},
+				}),
+				createValidTestBundleMeta("testoperator.v1.0.0", "testoperator", "1.0.0", ""),
+				createValidTestBundleMeta("testoperator.v1.1.0", "testoperator", "1.1.0", ""),
+				createValidTestBundleMeta("testoperator.v1.2.0", "testoperator", "1.2.0", ""),
+			},
+			substitutions: []Substitute{
+				{Name: "quay.io/test/testoperator-bundle:v1.3.0-alpha", Base: "testoperator.v1.1.0"},
+				{Name: "quay.io/test/testoperator-bundle:v1.3.0-alpha", Base: "testoperator.v1.2.0"}, // Invalid: reusing same name with different base
+			},
+			expectError:   true,
+			errorContains: "cannot reuse the same substitution",
+		},
 	}
 
 	for _, tt := range tests {
