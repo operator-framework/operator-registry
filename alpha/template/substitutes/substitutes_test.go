@@ -1316,7 +1316,7 @@ func TestBoundaryCases(t *testing.T) {
 				ctx := context.Background()
 				err := template.processSubstitution(ctx, cfg, substitution)
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "must have exactly 1 \"olm.package\" property")
+				require.Contains(t, err.Error(), "no \"olm.package\" property found for bundle")
 			},
 		},
 		{

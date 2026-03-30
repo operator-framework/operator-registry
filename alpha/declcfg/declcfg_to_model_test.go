@@ -444,7 +444,7 @@ func TestConvertToModel(t *testing.T) {
 		},
 		{
 			name:      "Error/InvalidReleaseVersion",
-			assertion: hasError(`error parsing bundle "foo.v0.1.0" release version "!!!": Invalid character(s) found in prerelease "!!!"`),
+			assertion: hasError(`error parsing bundle "foo.v0.1.0" release version "!!!": invalid release "!!!": segment 0: Invalid character(s) found in prerelease "!!!"`),
 			cfg: DeclarativeConfig{
 				Packages: []Package{newTestPackage("foo", "alpha", svgSmallCircle)},
 				Channels: []Channel{newTestChannel("foo", "alpha", ChannelEntry{Name: testBundleName("foo", "0.1.0")})},

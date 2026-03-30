@@ -1,4 +1,4 @@
-package declcfg
+package model
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ func TestVersionRelease_MarshalJSON(t *testing.T) {
 				Version: semver.MustParse("1.2.3"),
 				Release: nil,
 			},
-			expected: `{"version":"1.2.3"}`,
+			expected: `{"version":"1.2.3","release":""}`,
 		},
 		{
 			name: "version with release",
@@ -32,15 +32,15 @@ func TestVersionRelease_MarshalJSON(t *testing.T) {
 					semver.PRVersion{VersionNum: 1, IsNum: true},
 				},
 			},
-			expected: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+			expected: `{"version":"1.2.3","release":"alpha.1"}`,
 		},
 		{
 			name: "version with empty release",
 			vr: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
-				Release: Release{},
+				Release: nil,
 			},
-			expected: `{"version":"0.1.0"}`,
+			expected: `{"version":"0.1.0","release":""}`,
 		},
 	}
 
@@ -70,7 +70,7 @@ func TestVersionRelease_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			name:  "version with release",
-			input: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+			input: `{"version":"1.2.3","release":"alpha.1"}`,
 			expected: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: Release{
@@ -81,10 +81,10 @@ func TestVersionRelease_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			name:  "version with empty release",
-			input: `{"version":"0.1.0","release":[]}`,
+			input: `{"version":"0.1.0","release":""}`,
 			expected: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
-				Release: Release{},
+				Release: nil,
 			},
 		},
 		{
@@ -196,7 +196,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionStr: "alpha"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "single numeric segment",
@@ -204,7 +203,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 1, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "multiple segments",
@@ -215,7 +213,6 @@ func TestNewRelease(t *testing.T) {
 				semver.PRVersion{VersionStr: "beta"},
 				semver.PRVersion{VersionNum: 2, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "hyphens allowed",
@@ -224,7 +221,6 @@ func TestNewRelease(t *testing.T) {
 				semver.PRVersion{VersionStr: "rc-1"},
 				semver.PRVersion{VersionStr: "beta-2"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "max length 20 characters",
@@ -232,7 +228,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 12345678901234567890, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "exceeds max length",
@@ -258,7 +253,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 0, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "alphanumeric starting with zero is valid",
@@ -266,7 +260,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionStr: "0alpha"},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "invalid characters",

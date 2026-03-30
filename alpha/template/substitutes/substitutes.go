@@ -82,7 +82,7 @@ func (t *template) Render(ctx context.Context, reader io.Reader) (*declcfg.Decla
 	for _, substitution := range st.Substitutions {
 		err := t.processSubstitution(ctx, cfg, substitution)
 		if err != nil {
-			return nil, fmt.Errorf("render: error processing substitution %s->%s: %v", substitution.Base, substitution.Name, err)
+			return nil, fmt.Errorf("render: error processing substitution %q -> %q: %v", substitution.Base, substitution.Name, err)
 		}
 	}
 
@@ -125,7 +125,7 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 	}
 
 	// determine the versions of the base and substitute bundles and ensure that
-	// the composite version of the substitute bundle is greater than the composite version of the base bundle
+	// the VersionRelease of the substitute bundle is greater than the VersionRelease of the base bundle
 
 	// 1. Render the pullspec represented by substitution.Name
 	substituteCfg, err := t.renderBundle(ctx, substitution.Name)
@@ -138,7 +138,7 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 	substituteBundle := &substituteCfg.Bundles[0]
 	substituteVr, err := substituteBundle.VersionRelease()
 	if err != nil {
-		return fmt.Errorf("failed to get composite version for substitute bundle %q: %v", substitution.Name, err)
+		return fmt.Errorf("failed to get VersionRelease for substitute bundle %q: %v", substitution.Name, err)
 	}
 
 	// 2. Examine cfg to find the bundle which has matching name to substitution.Base
@@ -154,10 +154,10 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 	}
 	baseVr, err := baseBundle.VersionRelease()
 	if err != nil {
-		return fmt.Errorf("failed to get composite version for base bundle %q: %v", substitution.Base, err)
+		return fmt.Errorf("failed to get VersionRelease for base bundle %q: %v", substitution.Base, err)
 	}
 
-	// 3. Ensure that the base bundle composite version is less than the substitute bundle composite version
+	// 3. Ensure that the base bundle version release is less than the substitute bundle version release
 	if baseVr.Compare(substituteVr) >= 0 {
 		return fmt.Errorf("base bundle %q is not less than substitute bundle %q", substitution.Base, substitution.Name)
 	}
