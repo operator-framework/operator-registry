@@ -1,4 +1,4 @@
-package declcfg
+package model
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ func TestVersionRelease_MarshalJSON(t *testing.T) {
 				Version: semver.MustParse("1.2.3"),
 				Release: nil,
 			},
-			expected: `{"version":"1.2.3"}`,
+			expected: `{"version":"1.2.3","release":""}`,
 		},
 		{
 			name: "version with release",
@@ -32,15 +32,15 @@ func TestVersionRelease_MarshalJSON(t *testing.T) {
 					semver.PRVersion{VersionNum: 1, IsNum: true},
 				},
 			},
-			expected: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+			expected: `{"version":"1.2.3","release":"alpha.1"}`,
 		},
 		{
 			name: "version with empty release",
 			vr: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
-				Release: Release{},
+				Release: nil,
 			},
-			expected: `{"version":"0.1.0"}`,
+			expected: `{"version":"0.1.0","release":""}`,
 		},
 	}
 
@@ -70,7 +70,7 @@ func TestVersionRelease_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			name:  "version with release",
-			input: `{"version":"1.2.3","release":[{"VersionStr":"alpha","VersionNum":0,"IsNum":false},{"VersionStr":"","VersionNum":1,"IsNum":true}]}`,
+			input: `{"version":"1.2.3","release":"alpha.1"}`,
 			expected: &VersionRelease{
 				Version: semver.MustParse("1.2.3"),
 				Release: Release{
@@ -81,10 +81,10 @@ func TestVersionRelease_UnmarshalJSON(t *testing.T) {
 		},
 		{
 			name:  "version with empty release",
-			input: `{"version":"0.1.0","release":[]}`,
+			input: `{"version":"0.1.0","release":""}`,
 			expected: &VersionRelease{
 				Version: semver.MustParse("0.1.0"),
-				Release: Release{},
+				Release: nil,
 			},
 		},
 		{
@@ -196,7 +196,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionStr: "alpha"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "single numeric segment",
@@ -204,7 +203,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 1, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "multiple segments",
@@ -215,7 +213,6 @@ func TestNewRelease(t *testing.T) {
 				semver.PRVersion{VersionStr: "beta"},
 				semver.PRVersion{VersionNum: 2, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "hyphens allowed",
@@ -224,7 +221,6 @@ func TestNewRelease(t *testing.T) {
 				semver.PRVersion{VersionStr: "rc-1"},
 				semver.PRVersion{VersionStr: "beta-2"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "max length 20 characters",
@@ -232,7 +228,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 12345678901234567890, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "exceeds max length",
@@ -258,7 +253,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionNum: 0, IsNum: true},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "alphanumeric starting with zero is valid",
@@ -266,7 +260,6 @@ func TestNewRelease(t *testing.T) {
 			expected: Release{
 				semver.PRVersion{VersionStr: "0alpha"},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "invalid characters",
@@ -287,6 +280,107 @@ func TestNewRelease(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestVersionRelease_KubernetesSafeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		vr       *VersionRelease
+		expected string
+	}{
+		{
+			name: "version only - basic",
+			vr: &VersionRelease{
+				Version: semver.MustParse("1.2.3"),
+				Release: nil,
+			},
+			expected: "1.2.3",
+		},
+		{
+			name: "version with build metadata - plus to dash",
+			vr: &VersionRelease{
+				Version: semver.MustParse("1.2.3+build.123"),
+				Release: nil,
+			},
+			expected: "1.2.3-build.123",
+		},
+		{
+			name: "version with release",
+			vr: &VersionRelease{
+				Version: semver.MustParse("1.2.3"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "alpha"},
+					semver.PRVersion{VersionNum: 1, IsNum: true},
+				},
+			},
+			expected: "1.2.3-alpha.1",
+		},
+		{
+			name: "version with build metadata and release",
+			vr: &VersionRelease{
+				Version: semver.MustParse("2.0.0+beta.456"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "rc"},
+					semver.PRVersion{VersionNum: 2, IsNum: true},
+				},
+			},
+			expected: "2.0.0-beta.456-rc.2",
+		},
+		{
+			name: "version with prerelease (uppercase) - lowercase applied",
+			vr: &VersionRelease{
+				Version: semver.MustParse("1.0.0-RC.1"),
+				Release: nil,
+			},
+			expected: "1.0.0-rc.1",
+		},
+		{
+			name: "version with uppercase in build metadata - lowercase applied",
+			vr: &VersionRelease{
+				Version: semver.MustParse("3.4.5+BUILD.789"),
+				Release: nil,
+			},
+			expected: "3.4.5-build.789",
+		},
+		{
+			name: "release with uppercase - lowercase applied",
+			vr: &VersionRelease{
+				Version: semver.MustParse("1.2.3"),
+				Release: Release{
+					semver.PRVersion{VersionStr: "Alpha"},
+					semver.PRVersion{VersionNum: 5, IsNum: true},
+				},
+			},
+			expected: "1.2.3-alpha.5",
+		},
+		{
+			name: "complex case with prerelease, build metadata, and release",
+			vr: &VersionRelease{
+				Version: semver.Version{
+					Major: 2,
+					Minor: 3,
+					Patch: 4,
+					Pre: []semver.PRVersion{
+						{VersionStr: "Beta"},
+						{VersionNum: 1, IsNum: true},
+					},
+					Build: []string{"Snapshot", "20240101"},
+				},
+				Release: Release{
+					semver.PRVersion{VersionStr: "Final"},
+					semver.PRVersion{VersionNum: 10, IsNum: true},
+				},
+			},
+			expected: "2.3.4-beta.1-snapshot.20240101-final.10",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.vr.KubernetesSafeString()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
