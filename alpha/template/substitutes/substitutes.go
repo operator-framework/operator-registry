@@ -78,8 +78,23 @@ func (t *template) Render(ctx context.Context, reader io.Reader) (*declcfg.Decla
 		return nil, fmt.Errorf("render: entries are not valid FBC: %v", err)
 	}
 
+	// track substitution base duplication
+	seenBases := make(map[string]bool)
+	// track substitution candidate duplication with different bases
+	seenCandidates := make(map[string]string)
+
 	// Process each substitution
 	for _, substitution := range st.Substitutions {
+		if seenBases[substitution.Base] {
+			return nil, fmt.Errorf("render: cannot reuse the same substitution base %q", substitution.Base)
+		}
+		seenBases[substitution.Base] = true
+
+		if candidateBase, ok := seenCandidates[substitution.Name]; ok {
+			return nil, fmt.Errorf("render: cannot reuse the same substitution %q for different bases (%q and %q)", substitution.Name, candidateBase, substitution.Base)
+		}
+		seenCandidates[substitution.Name] = substitution.Base
+
 		err := t.processSubstitution(ctx, cfg, substitution)
 		if err != nil {
 			return nil, fmt.Errorf("render: error processing substitution %s->%s: %v", substitution.Base, substitution.Name, err)
@@ -88,8 +103,6 @@ func (t *template) Render(ctx context.Context, reader io.Reader) (*declcfg.Decla
 
 	return cfg, nil
 }
-
-// Helper functions
 
 func parseSpec(reader io.Reader) (*SubstitutesTemplateData, error) {
 	st := &SubstitutesTemplateData{}
@@ -165,7 +178,7 @@ func (t *template) validateSubstitution(ctx context.Context, cfg *declcfg.Declar
 	return nil
 }
 
-// processSubstitution handles the complex logic for processing a single substitution
+// processSubstitution processes a single substitution
 func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.DeclarativeConfig, substitution Substitute) error {
 	if err := t.validateSubstitution(ctx, cfg, substitution); err != nil {
 		return err
@@ -176,8 +189,6 @@ func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.Declara
 		return fmt.Errorf("failed to render bundle image reference %q: %v", substitution.Name, err)
 	}
 
-	// normally, we'd rely RenderBundle to represent any failure via err, but since this is comes from input,
-	// we need to perform more validation of the results here before processing them
 	if substituteCfg == nil || len(substituteCfg.Bundles) == 0 {
 		return fmt.Errorf("rendered bundle image reference %q contains no bundles", substitution.Name)
 	}
