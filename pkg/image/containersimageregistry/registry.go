@@ -3,6 +3,7 @@ package containersimageregistry
 import (
 	"archive/tar"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -115,6 +116,14 @@ func WithTemporaryImageCache() Option {
 	}
 }
 
+// layoutKey returns a deterministic, OCI-ref-name-safe key for the given
+// image reference. Docker tags allow characters (e.g. "__") that are not
+// valid in OCI layout ref.name annotations, so we hex-encode the reference
+// instead of using it directly.
+func layoutKey(ref string) string {
+	return hex.EncodeToString([]byte(ref))
+}
+
 func WithInsecureSkipTLSVerify(insecureSkipTLSVerify bool) Option {
 	return func(r *Registry) error {
 		r.sourceCtx.DockerDaemonInsecureSkipTLSVerify = insecureSkipTLSVerify
@@ -137,7 +146,7 @@ func (r *Registry) Pull(ctx context.Context, ref orimage.Reference) error {
 	if err := os.MkdirAll(r.cache.ociLayoutDir(), 0700); err != nil {
 		return err
 	}
-	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), ref.String())
+	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), layoutKey(ref.String()))
 	if err != nil {
 		return err
 	}
@@ -175,7 +184,7 @@ func (r *Registry) Pull(ctx context.Context, ref orimage.Reference) error {
 }
 
 func (r *Registry) Unpack(ctx context.Context, ref orimage.Reference, unpackDir string) error {
-	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), ref.String())
+	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), layoutKey(ref.String()))
 	if err != nil {
 		return fmt.Errorf("could not create oci layout reference: %w", err)
 	}
@@ -231,7 +240,7 @@ func (r *Registry) Unpack(ctx context.Context, ref orimage.Reference, unpackDir 
 }
 
 func (r *Registry) Labels(ctx context.Context, ref orimage.Reference) (map[string]string, error) {
-	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), ref.String())
+	ociLayoutRef, err := layout.NewReference(r.cache.ociLayoutDir(), layoutKey(ref.String()))
 	if err != nil {
 		return nil, fmt.Errorf("could not create oci layout reference: %w", err)
 	}
