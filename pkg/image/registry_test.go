@@ -172,6 +172,18 @@ func testPullAndUnpack(t *testing.T, name string, newRegistry newRegistryFunc) {
 			},
 		},
 		{
+			description: fmt.Sprintf("%s/ByTagWithDoubleUnderscore", name),
+			args: args{
+				dockerRootDir: "testdata/golden",
+				img:           "/olmtest/kiali:1.4__2",
+			},
+			expected: expected{
+				checksum:      dirChecksum(t, "testdata/golden/bundles/kiali"),
+				labels:        expectedLabels,
+				pullAssertion: require.NoError,
+			},
+		},
+		{
 			description: fmt.Sprintf("%s/ByDigest", name),
 			args: args{
 				dockerRootDir: "testdata/golden",
