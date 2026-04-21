@@ -96,10 +96,6 @@ sanity-check:
 		./bin/opm registry serve --database /database/bundles.db --timeout-seconds 1
 
 
-.PHONY: image-upstream
-image-upstream:
-	docker build -f upstream-example.Dockerfile .
-
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run --build-tags=$(TAGS) $(GOLANGCI_LINT_ARGS)
