@@ -23,10 +23,9 @@ type ValidationResult struct {
 	Error  *ValidationError `json:"error,omitempty" yaml:"error,omitempty"`
 }
 
-// ValidationError represents a structured validation error that can be nested
+// ValidationError represents a structured validation error
 type ValidationError struct {
-	Message string            `json:"message" yaml:"message"`
-	Errors  []ValidationError `json:"errors,omitempty" yaml:"errors,omitempty"`
+	Message string `json:"message" yaml:"message"`
 }
 
 // errorToValidationError converts a Go error into a structured ValidationError
@@ -87,13 +86,18 @@ func NewCmd() *cobra.Command {
 					return fmt.Errorf("failed to marshal output: %w", marshalErr)
 				}
 
-				fmt.Fprintln(os.Stdout, string(data))
-
-				// Exit directly with appropriate code to avoid cobra printing error
-				if validationErr != nil {
-					os.Exit(1)
+				if _, err := fmt.Fprintln(os.Stdout, string(data)); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
 				}
-				return nil
+
+				// Silence cobra error output only for validation errors
+				// This prevents mixing structured output with error messages,
+				// while still showing errors for flag/marshal/write failures
+				if validationErr != nil {
+					c.SilenceErrors = true
+					c.SilenceUsage = true
+				}
+				return validationErr
 			}
 
 			// Default behavior: use logger.Fatal on error
