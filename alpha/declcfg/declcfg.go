@@ -5,15 +5,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/blang/semver/v4"
 	"golang.org/x/text/cases"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 )
+
+// Re-export VersionRelease/Release types/functions from model package to make it possible for users to only include this package and avoid import cycles
+type (
+	Release        = model.Release
+	VersionRelease = model.VersionRelease
+)
+
+var NewRelease = model.NewRelease
 
 const (
 	SchemaPackage     = "olm.package"
@@ -208,70 +218,75 @@ func (destination *DeclarativeConfig) Merge(src *DeclarativeConfig) {
 	destination.Deprecations = append(destination.Deprecations, src.Deprecations...)
 }
 
-type CompositeVersion struct {
-	Version semver.Version
-	Release semver.Version
-}
-
-func (cv *CompositeVersion) Compare(other *CompositeVersion) int {
-	if cv.Version.NE(other.Version) {
-		return cv.Version.Compare(other.Version)
-	}
-	hasrelease := len(cv.Release.Pre) > 0
-	otherhasrelease := len(other.Release.Pre) > 0
-	if hasrelease && !otherhasrelease {
-		return 1
-	}
-	if !hasrelease && otherhasrelease {
-		return -1
-	}
-	return cv.Release.Compare(other.Release)
-}
-
 // order by version, then
 // release, if present
 func (b *Bundle) Compare(other *Bundle) int {
 	if b.Name == other.Name {
 		return 0
 	}
-	acv, err := b.CompositeVersion()
+	avr, err := b.VersionRelease()
 	if err != nil {
 		return 0
 	}
-	otherCv, err := other.CompositeVersion()
+	otherVr, err := other.VersionRelease()
 	if err != nil {
 		return 0
 	}
-	return acv.Compare(otherCv)
+	return avr.Compare(otherVr)
 }
 
-func (b *Bundle) CompositeVersion() (*CompositeVersion, error) {
-	props, err := property.Parse(b.Properties)
-	if err != nil {
-		return nil, fmt.Errorf("parse properties for bundle %q: %v", b.Name, err)
+// constructs a VersionRelease from the olm.package property of the bundle
+// this handles the cases where the property is present, missing, or duplicated
+// if a release field is present in the property, it is used as-is
+// if it is NOT present in the property, but the version field contains build metadata,
+// we attempt to convert the build metadata into a release and strip the build metadata from the version.
+// This is to support bundles that use the legacy approach of encoding release information in the build metadata field of the version
+func (b *Bundle) VersionRelease() (*VersionRelease, error) {
+	var (
+		vr *VersionRelease
+	)
+	// loop over all properties, and do not break if we find a package property, in order to check for duplicates
+	for _, prop := range b.Properties {
+		switch prop.Type {
+		case property.TypePackage:
+			var p property.Package
+
+			// if we encounter more than one olm.package property, return an error
+			if vr != nil {
+				return nil, fmt.Errorf("must be exactly one property of type %q", SchemaPackage)
+			}
+
+			if err := json.Unmarshal(prop.Value, &p); err != nil {
+				return nil, fmt.Errorf("unable to unmarshal \"olm.package\" property for bundle %q: %v", b.Name, err)
+			}
+			pv, err := semver.Parse(p.Version)
+			if err != nil {
+				return nil, fmt.Errorf("invalid semver version %q in \"olm.package\" property for bundle %q: %v", p.Version, b.Name, err)
+			}
+			pr, err := NewRelease(p.Release)
+			if err != nil {
+				return nil, fmt.Errorf("invalid release %q in \"olm.package\" property for bundle %q: %v", p.Release, b.Name, err)
+			}
+			vr = &VersionRelease{
+				Version: pv,
+				Release: pr,
+			}
+		}
 	}
-	if len(props.Packages) != 1 {
-		return nil, fmt.Errorf("bundle %q must have exactly 1 \"olm.package\" property, found %v", b.Name, len(props.Packages))
-	}
-	v, err := semver.Parse(props.Packages[0].Version)
-	if err != nil {
-		return nil, fmt.Errorf("bundle %q has invalid version %q: %v", b.Name, props.Packages[0].Version, err)
+	if vr == nil {
+		return nil, fmt.Errorf("no \"olm.package\" property found for bundle %q", b.Name)
 	}
 
-	var r semver.Version
-	if props.Packages[0].Release != "" {
-		r, err = semver.Parse(fmt.Sprintf("0.0.0-%s", props.Packages[0].Release))
+	// if the bundle's release isn't provided, see if we can use the legacy build metadata release approach to identify a release
+	// if successful, remove the build metadata from the version
+	if len(vr.Release) == 0 && vr.Version.Build != nil {
+		newrel, err := NewRelease(strings.Join(vr.Version.Build, "."))
 		if err != nil {
-			return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
+			return nil, fmt.Errorf("unable to convert build metadata to release for bundle %q: %v", b.Name, err)
 		}
-		// only need to check for build metadata since we are using explicit zero major, minor, and patch versions above
-		if len(r.Build) != 0 {
-			return nil, fmt.Errorf("bundle %q release version %q cannot contain build metadata", b.Name, props.Packages[0].Release)
-		}
+		vr.Release = newrel
+		vr.Version.Build = nil
 	}
 
-	return &CompositeVersion{
-		Version: v,
-		Release: r,
-	}, nil
+	return vr, nil
 }
