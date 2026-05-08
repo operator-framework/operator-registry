@@ -146,15 +146,11 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 		}
 
 		// Parse release version from the package property.
-		var relver semver.Version
+		var relver model.Release
 		if props.Packages[0].Release != "" {
-			relver, err = semver.Parse(fmt.Sprintf("0.0.0-%s", props.Packages[0].Release))
+			relver, err = model.NewRelease(props.Packages[0].Release)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing bundle %q release version %q: %v", b.Name, props.Packages[0].Release, err)
-			}
-			// only need to check for build metadata since we are using explicit zero major, minor, and patch versions above
-			if len(relver.Build) != 0 {
-				return nil, fmt.Errorf("bundle %q release version %q cannot contain build metadata", b.Name, props.Packages[0].Release)
 			}
 		}
 
@@ -170,7 +166,8 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 				mb.Objects = b.Objects
 				mb.PropertiesP = props
 				mb.Version = ver
-				mb.Release = relver
+				// TODO: Jordan: follow-up will evolve the internal types for more consistent use of VersionRelease
+				mb.Release = semver.Version{Pre: relver}
 			}
 		}
 		if !found {
