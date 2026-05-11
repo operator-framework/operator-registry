@@ -169,6 +169,7 @@ GetBundleForChannel
 GetBundleThatReplaces
 GetChannelEntriesThatProvide
 GetChannelEntriesThatReplace
+GetCustomSchemas
 GetDefaultBundleThatProvides
 GetLatestChannelEntriesThatProvide
 GetPackage

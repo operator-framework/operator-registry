@@ -166,6 +166,7 @@ The server exposes the following gRPC services:
 - `GetLatestChannelEntriesThatProvide(group, version, kind)` - Stream latest entries providing an API
 - `GetDefaultBundleThatProvides(group, version, kind)` - Get default bundle providing an API
 - `ListBundles()` - Stream all bundles
+- `GetCustomSchemas(schema, packageName, name)` - Stream raw FBC blobs for non-standard schemas
 
 **Health Service:**
 - Standard gRPC health check service for monitoring
