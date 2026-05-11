@@ -467,52 +467,70 @@ type encoder interface {
 	Encode(interface{}) error
 }
 
-func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
-	pkgNames := sets.NewString()
+func configsByPackage(cfg DeclarativeConfig) (sets.Set[string], map[string]DeclarativeConfig, []Meta) {
+	pkgNames := sets.New[string]()
+	byCfg := map[string]DeclarativeConfig{}
+	var rootOthers []Meta
 
-	packagesByName := map[string][]Package{}
+	add := func(name string, fn func(DeclarativeConfig) DeclarativeConfig) {
+		if name == "" {
+			return
+		}
+		pkgNames.Insert(name)
+		byCfg[name] = fn(byCfg[name])
+	}
+
 	for _, p := range cfg.Packages {
-		pkgName := p.Name
-		pkgNames.Insert(pkgName)
-		packagesByName[pkgName] = append(packagesByName[pkgName], p)
+		add(p.Name, func(c DeclarativeConfig) DeclarativeConfig {
+			c.Packages = append(c.Packages, p)
+			return c
+		})
 	}
-	channelsByPackage := map[string][]Channel{}
 	for _, c := range cfg.Channels {
-		pkgName := c.Package
-		pkgNames.Insert(pkgName)
-		channelsByPackage[pkgName] = append(channelsByPackage[pkgName], c)
+		add(c.Package, func(dc DeclarativeConfig) DeclarativeConfig {
+			dc.Channels = append(dc.Channels, c)
+			return dc
+		})
 	}
-	bundlesByPackage := map[string][]Bundle{}
 	for _, b := range cfg.Bundles {
-		pkgName := b.Package
-		pkgNames.Insert(pkgName)
-		bundlesByPackage[pkgName] = append(bundlesByPackage[pkgName], b)
+		add(b.Package, func(c DeclarativeConfig) DeclarativeConfig {
+			c.Bundles = append(c.Bundles, b)
+			return c
+		})
 	}
-	othersByPackage := map[string][]Meta{}
 	for _, o := range cfg.Others {
-		pkgName := o.Package
-		pkgNames.Insert(pkgName)
-		othersByPackage[pkgName] = append(othersByPackage[pkgName], o)
-	}
-	deprecationsByPackage := map[string][]Deprecation{}
-	for _, d := range cfg.Deprecations {
-		pkgName := d.Package
-		pkgNames.Insert(pkgName)
-		deprecationsByPackage[pkgName] = append(deprecationsByPackage[pkgName], d)
-	}
-
-	for _, pName := range pkgNames.List() {
-		if len(pName) == 0 {
+		if o.Package == "" {
+			rootOthers = append(rootOthers, o)
 			continue
 		}
-		pkgs := packagesByName[pName]
-		for _, p := range pkgs {
+		add(o.Package, func(c DeclarativeConfig) DeclarativeConfig {
+			c.Others = append(c.Others, o)
+			return c
+		})
+	}
+	for _, d := range cfg.Deprecations {
+		add(d.Package, func(c DeclarativeConfig) DeclarativeConfig {
+			c.Deprecations = append(c.Deprecations, d)
+			return c
+		})
+	}
+
+	return pkgNames, byCfg, rootOthers
+}
+
+func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
+	pkgNames, byCfg, rootOthers := configsByPackage(cfg)
+
+	for _, pName := range sets.List(pkgNames) {
+		pkgCfg := byCfg[pName]
+
+		for _, p := range pkgCfg.Packages {
 			if err := enc.Encode(p); err != nil {
 				return err
 			}
 		}
 
-		channels := channelsByPackage[pName]
+		channels := pkgCfg.Channels
 		sort.Slice(channels, func(i, j int) bool {
 			return channels[i].Name < channels[j].Name
 		})
@@ -522,7 +540,7 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 			}
 		}
 
-		bundles := bundlesByPackage[pName]
+		bundles := pkgCfg.Bundles
 		sort.Slice(bundles, func(i, j int) bool {
 			return bundles[i].Name < bundles[j].Name
 		})
@@ -532,7 +550,7 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 			}
 		}
 
-		others := othersByPackage[pName]
+		others := pkgCfg.Others
 		sort.SliceStable(others, func(i, j int) bool {
 			return others[i].Schema < others[j].Schema
 		})
@@ -552,15 +570,14 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 		// Deprecation object for a package, and it would bypass validation if this
 		// function gets called without conversion.
 		//
-		deprecations := deprecationsByPackage[pName]
-		for _, d := range deprecations {
+		for _, d := range pkgCfg.Deprecations {
 			if err := enc.Encode(d); err != nil {
 				return err
 			}
 		}
 	}
 
-	for _, o := range othersByPackage[""] {
+	for _, o := range rootOthers {
 		if err := enc.Encode(o); err != nil {
 			return err
 		}
@@ -572,34 +589,35 @@ func writeToEncoder(cfg DeclarativeConfig, enc encoder) error {
 type WriteFunc func(config DeclarativeConfig, w io.Writer) error
 
 func WriteFS(cfg DeclarativeConfig, rootDir string, writeFunc WriteFunc, fileExt string) error {
-	channelsByPackage := map[string][]Channel{}
-	for _, c := range cfg.Channels {
-		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
-	}
-	bundlesByPackage := map[string][]Bundle{}
-	for _, b := range cfg.Bundles {
-		bundlesByPackage[b.Package] = append(bundlesByPackage[b.Package], b)
-	}
+	pkgNames, byCfg, rootOthers := configsByPackage(cfg)
 
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return err
 	}
 
-	for _, p := range cfg.Packages {
-		fcfg := DeclarativeConfig{
-			Packages: []Package{p},
-			Channels: channelsByPackage[p.Name],
-			Bundles:  bundlesByPackage[p.Name],
+	for _, pName := range sets.List(pkgNames) {
+		if !filepath.IsLocal(pName) {
+			return fmt.Errorf("invalid package name %q: must be a single local path element", pName)
 		}
-		pkgDir := filepath.Join(rootDir, p.Name)
+		pkgDir := filepath.Join(rootDir, pName)
 		if err := os.MkdirAll(pkgDir, 0777); err != nil {
 			return err
 		}
 		filename := filepath.Join(pkgDir, fmt.Sprintf("catalog%s", fileExt))
-		if err := writeFile(fcfg, filename, writeFunc); err != nil {
+		if err := writeFile(byCfg[pName], filename, writeFunc); err != nil {
 			return err
 		}
 	}
+
+	// Others with no package name cannot belong to any package directory;
+	// write them to a root-level catalog file, consistent with writeToEncoder.
+	if len(rootOthers) > 0 {
+		filename := filepath.Join(rootDir, fmt.Sprintf("catalog%s", fileExt))
+		if err := writeFile(DeclarativeConfig{Others: rootOthers}, filename, writeFunc); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
