@@ -2,6 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -97,4 +103,27 @@ func (s *RegistryServer) GetLatestChannelEntriesThatProvide(req *api.GetLatestPr
 
 func (s *RegistryServer) GetDefaultBundleThatProvides(ctx context.Context, req *api.GetDefaultProviderRequest) (*api.Bundle, error) {
 	return s.store.GetBundleThatProvides(ctx, req.GetGroup(), req.GetVersion(), req.GetKind())
+}
+
+func (s *RegistryServer) GetCustomSchemas(req *api.GetCustomSchemasRequest, stream api.Registry_GetCustomSchemasServer) error {
+	type customSchemaQuerier interface {
+		SendCustomSchemas(ctx context.Context, schema, pkg, name string,
+			sender func(schema, pkg, name string, blob []byte) error) error
+	}
+	mq, ok := s.store.(customSchemaQuerier)
+	if !ok {
+		return status.Errorf(codes.Unimplemented, "store does not support custom schema queries")
+	}
+	return mq.SendCustomSchemas(stream.Context(), req.GetSchema(), req.GetPackageName(), req.GetName(),
+		func(_, _, _ string, blob []byte) error {
+			var m map[string]interface{}
+			if err := json.Unmarshal(blob, &m); err != nil {
+				return fmt.Errorf("unmarshal custom schema blob: %v", err)
+			}
+			s, err := structpb.NewStruct(m)
+			if err != nil {
+				return fmt.Errorf("convert custom schema blob to struct: %v", err)
+			}
+			return stream.Send(s)
+		})
 }

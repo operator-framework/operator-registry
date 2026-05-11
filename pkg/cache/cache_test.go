@@ -219,6 +219,175 @@ func TestCache_ListPackages(t *testing.T) {
 	}
 }
 
+var customSchemaFS = fstest.MapFS{
+	".": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
+	"catalog.json": &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "testpkg",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "package": "testpkg",
+    "name": "stable",
+    "entries": [{"name": "testpkg.v1.0.0"}]
+}
+{
+    "schema": "olm.bundle",
+    "name": "testpkg.v1.0.0",
+    "package": "testpkg",
+    "image": "quay.io/test/testpkg:v1.0.0",
+    "properties": [{"type": "olm.package", "value": {"packageName": "testpkg", "version": "1.0.0"}}]
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "my-custom-resource",
+    "customField": "customValue"
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "another-custom-resource",
+    "data": {"key": "value"}
+}
+{
+    "schema": "other.custom.schema",
+    "package": "testpkg",
+    "name": "other-custom",
+    "info": "test"
+}
+`),
+	},
+}
+
+func TestCache_SendCustomSchemas(t *testing.T) {
+	for name, testCache := range genTestCaches(t, customSchemaFS) {
+		t.Run(name, func(t *testing.T) {
+			type result struct {
+				schema, pkg, name string
+				blob              []byte
+			}
+			collect := func(c Cache, schema, pkg, name string) []result {
+				t.Helper()
+				var results []result
+				err := c.SendCustomSchemas(context.TODO(), schema, pkg, name,
+					func(s, p, n string, blob []byte) error {
+						results = append(results, result{s, p, n, blob})
+						return nil
+					})
+				require.NoError(t, err)
+				return results
+			}
+
+			// No filters: returns all custom schema blobs
+			all := collect(testCache, "", "", "")
+			require.Len(t, all, 3)
+
+			// Filter by schema
+			bySchema := collect(testCache, "custom.operator.io", "", "")
+			require.Len(t, bySchema, 2)
+			for _, r := range bySchema {
+				require.Equal(t, "custom.operator.io", r.schema)
+			}
+
+			// Filter by schema + package
+			bySchemaAndPkg := collect(testCache, "custom.operator.io", "testpkg", "")
+			require.Len(t, bySchemaAndPkg, 2)
+
+			// Filter by schema + package + name
+			byAll := collect(testCache, "custom.operator.io", "testpkg", "my-custom-resource")
+			require.Len(t, byAll, 1)
+			require.Equal(t, "my-custom-resource", byAll[0].name)
+
+			// Filter by different schema
+			otherSchema := collect(testCache, "other.custom.schema", "", "")
+			require.Len(t, otherSchema, 1)
+			require.Equal(t, "other-custom", otherSchema[0].name)
+
+			// Standard schemas should NOT appear
+			stdSchemas := collect(testCache, "olm.package", "", "")
+			require.Empty(t, stdSchemas)
+			stdSchemas = collect(testCache, "olm.channel", "", "")
+			require.Empty(t, stdSchemas)
+			stdSchemas = collect(testCache, "olm.bundle", "", "")
+			require.Empty(t, stdSchemas)
+
+			// Nonexistent schema returns empty
+			none := collect(testCache, "nonexistent.schema", "", "")
+			require.Empty(t, none)
+		})
+	}
+}
+
+var namelessCustomSchemaFS = fstest.MapFS{
+	".": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
+	"catalog.json": &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "testpkg",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "package": "testpkg",
+    "name": "stable",
+    "entries": [{"name": "testpkg.v1.0.0"}]
+}
+{
+    "schema": "olm.bundle",
+    "name": "testpkg.v1.0.0",
+    "package": "testpkg",
+    "image": "quay.io/test/testpkg:v1.0.0",
+    "properties": [{"type": "olm.package", "value": {"packageName": "testpkg", "version": "1.0.0"}}]
+}
+{
+    "schema": "custom.nameless",
+    "package": "testpkg",
+    "data": "nameless-blob"
+}
+`),
+	},
+}
+
+func TestCache_SendCustomSchemas_NamelessBlob(t *testing.T) {
+	for name, testCache := range genTestCaches(t, namelessCustomSchemaFS) {
+		t.Run(name, func(t *testing.T) {
+			var results []struct{ schema, pkg, name string }
+			err := testCache.SendCustomSchemas(context.TODO(), "", "", "",
+				func(schema, pkg, name string, blob []byte) error {
+					results = append(results, struct{ schema, pkg, name string }{schema, pkg, name})
+					return nil
+				})
+			require.NoError(t, err)
+			require.Len(t, results, 1)
+			require.Equal(t, "custom.nameless", results[0].schema)
+			require.Equal(t, "testpkg", results[0].pkg)
+			require.Equal(t, defaultMetaName, results[0].name)
+		})
+	}
+}
+
+func TestCache_SendCustomSchemas_NoCustomSchemas(t *testing.T) {
+	for name, testCache := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			var results []string
+			err := testCache.SendCustomSchemas(context.TODO(), "", "", "",
+				func(schema, pkg, name string, blob []byte) error {
+					results = append(results, schema)
+					return nil
+				})
+			require.NoError(t, err)
+			require.Empty(t, results)
+		})
+	}
+}
+
 func genTestCaches(t *testing.T, fbcFS fs.FS) map[string]Cache {
 	t.Helper()
 

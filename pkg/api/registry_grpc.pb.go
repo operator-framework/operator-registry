@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -29,6 +30,7 @@ const (
 	Registry_GetLatestChannelEntriesThatProvide_FullMethodName = "/api.Registry/GetLatestChannelEntriesThatProvide"
 	Registry_GetDefaultBundleThatProvides_FullMethodName       = "/api.Registry/GetDefaultBundleThatProvides"
 	Registry_ListBundles_FullMethodName                        = "/api.Registry/ListBundles"
+	Registry_GetCustomSchemas_FullMethodName                   = "/api.Registry/GetCustomSchemas"
 )
 
 // RegistryClient is the client API for Registry service.
@@ -46,6 +48,7 @@ type RegistryClient interface {
 	GetLatestChannelEntriesThatProvide(ctx context.Context, in *GetLatestProvidersRequest, opts ...grpc.CallOption) (Registry_GetLatestChannelEntriesThatProvideClient, error)
 	GetDefaultBundleThatProvides(ctx context.Context, in *GetDefaultProviderRequest, opts ...grpc.CallOption) (*Bundle, error)
 	ListBundles(ctx context.Context, in *ListBundlesRequest, opts ...grpc.CallOption) (Registry_ListBundlesClient, error)
+	GetCustomSchemas(ctx context.Context, in *GetCustomSchemasRequest, opts ...grpc.CallOption) (Registry_GetCustomSchemasClient, error)
 }
 
 type registryClient struct {
@@ -262,6 +265,38 @@ func (x *registryListBundlesClient) Recv() (*Bundle, error) {
 	return m, nil
 }
 
+func (c *registryClient) GetCustomSchemas(ctx context.Context, in *GetCustomSchemasRequest, opts ...grpc.CallOption) (Registry_GetCustomSchemasClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Registry_ServiceDesc.Streams[5], Registry_GetCustomSchemas_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &registryGetCustomSchemasClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Registry_GetCustomSchemasClient interface {
+	Recv() (*structpb.Struct, error)
+	grpc.ClientStream
+}
+
+type registryGetCustomSchemasClient struct {
+	grpc.ClientStream
+}
+
+func (x *registryGetCustomSchemasClient) Recv() (*structpb.Struct, error) {
+	m := new(structpb.Struct)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RegistryServer is the server API for Registry service.
 // All implementations must embed UnimplementedRegistryServer
 // for forward compatibility
@@ -277,6 +312,7 @@ type RegistryServer interface {
 	GetLatestChannelEntriesThatProvide(*GetLatestProvidersRequest, Registry_GetLatestChannelEntriesThatProvideServer) error
 	GetDefaultBundleThatProvides(context.Context, *GetDefaultProviderRequest) (*Bundle, error)
 	ListBundles(*ListBundlesRequest, Registry_ListBundlesServer) error
+	GetCustomSchemas(*GetCustomSchemasRequest, Registry_GetCustomSchemasServer) error
 	mustEmbedUnimplementedRegistryServer()
 }
 
@@ -313,6 +349,9 @@ func (UnimplementedRegistryServer) GetDefaultBundleThatProvides(context.Context,
 }
 func (UnimplementedRegistryServer) ListBundles(*ListBundlesRequest, Registry_ListBundlesServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListBundles not implemented")
+}
+func (UnimplementedRegistryServer) GetCustomSchemas(*GetCustomSchemasRequest, Registry_GetCustomSchemasServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetCustomSchemas not implemented")
 }
 func (UnimplementedRegistryServer) mustEmbedUnimplementedRegistryServer() {}
 
@@ -522,6 +561,27 @@ func (x *registryListBundlesServer) Send(m *Bundle) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Registry_GetCustomSchemas_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetCustomSchemasRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RegistryServer).GetCustomSchemas(m, &registryGetCustomSchemasServer{stream})
+}
+
+type Registry_GetCustomSchemasServer interface {
+	Send(*structpb.Struct) error
+	grpc.ServerStream
+}
+
+type registryGetCustomSchemasServer struct {
+	grpc.ServerStream
+}
+
+func (x *registryGetCustomSchemasServer) Send(m *structpb.Struct) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Registry_ServiceDesc is the grpc.ServiceDesc for Registry service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -574,6 +634,11 @@ var Registry_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListBundles",
 			Handler:       _Registry_ListBundles_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetCustomSchemas",
+			Handler:       _Registry_GetCustomSchemas_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/akrylysov/pogreb"
 	pogrebfs "github.com/akrylysov/pogreb/fs"
@@ -27,6 +28,7 @@ func newPogrebV1Backend(baseDir string) *pogrebV1Backend {
 	return &pogrebV1Backend{
 		baseDir: baseDir,
 		bundles: newBundleKeys(),
+		metas:   newMetaKeys(),
 	}
 }
 
@@ -45,6 +47,7 @@ type pogrebV1Backend struct {
 	baseDir string
 	db      *pogreb.DB
 	bundles bundleKeys
+	metas   metaKeys
 }
 
 func (q *pogrebV1Backend) Name() string {
@@ -72,6 +75,7 @@ func (q *pogrebV1Backend) Init() error {
 		return fmt.Errorf("ensure empty cache directory: %v", err)
 	}
 	q.bundles = newBundleKeys()
+	q.metas = newMetaKeys()
 	return q.Open()
 }
 
@@ -124,7 +128,35 @@ func (q *pogrebV1Backend) GetPackageIndex(_ context.Context) (packageIndex, erro
 			}
 		}
 	}
+	if err := q.loadMetaKeys(); err != nil {
+		return nil, fmt.Errorf("load meta keys: %v", err)
+	}
 	return pi, nil
+}
+
+const metaKeyPrefix = "metas/"
+
+func (q *pogrebV1Backend) loadMetaKeys() error {
+	it := q.db.Items()
+	for {
+		k, _, err := it.Next()
+		if errors.Is(err, pogreb.ErrIterationDone) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		key := string(k)
+		if !strings.HasPrefix(key, metaKeyPrefix) {
+			continue
+		}
+		parts := strings.SplitN(key[len(metaKeyPrefix):], "/", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		q.metas.Set(metaKey{Schema: parts[0], PackageName: parts[1], Name: parts[2]})
+	}
+	return nil
 }
 
 func (q *pogrebV1Backend) PutPackageIndex(_ context.Context, index packageIndex) error {
@@ -161,6 +193,32 @@ func (q *pogrebV1Backend) PutBundle(_ context.Context, key bundleKey, bundle *ap
 	}
 	q.bundles.Set(key)
 	return nil
+}
+
+func (q *pogrebV1Backend) metaDBKey(in metaKey) []byte {
+	return []byte(fmt.Sprintf("%s%s/%s/%s", metaKeyPrefix, in.Schema, in.PackageName, in.Name))
+}
+
+func (q *pogrebV1Backend) GetMeta(_ context.Context, key metaKey) ([]byte, error) {
+	return q.db.Get(q.metaDBKey(key))
+}
+
+func (q *pogrebV1Backend) PutMeta(_ context.Context, key metaKey, blob []byte) error {
+	if err := q.db.Put(q.metaDBKey(key), blob); err != nil {
+		return err
+	}
+	q.metas.Set(key)
+	return nil
+}
+
+func (q *pogrebV1Backend) SendMetas(_ context.Context, sender func(schema, pkg, name string, blob []byte) error) error {
+	return q.metas.Walk(func(key metaKey) error {
+		data, err := q.db.Get(q.metaDBKey(key))
+		if err != nil {
+			return fmt.Errorf("get meta %v: %w", key, err)
+		}
+		return sender(key.Schema, key.PackageName, key.Name, data)
+	})
 }
 
 func (q *pogrebV1Backend) GetDigest(_ context.Context) (string, error) {

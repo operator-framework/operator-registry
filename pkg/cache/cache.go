@@ -28,6 +28,8 @@ type Cache interface {
 	Build(ctx context.Context, fbc fs.FS) error
 	Load(ctc context.Context) error
 	Close() error
+
+	SendCustomSchemas(ctx context.Context, schema, packageName, name string, sender func(schema, pkg, name string, blob []byte) error) error
 }
 
 type backend interface {
@@ -44,6 +46,10 @@ type backend interface {
 	SendBundles(context.Context, registry.BundleSender) error
 	GetBundle(context.Context, bundleKey) (*api.Bundle, error)
 	PutBundle(context.Context, bundleKey, *api.Bundle) error
+
+	GetMeta(context.Context, metaKey) ([]byte, error)
+	PutMeta(context.Context, metaKey, []byte) error
+	SendMetas(context.Context, func(schema, pkg, name string, blob []byte) error) error
 
 	GetDigest(context.Context) (string, error)
 	ComputeDigest(context.Context, fs.FS) (string, error)
@@ -237,6 +243,26 @@ func (c *cache) GetBundleThatProvides(ctx context.Context, group, version, kind 
 	return c.packageIndex.GetBundleThatProvides(ctx, c, group, version, kind)
 }
 
+// defaultMetaName is used as the metaKey name for custom schema blobs that
+// lack a "name" field. Since each (schema, packageName) pair must be unique,
+// a collision on this sentinel indicates duplicate data in the FBC source.
+const defaultMetaName = "noname"
+
+func (c *cache) SendCustomSchemas(ctx context.Context, schema, packageName, name string, sender func(schema, pkg, name string, blob []byte) error) error {
+	return c.backend.SendMetas(ctx, func(s, p, n string, blob []byte) error {
+		if schema != "" && s != schema {
+			return nil
+		}
+		if packageName != "" && p != packageName {
+			return nil
+		}
+		if name != "" && n != name {
+			return nil
+		}
+		return sender(s, p, n, blob)
+	})
+}
+
 func (c *cache) CheckIntegrity(ctx context.Context, fbc fs.FS) error {
 	existingDigest, err := c.backend.GetDigest(ctx)
 	if err != nil {
@@ -286,6 +312,19 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 		packageName := meta.Package
 		if meta.Schema == declcfg.SchemaPackage {
 			packageName = meta.Name
+		}
+
+		switch meta.Schema {
+		case declcfg.SchemaPackage, declcfg.SchemaChannel, declcfg.SchemaBundle, declcfg.SchemaDeprecation:
+		default:
+			name := meta.Name
+			if name == "" {
+				name = defaultMetaName
+			}
+			mk := metaKey{Schema: meta.Schema, PackageName: packageName, Name: name}
+			if err := c.backend.PutMeta(ctx, mk, meta.Blob); err != nil {
+				return fmt.Errorf("store custom schema meta %v: %v", mk, err)
+			}
 		}
 
 		walkMu.Lock()

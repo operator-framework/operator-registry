@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -23,6 +24,7 @@ func newJSONBackend(baseDir string) *jsonBackend {
 	return &jsonBackend{
 		baseDir: baseDir,
 		bundles: newBundleKeys(),
+		metas:   newMetaKeys(),
 	}
 }
 
@@ -38,6 +40,7 @@ const (
 type jsonBackend struct {
 	baseDir string
 	bundles bundleKeys
+	metas   metaKeys
 }
 
 const FormatJSON = "json"
@@ -71,6 +74,7 @@ func (q *jsonBackend) Init() error {
 		return fmt.Errorf("failed to remove existing JSON digest file: %v", err)
 	}
 	q.bundles = newBundleKeys()
+	q.metas = newMetaKeys()
 	return nil
 }
 
@@ -98,7 +102,38 @@ func (q *jsonBackend) GetPackageIndex(_ context.Context) (packageIndex, error) {
 			}
 		}
 	}
+	if err := q.loadMetaKeys(); err != nil {
+		return nil, fmt.Errorf("load meta keys: %v", err)
+	}
 	return pi, nil
+}
+
+const jsonMetasDir = jsonDir + string(filepath.Separator) + "metas"
+
+func (q *jsonBackend) loadMetaKeys() error {
+	metasRoot := filepath.Join(q.baseDir, jsonMetasDir)
+	if _, err := os.Stat(metasRoot); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return filepath.Walk(metasRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != ".json" {
+			return nil
+		}
+		rel, err := filepath.Rel(metasRoot, path)
+		if err != nil {
+			return err
+		}
+		parts := strings.SplitN(rel, string(filepath.Separator), 3)
+		if len(parts) != 3 {
+			return nil
+		}
+		name := strings.TrimSuffix(parts[2], ".json")
+		q.metas.Set(metaKey{Schema: parts[0], PackageName: parts[1], Name: name})
+		return nil
+	})
 }
 
 func (q *jsonBackend) PutPackageIndex(_ context.Context, pi packageIndex) error {
@@ -138,6 +173,36 @@ func (q *jsonBackend) PutBundle(_ context.Context, key bundleKey, bundle *api.Bu
 	}
 	q.bundles.Set(key)
 	return nil
+}
+
+func (q *jsonBackend) metaFile(in metaKey) string {
+	return filepath.Join(q.baseDir, jsonMetasDir, in.Schema, in.PackageName, in.Name+".json")
+}
+
+func (q *jsonBackend) GetMeta(_ context.Context, key metaKey) ([]byte, error) {
+	return os.ReadFile(q.metaFile(key))
+}
+
+func (q *jsonBackend) PutMeta(_ context.Context, key metaKey, blob []byte) error {
+	dir := filepath.Dir(q.metaFile(key))
+	if err := os.MkdirAll(dir, jsonCacheModeDir); err != nil {
+		return err
+	}
+	if err := os.WriteFile(q.metaFile(key), blob, jsonCacheModeFile); err != nil {
+		return err
+	}
+	q.metas.Set(key)
+	return nil
+}
+
+func (q *jsonBackend) SendMetas(_ context.Context, sender func(schema, pkg, name string, blob []byte) error) error {
+	return q.metas.Walk(func(key metaKey) error {
+		data, err := os.ReadFile(q.metaFile(key))
+		if err != nil {
+			return fmt.Errorf("get meta %v: %w", key, err)
+		}
+		return sender(key.Schema, key.PackageName, key.Name, data)
+	})
 }
 
 func (q *jsonBackend) GetDigest(_ context.Context) (string, error) {

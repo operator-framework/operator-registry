@@ -2,6 +2,8 @@ syntax = "proto3";
 
 option go_package = ".;api";
 
+import "google/protobuf/struct.proto";
+
 package api;
 
 service Registry {
@@ -17,6 +19,7 @@ service Registry {
 	rpc GetLatestChannelEntriesThatProvide(GetLatestProvidersRequest) returns (stream ChannelEntry) {}
 	rpc GetDefaultBundleThatProvides(GetDefaultProviderRequest) returns (Bundle) {}
 	rpc ListBundles(ListBundlesRequest) returns (stream Bundle) {}
+	rpc GetCustomSchemas(GetCustomSchemasRequest) returns (stream google.protobuf.Struct) {}
 }
 
 message Channel{
@@ -131,3 +134,10 @@ message GetDefaultProviderRequest{
 message Deprecation{
 	string message = 1;
 }
+
+message GetCustomSchemasRequest{
+	string schema = 1;
+	string packageName = 2;
+	string name = 3;
+}
+
