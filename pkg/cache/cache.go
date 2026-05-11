@@ -321,7 +321,10 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 			if name == "" {
 				name = defaultMetaName
 			}
-			mk := metaKey{Schema: meta.Schema, PackageName: packageName, Name: name}
+			mk, err := newValidatedMetaKey(meta.Schema, packageName, name)
+			if err != nil {
+				return fmt.Errorf("invalid custom schema meta: %v", err)
+			}
 			if err := c.backend.PutMeta(ctx, mk, meta.Blob); err != nil {
 				return fmt.Errorf("store custom schema meta %v: %v", mk, err)
 			}

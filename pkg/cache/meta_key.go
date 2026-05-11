@@ -1,10 +1,32 @@
 package cache
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/tidwall/btree"
 )
+
+func validateMetaKeyComponent(name, value string) error {
+	if strings.ContainsAny(value, "/\\") || value == ".." || strings.HasPrefix(value, "../") || strings.HasSuffix(value, "/..") {
+		return fmt.Errorf("invalid %s %q: must not contain path separators or '..'", name, value)
+	}
+	return nil
+}
+
+func newValidatedMetaKey(schema, packageName, name string) (metaKey, error) {
+	if err := validateMetaKeyComponent("schema", schema); err != nil {
+		return metaKey{}, err
+	}
+	if err := validateMetaKeyComponent("packageName", packageName); err != nil {
+		return metaKey{}, err
+	}
+	if err := validateMetaKeyComponent("name", name); err != nil {
+		return metaKey{}, err
+	}
+	return metaKey{Schema: schema, PackageName: packageName, Name: name}, nil
+}
 
 type metaKey struct {
 	Schema      string
@@ -45,10 +67,15 @@ func (m *metaKeys) Len() int {
 
 func (m *metaKeys) Walk(f func(k metaKey) error) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	keys := make([]metaKey, 0, m.t.Len())
 	it := m.t.Iter()
 	for it.Next() {
-		if err := f(it.Item()); err != nil {
+		keys = append(keys, it.Item())
+	}
+	m.mu.Unlock()
+
+	for _, k := range keys {
+		if err := f(k); err != nil {
 			return err
 		}
 	}
