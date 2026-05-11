@@ -65,6 +65,10 @@ func (s *RegistryClientStub) ListBundles(ctx context.Context, in *api.ListBundle
 	return s.ListBundlesClient, s.Error
 }
 
+func (s *RegistryClientStub) GetCustomSchemas(ctx context.Context, in *api.GetCustomSchemasRequest, opts ...grpc.CallOption) (api.Registry_GetCustomSchemasClient, error) {
+	return nil, nil
+}
+
 func (s *RegistryClientStub) Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
 	return nil, nil
 }
