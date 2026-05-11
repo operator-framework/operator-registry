@@ -302,6 +302,7 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 	var (
 		concurrency      = runtime.NumCPU()
 		byPackageReaders = map[string][]io.Reader{}
+		seenMetaKeys     = map[metaKey]struct{}{}
 		walkMu           sync.Mutex
 		offset           int64
 	)
@@ -324,6 +325,13 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 			mk, err := newValidatedMetaKey(meta.Schema, packageName, name)
 			if err != nil {
 				return fmt.Errorf("invalid custom schema meta: %v", err)
+			}
+			walkMu.Lock()
+			_, exists := seenMetaKeys[mk]
+			seenMetaKeys[mk] = struct{}{}
+			walkMu.Unlock()
+			if exists {
+				return fmt.Errorf("duplicate custom schema meta: schema %q, package %q, name %q", mk.Schema, mk.PackageName, mk.Name)
 			}
 			if err := c.backend.PutMeta(ctx, mk, meta.Blob); err != nil {
 				return fmt.Errorf("store custom schema meta %v: %v", mk, err)

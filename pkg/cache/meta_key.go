@@ -9,6 +9,9 @@ import (
 )
 
 func validateMetaKeyComponent(name, value string) error {
+	if value == "" {
+		return fmt.Errorf("invalid %s: must not be empty", name)
+	}
 	if strings.ContainsAny(value, "/\\") || value == ".." || strings.HasPrefix(value, "../") || strings.HasSuffix(value, "/..") {
 		return fmt.Errorf("invalid %s %q: must not contain path separators or '..'", name, value)
 	}
