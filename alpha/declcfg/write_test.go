@@ -2,7 +2,10 @@ package declcfg
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -620,4 +623,41 @@ class anakin-dark-anakin.v0.1.0 skipped
 			require.Equal(t, s.expected, buf.String())
 		})
 	}
+}
+
+func TestWriteFS(t *testing.T) {
+	cfg := buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true})
+
+	dir := t.TempDir()
+	require.NoError(t, WriteFS(cfg, dir, WriteJSON, ".json"))
+
+	// Per-package files must include Others and Deprecations for that package.
+	anakinData, err := os.ReadFile(filepath.Join(dir, "anakin", "catalog.json"))
+	require.NoError(t, err)
+	anakinStr := string(anakinData)
+	require.Contains(t, anakinStr, `"schema": "custom.3"`, "anakin catalog must contain Others")
+	require.Contains(t, anakinStr, `"schema": "olm.deprecations"`, "anakin catalog must contain Deprecations")
+
+	bobData, err := os.ReadFile(filepath.Join(dir, "boba-fett", "catalog.json"))
+	require.NoError(t, err)
+	bobStr := string(bobData)
+	require.Contains(t, bobStr, `"schema": "custom.3"`, "boba-fett catalog must contain Others")
+
+	// Others with no package name must appear in a root-level catalog file.
+	rootData, err := os.ReadFile(filepath.Join(dir, "catalog.json"))
+	require.NoError(t, err)
+	rootStr := string(rootData)
+	require.Contains(t, rootStr, `"schema": "custom.1"`, "root catalog must contain package-less Others")
+	require.Contains(t, rootStr, `"schema": "custom.2"`, "root catalog must contain package-less Others")
+
+	// Round-trip: loading the written files must reproduce the Others and Deprecations.
+	// Normalize JSON whitespace in Blob fields before comparing because LoadFS calls
+	// Meta.UnmarshalJSON, which re-encodes the raw blob through a map[string]interface{}
+	// and therefore compacts whitespace and normalizes key order.
+	loaded, err := LoadFS(context.Background(), os.DirFS(dir))
+	require.NoError(t, err)
+	removeJSONWhitespace(&cfg)
+	removeJSONWhitespace(loaded)
+	require.ElementsMatch(t, cfg.Others, loaded.Others)
+	require.ElementsMatch(t, cfg.Deprecations, loaded.Deprecations)
 }
