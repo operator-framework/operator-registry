@@ -6,10 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"testing"
-	"testing/fstest"
 	"text/template"
 
 	"github.com/stretchr/testify/require"
@@ -19,11 +16,8 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/operator-framework/operator-registry/pkg/containertools"
 	"github.com/operator-framework/operator-registry/pkg/image"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
-	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 type fauxMigration struct {
@@ -78,13 +72,6 @@ func TestRender(t *testing.T) {
 	foov2crdNoRelatedImages, err = yaml.ToJSON(foov2crdNoRelatedImages)
 	require.NoError(t, err)
 
-	dir := t.TempDir()
-	dbFile := filepath.Join(dir, "index.db")
-	imageMap := map[image.Reference]string{
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
-	}
-	require.NoError(t, generateSqliteFile(dbFile, imageMap))
 	testMigrations := migrations.Migrations{
 		Migrations: []migrations.Migration{
 			fauxMigration{"faux-migration", "my help text", func(d *declcfg.DeclarativeConfig) error {
@@ -97,376 +84,6 @@ func TestRender(t *testing.T) {
 	}
 
 	specs := []spec{
-		{
-			name: "Success/SqliteIndexImage",
-			render: action.Render{
-				Refs:     []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry: reg,
-			},
-			expectCfg: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
-					{
-						Schema:         "olm.package",
-						Name:           "foo",
-						DefaultChannel: "beta",
-					},
-				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-				},
-				Bundles: []declcfg.Bundle{
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.1.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov1crd),
-							property.MustBuildBundleObject(foov1csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
-							},
-						},
-						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
-					},
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.2.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov2crd),
-							property.MustBuildBundleObject(foov2csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init:v0.2.0",
-							},
-							{
-								Name:  "other",
-								Image: "test.registry/foo-operator/foo-other:v0.2.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
-							},
-						},
-						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
-					},
-				},
-			},
-			assertion: require.NoError,
-		},
-		{
-			name: "Success/SqliteIndexImageWithMigration",
-			render: action.Render{
-				Refs:       []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry:   reg,
-				Migrations: &testMigrations,
-			},
-			expectCfg: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
-					{
-						Schema:         "olm.package",
-						Name:           "foo",
-						DefaultChannel: "beta",
-					},
-				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-				},
-				Bundles: []declcfg.Bundle{
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0-MIGRATED",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.1.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov1crd),
-							property.MustBuildBundleObject(foov1csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
-							},
-						},
-						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
-					},
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0-MIGRATED",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.2.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov2crd),
-							property.MustBuildBundleObject(foov2csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init:v0.2.0",
-							},
-							{
-								Name:  "other",
-								Image: "test.registry/foo-operator/foo-other:v0.2.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
-							},
-						},
-						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
-					},
-				},
-			},
-			assertion: require.NoError,
-		},
-		{
-			name: "Success/SqliteFile",
-			render: action.Render{
-				Refs:     []string{dbFile},
-				Registry: reg,
-			},
-			expectCfg: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
-					{
-						Schema:         "olm.package",
-						Name:           "foo",
-						DefaultChannel: "beta",
-					},
-				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-				},
-				Bundles: []declcfg.Bundle{
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.1.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov1crd),
-							property.MustBuildBundleObject(foov1csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
-							},
-						},
-						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
-					},
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.2.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov2crd),
-							property.MustBuildBundleObject(foov2csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init:v0.2.0",
-							},
-							{
-								Name:  "other",
-								Image: "test.registry/foo-operator/foo-other:v0.2.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
-							},
-						},
-						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
-					},
-				},
-			},
-			assertion: require.NoError,
-		},
-		{
-			name: "Success/SqliteFileMigration",
-			render: action.Render{
-				Refs:       []string{dbFile},
-				Registry:   reg,
-				Migrations: &testMigrations,
-			},
-			expectCfg: &declcfg.DeclarativeConfig{
-				Packages: []declcfg.Package{
-					{
-						Schema:         "olm.package",
-						Name:           "foo",
-						DefaultChannel: "beta",
-					},
-				},
-				Channels: []declcfg.Channel{
-					{Schema: "olm.channel", Package: "foo", Name: "beta", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-					{Schema: "olm.channel", Package: "foo", Name: "stable", Entries: []declcfg.ChannelEntry{
-						{Name: "foo.v0.1.0", SkipRange: "<0.1.0"},
-						{Name: "foo.v0.2.0", Replaces: "foo.v0.1.0", SkipRange: "<0.2.0", Skips: []string{"foo.v0.1.1", "foo.v0.1.2"}},
-					}},
-				},
-				Bundles: []declcfg.Bundle{
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.1.0-MIGRATED",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.1.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.1.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov1crd),
-							property.MustBuildBundleObject(foov1csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.1.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.1.0",
-							},
-						},
-						CsvJSON: string(foov1csv),
-						Objects: []string{string(foov1csv), string(foov1crd)},
-					},
-					{
-						Schema:  "olm.bundle",
-						Name:    "foo.v0.2.0-MIGRATED",
-						Package: "foo",
-						Image:   "test.registry/foo-operator/foo-bundle:v0.2.0",
-						Properties: []property.Property{
-							property.MustBuildGVK("test.foo", "v1", "Foo"),
-							property.MustBuildGVKRequired("test.bar", "v1alpha1", "Bar"),
-							property.MustBuildPackage("foo", "0.2.0"),
-							property.MustBuildPackageRequired("bar", "<0.1.0"),
-							property.MustBuildBundleObject(foov2crd),
-							property.MustBuildBundleObject(foov2csv),
-						},
-						RelatedImages: []declcfg.RelatedImage{
-							{
-								Image: "test.registry/foo-operator/foo-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-bundle:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init-2:v0.2.0",
-							},
-							{
-								Image: "test.registry/foo-operator/foo-init:v0.2.0",
-							},
-							{
-								Name:  "other",
-								Image: "test.registry/foo-operator/foo-other:v0.2.0",
-							},
-							{
-								Name:  "operator",
-								Image: "test.registry/foo-operator/foo:v0.2.0",
-							},
-						},
-						CsvJSON: string(foov2csv),
-						Objects: []string{string(foov2csv), string(foov2crd)},
-					},
-				},
-			},
-			assertion: require.NoError,
-		},
 		{
 			name: "Success/DeclcfgIndexImage",
 			render: action.Render{
@@ -1227,51 +844,7 @@ func TestAllowRefMask(t *testing.T) {
 	reg, err := newRegistry(t)
 	require.NoError(t, err)
 
-	dir := t.TempDir()
-	dbFile := filepath.Join(dir, "index.db")
-	imageMap := map[image.Reference]string{
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
-	}
-	require.NoError(t, generateSqliteFile(dbFile, imageMap))
-
 	specs := []spec{
-		{
-			name: "SqliteImage/Allowed",
-			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry:       reg,
-				AllowedRefMask: action.RefSqliteImage,
-			},
-			expectErr: nil,
-		},
-		{
-			name: "SqliteImage/NotAllowed",
-			render: action.Render{
-				Refs:           []string{"test.registry/foo-operator/foo-index-sqlite:v0.2.0"},
-				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
-			},
-			expectErr: action.ErrNotAllowed,
-		},
-		{
-			name: "SqliteFile/Allowed",
-			render: action.Render{
-				Refs:           []string{dbFile},
-				Registry:       reg,
-				AllowedRefMask: action.RefSqliteFile,
-			},
-			expectErr: nil,
-		},
-		{
-			name: "SqliteFile/NotAllowed",
-			render: action.Render{
-				Refs:           []string{dbFile},
-				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefBundleImage | action.RefBundleDir,
-			},
-			expectErr: action.ErrNotAllowed,
-		},
 		{
 			name: "DeclcfgImage/Allowed",
 			render: action.Render{
@@ -1286,7 +859,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"test.registry/foo-operator/foo-index-declcfg:v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
+				AllowedRefMask: action.RefDCDir | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -1304,7 +877,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"testdata/foo-index-v0.2.0-declcfg"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage | action.RefBundleDir,
+				AllowedRefMask: action.RefDCImage | action.RefBundleImage | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -1322,7 +895,7 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"test.registry/foo-operator/foo-bundle:v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleDir,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefBundleDir,
 			},
 			expectErr: action.ErrNotAllowed,
 		},
@@ -1340,24 +913,9 @@ func TestAllowRefMask(t *testing.T) {
 			render: action.Render{
 				Refs:           []string{"testdata/foo-bundle-v0.2.0"},
 				Registry:       reg,
-				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile | action.RefBundleImage,
+				AllowedRefMask: action.RefDCImage | action.RefDCDir | action.RefBundleImage,
 			},
 			expectErr: action.ErrNotAllowed,
-		},
-		{
-			name: "All/Allowed",
-			render: action.Render{
-				Refs: []string{
-					"test.registry/foo-operator/foo-index-sqlite:v0.2.0",
-					dbFile,
-					"test.registry/foo-operator/foo-index-declcfg:v0.2.0",
-					"testdata/foo-index-v0.2.0-declcfg",
-					"test.registry/foo-operator/foo-bundle:v0.2.0",
-					"testdata/foo-bundle-v0.2.0",
-				},
-				Registry: reg,
-			},
-			expectErr: nil,
 		},
 	}
 	for _, s := range specs {
@@ -1383,8 +941,6 @@ func TestAllowRefMaskAllowed(t *testing.T) {
 			pass: []action.RefType{
 				action.RefDCImage,
 				action.RefDCDir,
-				action.RefSqliteImage,
-				action.RefSqliteFile,
 				action.RefBundleImage,
 				action.RefBundleDir,
 			},
@@ -1398,8 +954,6 @@ func TestAllowRefMaskAllowed(t *testing.T) {
 			},
 			fail: []action.RefType{
 				action.RefDCDir,
-				action.RefSqliteImage,
-				action.RefSqliteFile,
 				action.RefBundleImage,
 			},
 		},
@@ -1411,8 +965,6 @@ func TestAllowRefMaskAllowed(t *testing.T) {
 				action.RefDCDir,
 			},
 			fail: []action.RefType{
-				action.RefSqliteImage,
-				action.RefSqliteFile,
 				action.RefBundleImage,
 			},
 		},
@@ -1446,16 +998,7 @@ var bundleImageV2NoCSVRelatedImages embed.FS
 //go:embed testdata/foo-index-v0.2.0-declcfg/foo/*
 var declcfgImage embed.FS
 
-func newRegistry(t *testing.T) (image.Registry, error) {
-	imageMap := map[image.Reference]string{
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.1.0"): "testdata/foo-bundle-v0.1.0",
-		image.SimpleReference("test.registry/foo-operator/foo-bundle:v0.2.0"): "testdata/foo-bundle-v0.2.0",
-	}
-
-	subSqliteImage, err := generateSqliteFS(t, imageMap)
-	if err != nil {
-		return nil, err
-	}
+func newRegistry(_ *testing.T) (image.Registry, error) {
 	subDeclcfgImage, err := fs.Sub(declcfgImage, "testdata/foo-index-v0.2.0-declcfg")
 	if err != nil {
 		return nil, err
@@ -1474,12 +1017,6 @@ func newRegistry(t *testing.T) (image.Registry, error) {
 	}
 	return &image.MockRegistry{
 		RemoteImages: map[image.Reference]*image.MockImage{
-			image.SimpleReference("test.registry/foo-operator/foo-index-sqlite:v0.2.0"): {
-				Labels: map[string]string{
-					containertools.DbLocationLabel: "/database/index.db",
-				},
-				FS: subSqliteImage,
-			},
 			image.SimpleReference("test.registry/foo-operator/foo-index-declcfg:v0.2.0"): {
 				Labels: map[string]string{
 					"operators.operatorframework.io.index.configs.v1": "/foo",
@@ -1506,57 +1043,4 @@ func newRegistry(t *testing.T) (image.Registry, error) {
 			},
 		},
 	}, nil
-}
-
-func generateSqliteFS(t *testing.T, imageMap map[image.Reference]string) (fs.FS, error) {
-	dir := t.TempDir()
-
-	dbFile := filepath.Join(dir, "index.db")
-	if err := generateSqliteFile(dbFile, imageMap); err != nil {
-		return nil, err
-	}
-
-	dbData, err := os.ReadFile(dbFile)
-	if err != nil {
-		return nil, err
-	}
-
-	return &fstest.MapFS{
-		"database/index.db": &fstest.MapFile{
-			Data: dbData,
-		},
-	}, nil
-}
-
-func generateSqliteFile(path string, imageMap map[image.Reference]string) error {
-	db, err := sqlite.Open(path)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	m, err := sqlite.NewSQLLiteMigrator(db)
-	if err != nil {
-		return err
-	}
-	if err := m.Migrate(context.Background()); err != nil {
-		return err
-	}
-
-	graphLoader, err := sqlite.NewSQLGraphLoaderFromDB(db)
-	if err != nil {
-		return err
-	}
-	dbQuerier := sqlite.NewSQLLiteQuerierFromDb(db)
-
-	loader, err := sqlite.NewSQLLiteLoader(db)
-	if err != nil {
-		return err
-	}
-
-	populator := registry.NewDirectoryPopulator(loader, graphLoader, dbQuerier, imageMap, nil)
-	if err := populator.Populate(registry.ReplacesMode); err != nil {
-		return err
-	}
-	return nil
 }
