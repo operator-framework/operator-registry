@@ -618,6 +618,65 @@ func TestValidators(t *testing.T) {
 			assertion: hasError(`skip[0] is empty`),
 		},
 		{
+			name: "Bundle/Success/EmptySkipRange",
+			v: &Bundle{
+				Package:  pkg,
+				Channel:  ch,
+				Name:     "anakin.v0.1.0",
+				Image:    "registry.io/image",
+				Replaces: "anakin.v0.0.1",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/ValidSkipRange",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v0.1.0",
+				Image:     "registry.io/image",
+				Replaces:  "anakin.v0.0.1",
+				SkipRange: ">=1.0.0 <2.0.0",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Error/InvalidSkipRange/LeadingV",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v0.1.0",
+				Image:     "registry.io/image",
+				Replaces:  "anakin.v0.0.1",
+				SkipRange: ">v0.1.0",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: hasError(`invalid skipRange ">v0.1.0": Could not parse Range ">v0.1.0": Could not parse comparator ">v" in ">v0.1.0"`),
+		},
+		{
+			name: "Bundle/Error/InvalidSkipRange/LeadingZero",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v0.1.0",
+				Image:     "registry.io/image",
+				Replaces:  "anakin.v0.0.1",
+				SkipRange: ">1.00.1",
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: hasError(`invalid skipRange ">1.00.1": Could not parse Range ">1.00.1": Could not parse version "1.00.1" in ">1.00.1": Minor number must not contain leading zeroes "00"`),
+		},
+		{
 			name: "Bundle/Error/MissingPackage",
 			v: &Bundle{
 				Package:    pkg,
