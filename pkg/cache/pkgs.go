@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -33,7 +33,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 	for _, ch := range pkg.Channels {
 		var deprecation *registry.Deprecation
 		if ch.Deprecation != nil {
-			deprecation = &registry.Deprecation{Message: ch.Deprecation.Message}
+			deprecation = &registry.Deprecation{Message: *ch.Deprecation}
 		}
 		channels = append(channels, registry.PackageChannel{
 			Name:           ch.Name,
@@ -48,7 +48,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 		DefaultChannelName: pkg.DefaultChannel,
 	}
 	if pkg.Deprecation != nil {
-		registryPackage.Deprecation = &registry.Deprecation{Message: pkg.Deprecation.Message}
+		registryPackage.Deprecation = &registry.Deprecation{Message: *pkg.Deprecation}
 	}
 	return registryPackage, nil
 }
@@ -182,19 +182,19 @@ func (pkgs packageIndex) GetBundleThatProvides(ctx context.Context, c Cache, gro
 }
 
 type cPkg struct {
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	Icon           *model.Icon `json:"icon"`
-	DefaultChannel string      `json:"defaultChannel"`
+	Name           string        `json:"name"`
+	Description    string        `json:"description"`
+	Icon           *declcfg.Icon `json:"icon"`
+	DefaultChannel string        `json:"defaultChannel"`
 	Channels       map[string]cChannel
-	Deprecation    *model.Deprecation `json:"deprecation,omitempty"`
+	Deprecation    *string `json:"deprecation,omitempty"`
 }
 
 type cChannel struct {
 	Name        string
 	Head        string
 	Bundles     map[string]cBundle
-	Deprecation *model.Deprecation `json:"deprecation,omitempty"`
+	Deprecation *string `json:"deprecation,omitempty"`
 }
 
 type cBundle struct {
@@ -205,43 +205,118 @@ type cBundle struct {
 	Skips    []string `json:"skips"`
 }
 
-func packagesFromModel(m model.Model) (map[string]cPkg, error) {
+func packagesFromDeclcfg(cfg declcfg.DeclarativeConfig) (map[string]cPkg, error) {
 	pkgs := map[string]cPkg{}
-	for _, p := range m {
-		newP := cPkg{
+
+	// First pass: create packages
+	for _, p := range cfg.Packages {
+		pkgs[p.Name] = cPkg{
 			Name:           p.Name,
 			Icon:           p.Icon,
 			Description:    p.Description,
-			DefaultChannel: p.DefaultChannel.Name,
+			DefaultChannel: p.DefaultChannel,
 			Channels:       map[string]cChannel{},
-			Deprecation:    p.Deprecation,
+			Deprecation:    nil,
 		}
-		for _, ch := range p.Channels {
-			head, err := ch.Head()
-			if err != nil {
-				return nil, err
-			}
-			newCh := cChannel{
-				Name:        ch.Name,
-				Head:        head.Name,
-				Bundles:     map[string]cBundle{},
-				Deprecation: ch.Deprecation,
-			}
-			for _, b := range ch.Bundles {
-				newB := cBundle{
-					Package:  b.Package.Name,
-					Channel:  b.Channel.Name,
-					Name:     b.Name,
-					Replaces: b.Replaces,
-					Skips:    b.Skips,
-				}
-				newCh.Bundles[b.Name] = newB
-			}
-			newP.Channels[ch.Name] = newCh
-		}
-		pkgs[p.Name] = newP
 	}
+
+	// Second pass: create channels and add bundles
+	for _, ch := range cfg.Channels {
+		pkg, ok := pkgs[ch.Package]
+		if !ok {
+			return nil, fmt.Errorf("channel %q references unknown package %q", ch.Name, ch.Package)
+		}
+
+		// Find the head of this channel
+		head, err := findChannelHead(ch.Entries)
+		if err != nil {
+			return nil, fmt.Errorf("find head for channel %q in package %q: %v", ch.Name, ch.Package, err)
+		}
+
+		newCh := cChannel{
+			Name:        ch.Name,
+			Head:        head,
+			Bundles:     map[string]cBundle{},
+			Deprecation: nil,
+		}
+
+		for _, entry := range ch.Entries {
+			newB := cBundle{
+				Package:  ch.Package,
+				Channel:  ch.Name,
+				Name:     entry.Name,
+				Replaces: entry.Replaces,
+				Skips:    entry.Skips,
+			}
+			newCh.Bundles[entry.Name] = newB
+		}
+
+		pkg.Channels[ch.Name] = newCh
+		pkgs[ch.Package] = pkg
+	}
+
+	// Third pass: apply deprecations
+	for _, d := range cfg.Deprecations {
+		pkg, ok := pkgs[d.Package]
+		if !ok {
+			return nil, fmt.Errorf("deprecation references unknown package %q", d.Package)
+		}
+
+		for _, entry := range d.Entries {
+			switch entry.Reference.Schema {
+			case declcfg.SchemaPackage:
+				msg := entry.Message
+				pkg.Deprecation = &msg
+			case declcfg.SchemaChannel:
+				ch, ok := pkg.Channels[entry.Reference.Name]
+				if !ok {
+					return nil, fmt.Errorf("deprecation references unknown channel %q in package %q", entry.Reference.Name, d.Package)
+				}
+				msg := entry.Message
+				ch.Deprecation = &msg
+				pkg.Channels[entry.Reference.Name] = ch
+			}
+		}
+		pkgs[d.Package] = pkg
+	}
+
 	return pkgs, nil
+}
+
+// findChannelHead finds the head bundle of a channel by analyzing the replaces chain.
+// The head is the bundle that is not replaced by any other bundle in the channel.
+func findChannelHead(entries []declcfg.ChannelEntry) (string, error) {
+	if len(entries) == 0 {
+		return "", fmt.Errorf("channel has no entries")
+	}
+
+	// Build a map of bundles that are replaced
+	replaced := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.Replaces != "" {
+			replaced[entry.Replaces] = true
+		}
+		for _, skip := range entry.Skips {
+			replaced[skip] = true
+		}
+	}
+
+	// Find bundles that are not replaced by anything
+	var heads []string
+	for _, entry := range entries {
+		if !replaced[entry.Name] {
+			heads = append(heads, entry.Name)
+		}
+	}
+
+	if len(heads) == 0 {
+		return "", fmt.Errorf("channel has circular replaces chain, no head found")
+	}
+	if len(heads) > 1 {
+		return "", fmt.Errorf("channel has multiple heads: %v", heads)
+	}
+
+	return heads[0], nil
 }
 
 func bundleReplaces(b cBundle, name string) bool {

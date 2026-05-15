@@ -395,24 +395,48 @@ func (c *cache) processPackage(ctx context.Context, reader io.Reader) (packageIn
 	if err != nil {
 		return nil, err
 	}
-	pkgModel, err := declcfg.ConvertToModel(*pkgFbc)
+	pkgIndex, err := packagesFromDeclcfg(*pkgFbc)
 	if err != nil {
 		return nil, err
 	}
-	pkgIndex, err := packagesFromModel(pkgModel)
-	if err != nil {
-		return nil, err
-	}
-	for _, p := range pkgModel {
-		for _, ch := range p.Channels {
-			for _, b := range ch.Bundles {
-				apiBundle, err := api.ConvertModelBundleToAPIBundle(*b)
-				if err != nil {
-					return nil, err
+
+	// Build bundles from the declarative config
+	for _, b := range pkgFbc.Bundles {
+		// Find the package for this bundle
+		var pkg *declcfg.Package
+		for i := range pkgFbc.Packages {
+			if pkgFbc.Packages[i].Name == b.Package {
+				pkg = &pkgFbc.Packages[i]
+				break
+			}
+		}
+		if pkg == nil {
+			return nil, fmt.Errorf("bundle %q references unknown package %q", b.Name, b.Package)
+		}
+
+		// Find all channels containing this bundle
+		var relevantChannels []declcfg.Channel
+		for _, ch := range pkgFbc.Channels {
+			if ch.Package != b.Package {
+				continue
+			}
+			for _, entry := range ch.Entries {
+				if entry.Name == b.Name {
+					relevantChannels = append(relevantChannels, ch)
+					break
 				}
-				if err := c.backend.PutBundle(ctx, bundleKey{p.Name, ch.Name, b.Name}, apiBundle); err != nil {
-					return nil, fmt.Errorf("store bundle %q: %v", b.Name, err)
-				}
+			}
+		}
+
+		apiBundle, err := declcfg.ConvertBundleToAPIBundle(b, *pkg, relevantChannels)
+		if err != nil {
+			return nil, fmt.Errorf("convert bundle %q: %v", b.Name, err)
+		}
+
+		// Store the bundle for each channel it appears in
+		for _, ch := range relevantChannels {
+			if err := c.backend.PutBundle(ctx, bundleKey{b.Package, ch.Name, b.Name}, apiBundle); err != nil {
+				return nil, fmt.Errorf("store bundle %q: %v", b.Name, err)
 			}
 		}
 	}

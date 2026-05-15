@@ -1,4 +1,4 @@
-package model
+package declcfg
 
 import (
 	"encoding/json"
