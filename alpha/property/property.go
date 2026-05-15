@@ -42,13 +42,9 @@ type Package struct {
 }
 
 // NOTICE: The Channel properties are for internal use only.
-//
-//	DO NOT use it for any public-facing functionalities.
-//	This API is in alpha stage and it is subject to change.
+// DO NOT use it for any public-facing functionalities.
 type Channel struct {
 	ChannelName string `json:"channelName"`
-	//Priority    string `json:"priority"`
-	Priority int `json:"priority"`
 }
 
 type PackageRequired struct {
@@ -281,12 +277,4 @@ func MustBuildCSVMetadata(csv v1alpha1.ClusterServiceVersion) Property {
 		NativeAPIs:                csv.Spec.NativeAPIs,
 		Provider:                  csv.Spec.Provider,
 	})
-}
-
-// NOTICE: The Channel properties are for internal use only.
-//
-//	DO NOT use it for any public-facing functionalities.
-//	This API is in alpha stage and it is subject to change.
-func MustBuildChannelPriority(name string, priority int) Property {
-	return MustBuild(&Channel{ChannelName: name, Priority: priority})
 }

@@ -34,7 +34,7 @@ func (m Migrate) Run(ctx context.Context) error {
 		Migrations: m.Migrations,
 
 		// Only allow catalogs to be migrated.
-		AllowedRefMask: RefSqliteImage | RefSqliteFile | RefDCImage | RefDCDir,
+		AllowedRefMask: RefDCImage | RefDCDir,
 	}
 	if m.Registry != nil {
 		r.Registry = m.Registry

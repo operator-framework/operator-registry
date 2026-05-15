@@ -178,10 +178,8 @@ func (s *sliceBundleSender) Send(b *api.Bundle) error {
 func (c *cache) SendBundles(ctx context.Context, stream registry.BundleSender) error {
 	transform := func(bundle *api.Bundle) {
 		if bundle.BundlePath != "" {
-			// The SQLite-based server
-			// configures its querier to
-			// omit these fields when
-			// key path is set.
+			// Omit these fields when
+			// bundle path is set.
 			bundle.CsvJson = ""
 			bundle.Object = nil
 		}

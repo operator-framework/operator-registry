@@ -94,9 +94,7 @@ func (pkgs packageIndex) GetBundleThatReplaces(ctx context.Context, getBundle ge
 	}
 
 	// NOTE: iterating over a map is non-deterministic in Go, so if multiple bundles replace this one,
-	//       the bundle returned by this function is also non-deterministic. The sqlite implementation
-	//       is ALSO non-deterministic because it doesn't use ORDER BY, so its probably okay for this
-	//       implementation to be non-deterministic as well.
+	//       the bundle returned by this function is also non-deterministic.
 	for _, b := range ch.Bundles {
 		if bundleReplaces(b, name) {
 			return getBundle(ctx, bundleKey{pkg.Name, ch.Name, b.Name})
@@ -116,11 +114,9 @@ func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, getBu
 					return nil, err
 				}
 				if provides {
-					// TODO(joelanford): It seems like the SQLite query returns
-					//   invalid entries (i.e. where bundle `Replaces` isn't actually
-					//   in channel `ChannelName`). Is that a bug? For now, this mimics
-					//   the sqlite server and returns seemingly invalid channel entries.
-					//      Don't worry about this. Not used anymore.
+					// TODO(joelanford): This may return invalid entries (i.e. where bundle
+					//   `Replaces` isn't actually in channel `ChannelName`). Is that a bug?
+					//   Don't worry about this. Not used anymore.
 
 					entries = append(entries, pkgs.channelEntriesForBundle(b, true)...)
 				}
@@ -133,14 +129,10 @@ func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, getBu
 	return entries, nil
 }
 
-// TODO(joelanford): Need to review the expected functionality of this function. I ran
+// TODO(joelanford): Need to review the expected functionality of this function. This currently
 //
-//	some experiments with the sqlite version of this function and it seems to only return
-//	channel heads that provide the GVK (rather than searching down the graph if parent bundles
-//	don't provide the API). Based on that, this function currently looks at channel heads only.
-//	---
-//	Separate, but possibly related, I noticed there are several channels in the channel entry
-//	table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
+//	only returns channel heads that provide the GVK (rather than searching down the graph if
+//	parent bundles don't provide the API).
 func (pkgs packageIndex) GetLatestChannelEntriesThatProvide(ctx context.Context, getBundle getBundleFunc, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	var entries []*registry.ChannelEntry
 

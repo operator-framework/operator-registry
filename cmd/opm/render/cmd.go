@@ -13,7 +13,6 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func NewCmd(showAlphaHelp bool) *cobra.Command {
@@ -26,11 +25,10 @@ func NewCmd(showAlphaHelp bool) *cobra.Command {
 		migrateLevel      string
 	)
 	cmd := &cobra.Command{
-		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory | sqlite-file]...",
+		Use:   "render [catalog-image | catalog-directory | bundle-image | bundle-directory]...",
 		Short: "Generate a stream of file-based catalog objects from catalogs and bundles",
 		Long: `Generate a stream of file-based catalog objects to stdout from the provided
-catalog images, file-based catalog directories, bundle images, and sqlite
-database files.
+catalog images, file-based catalog directories, bundle images, and bundle directories.
 `,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -112,6 +110,5 @@ those images actually existing. Available template variables are:
   - {{.Version}} : the version of the bundle
 `
 	}
-	cmd.Long += "\n" + sqlite.DeprecationMessage
 	return cmd
 }

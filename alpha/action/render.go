@@ -2,7 +2,6 @@ package action
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,11 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"text/template"
 
-	"github.com/h2non/filetype"
-	"github.com/h2non/filetype/matchers"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
@@ -25,17 +21,12 @@ import (
 	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
 	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
-
-var logDeprecationMessage sync.Once
 
 type RefType uint
 
 const (
 	RefBundleImage RefType = 1 << iota
-	RefSqliteImage
-	RefSqliteFile
 	RefDCImage
 	RefDCDir
 	RefBundleDir
@@ -55,15 +46,9 @@ type Render struct {
 	AllowedRefMask   RefType
 	ImageRefTemplate *template.Template
 	Migrations       *migrations.Migrations
-
-	skipSqliteDeprecationLog bool
 }
 
 func (r Render) Run(ctx context.Context) (*declcfg.DeclarativeConfig, error) {
-	if r.skipSqliteDeprecationLog {
-		// exhaust once with a no-op function.
-		logDeprecationMessage.Do(func() {})
-	}
 	if r.Registry == nil {
 		reg, err := containersimageregistry.NewDefault()
 		if err != nil {
@@ -125,21 +110,8 @@ func (r Render) renderReference(ctx context.Context, ref string) (*declcfg.Decla
 		}
 		return declcfg.LoadFS(ctx, os.DirFS(ref))
 	}
-	// The only supported file type is an sqlite DB file,
-	// since declarative configs will be in a directory.
-	if err := checkDBFile(ref); err != nil {
-		return nil, err
-	}
-	if !r.AllowedRefMask.Allowed(RefSqliteFile) {
-		return nil, fmt.Errorf("cannot render sqlite file: %w", ErrNotAllowed)
-	}
-
-	db, err := sqlite.Open(ref)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-	return sqliteToDeclcfg(ctx, db)
+	// Only directories are supported for file-based catalogs and bundles.
+	return nil, fmt.Errorf("ref %q is not a directory: %w", ref, ErrNotAllowed)
 }
 
 func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.DeclarativeConfig, error) {
@@ -160,145 +132,64 @@ func (r Render) imageToDeclcfg(ctx context.Context, imageRef string) (*declcfg.D
 		return nil, fmt.Errorf("failed to unpack image %q: %v", ref, err)
 	}
 
-	var cfg *declcfg.DeclarativeConfig
-	// nolint:nestif
-	if dbFile, ok := labels[containertools.DbLocationLabel]; ok {
-		if !r.AllowedRefMask.Allowed(RefSqliteImage) {
-			return nil, fmt.Errorf("cannot render sqlite image: %w", ErrNotAllowed)
-		}
-		db, err := sqlite.Open(filepath.Join(tmpDir, dbFile))
-		if err != nil {
-			return nil, err
-		}
-		defer db.Close()
-		cfg, err = sqliteToDeclcfg(ctx, db)
-		if err != nil {
-			return nil, err
-		}
-	} else if configsDir, ok := labels[containertools.ConfigsLocationLabel]; ok {
-		if !r.AllowedRefMask.Allowed(RefDCImage) {
-			return nil, fmt.Errorf("cannot render declarative config image: %w", ErrNotAllowed)
-		}
-		cfg, err = declcfg.LoadFS(ctx, os.DirFS(filepath.Join(tmpDir, configsDir)))
-		if err != nil {
-			return nil, err
-		}
-	} else if _, ok := labels[bundle.PackageLabel]; ok {
-		if !r.AllowedRefMask.Allowed(RefBundleImage) {
-			return nil, fmt.Errorf("cannot render bundle image: %w", ErrNotAllowed)
-		}
-		img, err := registry.NewImageInput(ref, tmpDir)
-		if err != nil {
-			return nil, err
-		}
-
-		bundle, err := bundleToDeclcfg(img.Bundle)
-		if err != nil {
-			return nil, err
-		}
-		cfg = &declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{*bundle}}
-	} else {
-		labelKeys := sets.StringKeySet(labels)
-		labelVals := []string{}
-		for _, k := range labelKeys.List() {
-			labelVals = append(labelVals, fmt.Sprintf("  %s=%s", k, labels[k]))
-		}
-		if len(labelVals) > 0 {
-			return nil, fmt.Errorf("render %q: image type could not be determined, found labels\n%s", ref, strings.Join(labelVals, "\n"))
-		} else {
-			return nil, fmt.Errorf("render %q: image type could not be determined: image has no labels", ref)
-		}
+	cfg, err := r.renderImageConfig(ctx, ref, tmpDir, labels)
+	if err != nil {
+		return nil, err
 	}
 	return cfg, nil
 }
 
-// checkDBFile returns an error if ref is not an sqlite3 database.
-func checkDBFile(ref string) error {
-	typ, err := filetype.MatchFile(ref)
-	if err != nil {
-		return err
+func (r Render) renderImageConfig(ctx context.Context, ref image.SimpleReference, tmpDir string, labels map[string]string) (*declcfg.DeclarativeConfig, error) {
+	if configsDir, ok := labels[containertools.ConfigsLocationLabel]; ok {
+		return r.renderDeclcfgImage(ctx, tmpDir, configsDir)
 	}
-	if typ != matchers.TypeSqlite {
-		return fmt.Errorf("ref %q has unsupported file type: %s", ref, typ)
+	if _, ok := labels[bundle.PackageLabel]; ok {
+		return r.renderBundleImage(ref, tmpDir)
 	}
-	return nil
+	if _, ok := labels[containertools.DbLocationLabel]; ok {
+		return nil, fmt.Errorf("render %q: sqlite-based index images are no longer supported, migrate to a file-based catalog: %w", ref, ErrNotAllowed)
+	}
+	return nil, r.imageTypeError(ref.String(), labels)
 }
 
-func sqliteToDeclcfg(ctx context.Context, db *sql.DB) (*declcfg.DeclarativeConfig, error) {
-	logDeprecationMessage.Do(func() {
-		sqlite.LogSqliteDeprecation()
-	})
-
-	migrator, err := sqlite.NewSQLLiteMigrator(db)
+func (r Render) renderDeclcfgImage(ctx context.Context, tmpDir, configsDir string) (*declcfg.DeclarativeConfig, error) {
+	if !r.AllowedRefMask.Allowed(RefDCImage) {
+		return nil, fmt.Errorf("cannot render declarative config image: %w", ErrNotAllowed)
+	}
+	cfg, err := declcfg.LoadFS(ctx, os.DirFS(filepath.Join(tmpDir, configsDir)))
 	if err != nil {
 		return nil, err
 	}
-	if migrator == nil {
-		return nil, fmt.Errorf("failed to load migrator")
-	}
-
-	if err := migrator.Migrate(ctx); err != nil {
-		return nil, err
-	}
-
-	q := sqlite.NewSQLLiteQuerierFromDb(db)
-	m, err := sqlite.ToModel(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := declcfg.ConvertFromModel(m)
-
-	if err := populateDBRelatedImages(ctx, &cfg, db); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
+	return cfg, nil
 }
 
-func populateDBRelatedImages(ctx context.Context, cfg *declcfg.DeclarativeConfig, db *sql.DB) error {
-	rows, err := db.QueryContext(ctx, "SELECT image, operatorbundle_name FROM related_image")
+func (r Render) renderBundleImage(ref image.SimpleReference, tmpDir string) (*declcfg.DeclarativeConfig, error) {
+	if !r.AllowedRefMask.Allowed(RefBundleImage) {
+		return nil, fmt.Errorf("cannot render bundle image: %w", ErrNotAllowed)
+	}
+	img, err := registry.NewImageInput(ref, tmpDir)
 	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	// nolint:staticcheck
-	images := map[string]sets.String{}
-	for rows.Next() {
-		var (
-			img        sql.NullString
-			bundleName sql.NullString
-		)
-		if err := rows.Scan(&img, &bundleName); err != nil {
-			return err
-		}
-		if !img.Valid || !bundleName.Valid {
-			continue
-		}
-		m, ok := images[bundleName.String]
-		if !ok {
-			m = sets.NewString()
-		}
-		m.Insert(img.String)
-		images[bundleName.String] = m
+		return nil, err
 	}
 
-	for i, b := range cfg.Bundles {
-		ris, ok := images[b.Name]
-		if !ok {
-			continue
-		}
-		for _, ri := range b.RelatedImages {
-			if ris.Has(ri.Image) {
-				ris.Delete(ri.Image)
-			}
-		}
-		for ri := range ris {
-			cfg.Bundles[i].RelatedImages = append(cfg.Bundles[i].RelatedImages, declcfg.RelatedImage{Image: ri})
-		}
+	bundle, err := bundleToDeclcfg(img.Bundle)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return &declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{*bundle}}, nil
+}
+
+func (r Render) imageTypeError(ref string, labels map[string]string) error {
+	labelKeys := sets.StringKeySet(labels)
+	labelList := labelKeys.List()
+	labelVals := make([]string, 0, len(labelList))
+	for _, k := range labelList {
+		labelVals = append(labelVals, fmt.Sprintf("  %s=%s", k, labels[k]))
+	}
+	if len(labelVals) > 0 {
+		return fmt.Errorf("render %q: image type could not be determined, found labels\n%s", ref, strings.Join(labelVals, "\n"))
+	}
+	return fmt.Errorf("render %q: image type could not be determined: image has no labels", ref)
 }
 
 func bundleToDeclcfg(bundle *registry.Bundle) (*declcfg.Bundle, error) {

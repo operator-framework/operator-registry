@@ -9,7 +9,6 @@ import (
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/action/migrations"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 func NewCmd() *cobra.Command {
@@ -19,15 +18,17 @@ func NewCmd() *cobra.Command {
 		output       string
 	)
 	cmd := &cobra.Command{
-		Use:   "migrate <indexRef> <outputDir>",
-		Short: "Migrate a sqlite-based index image or database file to a file-based catalog",
-		Long: `Migrate a sqlite-based index image or database file to a file-based catalog.
+		Use:   "migrate <catalogRef> <outputDir>",
+		Short: "Migrate a file-based catalog to a new file-based catalog applying optional migrations",
+		Long: `Migrate a file-based catalog image or directory to a new file-based catalog,
+optionally applying migrations.
+
+The input catalogRef may be a container image reference or a local directory
+containing a file-based catalog.
 
 NOTE: the --output=json format produces streamable, concatenated JSON files.
 These are suitable to opm and jq, but may not be supported by arbitrary JSON
-parsers that assume that a file contains exactly one valid JSON object.
-
-` + sqlite.DeprecationMessage,
+parsers that assume that a file contains exactly one valid JSON object.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrate.CatalogRef = args[0]
@@ -52,7 +53,7 @@ parsers that assume that a file contains exactly one valid JSON object.
 				migrate.Migrations = m
 			}
 
-			logrus.Infof("rendering index %q as file-based catalog", migrate.CatalogRef)
+			logrus.Infof("rendering catalog %q as file-based catalog", migrate.CatalogRef)
 			if err := migrate.Run(cmd.Context()); err != nil {
 				logrus.New().Fatal(err)
 			}
