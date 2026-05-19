@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
@@ -28,6 +29,8 @@ type Cache interface {
 	Build(ctx context.Context, fbc fs.FS) error
 	Load(ctc context.Context) error
 	Close() error
+
+	ListPackageCustomSchemas(ctx context.Context, schema, packageName string, sender func(*structpb.Struct) error) error
 }
 
 type backend interface {
@@ -44,6 +47,9 @@ type backend interface {
 	SendBundles(context.Context, registry.BundleSender) error
 	GetBundle(context.Context, bundleKey) (*api.Bundle, error)
 	PutBundle(context.Context, bundleKey, *api.Bundle) error
+
+	PutMeta(context.Context, metaKey, []byte) error
+	SendMetas(context.Context, metaKey, func([]byte) error) error
 
 	GetDigest(context.Context) (string, error)
 	ComputeDigest(context.Context, fs.FS) (string, error)
@@ -237,6 +243,20 @@ func (c *cache) GetBundleThatProvides(ctx context.Context, group, version, kind 
 	return c.packageIndex.GetBundleThatProvides(ctx, c, group, version, kind)
 }
 
+func (c *cache) ListPackageCustomSchemas(ctx context.Context, schema, packageName string, sender func(*structpb.Struct) error) error {
+	mk, err := newValidatedMetaKey(schema, packageName)
+	if err != nil {
+		return fmt.Errorf("invalid custom schema query: %w", err)
+	}
+	return c.backend.SendMetas(ctx, mk, func(blob []byte) error {
+		st := &structpb.Struct{}
+		if err := st.UnmarshalJSON(blob); err != nil {
+			return fmt.Errorf("convert custom schema blob to struct: %w", err)
+		}
+		return sender(st)
+	})
+}
+
 func (c *cache) CheckIntegrity(ctx context.Context, fbc fs.FS) error {
 	existingDigest, err := c.backend.GetDigest(ctx)
 	if err != nil {
@@ -277,6 +297,7 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 		concurrency      = runtime.NumCPU()
 		byPackageReaders = map[string][]io.Reader{}
 		walkMu           sync.Mutex
+		metaMu           sync.Mutex
 		offset           int64
 	)
 	if err := declcfg.WalkMetasFS(ctx, fbcFsys, func(path string, meta *declcfg.Meta, err error) error {
@@ -286,6 +307,21 @@ func (c *cache) Build(ctx context.Context, fbcFsys fs.FS) error {
 		packageName := meta.Package
 		if meta.Schema == declcfg.SchemaPackage {
 			packageName = meta.Name
+		}
+
+		switch meta.Schema {
+		case declcfg.SchemaPackage, declcfg.SchemaChannel, declcfg.SchemaBundle, declcfg.SchemaDeprecation:
+		default:
+			mk, err := newValidatedMetaKey(meta.Schema, packageName)
+			if err != nil {
+				return fmt.Errorf("invalid custom schema meta: %w", err)
+			}
+			metaMu.Lock()
+			defer metaMu.Unlock()
+			if err := c.backend.PutMeta(ctx, mk, meta.Blob); err != nil {
+				return fmt.Errorf("store custom schema meta %v: %w", mk, err)
+			}
+			return nil
 		}
 
 		walkMu.Lock()

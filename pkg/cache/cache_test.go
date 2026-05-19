@@ -2,11 +2,13 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"testing"
 	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/operator-framework/operator-registry/pkg/lib/log"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -215,6 +217,167 @@ func TestCache_ListPackages(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, packages)
 			require.Len(t, packages, 2)
+		})
+	}
+}
+
+var customSchemaFS = fstest.MapFS{
+	".": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
+	"catalog.json": &fstest.MapFile{
+		Data: []byte(`{
+    "schema": "olm.package",
+    "name": "testpkg",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "package": "testpkg",
+    "name": "stable",
+    "entries": [{"name": "testpkg.v1.0.0"}]
+}
+{
+    "schema": "olm.bundle",
+    "name": "testpkg.v1.0.0",
+    "package": "testpkg",
+    "image": "quay.io/test/testpkg:v1.0.0",
+    "properties": [{"type": "olm.package", "value": {"packageName": "testpkg", "version": "1.0.0"}}]
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "my-custom-resource",
+    "customField": "customValue"
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "another-custom-resource",
+    "data": {"key": "value"}
+}
+{
+    "schema": "other.custom.schema",
+    "package": "testpkg",
+    "name": "other-custom",
+    "info": "test"
+}
+`),
+	},
+}
+
+func TestCache_ListPackageCustomSchemas(t *testing.T) {
+	for name, testCache := range genTestCaches(t, customSchemaFS) {
+		t.Run(name, func(t *testing.T) {
+			collect := func(schema, pkg string) []string {
+				t.Helper()
+				var blobs []string
+				err := testCache.ListPackageCustomSchemas(context.TODO(), schema, pkg,
+					func(st *structpb.Struct) error {
+						b, err := json.Marshal(st.AsMap())
+						require.NoError(t, err)
+						blobs = append(blobs, string(b))
+						return nil
+					})
+				require.NoError(t, err)
+				return blobs
+			}
+
+			// Multiple blobs for same (schema, package)
+			blobs := collect("custom.operator.io", "testpkg")
+			require.Len(t, blobs, 2)
+
+			// Different schema
+			blobs = collect("other.custom.schema", "testpkg")
+			require.Len(t, blobs, 1)
+			require.Contains(t, blobs[0], `"info"`)
+
+			// Nonexistent schema returns empty
+			blobs = collect("nonexistent.schema", "testpkg")
+			require.Empty(t, blobs)
+
+			// Nonexistent package returns empty
+			blobs = collect("custom.operator.io", "nonexistent")
+			require.Empty(t, blobs)
+		})
+	}
+}
+
+func TestCache_ListPackageCustomSchemas_PackagelessBlob(t *testing.T) {
+	packagelessFS := fstest.MapFS{
+		".": &fstest.MapFile{
+			Mode: fs.ModeDir,
+		},
+		"catalog.json": &fstest.MapFile{
+			Data: []byte(`{
+    "schema": "olm.package",
+    "name": "testpkg",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "package": "testpkg",
+    "name": "stable",
+    "entries": [{"name": "testpkg.v1.0.0"}]
+}
+{
+    "schema": "olm.bundle",
+    "name": "testpkg.v1.0.0",
+    "package": "testpkg",
+    "image": "quay.io/test/testpkg:v1.0.0",
+    "properties": [{"type": "olm.package", "value": {"packageName": "testpkg", "version": "1.0.0"}}]
+}
+{
+    "schema": "custom.packageless",
+    "data": "no-package-blob"
+}
+`),
+		},
+	}
+	for name, testCache := range genTestCaches(t, packagelessFS) {
+		t.Run(name, func(t *testing.T) {
+			// Querying with empty packageName returns packageless blobs
+			var blobs []string
+			err := testCache.ListPackageCustomSchemas(context.TODO(), "custom.packageless", "",
+				func(st *structpb.Struct) error {
+					b, _ := json.Marshal(st.AsMap())
+					blobs = append(blobs, string(b))
+					return nil
+				})
+			require.NoError(t, err)
+			require.Len(t, blobs, 1)
+			require.Contains(t, blobs[0], `"no-package-blob"`)
+
+			// Querying with a specific packageName does not return packageless blobs
+			var blobs2 []string
+			err = testCache.ListPackageCustomSchemas(context.TODO(), "custom.packageless", "testpkg",
+				func(st *structpb.Struct) error {
+					b, _ := json.Marshal(st.AsMap())
+					blobs2 = append(blobs2, string(b))
+					return nil
+				})
+			require.NoError(t, err)
+			require.Empty(t, blobs2)
+
+			// Packageless blobs must not leak into the package index
+			packages, err := testCache.ListPackages(context.TODO())
+			require.NoError(t, err)
+			require.Equal(t, []string{"testpkg"}, packages)
+		})
+	}
+}
+
+func TestCache_ListPackageCustomSchemas_NoCustomSchemas(t *testing.T) {
+	for name, testCache := range genTestCaches(t, validFS) {
+		t.Run(name, func(t *testing.T) {
+			count := 0
+			err := testCache.ListPackageCustomSchemas(context.TODO(), "custom.operator.io", "cockroachdb",
+				func(st *structpb.Struct) error {
+					count++
+					return nil
+				})
+			require.NoError(t, err)
+			require.Zero(t, count)
 		})
 	}
 }

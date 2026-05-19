@@ -106,8 +106,8 @@ fix-lint: $(GOLANGCI_LINT)
 
 .PHONY: codegen
 codegen: $(PROTOC) $(PROTOC_GEN_GO_GRPC)
-	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go_out=pkg/api pkg/api/*.proto
-	$(PROTOC) --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ --go-grpc_out=pkg/api pkg/api/*.proto
+	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ -I ./tools/bin/include --go_out=pkg/api pkg/api/*.proto
+	$(PROTOC) --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ -I ./tools/bin/include --go-grpc_out=pkg/api pkg/api/*.proto
 
 .PHONY: generate-fakes
 generate-fakes:

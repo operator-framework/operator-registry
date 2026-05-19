@@ -19,7 +19,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/operator-framework/operator-registry/alpha/action"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -39,6 +42,9 @@ const (
 
 	deprecationCachePort    = ":50054"
 	deprecationCacheAddress = "localhost" + deprecationCachePort
+
+	customSchemaCachePort    = ":50055"
+	customSchemaCacheAddress = "localhost" + customSchemaCachePort
 )
 
 func createDBStore(dbPath string) *sqlite.SQLQuerier {
@@ -102,6 +108,7 @@ func fbcCacheFromFs(catalogFS fs.FS, cacheDir string) (fbccache.Cache, error) {
 func server(store registry.GRPCQuery) *grpc.Server {
 	s := grpc.NewServer()
 	api.RegisterRegistryServer(s, NewRegistryServer(store))
+	api.RegisterExperimentalRegistryServer(s, NewExperimentalRegistryServer(store))
 	return s
 }
 
@@ -144,8 +151,14 @@ func TestMain(m *testing.M) {
 	}
 	fbcServerDeprecations := server(fbcDeprecationStore)
 
+	fbcCustomSchemaStore, err := fbcCacheFromFs(customSchemaFS, filepath.Join(tmpDir, "custom-schema-cache"))
+	if err != nil {
+		logrus.Fatalf("failed to create custom schema cache: %v", err)
+	}
+	fbcServerCustomSchemas := server(fbcCustomSchemaStore)
+
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		lis, err := net.Listen("tcp", fmt.Sprintf("localhost%s", dbPort))
 		if err != nil {
@@ -174,6 +187,16 @@ func TestMain(m *testing.M) {
 		wg.Done()
 		if err := fbcServerDeprecations.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve fbc cache: %v", err)
+		}
+	}()
+	go func() {
+		lis, err := net.Listen("tcp", customSchemaCacheAddress)
+		if err != nil {
+			logrus.Fatalf("failed to listen: %v", err)
+		}
+		wg.Done()
+		if err := fbcServerCustomSchemas.Serve(lis); err != nil {
+			logrus.Fatalf("failed to serve fbc custom schema cache: %v", err)
 		}
 	}()
 	wg.Wait()
@@ -790,6 +813,133 @@ func testListBundles(addr string, etcdAlpha *api.Bundle, etcdStable *api.Bundle)
 	}
 }
 
+func TestExperimentalListPackageCustomSchemas(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		addr        string
+		ctx         context.Context
+		req         *api.ExperimentalListPackageCustomSchemasRequest
+		wantCount   int
+		wantErrCode codes.Code
+		assertFn    func(t *testing.T, results []map[string]interface{})
+	}{
+		{
+			name: "FBCCacheWithCustomSchemas",
+			addr: customSchemaCacheAddress,
+			ctx:  experimentalCtx(),
+			req:  &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.operator.io", PackageName: "testpkg"},
+			assertFn: func(t *testing.T, results []map[string]interface{}) {
+				require.Len(t, results, 2)
+				for _, r := range results {
+					require.Equal(t, "custom.operator.io", r["schema"])
+					require.Equal(t, "testpkg", r["package"])
+				}
+			},
+		},
+		{
+			name:      "FBCCacheNoResults",
+			addr:      cacheAddress,
+			ctx:       experimentalCtx(),
+			req:       &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.operator.io", PackageName: "nonexistent"},
+			wantCount: 0,
+		},
+		{
+			name:        "FBCCacheInvalidArgument",
+			addr:        customSchemaCacheAddress,
+			ctx:         experimentalCtx(),
+			req:         &api.ExperimentalListPackageCustomSchemasRequest{},
+			wantErrCode: codes.InvalidArgument,
+		},
+		{
+			name: "FBCCachePackageless",
+			addr: customSchemaCacheAddress,
+			ctx:  experimentalCtx(),
+			req:  &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.packageless", PackageName: ""},
+			assertFn: func(t *testing.T, results []map[string]interface{}) {
+				require.Len(t, results, 1)
+				require.Equal(t, "custom.packageless", results[0]["schema"])
+				require.Equal(t, "global-config", results[0]["name"])
+			},
+		},
+		{
+			name:      "FBCCacheMissingExperimentalHeader",
+			addr:      customSchemaCacheAddress,
+			ctx:       context.TODO(),
+			req:       &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.operator.io", PackageName: "testpkg"},
+			wantCount: 0,
+		},
+		{
+			name: "FBCCacheCancelledContext",
+			addr: customSchemaCacheAddress,
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(experimentalCtx())
+				cancel()
+				return ctx
+			}(),
+			req:         &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.operator.io", PackageName: "testpkg"},
+			wantErrCode: codes.Canceled,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, conn := experimentalClient(t, tt.addr)
+			defer conn.Close()
+
+			stream, err := c.ExperimentalListPackageCustomSchemas(tt.ctx, tt.req)
+			if err != nil {
+				if tt.wantErrCode != 0 {
+					st, ok := status.FromError(err)
+					require.True(t, ok)
+					require.Equal(t, tt.wantErrCode, st.Code())
+					return
+				}
+				require.NoError(t, err)
+			}
+
+			var results []map[string]interface{}
+			for {
+				s, err := stream.Recv()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if tt.wantErrCode != 0 {
+					require.Error(t, err)
+					st, ok := status.FromError(err)
+					require.True(t, ok)
+					require.Equal(t, tt.wantErrCode, st.Code())
+					return
+				}
+				require.NoError(t, err)
+				results = append(results, s.AsMap())
+			}
+
+			require.Zero(t, tt.wantErrCode, "expected gRPC error code %v but stream completed successfully", tt.wantErrCode)
+			if tt.assertFn != nil {
+				tt.assertFn(t, results)
+			} else {
+				require.Len(t, results, tt.wantCount)
+			}
+		})
+	}
+}
+
+func experimentalClient(t *testing.T, address string) (api.ExperimentalRegistryClient, *grpc.ClientConn) {
+	// nolint:staticcheck
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("did not connect: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conn.WaitForStateChange(ctx, connectivity.TransientFailure)
+
+	return api.NewExperimentalRegistryClient(conn), conn
+}
+
+func experimentalCtx() context.Context {
+	return metadata.AppendToOutgoingContext(context.TODO(), "x-acknowledge-experimental", "true")
+}
+
 func EqualBundles(t *testing.T, expected, actual api.Bundle) {
 	t.Helper()
 	stripPlural(actual.ProvidedApis)
@@ -1066,5 +1216,46 @@ entries:
 	validFS = fstest.MapFS{
 		"cockroachdb.json":  cockroachdb,
 		"deprecations.yaml": deprecations,
+	}
+
+	customSchemaFS = fstest.MapFS{
+		"catalog.json": &fstest.MapFile{
+			Data: []byte(`{
+    "schema": "olm.package",
+    "name": "testpkg",
+    "defaultChannel": "stable"
+}
+{
+    "schema": "olm.channel",
+    "package": "testpkg",
+    "name": "stable",
+    "entries": [{"name": "testpkg.v1.0.0"}]
+}
+{
+    "schema": "olm.bundle",
+    "name": "testpkg.v1.0.0",
+    "package": "testpkg",
+    "image": "quay.io/test/testpkg:v1.0.0",
+    "properties": [{"type": "olm.package", "value": {"packageName": "testpkg", "version": "1.0.0"}}]
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "my-custom-resource",
+    "customField": "customValue"
+}
+{
+    "schema": "custom.operator.io",
+    "package": "testpkg",
+    "name": "another-custom-resource",
+    "data": {"key": "value"}
+}
+{
+    "schema": "custom.packageless",
+    "name": "global-config",
+    "data": "packageless-value"
+}
+`),
+		},
 	}
 )

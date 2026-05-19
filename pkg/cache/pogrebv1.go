@@ -2,12 +2,14 @@ package cache
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -127,6 +129,8 @@ func (q *pogrebV1Backend) GetPackageIndex(_ context.Context) (packageIndex, erro
 	return pi, nil
 }
 
+const metaKeyPrefix = "metas/"
+
 func (q *pogrebV1Backend) PutPackageIndex(_ context.Context, index packageIndex) error {
 	packageJSON, err := json.Marshal(index)
 	if err != nil {
@@ -160,6 +164,54 @@ func (q *pogrebV1Backend) PutBundle(_ context.Context, key bundleKey, bundle *ap
 		return err
 	}
 	q.bundles.Set(key)
+	return nil
+}
+
+func (q *pogrebV1Backend) metaDBKey(in metaKey) []byte {
+	return []byte(fmt.Sprintf("%s%s/%s", metaKeyPrefix, in.Schema, in.PackageName))
+}
+
+func (q *pogrebV1Backend) PutMeta(_ context.Context, key metaKey, blob []byte) error {
+	if len(blob) > math.MaxUint32 {
+		return fmt.Errorf("meta blob too large: %d bytes exceeds uint32 max", len(blob))
+	}
+	dbKey := q.metaDBKey(key)
+	existing, err := q.db.Get(dbKey)
+	if err != nil {
+		return fmt.Errorf("read existing meta blobs: %w", err)
+	}
+	header := make([]byte, 4)
+	binary.BigEndian.PutUint32(header, uint32(len(blob))) //#nosec G115 -- bounds checked above
+	return q.db.Put(dbKey, append(existing, append(header, blob...)...))
+}
+
+func (q *pogrebV1Backend) SendMetas(ctx context.Context, key metaKey, sender func([]byte) error) error {
+	data, err := q.db.Get(q.metaDBKey(key))
+	if err != nil {
+		return fmt.Errorf("read meta blobs: %w", err)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	for len(data) >= 4 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		blobLen := binary.BigEndian.Uint32(data[:4])
+		data = data[4:]
+		if len(data) < int(blobLen) {
+			return fmt.Errorf("truncated meta blob in pogreb value")
+		}
+		if err := sender(data[:blobLen]); err != nil {
+			return err
+		}
+		data = data[blobLen:]
+	}
+	if len(data) > 0 {
+		return fmt.Errorf("corrupt meta blob: %d trailing bytes", len(data))
+	}
 	return nil
 }
 
