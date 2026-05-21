@@ -84,11 +84,15 @@ func TestRegistries(t *testing.T) {
 		"containersimage": func(t *testing.T, serverCert *x509.Certificate) (image.Registry, cleanupFunc) {
 			caDir := caDirForCert(t, serverCert)
 			policyFile := createSignaturePolicyFile(t)
+			registriesConfPath := filepath.Join(t.TempDir(), "registries.conf")
+			require.NoError(t, os.WriteFile(registriesConfPath, []byte{}, 0600))
 			sourceCtx := &types.SystemContext{
-				OCICertPath:              caDir,
-				DockerCertPath:           caDir,
-				DockerPerHostCertDirPath: caDir,
-				SignaturePolicyPath:      policyFile,
+				OCICertPath:                 caDir,
+				DockerCertPath:              caDir,
+				DockerPerHostCertDirPath:    caDir,
+				SignaturePolicyPath:         policyFile,
+				SystemRegistriesConfPath:    registriesConfPath,
+				SystemRegistriesConfDirPath: t.TempDir(),
 			}
 			r, err := containersimageregistry.New(sourceCtx, containersimageregistry.WithTemporaryImageCache())
 			require.NoError(t, err)
