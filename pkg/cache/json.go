@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -156,7 +157,7 @@ func (q *jsonBackend) PutMeta(_ context.Context, key metaKey, blob []byte) error
 	return os.WriteFile(filepath.Join(dir, fmt.Sprintf("%x.json", h.Sum64())), blob, jsonCacheModeFile)
 }
 
-func (q *jsonBackend) SendMetas(ctx context.Context, key metaKey, sender func([]byte) error) error {
+func (q *jsonBackend) SendMetas(ctx context.Context, key metaKey, sender func(*structpb.Struct) error) error {
 	dir := q.metaDir(key)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -178,7 +179,11 @@ func (q *jsonBackend) SendMetas(ctx context.Context, key metaKey, sender func([]
 		if err != nil {
 			return err
 		}
-		if err := sender(data); err != nil {
+		st := &structpb.Struct{}
+		if err := st.UnmarshalJSON(data); err != nil {
+			return fmt.Errorf("unmarshal meta JSON: %w", err)
+		}
+		if err := sender(st); err != nil {
 			return err
 		}
 	}

@@ -49,7 +49,7 @@ type backend interface {
 	PutBundle(context.Context, bundleKey, *api.Bundle) error
 
 	PutMeta(context.Context, metaKey, []byte) error
-	SendMetas(context.Context, metaKey, func([]byte) error) error
+	SendMetas(context.Context, metaKey, func(*structpb.Struct) error) error
 
 	GetDigest(context.Context) (string, error)
 	ComputeDigest(context.Context, fs.FS) (string, error)
@@ -248,13 +248,7 @@ func (c *cache) ListPackageCustomSchemas(ctx context.Context, schema, packageNam
 	if err != nil {
 		return fmt.Errorf("invalid custom schema query: %w", err)
 	}
-	return c.backend.SendMetas(ctx, mk, func(blob []byte) error {
-		st := &structpb.Struct{}
-		if err := st.UnmarshalJSON(blob); err != nil {
-			return fmt.Errorf("convert custom schema blob to struct: %w", err)
-		}
-		return sender(st)
-	})
+	return c.backend.SendMetas(ctx, mk, sender)
 }
 
 func (c *cache) CheckIntegrity(ctx context.Context, fbc fs.FS) error {
