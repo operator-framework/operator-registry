@@ -167,6 +167,7 @@ func (s *serve) run(ctx context.Context) error {
 		grpc.ChainUnaryInterceptor(unaryLogger),
 	)
 	api.RegisterRegistryServer(grpcServer, server.NewRegistryServer(store))
+	api.RegisterExperimentalRegistryServer(grpcServer, server.NewExperimentalRegistryServer(store))
 	health.RegisterHealthServer(grpcServer, server.NewHealthServer())
 	reflection.Register(grpcServer)
 	mainLogger.Info("serving registry")

@@ -101,6 +101,8 @@ func (q *jsonBackend) GetPackageIndex(_ context.Context) (packageIndex, error) {
 	return pi, nil
 }
 
+const jsonMetasDir = "metas"
+
 func (q *jsonBackend) PutPackageIndex(_ context.Context, pi packageIndex) error {
 	packageJSON, err := json.Marshal(pi)
 	if err != nil {
@@ -137,6 +139,49 @@ func (q *jsonBackend) PutBundle(_ context.Context, key bundleKey, bundle *api.Bu
 		return err
 	}
 	q.bundles.Set(key)
+	return nil
+}
+
+func (q *jsonBackend) metaDir(in metaKey) string {
+	return filepath.Join(q.baseDir, jsonDir, jsonMetasDir, in.Schema, in.PackageName)
+}
+
+func (q *jsonBackend) PutMeta(_ context.Context, key metaKey, blob []byte) error {
+	dir := q.metaDir(key)
+	if err := os.MkdirAll(dir, jsonCacheModeDir); err != nil {
+		return err
+	}
+	h := fnv.New64a()
+	h.Write(blob)
+	return os.WriteFile(filepath.Join(dir, fmt.Sprintf("%x.json", h.Sum64())), blob, jsonCacheModeFile)
+}
+
+func (q *jsonBackend) SendMetas(ctx context.Context, key metaKey, sender func([]byte) error) error {
+	dir := q.metaDir(key)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		if err := sender(data); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
