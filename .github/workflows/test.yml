@@ -22,6 +22,8 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install podman
           podman version
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@$(go list -m -f '{{.Version}}' sigs.k8s.io/kind)
       - name: Create kind cluster and setup local docker registry
         run: |
           "${GITHUB_WORKSPACE}/scripts/start_registry.sh" kind-registry
