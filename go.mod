@@ -32,7 +32,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/btree v1.8.1
-	go.etcd.io/bbolt v1.4.3
+	go.etcd.io/bbolt v1.5.0
 	go.podman.io/common v0.68.0
 	go.podman.io/image/v5 v5.40.0
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
