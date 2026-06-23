@@ -160,14 +160,14 @@ func (r *Registry) Pull(ctx context.Context, ref orimage.Reference) error {
 		return err
 	}
 
-	sourceCtx := r.sourceCtx
-	authFile := getAuthFile(r.sourceCtx, namedRef.String())
+	sysCtx := *r.sourceCtx
+	authFile := getAuthFile(r.sourceCtx, namedRef.Name())
 	if authFile != "" {
-		sourceCtx.AuthFilePath = authFile
+		sysCtx.AuthFilePath = authFile
 	}
 
 	if _, err := copy.Image(ctx, policyContext, ociLayoutRef, dockerRef, &copy.Options{
-		SourceCtx:                             sourceCtx,
+		SourceCtx:                             &sysCtx,
 		DestinationCtx:                        r.cache.getSystemContext(),
 		OptimizeDestinationImageAlreadyExists: true,
 
@@ -290,7 +290,7 @@ func getAuthFile(sourceCtx *types.SystemContext, ref string) string {
 	// the auth config file we derived above, if it exists. If we find a matching credential
 	// in this file, we'll use this file.
 	if stat, statErr := os.Stat(authFile); statErr == nil && stat.Mode().IsRegular() {
-		if _, err := config.GetCredentials(&types.SystemContext{AuthFilePath: authFile}, ref); err == nil {
+		if cred, err := config.GetCredentials(&types.SystemContext{AuthFilePath: authFile}, ref); err == nil && cred != (types.DockerAuthConfig{}) {
 			return authFile
 		}
 	}
