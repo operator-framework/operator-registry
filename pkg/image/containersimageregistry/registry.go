@@ -290,7 +290,12 @@ func getAuthFile(sourceCtx *types.SystemContext, ref string) string {
 	// the auth config file we derived above, if it exists. If we find a matching credential
 	// in this file, we'll use this file.
 	if stat, statErr := os.Stat(authFile); statErr == nil && stat.Mode().IsRegular() {
-		if cred, err := config.GetCredentials(&types.SystemContext{AuthFilePath: authFile}, ref); err == nil && cred != (types.DockerAuthConfig{}) {
+		credCtx := &types.SystemContext{AuthFilePath: authFile}
+		if sourceCtx != nil {
+			credCtx.SystemRegistriesConfPath = sourceCtx.SystemRegistriesConfPath
+			credCtx.SystemRegistriesConfDirPath = sourceCtx.SystemRegistriesConfDirPath
+		}
+		if cred, err := config.GetCredentials(credCtx, ref); err == nil && cred != (types.DockerAuthConfig{}) {
 			return authFile
 		}
 	}

@@ -11,7 +11,7 @@ import (
 	"go.podman.io/image/v5/types"
 )
 
-func writeAuthFile(t *testing.T, dir, filename string, auths map[string]interface{}) string {
+func writeAuthFile(t *testing.T, dir, filename string, auths map[string]interface{}) string { //nolint:unparam
 	t.Helper()
 	data, err := json.Marshal(map[string]interface{}{"auths": auths})
 	require.NoError(t, err)
@@ -20,9 +20,22 @@ func writeAuthFile(t *testing.T, dir, filename string, auths map[string]interfac
 	return path
 }
 
-func authEntry(user, pass string) map[string]string {
+func authEntry(user, pass string) map[string]string { //nolint:unparam
 	return map[string]string{
 		"auth": base64.StdEncoding.EncodeToString([]byte(user + ":" + pass)),
+	}
+}
+
+// hermeticCtx returns a SystemContext that isolates credential lookups
+// from the host's /etc/containers/registries.conf.
+func hermeticCtx(t *testing.T) *types.SystemContext {
+	t.Helper()
+	emptyDir := t.TempDir()
+	regConf := filepath.Join(emptyDir, "registries.conf")
+	require.NoError(t, os.WriteFile(regConf, []byte{}, 0600))
+	return &types.SystemContext{
+		SystemRegistriesConfPath:    regConf,
+		SystemRegistriesConfDirPath: emptyDir,
 	}
 }
 
@@ -35,9 +48,9 @@ func TestGetAuthFile(t *testing.T) {
 			"registry.example.com": authEntry("user", "pass"),
 		})
 		t.Setenv("REGISTRY_AUTH_FILE", authPath)
-		t.Setenv("DOCKER_CONFIG", t.TempDir()) // avoid default docker config
+		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		got := getAuthFile(nil, ref)
+		got := getAuthFile(hermeticCtx(t), ref)
 		require.Equal(t, authPath, got)
 	})
 
@@ -49,7 +62,7 @@ func TestGetAuthFile(t *testing.T) {
 		t.Setenv("REGISTRY_AUTH_FILE", authPath)
 		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		got := getAuthFile(nil, ref)
+		got := getAuthFile(hermeticCtx(t), ref)
 		require.Empty(t, got)
 	})
 
@@ -59,15 +72,15 @@ func TestGetAuthFile(t *testing.T) {
 		t.Setenv("REGISTRY_AUTH_FILE", authPath)
 		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		got := getAuthFile(nil, ref)
+		got := getAuthFile(hermeticCtx(t), ref)
 		require.Empty(t, got)
 	})
 
 	t.Run("no env vars and no auth file returns empty", func(t *testing.T) {
 		t.Setenv("REGISTRY_AUTH_FILE", "")
-		t.Setenv("DOCKER_CONFIG", t.TempDir()) // point to empty dir
+		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		got := getAuthFile(nil, ref)
+		got := getAuthFile(hermeticCtx(t), ref)
 		require.Empty(t, got)
 	})
 
@@ -79,7 +92,8 @@ func TestGetAuthFile(t *testing.T) {
 		t.Setenv("REGISTRY_AUTH_FILE", "")
 		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		sysCtx := &types.SystemContext{AuthFilePath: authPath}
+		sysCtx := hermeticCtx(t)
+		sysCtx.AuthFilePath = authPath
 		got := getAuthFile(sysCtx, ref)
 		require.Equal(t, authPath, got)
 	})
@@ -92,7 +106,8 @@ func TestGetAuthFile(t *testing.T) {
 		t.Setenv("REGISTRY_AUTH_FILE", "/nonexistent/auth.json")
 		t.Setenv("DOCKER_CONFIG", t.TempDir())
 
-		sysCtx := &types.SystemContext{AuthFilePath: authPath}
+		sysCtx := hermeticCtx(t)
+		sysCtx.AuthFilePath = authPath
 		got := getAuthFile(sysCtx, ref)
 		require.Equal(t, authPath, got)
 	})
