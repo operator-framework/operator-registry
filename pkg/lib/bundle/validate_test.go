@@ -30,7 +30,7 @@ func TestValidateBundleDependencies(t *testing.T) {
 		logger: logger,
 	}
 
-	var table = []struct {
+	table := []struct {
 		description string
 		mediaType   string
 		directory   string
@@ -108,7 +108,7 @@ func TestValidateBundleContent(t *testing.T) {
 		logger: logger,
 	}
 
-	var table = []struct {
+	table := []struct {
 		description string
 		mediaType   string
 		directory   string
@@ -134,7 +134,7 @@ func TestValidateBundleContent(t *testing.T) {
 			mediaType:   RegistryV1Type,
 			directory:   "./testdata/validate/invalid_manifests_bundle/invalid_sa/",
 			numErrors:   1,
-			errStrings:  []string{"json: cannot unmarshal number into Go struct field ObjectMeta.metadata.namespace of type string"},
+			errStrings:  []string{"json: cannot unmarshal number into Go struct field Meta.metadata.namespace of type string"},
 		},
 		{
 			description: "registryv1 bundle/invalid type",
