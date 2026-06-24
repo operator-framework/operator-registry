@@ -9,7 +9,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
