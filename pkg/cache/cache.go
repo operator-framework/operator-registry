@@ -428,13 +428,14 @@ func (c *cache) processPackage(ctx context.Context, reader io.Reader) (packageIn
 			}
 		}
 
-		apiBundle, err := declcfg.ConvertBundleToAPIBundle(b, *pkg, relevantChannels)
-		if err != nil {
-			return nil, fmt.Errorf("convert bundle %q: %v", b.Name, err)
-		}
-
-		// Store the bundle for each channel it appears in
+		// Convert and store the bundle for each channel it appears in.
+		// Each channel may have different replaces/skips for the same bundle,
+		// so we convert once per channel.
 		for _, ch := range relevantChannels {
+			apiBundle, err := declcfg.ConvertBundleToAPIBundle(b, *pkg, []declcfg.Channel{ch}, pkgFbc.Deprecations)
+			if err != nil {
+				return nil, fmt.Errorf("convert bundle %q: %v", b.Name, err)
+			}
 			if err := c.backend.PutBundle(ctx, bundleKey{b.Package, ch.Name, b.Name}, apiBundle); err != nil {
 				return nil, fmt.Errorf("store bundle %q: %v", b.Name, err)
 			}

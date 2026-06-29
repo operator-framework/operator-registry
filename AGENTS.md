@@ -105,13 +105,13 @@ opm render quay.io/my-namespace/my-bundle:v1.0.0 quay.io/my-namespace/my-bundle:
 ### 3. Working with Declarative Config
 ```go
 // Load declarative config
-cfg, err := declcfg.LoadFS(os.DirFS("path/to/catalog"))
+cfg, err := declcfg.LoadFS(ctx, os.DirFS("path/to/catalog"))
 
-// Convert to model
-model, err := declcfg.ConvertToModel(cfg)
+// Validate the config
+err = declcfg.Validate(*cfg)
 
-// Write declarative config
-err = declcfg.Write(cfg, "output.yaml")
+// Write declarative config to filesystem
+err = declcfg.WriteFS(*cfg, "output-dir", declcfg.WriteYAML, ".yaml")
 ```
 
 ### 4. Serving Catalog Content with `opm serve`

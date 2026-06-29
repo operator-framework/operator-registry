@@ -228,7 +228,7 @@ func packagesFromDeclcfg(cfg declcfg.DeclarativeConfig) (map[string]cPkg, error)
 		}
 
 		// Find the head of this channel
-		head, err := findChannelHead(ch.Entries)
+		head, err := declcfg.FindChannelHead(ch.Entries)
 		if err != nil {
 			return nil, fmt.Errorf("find head for channel %q in package %q: %v", ch.Name, ch.Package, err)
 		}
@@ -281,42 +281,6 @@ func packagesFromDeclcfg(cfg declcfg.DeclarativeConfig) (map[string]cPkg, error)
 	}
 
 	return pkgs, nil
-}
-
-// findChannelHead finds the head bundle of a channel by analyzing the replaces chain.
-// The head is the bundle that is not replaced by any other bundle in the channel.
-func findChannelHead(entries []declcfg.ChannelEntry) (string, error) {
-	if len(entries) == 0 {
-		return "", fmt.Errorf("channel has no entries")
-	}
-
-	// Build a map of bundles that are replaced
-	replaced := make(map[string]bool)
-	for _, entry := range entries {
-		if entry.Replaces != "" {
-			replaced[entry.Replaces] = true
-		}
-		for _, skip := range entry.Skips {
-			replaced[skip] = true
-		}
-	}
-
-	// Find bundles that are not replaced by anything
-	var heads []string
-	for _, entry := range entries {
-		if !replaced[entry.Name] {
-			heads = append(heads, entry.Name)
-		}
-	}
-
-	if len(heads) == 0 {
-		return "", fmt.Errorf("channel has circular replaces chain, no head found")
-	}
-	if len(heads) > 1 {
-		return "", fmt.Errorf("channel has multiple heads: %v", heads)
-	}
-
-	return heads[0], nil
 }
 
 func bundleReplaces(b cBundle, name string) bool {
