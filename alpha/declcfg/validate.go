@@ -85,7 +85,7 @@ func Validate(cfg DeclarativeConfig) error {
 			seenEntries.Insert(entry.Name)
 			cde = cde.Insert(entry.Name)
 		}
-		channelDefinedEntries[c.Package] = cde
+		channelDefinedEntries[c.Package] = channelDefinedEntries[c.Package].Union(cde)
 		channelsByPackage[c.Package] = append(channelsByPackage[c.Package], c)
 	}
 

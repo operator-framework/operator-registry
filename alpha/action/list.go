@@ -72,7 +72,7 @@ func getDisplayName(pkg declcfg.Package, channels []declcfg.Channel, bundles []d
 	}
 
 	// Find the head bundle
-	head, err := findChannelHead(defaultCh.Entries)
+	head, err := declcfg.FindChannelHead(defaultCh.Entries)
 	if err != nil {
 		return ""
 	}
@@ -94,41 +94,6 @@ func getDisplayName(pkg declcfg.Package, channels []declcfg.Channel, bundles []d
 		return ""
 	}
 	return csv.Spec.DisplayName
-}
-
-// findChannelHead finds the head bundle of a channel by analyzing the replaces chain.
-func findChannelHead(entries []declcfg.ChannelEntry) (string, error) {
-	if len(entries) == 0 {
-		return "", fmt.Errorf("channel has no entries")
-	}
-
-	// Build a map of bundles that are replaced
-	replaced := make(map[string]bool)
-	for _, entry := range entries {
-		if entry.Replaces != "" {
-			replaced[entry.Replaces] = true
-		}
-		for _, skip := range entry.Skips {
-			replaced[skip] = true
-		}
-	}
-
-	// Find bundles that are not replaced by anything
-	var heads []string
-	for _, entry := range entries {
-		if !replaced[entry.Name] {
-			heads = append(heads, entry.Name)
-		}
-	}
-
-	if len(heads) == 0 {
-		return "", fmt.Errorf("channel has circular replaces chain, no head found")
-	}
-	if len(heads) > 1 {
-		return "", fmt.Errorf("channel has multiple heads: %v", heads)
-	}
-
-	return heads[0], nil
 }
 
 type ListChannels struct {
@@ -168,7 +133,7 @@ func (r *ListChannelsResult) WriteColumns(w io.Writer) error {
 	}
 	for _, ch := range r.Channels {
 		headStr := ""
-		head, err := findChannelHead(ch.Entries)
+		head, err := declcfg.FindChannelHead(ch.Entries)
 		if err != nil {
 			headStr = fmt.Sprintf("ERROR: %s", err)
 		} else {

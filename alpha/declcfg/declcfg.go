@@ -61,6 +61,40 @@ type ChannelEntry struct {
 	SkipRange string   `json:"skipRange,omitempty"`
 }
 
+// FindChannelHead returns the name of the head entry in the channel — the entry
+// that is not replaced or skipped by any other entry.
+func FindChannelHead(entries []ChannelEntry) (string, error) {
+	if len(entries) == 0 {
+		return "", fmt.Errorf("channel has no entries")
+	}
+
+	replaced := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.Replaces != "" {
+			replaced[entry.Replaces] = true
+		}
+		for _, skip := range entry.Skips {
+			replaced[skip] = true
+		}
+	}
+
+	var heads []string
+	for _, entry := range entries {
+		if !replaced[entry.Name] {
+			heads = append(heads, entry.Name)
+		}
+	}
+
+	if len(heads) == 0 {
+		return "", fmt.Errorf("channel has circular replaces chain, no head found")
+	}
+	if len(heads) > 1 {
+		return "", fmt.Errorf("channel has multiple heads: %v", heads)
+	}
+
+	return heads[0], nil
+}
+
 // Bundle specifies all metadata and data of a bundle object.
 // Top-level fields are the source of truth, i.e. not CSV values.
 //

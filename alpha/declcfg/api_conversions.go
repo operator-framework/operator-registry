@@ -18,33 +18,23 @@ import (
 )
 
 // ConvertBundleToAPIBundle converts a declcfg.Bundle to an api.Bundle.
-// The pkg and channels parameters provide context needed for the conversion.
-func ConvertBundleToAPIBundle(b Bundle, pkg Package, channels []Channel) (*api.Bundle, error) {
+// The pkg, channels, and deprecations parameters provide context needed for the conversion.
+// api.Bundle can only represent one channel, so the first matching channel is used.
+func ConvertBundleToAPIBundle(b Bundle, pkg Package, channels []Channel, deprecations []Deprecation) (*api.Bundle, error) {
 	props, err := parseProperties(b.Properties)
 	if err != nil {
 		return nil, fmt.Errorf("parse properties: %v", err)
 	}
 
 	csvJSON := generateCSVJSON(b, pkg, props)
-
-	// Find which channel this bundle belongs to
-	channelName := ""
-	for _, ch := range channels {
-		if ch.Package != b.Package {
-			continue
-		}
-		for _, entry := range ch.Entries {
-			if entry.Name == b.Name {
-				channelName = ch.Name
-				break
-			}
-		}
-		if channelName != "" {
-			break
-		}
+	objects := b.Objects
+	if len(objects) == 0 && csvJSON != "" {
+		objects = []string{csvJSON}
 	}
 
-	// Get replaces and skips from channel entry
+	// Find which channel this bundle belongs to and get its entry data.
+	// api.Bundle can only represent one channel, so use the first match.
+	var channelName string
 	var replaces string
 	var skips []string
 	var skipRange string
@@ -54,11 +44,32 @@ func ConvertBundleToAPIBundle(b Bundle, pkg Package, channels []Channel) (*api.B
 		}
 		for _, entry := range ch.Entries {
 			if entry.Name == b.Name {
+				channelName = ch.Name
 				replaces = entry.Replaces
 				skips = entry.Skips
 				skipRange = entry.SkipRange
 				break
 			}
+		}
+		if channelName != "" {
+			break
+		}
+	}
+
+	// Find bundle deprecation
+	var deprecation *api.Deprecation
+	for _, d := range deprecations {
+		if d.Package != b.Package {
+			continue
+		}
+		for _, entry := range d.Entries {
+			if entry.Reference.Schema == SchemaBundle && entry.Reference.Name == b.Name {
+				deprecation = &api.Deprecation{Message: entry.Message}
+				break
+			}
+		}
+		if deprecation != nil {
+			break
 		}
 	}
 
@@ -81,7 +92,8 @@ func ConvertBundleToAPIBundle(b Bundle, pkg Package, channels []Channel) (*api.B
 		Replaces:     replaces,
 		Skips:        skips,
 		CsvJson:      csvJSON,
-		Object:       b.Objects,
+		Object:       objects,
+		Deprecation:  deprecation,
 	}, nil
 }
 
@@ -95,11 +107,7 @@ func generateCSVJSON(b Bundle, pkg Package, props *property.Properties) string {
 	if err != nil {
 		return b.CsvJSON
 	}
-	csvJSON := string(csvData)
-	if len(b.Objects) == 0 {
-		b.Objects = []string{csvJSON}
-	}
-	return csvJSON
+	return string(csvData)
 }
 
 func buildCSV(b Bundle, pkg Package, props *property.Properties) *v1alpha1.ClusterServiceVersion {

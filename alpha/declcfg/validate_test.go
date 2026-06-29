@@ -264,6 +264,21 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			// Regression: validate that entries from all channels are checked, not just the last.
+			// A package with two channels where the first channel's entry has no bundle blob must
+			// be rejected even when the second channel's entries are fully satisfied.
+			name:      "Error/ChannelEntryWithoutBundleMultiChannel",
+			assertion: hasError(`no olm.bundle blobs found in package "foo" for olm.channel entries [foo.v0.1.0]`),
+			cfg: DeclarativeConfig{
+				Packages: []Package{newTestPackage("foo", "beta", svgSmallCircle)},
+				Channels: []Channel{
+					newTestChannel("foo", "alpha", ChannelEntry{Name: "foo.v0.1.0"}),
+					newTestChannel("foo", "beta", ChannelEntry{Name: testBundleName("foo", "0.2.0")}),
+				},
+				Bundles: []Bundle{newTestBundle("foo", "0.2.0")},
+			},
+		},
+		{
 			name:      "Error/BundleWithoutChannelEntry",
 			assertion: hasError(`not found in any channel entries`),
 			cfg: DeclarativeConfig{
