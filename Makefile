@@ -27,8 +27,8 @@ $(PROTOC):
 null  :=
 space := $(null) #
 comma := ,
-# default to json1 for sqlite3 and containers_image_openpgp for containers/image
-TAGS := json1,containers_image_openpgp
+# default to containers_image_openpgp for containers/image
+TAGS := containers_image_openpgp
 
 # Cluster to use for e2e testing
 CLUSTER ?= ""
@@ -62,8 +62,8 @@ build: clean $(CMDS) $(OPM)
 cross: opm_version_flags=-ldflags "-X '$(PKG)/cmd/opm/version.gitCommit=$(GIT_COMMIT)' -X '$(PKG)/cmd/opm/version.opmVersion=$(OPM_VERSION)' -X '$(PKG)/cmd/opm/version.buildDate=$(BUILD_DATE)'"
 cross:
 ifeq ($(shell go env GOARCH),amd64)
-	GOOS=darwin CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 CGO_LDFLAGS='-Wl,-undefined,dynamic_lookup' $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/darwin-amd64-opm" --ldflags "-extld=o64-clang -extldflags=-Wl,-undefined,dynamic_lookup" ./cmd/opm
-	GOOS=windows CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 $(GO) build $(opm_version_flags) -tags=$(TAGS)  -o "bin/windows-amd64-opm" --ldflags "-extld=x86_64-w64-mingw32-gcc" -buildmode=exe ./cmd/opm
+	GOOS=darwin CGO_ENABLED=0 $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/darwin-amd64-opm" ./cmd/opm
+	GOOS=windows CGO_ENABLED=0 $(GO) build $(opm_version_flags) -tags=$(TAGS) -o "bin/windows-amd64-opm" -buildmode=exe ./cmd/opm
 endif
 
 .PHONY: static

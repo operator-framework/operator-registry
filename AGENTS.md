@@ -9,18 +9,15 @@ The Operator Registry is a Kubernetes/OpenShift component that provides operator
 ## Key Components
 
 ### Binaries
-- **`opm`**: Main CLI tool for generating and updating registry databases and index images
-- **`initializer`**: **(Deprecated)** Converts operator manifests to SQLite database format
-- **`registry-server`**: **(Deprecated)** Exposes gRPC interface to SQLite databases
-- **`configmap-server`**: Parses ConfigMaps into SQLite databases and exposes gRPC interface
+- **`opm`**: Main CLI tool for rendering and serving file-based catalogs
 
 ### Libraries
 - **`pkg/client`**: High-level client interface for gRPC API
 - **`pkg/api`**: Low-level client libraries for gRPC interface
 - **`pkg/registry`**: Core registry types (Packages, Channels, Bundles)
-- **`pkg/sqlite`**: **(Deprecated)** SQLite database interfaces for manifests
 - **`pkg/lib`**: External interfaces and standards for operator bundles
 - **`pkg/containertools`**: Container tooling integration
+- **`pkg/cache`**: Caching backends for file-based catalogs
 
 ### Alpha Features
 - **`alpha/declcfg`**: Declarative configuration format
@@ -33,7 +30,7 @@ The Operator Registry is a Kubernetes/OpenShift component that provides operator
 - **Go 1.24.4**: Minimum Go version required
 - **Cobra CLI**: Command-line interface framework
 - **gRPC**: Primary API communication protocol
-- **SQLite**: Database backend for registry data
+- **Declarative Config (FBC)**: File-based catalog format for registry data
 - **OCI Images**: Container image format for bundles
 
 ### Testing
@@ -93,11 +90,11 @@ podman build -t quay.io/my-namespace/my-bundle:latest -f bundle.Dockerfile .
 # IMPORTANT: Bundle images must be published to a registry before they can be consumed
 podman push quay.io/my-namespace/my-bundle:latest
 
-# Add bundle to index (deprecated - use file-based catalogs instead)
-opm index add --bundles quay.io/my-namespace/my-bundle:latest --from-index quay.io/my-namespace/my-index:latest --tag quay.io/my-namespace/my-index:latest
+# Render bundle to declarative config
+opm render quay.io/my-namespace/my-bundle:latest --output yaml > catalog.yaml
 
-# Generate index image (deprecated - use file-based catalogs instead)
-opm index add --bundles quay.io/my-namespace/my-bundle:latest --tag quay.io/my-namespace/my-index:latest
+# Generate catalog from multiple bundles
+opm render quay.io/my-namespace/my-bundle:v1.0.0 quay.io/my-namespace/my-bundle:v1.1.0 --output yaml
 ```
 
 **⚠️ Critical Requirements:**
@@ -117,19 +114,7 @@ model, err := declcfg.ConvertToModel(cfg)
 err = declcfg.Write(cfg, "output.yaml")
 ```
 
-### 4. Database Operations **(Deprecated)**
-```go
-// Create SQLite database
-db, err := sqlite.Open("registry.db")
-
-// Add bundle to database
-err = db.AddBundle(bundle)
-
-// Query packages
-packages, err := db.ListPackages()
-```
-
-### 5. Serving Catalog Content with `opm serve`
+### 4. Serving Catalog Content with `opm serve`
 The `opm serve` command exposes operator catalog data via a gRPC interface for consumption by OLM.
 
 ```bash
@@ -214,121 +199,18 @@ cache, err := cache.New("/cache/dir",
 - Cache directory should be persistent for production deployments
 - Use `--cache-only` for pre-building cache in CI/CD pipelines
 
-## Deprecated SQLite Commands and Operations
+## Removed SQLite Support
 
-⚠️ **IMPORTANT DEPRECATION NOTICE**: SQLite-based catalogs and their related subcommands are deprecated. Support for them will be removed in a future release. Please migrate your catalog workflows to the new file-based catalog format.
+⚠️ **NOTICE**: SQLite-based catalogs and their related commands (`opm registry`, `opm index`) have been removed from this project. All catalog workflows now use the file-based catalog (FBC) format exclusively.
 
-### Deprecated Commands
+**Migration**: For older versions that supported SQLite-to-FBC migration, refer to previous releases or documentation versions.
 
-#### `opm registry` Commands (All Deprecated)
-- **`opm registry serve`** - **(Deprecated)** Serve SQLite database via gRPC
-- **`opm registry add`** - **(Deprecated)** Add bundles to SQLite database
-- **`opm registry rm`** - **(Deprecated)** Remove packages from SQLite database
-- **`opm registry prune`** - **(Deprecated)** Prune SQLite database
-- **`opm registry prune-stranded`** - **(Deprecated)** Prune stranded bundles from SQLite database
-- **`opm registry deprecatetruncate`** - **(Deprecated)** Deprecate bundles in SQLite database
-- **`opm registry mirror`** - **(Deprecated)** Mirror SQLite-based catalogs
-
-#### `opm index` Commands (All Deprecated)
-- **`opm index add`** - **(Deprecated)** Add bundles to SQLite-based index
-- **`opm index rm`** - **(Deprecated)** Delete operators from SQLite-based index
-- **`opm index export`** - **(Deprecated)** Export SQLite-based index
-- **`opm index prune`** - **(Deprecated)** Prune SQLite-based index
-- **`opm index prune-stranded`** - **(Deprecated)** Prune stranded bundles from SQLite-based index
-- **`opm index deprecatetruncate`** - **(Deprecated)** Deprecate bundles in SQLite-based index
-
-### Deprecated Libraries and Interfaces
-
-#### `pkg/sqlite` Package (Deprecated)
-- **`SQLQuerier`** - **(Deprecated)** Query interface for SQLite databases
-- **`SQLLoader`** - **(Deprecated)** Load bundles into SQLite databases
-- **`DeprecationAwareLoader`** - **(Deprecated)** Handle bundle deprecations in SQLite
-- **`SQLDeprecator`** - **(Deprecated)** Deprecate bundles in SQLite databases
-
-#### `pkg/lib/registry` Package (Deprecated)
-- **`RegistryUpdater`** - **(Deprecated)** Update SQLite-based registries
-- **`RegistryDeleter`** - **(Deprecated)** Delete from SQLite-based registries
-- **`RegistryDeprecator`** - **(Deprecated)** Deprecate bundles in SQLite-based registries
-
-### Migration Path
-
-**From SQLite to File-Based Catalogs:**
-
-1. **Replace `opm registry serve`** → **Use `opm serve`**
-   ```bash
-   # Old (deprecated)
-   opm registry serve --database bundles.db
-   
-   # New (recommended)
-   opm serve ./catalog-directory
-   ```
-
-2. **Replace `opm index add`** → **Use `opm alpha generate dockerfile` + `opm serve`**
-   ```bash
-   # Old (deprecated)
-   opm index add --bundles quay.io/my/bundle:latest --tag quay.io/my/index:latest
-   
-   # New (recommended)
-   opm alpha generate dockerfile ./catalog-directory
-   # Build and serve the generated Dockerfile
-   ```
-
-3. **Replace SQLite database operations** → **Use declarative config files**
-   ```bash
-   # Old (deprecated) - SQLite database manipulation
-   opm registry add --database bundles.db --bundles quay.io/my/bundle:latest
-   
-   # New (recommended) - File-based catalog
-   # Create catalog files directly in ./catalog-directory/
-   ```
-
-4. **Convert existing SQLite catalogs** → **Use migration tools**
-   ```bash
-   # Convert SQLite index image to FBC
-   opm migrate quay.io/my-namespace/my-index:latest ./fbc-output --output yaml
-   
-   # Convert SQLite database to FBC
-   opm render ./bundles.db --output yaml > catalog.yaml
-   
-   # Convert FBC to a basic catalog template for simpler maintenance
-   opm alpha render-template basic ./catalog.yaml
-   ```
-
-### Deprecation Warnings
-
-When using deprecated commands, you will see warnings like:
-```
-DEPRECATION NOTICE:
-Sqlite-based catalogs and their related subcommands are deprecated. Support for
-them will be removed in a future release. Please migrate your catalog workflows
-to the new file-based catalog format.
-```
-
-**Action Required**: Plan your migration to file-based catalogs to avoid future compatibility issues.
-
-### Migration from SQLite to File-Based Catalogs (FBC)
-
-#### Using `opm migrate`
-The `opm migrate` command converts SQLite-based index images or database files to file-based catalogs:
-
-```bash
-# Migrate from SQLite index image to FBC
-opm migrate quay.io/my-namespace/my-index:latest ./fbc-output --output yaml
-
-# Migrate from SQLite database file to FBC
-opm migrate ./bundles.db ./fbc-output --output json
-
-# Migrate with specific migration level
-opm migrate quay.io/my-namespace/my-index:latest ./fbc-output
-```
+### Creating File-Based Catalogs
 
 #### Using `opm render`
-The `opm render` command can convert various sources to FBC format:
+The `opm render` command converts various sources to FBC format:
 
 ```bash
-# Render from SQLite database to FBC
-opm render ./bundles.db --output yaml > catalog.yaml
-
 # Render from bundle images to FBC
 opm render quay.io/my/bundle:v1.0.0 quay.io/my/bundle:v1.1.0 --output json
 
@@ -349,30 +231,6 @@ opm alpha render-template semver ./semver-template.yaml --output json
 # Auto-detect template type from schema field
 opm alpha render-template ./template-file.yaml --output yaml
 ```
-
-#### Combined Migration Workflow
-For complex migrations, combine multiple tools:
-
-```bash
-# Step 1: Migrate SQLite to FBC
-opm migrate quay.io/my-namespace/my-index:latest ./fbc-output --output yaml
-
-# Step 2: Convert to basic template format (if needed)
-opm alpha render-template basic ./fbc-output/package.yaml --output yaml > template.yaml
-
-# Step 3: Modify template as needed, then render final FBC
-opm alpha render-template basic ./template.yaml --output yaml > final-catalog.yaml
-
-# Step 4: Serve the new FBC catalog
-opm serve ./final-catalog.yaml
-```
-
-#### Migration Considerations
-- **Bundle images must exist** in registries before they can be referenced in FBC
-- **Image references are required** - use `--alpha-image-ref-template` if bundle images don't exist yet
-- **Migration levels** control which schema transformations are applied
-- **Output formats** include JSON (streamable) and YAML (human-readable)
-- **Templates provide flexibility** for custom catalog generation workflows
 
 ## File Organization
 
@@ -448,22 +306,16 @@ func TestMyFunction(t *testing.T) {
 ### Common Issues
 1. **Bundle validation errors**: Check bundle format and annotations
 2. **Image pull failures**: Verify image references and registry access
-3. **Database corruption**: Rebuild database from source bundles
-4. **Template rendering errors**: Check template syntax and schema
-5. **Cache integrity failures**: Rebuild cache or disable integrity checks
-6. **gRPC connection issues**: Verify port availability and firewall settings
-7. **Memory issues with large catalogs**: Use persistent cache directory
-8. **Slow startup times**: Pre-build cache with `--cache-only` flag
-9. **SQLite deprecation warnings**: Migrate to file-based catalogs using `opm serve`
-10. **Hidden commands**: Some deprecated commands are hidden but still accessible
+3. **Template rendering errors**: Check template syntax and schema
+4. **Cache integrity failures**: Rebuild cache or disable integrity checks
+5. **gRPC connection issues**: Verify port availability and firewall settings
+6. **Memory issues with large catalogs**: Use persistent cache directory
+7. **Slow startup times**: Pre-build cache with `--cache-only` flag
 
 ### Debug Commands
 ```bash
 # Validate bundle
 opm alpha bundle validate ./bundle
-
-# Inspect index
-opm index export --from-index quay.io/my-namespace/my-index:latest
 
 # Debug template rendering
 opm alpha render-template --help
@@ -477,10 +329,6 @@ opm serve ./catalog --pprof-addr localhost:6060 --pprof-capture-profiles
 # Test gRPC connectivity
 grpcurl -plaintext localhost:50051 list
 grpcurl -plaintext localhost:50051 api.Registry/ListPackages
-
-# Deprecated SQLite commands (avoid using these)
-opm registry serve --database bundles.db  # Use 'opm serve' instead
-opm index add --bundles quay.io/my/bundle:latest --tag quay.io/my/index:latest  # Use file-based catalogs
 ```
 
 ## Contributing Guidelines
