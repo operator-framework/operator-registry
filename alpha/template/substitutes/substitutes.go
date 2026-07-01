@@ -73,8 +73,7 @@ func (t *template) Render(ctx context.Context, reader io.Reader) (*declcfg.Decla
 		return nil, fmt.Errorf("render: unable to create declarative config from entries: %v", err)
 	}
 
-	_, err = declcfg.ConvertToModel(*cfg)
-	if err != nil {
+	if err = declcfg.Validate(*cfg); err != nil {
 		return nil, fmt.Errorf("render: entries are not valid FBC: %v", err)
 	}
 
@@ -257,8 +256,7 @@ func (t *template) processSubstitution(ctx context.Context, cfg *declcfg.Declara
 	cfg.Bundles = append(cfg.Bundles, *substituteBundle)
 
 	// now validate the resulting config
-	_, err = declcfg.ConvertToModel(*cfg)
-	if err != nil {
+	if err = declcfg.Validate(*cfg); err != nil {
 		return fmt.Errorf("resulting config is not valid FBC: %v", err)
 	}
 

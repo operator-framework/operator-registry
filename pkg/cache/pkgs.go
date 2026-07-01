@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
@@ -33,7 +33,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 	for _, ch := range pkg.Channels {
 		var deprecation *registry.Deprecation
 		if ch.Deprecation != nil {
-			deprecation = &registry.Deprecation{Message: ch.Deprecation.Message}
+			deprecation = &registry.Deprecation{Message: *ch.Deprecation}
 		}
 		channels = append(channels, registry.PackageChannel{
 			Name:           ch.Name,
@@ -48,7 +48,7 @@ func (pkgs packageIndex) GetPackage(_ context.Context, name string) (*registry.P
 		DefaultChannelName: pkg.DefaultChannel,
 	}
 	if pkg.Deprecation != nil {
-		registryPackage.Deprecation = &registry.Deprecation{Message: pkg.Deprecation.Message}
+		registryPackage.Deprecation = &registry.Deprecation{Message: *pkg.Deprecation}
 	}
 	return registryPackage, nil
 }
@@ -94,9 +94,7 @@ func (pkgs packageIndex) GetBundleThatReplaces(ctx context.Context, getBundle ge
 	}
 
 	// NOTE: iterating over a map is non-deterministic in Go, so if multiple bundles replace this one,
-	//       the bundle returned by this function is also non-deterministic. The sqlite implementation
-	//       is ALSO non-deterministic because it doesn't use ORDER BY, so its probably okay for this
-	//       implementation to be non-deterministic as well.
+	//       the bundle returned by this function is also non-deterministic.
 	for _, b := range ch.Bundles {
 		if bundleReplaces(b, name) {
 			return getBundle(ctx, bundleKey{pkg.Name, ch.Name, b.Name})
@@ -116,11 +114,9 @@ func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, getBu
 					return nil, err
 				}
 				if provides {
-					// TODO(joelanford): It seems like the SQLite query returns
-					//   invalid entries (i.e. where bundle `Replaces` isn't actually
-					//   in channel `ChannelName`). Is that a bug? For now, this mimics
-					//   the sqlite server and returns seemingly invalid channel entries.
-					//      Don't worry about this. Not used anymore.
+					// TODO(joelanford): This may return invalid entries (i.e. where bundle
+					//   `Replaces` isn't actually in channel `ChannelName`). Is that a bug?
+					//   Don't worry about this. Not used anymore.
 
 					entries = append(entries, pkgs.channelEntriesForBundle(b, true)...)
 				}
@@ -133,14 +129,10 @@ func (pkgs packageIndex) GetChannelEntriesThatProvide(ctx context.Context, getBu
 	return entries, nil
 }
 
-// TODO(joelanford): Need to review the expected functionality of this function. I ran
+// TODO(joelanford): Need to review the expected functionality of this function. This currently
 //
-//	some experiments with the sqlite version of this function and it seems to only return
-//	channel heads that provide the GVK (rather than searching down the graph if parent bundles
-//	don't provide the API). Based on that, this function currently looks at channel heads only.
-//	---
-//	Separate, but possibly related, I noticed there are several channels in the channel entry
-//	table who's minimum depth is 1. What causes 1 to be minimum depth in some cases and 0 in others?
+//	only returns channel heads that provide the GVK (rather than searching down the graph if
+//	parent bundles don't provide the API).
 func (pkgs packageIndex) GetLatestChannelEntriesThatProvide(ctx context.Context, getBundle getBundleFunc, group, version, kind string) ([]*registry.ChannelEntry, error) {
 	var entries []*registry.ChannelEntry
 
@@ -190,19 +182,19 @@ func (pkgs packageIndex) GetBundleThatProvides(ctx context.Context, c Cache, gro
 }
 
 type cPkg struct {
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	Icon           *model.Icon `json:"icon"`
-	DefaultChannel string      `json:"defaultChannel"`
+	Name           string        `json:"name"`
+	Description    string        `json:"description"`
+	Icon           *declcfg.Icon `json:"icon"`
+	DefaultChannel string        `json:"defaultChannel"`
 	Channels       map[string]cChannel
-	Deprecation    *model.Deprecation `json:"deprecation,omitempty"`
+	Deprecation    *string `json:"deprecation,omitempty"`
 }
 
 type cChannel struct {
 	Name        string
 	Head        string
 	Bundles     map[string]cBundle
-	Deprecation *model.Deprecation `json:"deprecation,omitempty"`
+	Deprecation *string `json:"deprecation,omitempty"`
 }
 
 type cBundle struct {
@@ -213,42 +205,81 @@ type cBundle struct {
 	Skips    []string `json:"skips"`
 }
 
-func packagesFromModel(m model.Model) (map[string]cPkg, error) {
+func packagesFromDeclcfg(cfg declcfg.DeclarativeConfig) (map[string]cPkg, error) {
 	pkgs := map[string]cPkg{}
-	for _, p := range m {
-		newP := cPkg{
+
+	// First pass: create packages
+	for _, p := range cfg.Packages {
+		pkgs[p.Name] = cPkg{
 			Name:           p.Name,
 			Icon:           p.Icon,
 			Description:    p.Description,
-			DefaultChannel: p.DefaultChannel.Name,
+			DefaultChannel: p.DefaultChannel,
 			Channels:       map[string]cChannel{},
-			Deprecation:    p.Deprecation,
+			Deprecation:    nil,
 		}
-		for _, ch := range p.Channels {
-			head, err := ch.Head()
-			if err != nil {
-				return nil, err
-			}
-			newCh := cChannel{
-				Name:        ch.Name,
-				Head:        head.Name,
-				Bundles:     map[string]cBundle{},
-				Deprecation: ch.Deprecation,
-			}
-			for _, b := range ch.Bundles {
-				newB := cBundle{
-					Package:  b.Package.Name,
-					Channel:  b.Channel.Name,
-					Name:     b.Name,
-					Replaces: b.Replaces,
-					Skips:    b.Skips,
-				}
-				newCh.Bundles[b.Name] = newB
-			}
-			newP.Channels[ch.Name] = newCh
-		}
-		pkgs[p.Name] = newP
 	}
+
+	// Second pass: create channels and add bundles
+	for _, ch := range cfg.Channels {
+		pkg, ok := pkgs[ch.Package]
+		if !ok {
+			return nil, fmt.Errorf("channel %q references unknown package %q", ch.Name, ch.Package)
+		}
+
+		// Find the head of this channel
+		head, err := declcfg.FindChannelHead(ch.Entries)
+		if err != nil {
+			return nil, fmt.Errorf("find head for channel %q in package %q: %v", ch.Name, ch.Package, err)
+		}
+
+		newCh := cChannel{
+			Name:        ch.Name,
+			Head:        head,
+			Bundles:     map[string]cBundle{},
+			Deprecation: nil,
+		}
+
+		for _, entry := range ch.Entries {
+			newB := cBundle{
+				Package:  ch.Package,
+				Channel:  ch.Name,
+				Name:     entry.Name,
+				Replaces: entry.Replaces,
+				Skips:    entry.Skips,
+			}
+			newCh.Bundles[entry.Name] = newB
+		}
+
+		pkg.Channels[ch.Name] = newCh
+		pkgs[ch.Package] = pkg
+	}
+
+	// Third pass: apply deprecations
+	for _, d := range cfg.Deprecations {
+		pkg, ok := pkgs[d.Package]
+		if !ok {
+			return nil, fmt.Errorf("deprecation references unknown package %q", d.Package)
+		}
+
+		for _, entry := range d.Entries {
+			switch entry.Reference.Schema {
+			case declcfg.SchemaPackage:
+				msg := entry.Message
+				pkg.Deprecation = &msg
+			case declcfg.SchemaChannel:
+				ch, ok := pkg.Channels[entry.Reference.Name]
+				if !ok {
+					return nil, fmt.Errorf("deprecation references unknown channel %q in package %q", entry.Reference.Name, d.Package)
+				}
+				msg := entry.Message
+				ch.Deprecation = &msg
+				pkg.Channels[entry.Reference.Name] = ch
+			}
+		}
+		pkgs[d.Package] = pkg
+	}
+
 	return pkgs, nil
 }
 

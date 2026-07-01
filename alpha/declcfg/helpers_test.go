@@ -6,11 +6,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
 )
 
@@ -169,15 +167,15 @@ func newTestBundle(packageName, version string, opts ...bundleOpt) Bundle {
 			`{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`,
 		},
 	}
-	for _, opt := range opts {
-		opt(&b)
-	}
 	sort.Slice(b.Properties, func(i, j int) bool {
 		if b.Properties[i].Type != b.Properties[j].Type {
 			return b.Properties[i].Type < b.Properties[j].Type
 		}
 		return string(b.Properties[i].Value) < string(b.Properties[j].Value)
 	})
+	for _, opt := range opts {
+		opt(&b)
+	}
 	return b
 }
 
@@ -216,105 +214,12 @@ func addChannelProperties(in Channel, p []property.Property) Channel {
 	return in
 }
 
-func buildTestModel() model.Model {
-	return model.Model{
-		"anakin":    buildAnakinPkgModel(),
-		"boba-fett": buildBobaFettPkgModel(),
-	}
-}
-
-func getBundle(pkg *model.Package, ch *model.Channel, version, replaces string, skips ...string) *model.Bundle {
-	return &model.Bundle{
-		Package: pkg,
-		Channel: ch,
-		Name:    testBundleName(pkg.Name, version),
-		Image:   testBundleImage(pkg.Name, version),
-		Properties: []property.Property{
-			property.MustBuildPackage(pkg.Name, version),
-			property.MustBuildBundleObject([]byte(getCSVJson(pkg.Name, version))),
-			property.MustBuildBundleObject([]byte(getCRDJSON())),
-		},
-		Replaces: replaces,
-		Skips:    skips,
-		RelatedImages: []model.RelatedImage{{
-			Name:  "bundle",
-			Image: testBundleImage(pkg.Name, version),
-		}},
-		CsvJSON: getCSVJson(pkg.Name, version),
-		Objects: []string{
-			getCSVJson(pkg.Name, version),
-			getCRDJSON(),
-		},
-		Version: semver.MustParse(version),
-	}
-}
-
 func getCSVJson(pkgName, version string) string {
 	return fmt.Sprintf(`{"kind": "ClusterServiceVersion", "apiVersion": "operators.coreos.com/v1alpha1", "metadata":{"name":%q}}`, testBundleName(pkgName, version))
 }
 
 func getCRDJSON() string {
 	return `{"kind": "CustomResourceDefinition", "apiVersion": "apiextensions.k8s.io/v1"}`
-}
-
-func buildAnakinPkgModel() *model.Package {
-	pkgName := "anakin"
-
-	pkg := &model.Package{
-		Name:        pkgName,
-		Description: testPackageDescription(pkgName),
-		Icon: &model.Icon{
-			Data:      []byte(svgSmallCircle),
-			MediaType: "image/svg+xml",
-		},
-		Channels: map[string]*model.Channel{},
-	}
-
-	light := &model.Channel{
-		Package: pkg,
-		Name:    "light",
-		Bundles: map[string]*model.Bundle{},
-	}
-
-	dark := &model.Channel{
-		Package: pkg,
-		Name:    "dark",
-		Bundles: map[string]*model.Bundle{},
-	}
-	light.Bundles[testBundleName(pkgName, "0.0.1")] = getBundle(pkg, light, "0.0.1", "")
-	light.Bundles[testBundleName(pkgName, "0.1.0")] = getBundle(pkg, light, "0.1.0", testBundleName(pkgName, "0.0.1"))
-
-	dark.Bundles[testBundleName(pkgName, "0.0.1")] = getBundle(pkg, dark, "0.0.1", "")
-	dark.Bundles[testBundleName(pkgName, "0.1.0")] = getBundle(pkg, dark, "0.1.0", testBundleName(pkgName, "0.0.1"))
-	dark.Bundles[testBundleName(pkgName, "0.1.1")] = getBundle(pkg, dark, "0.1.1", testBundleName(pkgName, "0.0.1"), testBundleName(pkgName, "0.1.0"))
-
-	pkg.Channels["light"] = light
-	pkg.Channels["dark"] = dark
-	pkg.DefaultChannel = pkg.Channels["dark"]
-	return pkg
-}
-
-func buildBobaFettPkgModel() *model.Package {
-	pkgName := "boba-fett"
-	pkg := &model.Package{
-		Name:        pkgName,
-		Description: testPackageDescription(pkgName),
-		Icon: &model.Icon{
-			Data:      []byte(svgBigCircle),
-			MediaType: "image/svg+xml",
-		},
-		Channels: map[string]*model.Channel{},
-	}
-	mando := &model.Channel{
-		Package: pkg,
-		Name:    "mando",
-		Bundles: map[string]*model.Bundle{},
-	}
-	mando.Bundles[testBundleName(pkgName, "1.0.0")] = getBundle(pkg, mando, "1.0.0", "")
-	mando.Bundles[testBundleName(pkgName, "2.0.0")] = getBundle(pkg, mando, "2.0.0", testBundleName(pkgName, "1.0.0"))
-	pkg.Channels["mando"] = mando
-	pkg.DefaultChannel = mando
-	return pkg
 }
 
 func testPackageDescription(pkg string) string {
