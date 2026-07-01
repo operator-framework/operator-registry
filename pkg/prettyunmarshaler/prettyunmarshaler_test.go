@@ -149,9 +149,9 @@ func TestJsonUnmarshalError(t *testing.T) {
 //
 // If the data does not cause a syntax error, this function will panic.
 func customOffsetSyntaxError(data []byte, offset int64) *json.SyntaxError {
-	var d *byte = nil
+	var d byte
 	var se *json.SyntaxError
-	err := json.Unmarshal(data, d)
+	err := json.Unmarshal(data, &d)
 	if errors.As(err, &se) {
 		se.Offset = offset
 		return se
