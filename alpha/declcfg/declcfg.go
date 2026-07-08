@@ -12,19 +12,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
 	"github.com/operator-framework/operator-registry/alpha/property"
 	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
 	"github.com/operator-framework/operator-registry/pkg/registry"
 )
-
-// Re-export VersionRelease/Release types/functions from model package to make it possible for users to only include this package and avoid import cycles
-type (
-	Release        = model.Release
-	VersionRelease = model.VersionRelease
-)
-
-var NewRelease = model.NewRelease
 
 const (
 	SchemaPackage     = "olm.package"
@@ -68,6 +59,40 @@ type ChannelEntry struct {
 	Replaces  string   `json:"replaces,omitempty"`
 	Skips     []string `json:"skips,omitempty"`
 	SkipRange string   `json:"skipRange,omitempty"`
+}
+
+// FindChannelHead returns the name of the head entry in the channel — the entry
+// that is not replaced or skipped by any other entry.
+func FindChannelHead(entries []ChannelEntry) (string, error) {
+	if len(entries) == 0 {
+		return "", fmt.Errorf("channel has no entries")
+	}
+
+	replaced := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.Replaces != "" {
+			replaced[entry.Replaces] = true
+		}
+		for _, skip := range entry.Skips {
+			replaced[skip] = true
+		}
+	}
+
+	var heads []string
+	for _, entry := range entries {
+		if !replaced[entry.Name] {
+			heads = append(heads, entry.Name)
+		}
+	}
+
+	if len(heads) == 0 {
+		return "", fmt.Errorf("channel has circular replaces chain, no head found")
+	}
+	if len(heads) > 1 {
+		return "", fmt.Errorf("channel has multiple heads: %v", heads)
+	}
+
+	return heads[0], nil
 }
 
 // Bundle specifies all metadata and data of a bundle object.

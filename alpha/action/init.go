@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/h2non/filetype"
+	"github.com/h2non/go-is-svg"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 )
@@ -32,21 +33,44 @@ func (i Init) Run() (*declcfg.Package, error) {
 	}
 
 	if i.IconReader != nil {
-		iconData, err := io.ReadAll(i.IconReader)
+		icon, err := processIcon(i.IconReader)
 		if err != nil {
-			return nil, fmt.Errorf("read icon: %v", err)
+			return nil, err
 		}
-		iconType, err := filetype.Match(iconData)
-		if err != nil {
-			return nil, fmt.Errorf("detect icon mediatype: %v", err)
+		pkg.Icon = icon
+	}
+	return pkg, nil
+}
+
+func processIcon(iconReader io.Reader) (*declcfg.Icon, error) {
+	iconData, err := io.ReadAll(iconReader)
+	if err != nil {
+		return nil, fmt.Errorf("read icon: %v", err)
+	}
+
+	// Try filetype detection first
+	iconType, err := filetype.Match(iconData)
+	if err != nil {
+		return nil, fmt.Errorf("detect icon mediatype: %v", err)
+	}
+
+	var mediaType string
+	// If filetype didn't detect it, check if it's SVG
+	if iconType.MIME.Value == "" {
+		if issvg.Is(iconData) {
+			mediaType = "image/svg+xml"
+		} else {
+			return nil, fmt.Errorf("detected invalid type %q: not an image", iconType.MIME.Value)
 		}
+	} else {
 		if iconType.MIME.Type != "image" {
 			return nil, fmt.Errorf("detected invalid type %q: not an image", iconType.MIME.Value)
 		}
-		pkg.Icon = &declcfg.Icon{
-			Data:      iconData,
-			MediaType: iconType.MIME.Value,
-		}
+		mediaType = iconType.MIME.Value
 	}
-	return pkg, nil
+
+	return &declcfg.Icon{
+		Data:      iconData,
+		MediaType: mediaType,
+	}, nil
 }
