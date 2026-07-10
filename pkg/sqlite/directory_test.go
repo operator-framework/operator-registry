@@ -9,7 +9,7 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/operator-framework/operator-registry/pkg/api"
 	"github.com/operator-framework/operator-registry/pkg/registry"
@@ -206,13 +206,16 @@ func TestQuerierForDirectory(t *testing.T) {
 		{"etcd", "stable", "etcdoperator.v0.6.1", ""},
 		{"etcd", "stable", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
 		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.1"},
-		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdChannelEntriesThatProvide)
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
+	}, etcdChannelEntriesThatProvide)
 
 	etcdLatestChannelEntriesThatProvide, err := store.GetLatestChannelEntriesThatProvide(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)
-	require.ElementsMatch(t, []*registry.ChannelEntry{{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
+	require.ElementsMatch(t, []*registry.ChannelEntry{
+		{"etcd", "alpha", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
 		{"etcd", "beta", "etcdoperator.v0.9.0", "etcdoperator.v0.6.1"},
-		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"}}, etcdLatestChannelEntriesThatProvide)
+		{"etcd", "stable", "etcdoperator.v0.9.2", "etcdoperator.v0.9.0"},
+	}, etcdLatestChannelEntriesThatProvide)
 
 	etcdBundleByProvides, err := store.GetBundleThatProvides(context.TODO(), "etcd.database.coreos.com", "v1beta2", "EtcdCluster")
 	require.NoError(t, err)

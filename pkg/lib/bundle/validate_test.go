@@ -30,7 +30,7 @@ func TestValidateBundleDependencies(t *testing.T) {
 		logger: logger,
 	}
 
-	var table = []struct {
+	table := []struct {
 		description string
 		mediaType   string
 		directory   string
@@ -108,7 +108,7 @@ func TestValidateBundleContent(t *testing.T) {
 		logger: logger,
 	}
 
-	var table = []struct {
+	table := []struct {
 		description string
 		mediaType   string
 		directory   string
