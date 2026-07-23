@@ -140,7 +140,7 @@ require (
 	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
-	github.com/moby/moby/client v0.4.1 // indirect
+	github.com/moby/moby/client v0.5.0 // indirect
 	github.com/moby/sys/capability v0.4.0 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
