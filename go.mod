@@ -33,7 +33,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/btree v1.8.1
 	go.etcd.io/bbolt v1.5.0
-	go.podman.io/common v0.68.1
+	go.podman.io/common v0.69.0
 	go.podman.io/image/v5 v5.41.0
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
