@@ -13,19 +13,13 @@ contribution. See the [DCO](DCO) file for details.
 
 This project provides the following binaries:
 
- * `opm`, which generates and updates registry databases as well as the index images that encapsulate them.
- * `initializer`, which takes as an input a directory of operator manifests and outputs a sqlite database containing the same data for querying
-   * Deprecated - use `opm registry|index add` instead 
- * `registry-server`, which takes a sqlite database loaded with manifests, and exposes a gRPC interface to it.
-   * Deprecated - use `opm registry serve` instead 
- * `configmap-server`, which takes a kubeconfig and a configmap reference, and parses the configmap into the sqlite database before exposing it via the same interface as `registry-server`.
+ * `opm`, which manages file-based catalog (FBC) content and the catalog images that encapsulate them.
 
 And libraries:
 
 * `pkg/client` - providing a high-level client interface for the gRPC api.
-* `pkg/api` - providing low-level client libraries for the gRPC interface exposed by `registry-server`.
+* `pkg/api` - providing low-level client libraries for the gRPC interface.
 * `pkg/registry` - providing basic registry types like Packages, Channels, and Bundles.
-* `pkg/sqlite` - providing interfaces for building sqlite manifest databases from `ConfigMap`s or directories, and for querying an existing sqlite database.
 * `pkg/lib` - providing external interfaces for interacting with this project as an api that defines a set of standards for operator bundles and indexes.
 * `pkg/containertools` - providing an interface to interact with and shell out to common container tooling binaries (if installed on the environment)
 
@@ -73,26 +67,36 @@ Of course, this build step can be done with any other OCI spec container tools l
 
 Note that you do not need to create your bundle manually. [Operator-SDK](https://github.com/operator-framework/operator-sdk) provide features and helpers to build, to update, to validate and to test bundles for projects which follows the SDK layout or not. For more information check its documentations over [Integration with OLM](https://sdk.operatorframework.io/docs/olm-integration)
 
-# Building an index of Operators using `opm`
+# Building a catalog of Operators using `opm`
 
-Now that you have published the container image containing your manifests, how do you actually make that bundle available to other users' Kubernetes clusters so that the Operator Lifecycle Manager can install the operator? This is where the meat of the `operator-registry` project comes in. OLM has the concept of [CatalogSources](https://operator-framework.github.io/olm-book/docs/glossary.html#catalogsources) which define a reference to what packages are available to install onto a cluster. To make your bundle available, you can add the bundle to a container image which the CatalogSource points to. This image contains a database of pointers to bundle images that OLM can pull and extract the manifests from in order to install an operator. So, to make your operator available to OLM, you can generate an index image via opm with your bundle reference included:
+Now that you have published the container image containing your manifests, how do you actually make that bundle available to other users' Kubernetes clusters so that the Operator Lifecycle Manager can install the operator? This is where the meat of the `operator-registry` project comes in. OLM has the concept of [CatalogSources](https://operator-framework.github.io/olm-book/docs/glossary.html#catalogsources) which define a reference to what packages are available to install onto a cluster.
 
-```sh
-opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bundle:0.0.1 --tag quay.io/my-container-registry-namespace/my-index:1.0.0
-podman push quay.io/my-container-registry-namespace/my-index:1.0.0
-```
+To make your bundle available, you build a file-based catalog (FBC) that references your bundle images. You can render bundle images into FBC format and then serve the catalog via a container image.
 
-The resulting image is referred to as an "Index". It is an image which contains a database of pointers to operator manifest content that is easily queriable via an included API that is served when the container image is run.
-
-Now that image is available for clusters to use and reference with CatalogSources on their cluster.
-
-Index images are additive, so you can add a new version of your operator bundle when you publish a new version:
+First, render your bundle into a file-based catalog:
 
 ```sh
-opm index add --bundles quay.io/my-container-registry-namespace/my-manifest-bundle:0.0.2 --from-index quay.io/my-container-registry-namespace/my-index:1.0.0 --tag quay.io/my-container-registry-namespace/my-index:1.0.1
+mkdir my-catalog
+opm render quay.io/my-container-registry-namespace/my-manifest-bundle:0.0.1 -o yaml > my-catalog/catalog.yaml
 ```
 
-For more detail on using `opm` to generate index images, take a look at the [documentation](docs/design/opm-tooling.md).
+Then add a channel entry and package definition to your catalog (see the [FBC documentation](https://olm.operatorframework.io/docs/reference/file-based-catalogs/) for the full schema). Once your catalog is assembled, validate it:
+
+```sh
+opm validate my-catalog
+```
+
+Generate a Dockerfile and build the catalog image:
+
+```sh
+opm generate dockerfile my-catalog
+podman build -t quay.io/my-container-registry-namespace/my-catalog:1.0.0 -f my-catalog.Dockerfile .
+podman push quay.io/my-container-registry-namespace/my-catalog:1.0.0
+```
+
+The resulting image is a catalog image containing file-based catalog content that is served via a gRPC API when the container image is run.
+
+For more detail on using `opm`, see the [file-based catalog documentation](https://olm.operatorframework.io/docs/tasks/creating-a-catalog/).
 
 # Using the index with Operator Lifecycle Manager
 
@@ -114,7 +118,7 @@ This will download the referenced image and start a pod in the designated namesp
 ```sh
 $ kubectl logs example-manifests-wfh5h -n default
 
-time="2019-03-18T10:20:14Z" level=info msg="serving registry" database=bundles.db port=50051
+time="2019-03-18T10:20:14Z" level=info msg="serving registry" port=50051
 ```
 
 Once the catalog has been loaded, your Operators package definitions are read by the `package-server`, a component of OLM. Watch your Operator packages become available:

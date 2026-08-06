@@ -60,7 +60,7 @@ $ opm alpha render-graph quay.io/operatorhubio/catalog:latest | \
 			}
 
 			render.Refs = args
-			render.AllowedRefMask = action.RefDCImage | action.RefDCDir | action.RefSqliteImage | action.RefSqliteFile
+			render.AllowedRefMask = action.RefDCImage | action.RefDCDir
 			render.Registry = registry
 
 			cfg, err := render.Run(cmd.Context())

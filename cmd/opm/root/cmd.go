@@ -10,10 +10,8 @@ import (
 
 	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
 	"github.com/operator-framework/operator-registry/cmd/opm/generate"
-	"github.com/operator-framework/operator-registry/cmd/opm/index"
 	initcmd "github.com/operator-framework/operator-registry/cmd/opm/init"
 	"github.com/operator-framework/operator-registry/cmd/opm/migrate"
-	"github.com/operator-framework/operator-registry/cmd/opm/registry"
 	"github.com/operator-framework/operator-registry/cmd/opm/render"
 	"github.com/operator-framework/operator-registry/cmd/opm/serve"
 	"github.com/operator-framework/operator-registry/cmd/opm/validate"
@@ -44,8 +42,7 @@ To view help related to alpha features, set HELP_ALPHA=true in the environment.`
 		logrus.Panic(err.Error())
 	}
 
-	cmd.AddCommand(registry.NewOpmRegistryCmd(showAlphaHelp), alpha.NewCmd(showAlphaHelp), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(showAlphaHelp), validate.NewCmd(), generate.NewCmd())
-	index.AddCommand(cmd, showAlphaHelp)
+	cmd.AddCommand(alpha.NewCmd(showAlphaHelp), initcmd.NewCmd(), migrate.NewCmd(), serve.NewCmd(), render.NewCmd(showAlphaHelp), validate.NewCmd(), generate.NewCmd())
 	version.AddCommand(cmd)
 
 	cmd.Flags().Bool("debug", false, "enable debug logging")

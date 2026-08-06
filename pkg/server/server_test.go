@@ -24,19 +24,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/pkg/api"
 	fbccache "github.com/operator-framework/operator-registry/pkg/cache"
 	"github.com/operator-framework/operator-registry/pkg/registry"
-	"github.com/operator-framework/operator-registry/pkg/sqlite"
 )
 
 const (
-	dbPort    = ":50052"
-	dbAddress = "localhost" + dbPort
-	dbName    = "test.db"
-
 	cachePort    = ":50053"
 	cacheAddress = "localhost" + cachePort
 
@@ -46,36 +39,6 @@ const (
 	customSchemaCachePort    = ":50055"
 	customSchemaCacheAddress = "localhost" + customSchemaCachePort
 )
-
-func createDBStore(dbPath string) *sqlite.SQLQuerier {
-	db, err := sqlite.Open(dbPath)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	load, err := sqlite.NewSQLLiteLoader(db)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	if err := load.Migrate(context.TODO()); err != nil {
-		logrus.Fatal(err)
-	}
-
-	loader := sqlite.NewSQLLoaderForDirectory(load, "../../manifests")
-	if err := loader.Populate(); err != nil {
-		logrus.Fatal(err)
-	}
-	if _, err := db.Exec("UPDATE operatorbundle SET bundlepath = 'fake/etcd-operator:v0.9.2' WHERE name = 'etcdoperator.v0.9.2'"); err != nil {
-		logrus.Fatal(err)
-	}
-	if err := db.Close(); err != nil {
-		logrus.Fatal(err)
-	}
-	store, err := sqlite.NewSQLLiteQuerier(dbPath, sqlite.OmitManifests(true))
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	return store
-}
 
 func fbcCache(catalogDir, cacheDir string) (fbccache.Cache, error) {
 	store, err := fbccache.New(cacheDir)
@@ -123,27 +86,15 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	dbFile := filepath.Join(tmpDir, "test.db")
-	dbStore := createDBStore(dbFile)
-
-	fbcDir := filepath.Join(tmpDir, "fbc")
-	fbcMigrate := action.Migrate{
-		CatalogRef: dbFile,
-		OutputDir:  fbcDir,
-		WriteFunc:  declcfg.WriteJSON,
-		FileExt:    ".json",
-	}
-	if err := fbcMigrate.Run(context.TODO()); err != nil {
-		logrus.Fatal(err)
-	}
-
-	grpcServer := server(dbStore)
-
-	fbcStore, err := fbcCache(fbcDir, filepath.Join(tmpDir, "cache"))
+	manifestsFS, err := buildCatalogFromManifestsDir("../../manifests")
 	if err != nil {
-		logrus.Fatalf("failed to create cache: %v", err)
+		logrus.Fatalf("failed to build catalog from manifests: %v", err)
 	}
-	fbcServerSimple := server(fbcStore)
+	fbcSimpleStore, err := fbcCacheFromFs(manifestsFS, filepath.Join(tmpDir, "simple-cache"))
+	if err != nil {
+		logrus.Fatalf("failed to create simple fbc cache: %v", err)
+	}
+	fbcServerSimple := server(fbcSimpleStore)
 
 	fbcDeprecationStore, err := fbcCacheFromFs(validFS, filepath.Join(tmpDir, "deprecation-cache"))
 	if err != nil {
@@ -158,25 +109,15 @@ func TestMain(m *testing.M) {
 	fbcServerCustomSchemas := server(fbcCustomSchemaStore)
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(3)
 	go func() {
-		lis, err := net.Listen("tcp", fmt.Sprintf("localhost%s", dbPort))
-		if err != nil {
-			logrus.Fatalf("failed to listen: %v", err)
-		}
-		wg.Done()
-		if err := grpcServer.Serve(lis); err != nil {
-			logrus.Fatalf("failed to serve db: %v", err)
-		}
-	}()
-	go func() {
-		lis, err := net.Listen("tcp", fmt.Sprintf("localhost%s", cachePort))
+		lis, err := net.Listen("tcp", cacheAddress)
 		if err != nil {
 			logrus.Fatalf("failed to listen: %v", err)
 		}
 		wg.Done()
 		if err := fbcServerSimple.Serve(lis); err != nil {
-			logrus.Fatalf("failed to serve fbc cache: %v", err)
+			logrus.Fatalf("failed to serve fbc simple cache: %v", err)
 		}
 	}()
 	go func() {
@@ -223,7 +164,6 @@ func TestListPackages(t *testing.T) {
 		listPackagesExpectedDep = []string{"cockroachdb"}
 	)
 
-	t.Run("Sqlite", testListPackages(dbAddress, listPackagesExpected))
 	t.Run("FBCCache", testListPackages(cacheAddress, listPackagesExpected))
 	t.Run("FBCCacheWithDeprecations", testListPackages(deprecationCacheAddress, listPackagesExpectedDep))
 }
@@ -299,7 +239,6 @@ func TestGetPackage(t *testing.T) {
 			},
 		}
 	)
-	t.Run("Sqlite", testGetPackage(dbAddress, getPackageExpected))
 	t.Run("FBCCache", testGetPackage(cacheAddress, getPackageExpected))
 	t.Run("FBCCacheWithDeprecations", testGetPackage(deprecationCacheAddress, getPackageExpectedDep))
 }
@@ -351,7 +290,6 @@ func TestGetBundle(t *testing.T) {
 			},
 		}
 	)
-	t.Run("Sqlite", testGetBundle(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
 	t.Run("FBCCache", testGetBundle(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 	t.Run("FBCCacheWithDeprecations", testGetBundle(deprecationCacheAddress, cockroachBundle))
 }
@@ -369,13 +307,6 @@ func testGetBundle(addr string, expected *api.Bundle) func(*testing.T) {
 }
 
 func TestGetBundleForChannel(t *testing.T) {
-	{
-		b := etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)
-		t.Run("Sqlite", testGetBundleForChannel(dbAddress, &api.Bundle{
-			CsvName: b.CsvName,
-			CsvJson: b.CsvJson + "\n",
-		}))
-	}
 	t.Run("FBCCache", testGetBundleForChannel(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
@@ -424,7 +355,6 @@ func TestGetChannelEntriesThatReplace(t *testing.T) {
 		}
 	)
 
-	t.Run("Sqlite", testGetChannelEntriesThatReplace(dbAddress, getChannelEntriesThatReplaceExpected))
 	t.Run("FBCCache", testGetChannelEntriesThatReplace(cacheAddress, getChannelEntriesThatReplaceExpected))
 	t.Run("FBCCacheWithDeprecations", testGetChannelEntriesThatReplace(deprecationCacheAddress, getChannelEntriesThatReplaceExpectedDep))
 }
@@ -481,7 +411,6 @@ func testGetChannelEntriesThatReplace(addr string, expected []*api.ChannelEntry)
 }
 
 func TestGetBundleThatReplaces(t *testing.T) {
-	t.Run("Sqlite", testGetBundleThatReplaces(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
 	t.Run("FBCCache", testGetBundleThatReplaces(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
@@ -497,7 +426,6 @@ func testGetBundleThatReplaces(addr string, expected *api.Bundle) func(*testing.
 }
 
 func TestGetBundleThatReplacesSynthetic(t *testing.T) {
-	t.Run("Sqlite", testGetBundleThatReplacesSynthetic(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
 	t.Run("FBCCache", testGetBundleThatReplacesSynthetic(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
@@ -514,7 +442,6 @@ func testGetBundleThatReplacesSynthetic(addr string, expected *api.Bundle) func(
 }
 
 func TestGetChannelEntriesThatProvide(t *testing.T) {
-	t.Run("Sqlite", testGetChannelEntriesThatProvide(dbAddress))
 	t.Run("FBCCache", testGetChannelEntriesThatProvide(cacheAddress))
 }
 
@@ -631,7 +558,6 @@ func testGetChannelEntriesThatProvide(addr string) func(t *testing.T) {
 }
 
 func TestGetLatestChannelEntriesThatProvide(t *testing.T) {
-	t.Run("Sqlite", testGetLatestChannelEntriesThatProvide(dbAddress))
 	t.Run("FBCCache", testGetLatestChannelEntriesThatProvide(cacheAddress))
 }
 
@@ -707,7 +633,6 @@ func testGetLatestChannelEntriesThatProvide(addr string) func(t *testing.T) {
 }
 
 func TestGetDefaultBundleThatProvides(t *testing.T) {
-	t.Run("Sqlite", testGetDefaultBundleThatProvides(dbAddress, etcdoperatorV0_9_2("alpha", false, false, includeManifestsAll)))
 	t.Run("FBCCache", testGetDefaultBundleThatProvides(cacheAddress, etcdoperatorV0_9_2("alpha", false, true, includeManifestsAll)))
 }
 
@@ -723,9 +648,6 @@ func testGetDefaultBundleThatProvides(addr string, expected *api.Bundle) func(*t
 }
 
 func TestListBundles(t *testing.T) {
-	t.Run("Sqlite", testListBundles(dbAddress,
-		etcdoperatorV0_9_2("alpha", true, false, includeManifestsNone),
-		etcdoperatorV0_9_2("stable", true, false, includeManifestsNone)))
 	t.Run("FBCCache", testListBundles(cacheAddress,
 		etcdoperatorV0_9_2("alpha", true, true, includeManifestsNone),
 		etcdoperatorV0_9_2("stable", true, true, includeManifestsNone)))
@@ -838,7 +760,7 @@ func TestExperimentalListPackageCustomSchemas(t *testing.T) {
 		},
 		{
 			name:      "FBCCacheNoResults",
-			addr:      cacheAddress,
+			addr:      customSchemaCacheAddress,
 			ctx:       experimentalCtx(),
 			req:       &api.ExperimentalListPackageCustomSchemasRequest{Schema: "custom.operator.io", PackageName: "nonexistent"},
 			wantCount: 0,
@@ -979,7 +901,7 @@ const (
 	includeManifestsCSVOnly includeManifests = "csvOnly"
 )
 
-func etcdoperatorV0_9_2(channel string, addSkipsReplaces, addExtraProperties bool, includeManifests includeManifests) *api.Bundle {
+func etcdoperatorV0_9_2(channel string, addSkipsReplaces, addExtraProperties bool, includeManifests includeManifests) *api.Bundle { //nolint:unparam
 	b := &api.Bundle{
 		CsvName:     "etcdoperator.v0.9.2",
 		PackageName: "etcd",

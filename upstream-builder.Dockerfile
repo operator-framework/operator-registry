@@ -1,6 +1,6 @@
 FROM golang:1.26-alpine AS builder
 
-RUN apk update && apk add sqlite build-base git mercurial bash linux-headers
+RUN apk update && apk add build-base git mercurial bash linux-headers
 WORKDIR /build
 
 COPY . .
@@ -16,8 +16,5 @@ COPY ["nsswitch.conf", "/etc/nsswitch.conf"]
 COPY --from=builder [ \
     "/bin/grpc_health_probe", \
     "/build/bin/opm", \
-    "/build/bin/initializer", \
-    "/build/bin/configmap-server", \
-    "/build/bin/registry-server", \
     "/bin/" \
 ]

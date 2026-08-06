@@ -186,7 +186,7 @@ func (r *ListBundlesResult) WriteColumns(w io.Writer) error {
 func indexRefToModel(ctx context.Context, ref string, reg image.Registry) (model.Model, error) {
 	render := Render{
 		Refs:           []string{ref},
-		AllowedRefMask: RefDCImage | RefDCDir | RefSqliteImage | RefSqliteFile,
+		AllowedRefMask: RefDCImage | RefDCDir,
 		Registry:       reg,
 	}
 	cfg, err := render.Run(ctx)
