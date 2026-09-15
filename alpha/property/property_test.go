@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 )
 
 func TestValidate(t *testing.T) {
@@ -63,6 +65,127 @@ func TestValidate(t *testing.T) {
 			s.assertion(t, err)
 		})
 	}
+}
+
+func TestMinifyCustomResourceDefinitions(t *testing.T) {
+	input := v1alpha1.CustomResourceDefinitions{
+		Owned: []v1alpha1.CRDDescription{{
+			Name:        "widgets.example.com",
+			Version:     "v1",
+			Kind:        "Widget",
+			DisplayName: "Widget",
+			Description: "A widget",
+			Resources: []v1alpha1.APIResourceReference{{
+				Name:    "services",
+				Kind:    "Service",
+				Version: "v1",
+			}},
+			SpecDescriptors:   []v1alpha1.SpecDescriptor{{Path: "spec.size"}},
+			StatusDescriptors: []v1alpha1.StatusDescriptor{{Path: "status.phase"}},
+			ActionDescriptor:  []v1alpha1.ActionDescriptor{{Path: "action"}},
+		}},
+		Required: []v1alpha1.CRDDescription{{
+			Name:              "gadgets.example.com",
+			Version:           "v1",
+			Kind:              "Gadget",
+			Resources:         []v1alpha1.APIResourceReference{{Kind: "ConfigMap"}},
+			SpecDescriptors:   []v1alpha1.SpecDescriptor{{Path: "spec.name"}},
+			StatusDescriptors: []v1alpha1.StatusDescriptor{{Path: "status.ready"}},
+			ActionDescriptor:  []v1alpha1.ActionDescriptor{{Path: "restart"}},
+		}},
+	}
+
+	actual := minifyCustomResourceDefinitions(input)
+
+	assert.Equal(t, v1alpha1.CustomResourceDefinitions{
+		Owned: []v1alpha1.CRDDescription{{
+			Name:        "widgets.example.com",
+			Version:     "v1",
+			Kind:        "Widget",
+			DisplayName: "Widget",
+			Description: "A widget",
+		}},
+		Required: []v1alpha1.CRDDescription{{
+			Name:    "gadgets.example.com",
+			Version: "v1",
+			Kind:    "Gadget",
+		}},
+	}, actual)
+	assert.NotEqual(t, input, actual)
+}
+
+func TestMinifyAPIServices(t *testing.T) {
+	input := v1alpha1.APIServiceDefinitions{
+		Owned: []v1alpha1.APIServiceDescription{{
+			Name:              "widgets.example.com",
+			Group:             "example.com",
+			Version:           "v1",
+			Kind:              "Widget",
+			DeploymentName:    "widget-controller",
+			ContainerPort:     8443,
+			DisplayName:       "Widget",
+			Description:       "A widget",
+			Resources:         []v1alpha1.APIResourceReference{{Kind: "ConfigMap"}},
+			SpecDescriptors:   []v1alpha1.SpecDescriptor{{Path: "spec.size"}},
+			StatusDescriptors: []v1alpha1.StatusDescriptor{{Path: "status.phase"}},
+			ActionDescriptor:  []v1alpha1.ActionDescriptor{{Path: "restart"}},
+		}},
+		Required: []v1alpha1.APIServiceDescription{{
+			Name:              "gadgets.example.com",
+			Group:             "example.com",
+			Version:           "v1",
+			Kind:              "Gadget",
+			Resources:         []v1alpha1.APIResourceReference{{Kind: "ConfigMap"}},
+			SpecDescriptors:   []v1alpha1.SpecDescriptor{{Path: "spec.name"}},
+			StatusDescriptors: []v1alpha1.StatusDescriptor{{Path: "status.ready"}},
+			ActionDescriptor:  []v1alpha1.ActionDescriptor{{Path: "restart"}},
+		}},
+	}
+
+	actual := minifyAPIServices(input)
+
+	assert.Equal(t, v1alpha1.APIServiceDefinitions{
+		Owned: []v1alpha1.APIServiceDescription{{
+			Name:        "widgets.example.com",
+			Group:       "example.com",
+			Version:     "v1",
+			Kind:        "Widget",
+			DisplayName: "Widget",
+			Description: "A widget",
+		}},
+		Required: []v1alpha1.APIServiceDescription{{
+			Name:    "gadgets.example.com",
+			Group:   "example.com",
+			Version: "v1",
+			Kind:    "Gadget",
+		}},
+	}, actual)
+	assert.NotEqual(t, input, actual)
+}
+
+func TestMustBuildCSVMetadataMinifiesDescriptions(t *testing.T) {
+	csv := v1alpha1.ClusterServiceVersion{
+		Spec: v1alpha1.ClusterServiceVersionSpec{
+			CustomResourceDefinitions: v1alpha1.CustomResourceDefinitions{
+				Owned: []v1alpha1.CRDDescription{{
+					Name:      "widgets.example.com",
+					Resources: []v1alpha1.APIResourceReference{{Kind: "Service"}},
+				}},
+			},
+			APIServiceDefinitions: v1alpha1.APIServiceDefinitions{
+				Owned: []v1alpha1.APIServiceDescription{{
+					Name:           "v1.example.com",
+					DeploymentName: "widget-controller",
+				}},
+			},
+		},
+	}
+
+	prop := MustBuildCSVMetadata(csv)
+	var metadata CSVMetadata
+	require.NoError(t, json.Unmarshal(prop.Value, &metadata))
+	assert.Empty(t, metadata.CustomResourceDefinitions.Owned[0].Resources)
+	assert.Empty(t, metadata.APIServiceDefinitions.Owned[0].DeploymentName)
 }
 
 func TestParse(t *testing.T) {
