@@ -13,6 +13,7 @@ import (
 	"github.com/h2non/filetype/types"
 	svg "github.com/h2non/go-is-svg"
 	"golang.org/x/exp/maps"
+	"k8s.io/apimachinery/pkg/api/validate/content"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -418,6 +419,15 @@ func (b *Bundle) Validate() error {
 	//		result.subErrors = append(result.subErrors, WithIndex(i, err))
 	//	}
 	//}
+	// The labels are a newer, opt-in field, so they can be validated without
+	// tripping over the legacy data described above.
+	for i, relatedImage := range b.RelatedImages {
+		if errs := relatedImage.validateLabels(); len(errs) > 0 {
+			riResult := newValidationError(fmt.Sprintf("invalid relatedImages[%d]", i))
+			riResult.subErrors = errs
+			result.subErrors = append(result.subErrors, riResult)
+		}
+	}
 
 	if props != nil && len(props.Packages) != 1 {
 		result.subErrors = append(result.subErrors, fmt.Errorf("must be exactly one property with type %q", property.TypePackage))
@@ -439,8 +449,9 @@ func (b *Bundle) Validate() error {
 }
 
 type RelatedImage struct {
-	Name  string
-	Image string
+	Name   string
+	Image  string
+	Labels map[string]string
 }
 
 func (i RelatedImage) Validate() error {
@@ -448,7 +459,28 @@ func (i RelatedImage) Validate() error {
 	if i.Image == "" {
 		result.subErrors = append(result.subErrors, fmt.Errorf("image must be set"))
 	}
+	result.subErrors = append(result.subErrors, i.validateLabels()...)
 	return result.orNil()
+}
+
+// validateLabels checks the related image labels against the Kubernetes label
+// syntax and constraints. It is separate from Validate so that bundle
+// validation can check the labels without also checking the image reference,
+// which some catalogs in production leave empty.
+func (i RelatedImage) validateLabels() []error {
+	// nolint:prealloc
+	var errs []error
+	keys := maps.Keys(i.Labels)
+	sort.Strings(keys)
+	for _, k := range keys {
+		for _, msg := range content.IsLabelKey(k) {
+			errs = append(errs, fmt.Errorf("invalid label key %q: %s", k, msg))
+		}
+		for _, msg := range content.IsLabelValue(i.Labels[k]) {
+			errs = append(errs, fmt.Errorf("invalid label value %q for key %q: %s", i.Labels[k], k, msg))
+		}
+	}
+	return errs
 }
 
 func (m Model) Normalize() {
