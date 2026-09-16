@@ -166,8 +166,8 @@ func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {
 				mb.Objects = b.Objects
 				mb.PropertiesP = props
 				mb.Version = ver
-				// TODO: Jordan: follow-up will evolve the internal types for more consistent use of VersionRelease
 				mb.Release = semver.Version{Pre: relver}
+				mb.LegacyReleaseVersion = b.usesLegacyReleaseVersion()
 			}
 		}
 		if !found {
