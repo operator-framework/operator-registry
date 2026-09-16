@@ -17,7 +17,7 @@ require (
 	github.com/h2non/filetype v1.1.3
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
 	github.com/joelanford/ignore v0.1.2
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.13.0
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -195,12 +195,12 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.podman.io/storage v1.64.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.50.0 // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260729162451-8efbd57d26e0 // indirect
