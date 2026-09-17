@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -333,6 +334,9 @@ type Bundle struct {
 	PropertiesP *property.Properties
 	Version     semver.Version
 	Release     semver.Version
+	// LegacyReleaseVersion indicates that build metadata was converted to Release
+	// because the bundle uses the legacy substitutesFor release convention.
+	LegacyReleaseVersion bool
 }
 
 func (b *Bundle) VersionString() string {
@@ -351,7 +355,7 @@ func (b *Bundle) normalizeName() string {
 	// if the bundle has release versioning, then the name must include this in standard form:
 	// <package-name>-v<version>-<release version>
 	// if no release versioning exists, then just return the bundle name
-	if len(b.Release.Pre) > 0 {
+	if len(b.Release.Pre) > 0 && !b.LegacyReleaseVersion {
 		return strings.Join([]string{b.Package.Name, "v" + b.VersionString()}, "-")
 	}
 	return b.Name
@@ -405,8 +409,8 @@ func (b *Bundle) Validate() error {
 		}
 	}
 	if b.SkipRange != "" {
-		if _, err := semver.ParseRange(b.SkipRange); err != nil {
-			result.subErrors = append(result.subErrors, fmt.Errorf("invalid skipRange %q: %v", b.SkipRange, err))
+		if err := validateSkipRange(b); err != nil {
+			result.subErrors = append(result.subErrors, err)
 		}
 	}
 	// TODO(joelanford): Validate related images? It looks like some
@@ -436,6 +440,42 @@ func (b *Bundle) Validate() error {
 	}
 
 	return result.orNil()
+}
+
+var validateSkipRange = func(b *Bundle) error {
+	if _, err := semver.ParseRange(b.SkipRange); err != nil {
+		return fmt.Errorf("invalid skipRange %q: %v", b.SkipRange, err)
+	} else if err := validateSkipRangeUpperBound(b); err != nil {
+		return err
+	}
+	return nil
+}
+
+var skipRangeUpperBoundPattern = regexp.MustCompile(`(^|[\s|])<\s*=?\s*(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)`)
+
+func validateSkipRangeUpperBound(bundle *Bundle) error {
+	for _, match := range skipRangeUpperBoundPattern.FindAllStringSubmatch(bundle.SkipRange, -1) {
+		upperBound, err := semver.Parse(match[2])
+		if err != nil {
+			continue
+		}
+
+		upperVersion := VersionRelease{Version: upperBound}
+		if bundle.LegacyReleaseVersion && len(upperBound.Build) > 0 {
+			upperVersion.Release, err = NewRelease(strings.Join(upperBound.Build, "."))
+			if err != nil {
+				return fmt.Errorf("invalid skipRange upper bound %q legacy release metadata: %v", match[2], err)
+			}
+			upperVersion.Version.Build = nil
+		}
+		bundleVersion := VersionRelease{Version: bundle.Version, Release: Release(bundle.Release.Pre)}
+		if upperVersion.Compare(&bundleVersion) <= 0 {
+			continue
+		}
+
+		return fmt.Errorf("skipRange upper bound %q is greater than bundle version %q", match[2], bundle.Version.String())
+	}
+	return nil
 }
 
 type RelatedImage struct {
