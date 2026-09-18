@@ -12,6 +12,8 @@ defaults:
     shell: bash
 jobs:
   release:
+    permissions:
+      contents: write
     needs:
       - build-windows
       - build-darwin
@@ -44,7 +46,27 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${{ github.ref_name }}" --generate-notes ./assets/*
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # attempt to create the release, on failure remodel the release notes, assets, etc.
+          gh release create "${RELEASE_TAG}" \
+            --verify-tag \
+            --generate-notes \
+            ./assets/* || {
+              notes_file=$(mktemp)
+              trap 'rm -f "${notes_file}"' EXIT
+              gh api --method POST \
+                "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                -f tag_name="${RELEASE_TAG}" \
+                -f target_commitish="${GITHUB_SHA}" > "${notes_file}"
+              gh release edit "${RELEASE_TAG}" \
+                --title "$(jq -r '.name' "${notes_file}")" \
+                --notes "$(jq -r '.body' "${notes_file}")"
+              gh release upload "${RELEASE_TAG}" --clobber ./assets/*
+            }
+
 
   build-windows:
     runs-on: windows-latest
