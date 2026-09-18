@@ -1,0 +1,66 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: related-image-labels.v0.1.0
+  namespace: placeholder
+  annotations:
+    containerImage: 'quay.io/olmtest/related-image-labels:v0.1.0'
+spec:
+  displayName: Related Image Labels Operator
+  description: >-
+    A minimal bundle whose ClusterServiceVersion declares relatedImages both
+    with and without labels. Used to check that `opm render` carries the labels
+    into the olm.bundle blob.
+  version: 0.1.0
+  maturity: alpha
+  provider:
+    name: Red Hat
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  relatedImages:
+    - name: labeled
+      image: quay.io/olmtest/labeled@sha256:c68135620167c41e3d9f6c1d2ca1eb8fa24312b86186d09b8010656b9d25fb47
+      labels:
+        feature: example
+        tier: "1"
+    - name: unlabeled
+      image: quay.io/olmtest/unlabeled@sha256:49ed7d6155342adaa2b12fd80c6761c3081d8e6149d187cb7ff91a247cdf2e7a
+  installModes:
+    - type: OwnNamespace
+      supported: true
+    - type: SingleNamespace
+      supported: true
+    - type: MultiNamespace
+      supported: false
+    - type: AllNamespaces
+      supported: true
+  install:
+    strategy: deployment
+    spec:
+      permissions:
+        - serviceAccountName: related-image-labels
+          rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - '*'
+      deployments:
+        - name: related-image-labels
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                name: related-image-labels
+            template:
+              metadata:
+                labels:
+                  name: related-image-labels
+              spec:
+                serviceAccountName: related-image-labels
+                containers:
+                  - name: manager
+                    image: quay.io/olmtest/related-image-labels:v0.1.0
+                    command:
+                      - related-image-labels
