@@ -24,7 +24,7 @@ var scheme map[reflect.Type]string
 
 func AddToScheme(typ string, p interface{}) {
 	t := reflect.TypeOf(p)
-	if t.Kind() != reflect.Ptr {
+	if t.Kind() != reflect.Ptr { //nolint:govet // inline warning
 		panic("input must be a pointer to a type")
 	}
 	if _, ok := scheme[t]; ok {

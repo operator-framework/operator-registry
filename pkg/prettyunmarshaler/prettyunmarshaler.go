@@ -38,7 +38,7 @@ func (e *JSONUnmarshalError) Pretty() string {
 	const marker = " <=="
 
 	var sb strings.Builder
-	_, _ = sb.WriteString(fmt.Sprintf("%s at offset %d (indicated by%s)\n", e.err.Error(), e.offset, marker))
+	_, _ = fmt.Fprintf(&sb, "%s at offset %d (indicated by%s)\n", e.err.Error(), e.offset, marker)
 
 	prettyBuf := bytes.NewBuffer(make([]byte, 0, len(e.data)))
 	err := json.Indent(prettyBuf, e.data, "", "    ")
@@ -85,7 +85,7 @@ func (e *JSONUnmarshalError) Pretty() string {
 	}
 
 	_, _ = sb.Write(pretty[:pOffset])
-	_, _ = sb.WriteString(fmt.Sprintf("%s ", marker))
+	_, _ = fmt.Fprintf(&sb, "%s ", marker)
 	_, _ = sb.Write(pretty[pOffset:])
 
 	return sb.String()

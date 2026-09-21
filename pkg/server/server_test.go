@@ -152,7 +152,7 @@ func client(t *testing.T, address string) (api.RegistryClient, *grpc.ClientConn)
 		t.Fatalf("did not connect: %v", err)
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second) //nolint:gosec // context cancellation handled in conn
 	conn.WaitForStateChange(ctx, connectivity.TransientFailure)
 
 	return api.NewRegistryClient(conn), conn

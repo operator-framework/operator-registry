@@ -102,9 +102,9 @@ func (q *pogrebV1Backend) Close() error {
 		}
 		switch info.Mode().Type() {
 		case os.ModeDir:
-			return os.Chmod(path, pogrebV1CacheModeDir)
+			return os.Chmod(path, pogrebV1CacheModeDir) //nolint:gosec // no symlinks in fbc
 		case 0:
-			return os.Chmod(path, pogrebV1CacheModeFile)
+			return os.Chmod(path, pogrebV1CacheModeFile) //nolint:gosec // no symbinks in fbc
 		default:
 			return nil
 		}
@@ -189,6 +189,7 @@ func (q *pogrebV1Backend) PutMeta(_ context.Context, key metaKey, blob []byte) e
 	if err != nil {
 		return fmt.Errorf("read existing meta blobs: %w", err)
 	}
+	//nolint:prealloc // bounds set
 	header := make([]byte, 4)
 	binary.BigEndian.PutUint32(header, uint32(len(protoBytes))) //#nosec G115 -- bounds checked above
 	return q.db.Put(dbKey, append(existing, append(header, protoBytes...)...))
