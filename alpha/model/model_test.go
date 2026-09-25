@@ -639,12 +639,77 @@ func TestValidators(t *testing.T) {
 				Name:      "anakin.v0.1.0",
 				Image:     "registry.io/image",
 				Replaces:  "anakin.v0.0.1",
-				SkipRange: ">=1.0.0 <2.0.0",
+				SkipRange: ">=0.0.1 <0.1.0",
+				Version:   semver.MustParse("0.1.0"),
 				Properties: []property.Property{
 					property.MustBuildPackage("anakin", "0.1.0"),
 				},
 			},
 			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/SkipRangeUpperBoundEqualVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v0.1.0",
+				Image:     "registry.io/image",
+				SkipRange: "<0.1.0",
+				Version:   semver.MustParse("0.1.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/LegacySkipRangeUpperBoundEqualRelease",
+			v: &Bundle{
+				Package:              pkg,
+				Channel:              ch,
+				Name:                 "anakin-v7.10.2-opr-2-0.1676475747.p",
+				Image:                "registry.io/image",
+				SkipRange:            "<7.10.2-opr-2+0.1676475747.p",
+				Version:              semver.MustParse("7.10.2-opr-2"),
+				Release:              semver.MustParse("0.0.0-0.1676475747.p"),
+				LegacyReleaseVersion: true,
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "7.10.2-opr-2+0.1676475747.p"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Error/LegacySkipRangeUpperBoundGreaterRelease",
+			v: &Bundle{
+				Package:              pkg,
+				Channel:              ch,
+				Name:                 "anakin-v7.10.2-opr-2-0.1676475747.p",
+				Image:                "registry.io/image",
+				SkipRange:            "<7.10.2-opr-2+0.1676475748.p",
+				Version:              semver.MustParse("7.10.2-opr-2"),
+				Release:              semver.MustParse("0.0.0-0.1676475747.p"),
+				LegacyReleaseVersion: true,
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "7.10.2-opr-2+0.1676475747.p"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "7.10.2-opr-2+0.1676475748.p" is greater than bundle version "7.10.2-opr-2"`),
+		},
+		{
+			name: "Bundle/Error/SkipRangeUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v0.1.0",
+				Image:     "registry.io/image",
+				SkipRange: ">=0.0.1 <0.1.1",
+				Version:   semver.MustParse("0.1.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "0.1.0"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "0.1.1" is greater than bundle version "0.1.0"`),
 		},
 		{
 			name: "Bundle/Error/InvalidSkipRange/LeadingV",
