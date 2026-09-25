@@ -25,7 +25,7 @@ func Provision(ctx *TestContext) (func(), error) {
 		path = filepath.Join(home, ".kube", "config")
 	}
 
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // test setup
 	// nolint:nestif
 	if os.IsNotExist(err) {
 		// try in-cluster config

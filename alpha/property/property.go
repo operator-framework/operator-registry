@@ -205,7 +205,7 @@ func Build(p interface{}) (*Property, error) {
 		val = prop.Value
 	} else {
 		t := reflect.TypeOf(p)
-		if t.Kind() != reflect.Ptr {
+		if t.Kind() != reflect.Ptr { //nolint:govet // inline warning
 			return nil, errors.New("input must be a pointer to a type")
 		}
 		typ, ok = scheme[t]
