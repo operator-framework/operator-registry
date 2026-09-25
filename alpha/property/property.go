@@ -85,6 +85,13 @@ type CSVMetadata struct {
 	Provider                  v1alpha1.AppLink                   `json:"provider,omitempty"`
 }
 
+func (m CSVMetadata) MarshalJSON() ([]byte, error) {
+	type csvMetadata CSVMetadata
+	m.APIServiceDefinitions = minifyAPIServices(m.APIServiceDefinitions)
+	m.CustomResourceDefinitions = minifyCustomResourceDefinitions(m.CustomResourceDefinitions)
+	return jsonMarshal(csvMetadata(m))
+}
+
 type Properties struct {
 	Packages         []Package         `hash:"set"`
 	PackagesRequired []PackageRequired `hash:"set"`
@@ -277,4 +284,47 @@ func MustBuildCSVMetadata(csv v1alpha1.ClusterServiceVersion) Property {
 		NativeAPIs:                csv.Spec.NativeAPIs,
 		Provider:                  csv.Spec.Provider,
 	})
+}
+
+func minifyAPIServices(apis v1alpha1.APIServiceDefinitions) v1alpha1.APIServiceDefinitions {
+	minify := func(descriptions []v1alpha1.APIServiceDescription) []v1alpha1.APIServiceDescription {
+		minified := make([]v1alpha1.APIServiceDescription, len(descriptions))
+		for i, description := range descriptions {
+			minified[i] = v1alpha1.APIServiceDescription{
+				Name:        description.Name,
+				Group:       description.Group,
+				Version:     description.Version,
+				Kind:        description.Kind,
+				DisplayName: description.DisplayName,
+				Description: description.Description,
+			}
+		}
+		return minified
+	}
+
+	return v1alpha1.APIServiceDefinitions{
+		Owned:    minify(apis.Owned),
+		Required: minify(apis.Required),
+	}
+}
+
+func minifyCustomResourceDefinitions(crds v1alpha1.CustomResourceDefinitions) v1alpha1.CustomResourceDefinitions {
+	minify := func(descriptions []v1alpha1.CRDDescription) []v1alpha1.CRDDescription {
+		minified := make([]v1alpha1.CRDDescription, len(descriptions))
+		for i, description := range descriptions {
+			minified[i] = v1alpha1.CRDDescription{
+				Name:        description.Name,
+				Version:     description.Version,
+				Kind:        description.Kind,
+				DisplayName: description.DisplayName,
+				Description: description.Description,
+			}
+		}
+		return minified
+	}
+
+	return v1alpha1.CustomResourceDefinitions{
+		Owned:    minify(crds.Owned),
+		Required: minify(crds.Required),
+	}
 }

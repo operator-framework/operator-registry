@@ -11,6 +11,24 @@ import (
 
 func bundleObjectToCSVMetadata(cfg *declcfg.DeclarativeConfig) error {
 	convertBundleObjectToCSVMetadata := func(b *declcfg.Bundle) error {
+		foundCSVMetadata := false
+		for pi := range b.Properties {
+			if b.Properties[pi].Type != property.TypeCSVMetadata {
+				continue
+			}
+
+			var metadata property.CSVMetadata
+			if err := json.Unmarshal(b.Properties[pi].Value, &metadata); err != nil {
+				return err
+			}
+			b.Properties[pi] = property.MustBuild(&metadata)
+			foundCSVMetadata = true
+		}
+		if foundCSVMetadata {
+			// If this bundle already has a CSV metadata property, don't mutate
+			// anything other than minifying that property.
+			return nil
+		}
 		if b.Image == "" || b.CsvJSON == "" {
 			return nil
 		}
@@ -22,15 +40,7 @@ func bundleObjectToCSVMetadata(cfg *declcfg.DeclarativeConfig) error {
 
 		props := b.Properties[:0]
 		for _, p := range b.Properties {
-			switch p.Type {
-			case property.TypeBundleObject:
-				// Get rid of the bundle objects
-			case property.TypeCSVMetadata:
-				// If this bundle already has a CSV metadata
-				// property, we won't mutate the bundle at all.
-				return nil
-			default:
-				// Keep all of the other properties
+			if p.Type != property.TypeBundleObject {
 				props = append(props, p)
 			}
 		}

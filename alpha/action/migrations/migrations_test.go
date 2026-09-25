@@ -71,6 +71,32 @@ func TestMigrations(t *testing.T) {
 	}
 }
 
+func TestBundleObjectToCSVMetadataMinifiesExistingMetadataWithoutCSVJSON(t *testing.T) {
+	csvMetadata := mustBuildCSVMetadata(bytes.NewReader(fooRawCsv))
+	var metadata property.CSVMetadata
+	require.NoError(t, json.Unmarshal(csvMetadata.Value, &metadata))
+	metadata.CustomResourceDefinitions.Owned[0].Resources = []v1alpha1.APIResourceReference{{
+		Name:    "foos",
+		Kind:    "Foo",
+		Version: "v1",
+	}}
+
+	catalog := declcfg.DeclarativeConfig{Bundles: []declcfg.Bundle{{
+		Image: "quay.io/example/foo:v0.1.0",
+		Properties: []property.Property{
+			property.MustBuildBundleObject(fooRawCsv),
+			property.MustBuild(&metadata),
+		},
+	}}}
+
+	require.NoError(t, bundleObjectToCSVMetadata(&catalog))
+	require.Len(t, catalog.Bundles[0].Properties, 2)
+
+	var migrated property.CSVMetadata
+	require.NoError(t, json.Unmarshal(catalog.Bundles[0].Properties[1].Value, &migrated))
+	require.Empty(t, migrated.CustomResourceDefinitions.Owned[0].Resources)
+}
+
 func mustBuildCSVMetadata(r io.Reader) property.Property {
 	var csv v1alpha1.ClusterServiceVersion
 	if err := json.NewDecoder(r).Decode(&csv); err != nil {
