@@ -117,7 +117,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/google/cel-go v0.29.2 // indirect
+	github.com/google/cel-go v0.31.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-containerregistry v0.21.6 // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
@@ -220,3 +220,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.3 // indirect
 )
+
+// TODO: drop this replace once https://github.com/operator-framework/api/pull/524 (OPRUN-4764) merges
+// and a release of github.com/operator-framework/api carries RelatedImage.Labels.
+replace github.com/operator-framework/api => github.com/hongkailiu/operator-framework-api v0.0.0-20260915192809-dc0d2ebcaa20
