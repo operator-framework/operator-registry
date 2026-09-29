@@ -663,6 +663,141 @@ func TestValidators(t *testing.T) {
 			assertion: require.NoError,
 		},
 		{
+			name: "Bundle/Error/SkipRangeWildcardUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.0.0",
+				Image:     "registry.io/image",
+				SkipRange: "<=1.0.x",
+				Version:   semver.MustParse("1.0.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.0.0"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "1.0.x" is greater than bundle version "1.0.0"`),
+		},
+		{
+			name: "Bundle/Success/SkipRangeWildcardUpperBoundEqualVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.1.0",
+				Image:     "registry.io/image",
+				SkipRange: "<=1.0.x",
+				Version:   semver.MustParse("1.1.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.1.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/SkipRangeStrictWildcardUpperBoundEqualVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.0.0",
+				Image:     "registry.io/image",
+				SkipRange: "<1.0.x",
+				Version:   semver.MustParse("1.0.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.0.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Error/SkipRangeMinorWildcardUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.9.9",
+				Image:     "registry.io/image",
+				SkipRange: "<=1.x",
+				Version:   semver.MustParse("1.9.9"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.9.9"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "1.x" is greater than bundle version "1.9.9"`),
+		},
+		{
+			name: "Bundle/Error/SkipRangeRepeatedWildcardUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.0.0",
+				Image:     "registry.io/image",
+				SkipRange: "<=1.x.x",
+				Version:   semver.MustParse("1.0.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.0.0"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "1.x.x" is greater than bundle version "1.0.0"`),
+		},
+		{
+			name: "Bundle/Error/SkipRangeBareWildcardUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.9.9",
+				Image:     "registry.io/image",
+				SkipRange: "1.x",
+				Version:   semver.MustParse("1.9.9"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.9.9"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "1.x" is greater than bundle version "1.9.9"`),
+		},
+		{
+			name: "Bundle/Error/SkipRangeEqualityWildcardUpperBoundGreaterThanVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.0.0",
+				Image:     "registry.io/image",
+				SkipRange: "=1.0.x",
+				Version:   semver.MustParse("1.0.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.0.0"),
+				},
+			},
+			assertion: hasError(`skipRange upper bound "1.0.x" is greater than bundle version "1.0.0"`),
+		},
+		{
+			name: "Bundle/Success/SkipRangeSpacedWildcardUpperBoundEqualVersion",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.2.0",
+				Image:     "registry.io/image",
+				SkipRange: "< 1.2.x",
+				Version:   semver.MustParse("1.2.0"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.2.0"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
+			name: "Bundle/Success/SkipRangeSpacedWildcardLowerBound",
+			v: &Bundle{
+				Package:   pkg,
+				Channel:   ch,
+				Name:      "anakin.v1.9.9",
+				Image:     "registry.io/image",
+				SkipRange: "> 1.x",
+				Version:   semver.MustParse("1.9.9"),
+				Properties: []property.Property{
+					property.MustBuildPackage("anakin", "1.9.9"),
+				},
+			},
+			assertion: require.NoError,
+		},
+		{
 			name: "Bundle/Success/LegacySkipRangeUpperBoundEqualRelease",
 			v: &Bundle{
 				Package:              pkg,

@@ -452,30 +452,102 @@ var validateSkipRange = func(b *Bundle) error {
 }
 
 var skipRangeUpperBoundPattern = regexp.MustCompile(`(^|[\s|])<\s*=?\s*(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)`)
+var skipRangeWildcardPattern = regexp.MustCompile(`(^|[\s|])(<\s*=?|>\s*=?|==|=|!=|!)?\s*(\d+\.\d+\.x|\d+\.x\.x|\d+\.x)`)
 
 func validateSkipRangeUpperBound(bundle *Bundle) error {
 	for _, match := range skipRangeUpperBoundPattern.FindAllStringSubmatch(bundle.SkipRange, -1) {
-		upperBound, err := semver.Parse(match[2])
+		rawUpperBound := match[2]
+		upperBound, err := semver.Parse(rawUpperBound)
 		if err != nil {
 			continue
 		}
-
-		upperVersion := VersionRelease{Version: upperBound}
-		if bundle.LegacyReleaseVersion && len(upperBound.Build) > 0 {
-			upperVersion.Release, err = NewRelease(strings.Join(upperBound.Build, "."))
-			if err != nil {
-				return fmt.Errorf("invalid skipRange upper bound %q legacy release metadata: %v", match[2], err)
-			}
-			upperVersion.Version.Build = nil
+		if err := validateSkipRangeUpperBoundVersion(bundle, rawUpperBound, upperBound); err != nil {
+			return err
 		}
-		bundleVersion := VersionRelease{Version: bundle.Version, Release: Release(bundle.Release.Pre)}
-		if upperVersion.Compare(&bundleVersion) <= 0 {
+	}
+
+	// ParseRange expands wildcard comparators before validating the resulting range.
+	// Check explicit upper comparators and bare/equality forms that imply an upper
+	// bound, while leaving wildcard lower bounds unchanged.
+	for _, match := range skipRangeWildcardPattern.FindAllStringSubmatch(bundle.SkipRange, -1) {
+		operator := strings.TrimSpace(match[2])
+		rawUpperBound := match[3]
+		switch operator {
+		case "", "=", "==":
+			// Bare and equality wildcard versions expand to a half-open range.
+			operator = "<="
+		case "<", "<=":
+			// These comparators have a finite upper bound.
+		default:
+			// Greater-than and not-equal wildcards do not add an upper bound.
 			continue
 		}
-
-		return fmt.Errorf("skipRange upper bound %q is greater than bundle version %q", match[2], bundle.Version.String())
+		upperBound, err := normalizeSkipRangeUpperBound(operator, rawUpperBound)
+		if err != nil {
+			continue
+		}
+		if err := validateSkipRangeUpperBoundVersion(bundle, rawUpperBound, upperBound); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func validateSkipRangeUpperBoundVersion(bundle *Bundle, rawUpperBound string, upperBound semver.Version) error {
+	upperVersion := VersionRelease{Version: upperBound}
+	if bundle.LegacyReleaseVersion && len(upperBound.Build) > 0 {
+		var err error
+		upperVersion.Release, err = NewRelease(strings.Join(upperBound.Build, "."))
+		if err != nil {
+			return fmt.Errorf("invalid skipRange upper bound %q legacy release metadata: %v", rawUpperBound, err)
+		}
+		upperVersion.Version.Build = nil
+	}
+	bundleVersion := VersionRelease{Version: bundle.Version, Release: Release(bundle.Release.Pre)}
+	if upperVersion.Compare(&bundleVersion) <= 0 {
+		return nil
+	}
+	return fmt.Errorf("skipRange upper bound %q is greater than bundle version %q", rawUpperBound, bundle.Version.String())
+}
+
+func normalizeSkipRangeUpperBound(operator, rawUpperBound string) (semver.Version, error) {
+	if !strings.Contains(rawUpperBound, "x") {
+		return semver.Parse(rawUpperBound)
+	}
+
+	parts := strings.Split(rawUpperBound, ".")
+	wildcardComponents := len(parts)
+	switch wildcardComponents {
+	case 2:
+		if parts[1] != "x" {
+			return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+		}
+		parts = []string{parts[0], "0", "0"}
+	case 3:
+		if parts[2] != "x" {
+			return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+		}
+		for i := range parts {
+			if parts[i] == "x" {
+				parts[i] = "0"
+			}
+		}
+	default:
+		return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+	}
+
+	upperBound, err := semver.Parse(strings.Join(parts, "."))
+	if err != nil {
+		return semver.Version{}, err
+	}
+	if operator == "<=" {
+		if wildcardComponents == 2 {
+			upperBound.Major++
+		} else {
+			upperBound.Minor++
+		}
+	}
+	return upperBound, nil
 }
 
 type RelatedImage struct {
