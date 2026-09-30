@@ -445,10 +445,8 @@ func (b *Bundle) Validate() error {
 var validateSkipRange = func(b *Bundle) error {
 	if _, err := semver.ParseRange(b.SkipRange); err != nil {
 		return fmt.Errorf("invalid skipRange %q: %v", b.SkipRange, err)
-	} else if err := validateSkipRangeUpperBound(b); err != nil {
-		return err
 	}
-	return nil
+	return validateSkipRangeUpperBound(b)
 }
 
 var skipRangeUpperBoundPattern = regexp.MustCompile(`(^|[\s|])<\s*=?\s*(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)`)
