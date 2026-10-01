@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -333,6 +334,9 @@ type Bundle struct {
 	PropertiesP *property.Properties
 	Version     semver.Version
 	Release     semver.Version
+	// LegacyReleaseVersion indicates that build metadata was converted to Release
+	// because the bundle uses the legacy substitutesFor release convention.
+	LegacyReleaseVersion bool
 }
 
 func (b *Bundle) VersionString() string {
@@ -351,7 +355,7 @@ func (b *Bundle) normalizeName() string {
 	// if the bundle has release versioning, then the name must include this in standard form:
 	// <package-name>-v<version>-<release version>
 	// if no release versioning exists, then just return the bundle name
-	if len(b.Release.Pre) > 0 {
+	if len(b.Release.Pre) > 0 && !b.LegacyReleaseVersion {
 		return strings.Join([]string{b.Package.Name, "v" + b.VersionString()}, "-")
 	}
 	return b.Name
@@ -405,8 +409,8 @@ func (b *Bundle) Validate() error {
 		}
 	}
 	if b.SkipRange != "" {
-		if _, err := semver.ParseRange(b.SkipRange); err != nil {
-			result.subErrors = append(result.subErrors, fmt.Errorf("invalid skipRange %q: %v", b.SkipRange, err))
+		if err := validateSkipRange(b); err != nil {
+			result.subErrors = append(result.subErrors, err)
 		}
 	}
 	// TODO(joelanford): Validate related images? It looks like some
@@ -436,6 +440,112 @@ func (b *Bundle) Validate() error {
 	}
 
 	return result.orNil()
+}
+
+var validateSkipRange = func(b *Bundle) error {
+	if _, err := semver.ParseRange(b.SkipRange); err != nil {
+		return fmt.Errorf("invalid skipRange %q: %v", b.SkipRange, err)
+	}
+	return validateSkipRangeUpperBound(b)
+}
+
+var skipRangeUpperBoundPattern = regexp.MustCompile(`(^|[\s|])<\s*=?\s*(\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)`)
+var skipRangeWildcardPattern = regexp.MustCompile(`(^|[\s|])(<\s*=?|>\s*=?|==|=|!=|!)?\s*(\d+\.\d+\.x|\d+\.x\.x|\d+\.x)`)
+
+func validateSkipRangeUpperBound(bundle *Bundle) error {
+	for _, match := range skipRangeUpperBoundPattern.FindAllStringSubmatch(bundle.SkipRange, -1) {
+		rawUpperBound := match[2]
+		upperBound, err := semver.Parse(rawUpperBound)
+		if err != nil {
+			continue
+		}
+		if err := validateSkipRangeUpperBoundVersion(bundle, rawUpperBound, upperBound); err != nil {
+			return err
+		}
+	}
+
+	// ParseRange expands wildcard comparators before validating the resulting range.
+	// Check explicit upper comparators and bare/equality forms that imply an upper
+	// bound, while leaving wildcard lower bounds unchanged.
+	for _, match := range skipRangeWildcardPattern.FindAllStringSubmatch(bundle.SkipRange, -1) {
+		operator := strings.TrimSpace(match[2])
+		rawUpperBound := match[3]
+		switch operator {
+		case "", "=", "==":
+			// Bare and equality wildcard versions expand to a half-open range.
+			operator = "<="
+		case "<", "<=":
+			// These comparators have a finite upper bound.
+		default:
+			// Greater-than and not-equal wildcards do not add an upper bound.
+			continue
+		}
+		upperBound, err := normalizeSkipRangeUpperBound(operator, rawUpperBound)
+		if err != nil {
+			continue
+		}
+		if err := validateSkipRangeUpperBoundVersion(bundle, rawUpperBound, upperBound); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSkipRangeUpperBoundVersion(bundle *Bundle, rawUpperBound string, upperBound semver.Version) error {
+	upperVersion := VersionRelease{Version: upperBound}
+	if bundle.LegacyReleaseVersion && len(upperBound.Build) > 0 {
+		var err error
+		upperVersion.Release, err = NewRelease(strings.Join(upperBound.Build, "."))
+		if err != nil {
+			return fmt.Errorf("invalid skipRange upper bound %q legacy release metadata: %v", rawUpperBound, err)
+		}
+		upperVersion.Version.Build = nil
+	}
+	bundleVersion := VersionRelease{Version: bundle.Version, Release: Release(bundle.Release.Pre)}
+	if upperVersion.Compare(&bundleVersion) <= 0 {
+		return nil
+	}
+	return fmt.Errorf("skipRange upper bound %q is greater than bundle version %q", rawUpperBound, bundle.Version.String())
+}
+
+func normalizeSkipRangeUpperBound(operator, rawUpperBound string) (semver.Version, error) {
+	if !strings.Contains(rawUpperBound, "x") {
+		return semver.Parse(rawUpperBound)
+	}
+
+	parts := strings.Split(rawUpperBound, ".")
+	wildcardComponents := len(parts)
+	switch wildcardComponents {
+	case 2:
+		if parts[1] != "x" {
+			return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+		}
+		parts = []string{parts[0], "0", "0"}
+	case 3:
+		if parts[2] != "x" {
+			return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+		}
+		for i := range parts {
+			if parts[i] == "x" {
+				parts[i] = "0"
+			}
+		}
+	default:
+		return semver.Version{}, fmt.Errorf("unsupported wildcard upper bound %q", rawUpperBound)
+	}
+
+	upperBound, err := semver.Parse(strings.Join(parts, "."))
+	if err != nil {
+		return semver.Version{}, err
+	}
+	if operator == "<=" {
+		if wildcardComponents == 2 {
+			upperBound.Major++
+		} else {
+			upperBound.Minor++
+		}
+	}
+	return upperBound, nil
 }
 
 type RelatedImage struct {
