@@ -29,7 +29,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
-	github.com/tidwall/btree v1.8.1
+	github.com/tidwall/btree v1.8.2
 	go.etcd.io/bbolt v1.5.0
 	go.podman.io/common v0.69.2
 	go.podman.io/image/v5 v5.41.2
