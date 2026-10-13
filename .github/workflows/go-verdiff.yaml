@@ -2,6 +2,7 @@ name: go-verdiff
 on:
   pull_request:
     branches:
+    - main
     - master
 jobs:
   go-verdiff:
