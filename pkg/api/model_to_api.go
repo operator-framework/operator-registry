@@ -204,8 +204,9 @@ func convertModelRelatedImagesToCSVRelatedImages(in []model.RelatedImage) []v1al
 	var out []v1alpha1.RelatedImage
 	for _, ri := range in {
 		out = append(out, v1alpha1.RelatedImage{
-			Name:  ri.Name,
-			Image: ri.Image,
+			Name:   ri.Name,
+			Image:  ri.Image,
+			Labels: ri.Labels,
 		})
 	}
 	return out

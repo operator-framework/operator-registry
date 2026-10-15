@@ -270,8 +270,9 @@ func relatedImagesToModelRelatedImages(in []RelatedImage) []model.RelatedImage {
 	var out []model.RelatedImage
 	for _, p := range in {
 		out = append(out, model.RelatedImage{
-			Name:  p.Name,
-			Image: p.Image,
+			Name:   p.Name,
+			Image:  p.Image,
+			Labels: p.Labels,
 		})
 	}
 	return out

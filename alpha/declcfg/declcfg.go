@@ -101,6 +101,13 @@ type Bundle struct {
 type RelatedImage struct {
 	Name  string `json:"name"`
 	Image string `json:"image"`
+
+	// Labels classify this related image, for instance, by the product
+	// features it belongs to. Keys and values follow the Kubernetes label
+	// syntax and constraints. The semantics of the labels is defined by
+	// their consumer, which typically picks related images with Kubernetes
+	// label selectors.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type Deprecation struct {
