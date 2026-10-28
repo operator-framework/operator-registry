@@ -13,7 +13,7 @@ require (
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4
-	github.com/grpc-ecosystem/grpc-health-probe v0.4.59
+	github.com/grpc-ecosystem/grpc-health-probe v0.4.60
 	github.com/h2non/filetype v1.1.3
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
 	github.com/joelanford/ignore v0.1.2
@@ -163,7 +163,7 @@ require (
 	github.com/sigstore/protobuf-specs v0.5.2 // indirect
 	github.com/sigstore/sigstore v1.10.11 // indirect
 	github.com/smallstep/pkcs7 v0.2.1 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.8.2 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6 // indirect
 	github.com/ulikunitz/xz v0.5.17 // indirect
 	github.com/vbatts/tar-split v0.12.3 // indirect
