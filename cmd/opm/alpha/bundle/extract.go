@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/pkg/configmap"
+	"github.com/operator-framework/operator-registry/v2/pkg/configmap"
 )
 
 var extractCmd = &cobra.Command{

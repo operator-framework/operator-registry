@@ -11,8 +11,8 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
-	libsemver "github.com/operator-framework/operator-registry/pkg/lib/semver"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	libsemver "github.com/operator-framework/operator-registry/v2/pkg/lib/semver"
 )
 
 type Dependencies struct {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators"
 
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
+	prettyunmarshaler "github.com/operator-framework/operator-registry/v2/pkg/prettyunmarshaler"
 )
 
 const (

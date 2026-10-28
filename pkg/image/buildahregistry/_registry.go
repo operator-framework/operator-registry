@@ -13,7 +13,7 @@ import (
 	"go.podman.io/image/v5/types"
 	"go.podman.io/storage"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 // Registry enables manipulation of images via containerd modules.

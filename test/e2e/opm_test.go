@@ -13,11 +13,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/v2/pkg/containertools"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/execregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/bundle"
 )
 
 var (

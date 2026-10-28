@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 // Helper function to create a mock template for testing

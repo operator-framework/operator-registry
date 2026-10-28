@@ -14,10 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/operator-framework/operator-registry/alpha/template/api"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/api"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 // Schema

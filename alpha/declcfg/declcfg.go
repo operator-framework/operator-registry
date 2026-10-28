@@ -12,10 +12,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
-	prettyunmarshaler "github.com/operator-framework/operator-registry/pkg/prettyunmarshaler"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/alpha/model"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
+	prettyunmarshaler "github.com/operator-framework/operator-registry/v2/pkg/prettyunmarshaler"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 // Re-export VersionRelease/Release types/functions from model package to make it possible for users to only include this package and avoid import cycles

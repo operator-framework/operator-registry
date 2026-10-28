@@ -3,7 +3,7 @@ package bundle
 import (
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 // BundleImageValidator provides a toolset for pulling and then validating

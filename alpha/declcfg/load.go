@@ -17,7 +17,7 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators"
 
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 const (

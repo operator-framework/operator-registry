@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/log"
 )
 
 func TestPogrebV1_StableDigest(t *testing.T) {

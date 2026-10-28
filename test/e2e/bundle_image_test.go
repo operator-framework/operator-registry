@@ -21,9 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/operator-framework/operator-registry/pkg/configmap"
-	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
-	"github.com/operator-framework/operator-registry/test/e2e/ctx"
+	"github.com/operator-framework/operator-registry/v2/pkg/configmap"
+	unstructuredlib "github.com/operator-framework/operator-registry/v2/pkg/lib/unstructured"
+	"github.com/operator-framework/operator-registry/v2/test/e2e/ctx"
 )
 
 var builderCmd string

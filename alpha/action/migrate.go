@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/operator-framework/operator-registry/alpha/action/migrations"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/alpha/action/migrations"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 type Migrate struct {

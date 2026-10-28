@@ -10,9 +10,9 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/lib/encoding"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/encoding"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 func NewBundleLoader() *BundleLoader {

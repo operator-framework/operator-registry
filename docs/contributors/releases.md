@@ -16,6 +16,17 @@ $ git tag -a -m "operator-registry vX.Y.Z" vX.Y.Z
 $ git push upstream vX.Y.Z
 ```
 
+## Go module v2
+
+The module path for v2 releases is `github.com/operator-framework/operator-registry/v2`.
+Consumers must use this path in both `go.mod` and Go imports. The existing
+`v2.0.0-alpha-1` and `v2.0.0-alpha-2` tags precede the module path change and
+cannot be used as v2 Go modules. Do not move those tags; publish a new v2 tag
+from a commit containing the updated `go.mod` instead.
+
+This module version is separate from OLM v1 features and the `registry+v1`
+bundle media type described elsewhere in the documentation.
+
 ## Checking the build
 
 Builds for a release can be found [on GitHub Actions](https://github.com/operator-framework/operator-registry/actions). After triggering a build, watch for logs. If the build is successful, a new [release](https://github.com/operator-framework/operator-registry/releases) should appear in GitHub. It will be a draft release, so once all the artifacts are available you need to edit the release to publish the draft.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 type ImageInput struct {

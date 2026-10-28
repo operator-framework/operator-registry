@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 type Deprecation struct {

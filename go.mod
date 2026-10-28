@@ -1,4 +1,4 @@
-module github.com/operator-framework/operator-registry
+module github.com/operator-framework/operator-registry/v2
 
 go 1.26.5
 

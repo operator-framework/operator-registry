@@ -24,9 +24,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	fbccache "github.com/operator-framework/operator-registry/pkg/cache"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	fbccache "github.com/operator-framework/operator-registry/v2/pkg/cache"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 const (

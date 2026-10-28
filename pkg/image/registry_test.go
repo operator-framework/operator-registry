@@ -25,10 +25,10 @@ import (
 	"go.podman.io/image/v5/types"
 	"golang.org/x/mod/sumdb/dirhash"
 
-	libimage "github.com/operator-framework/operator-registry/internal/testutil/image"
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
+	libimage "github.com/operator-framework/operator-registry/v2/internal/testutil/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containersimageregistry"
 )
 
 // cleanupFunc is a function that cleans up after some test infra.

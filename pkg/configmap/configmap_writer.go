@@ -13,9 +13,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
-	"github.com/operator-framework/operator-registry/pkg/client"
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
-	"github.com/operator-framework/operator-registry/pkg/lib/encoding"
+	"github.com/operator-framework/operator-registry/v2/pkg/client"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/encoding"
 )
 
 // configmap keys can contain underscores, but configmap names can not

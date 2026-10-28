@@ -3,11 +3,11 @@ package alpha
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/bundle"
-	converttemplate "github.com/operator-framework/operator-registry/cmd/opm/alpha/convert-template"
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/list"
-	rendergraph "github.com/operator-framework/operator-registry/cmd/opm/alpha/render-graph"
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha/template"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/alpha/bundle"
+	converttemplate "github.com/operator-framework/operator-registry/v2/cmd/opm/alpha/convert-template"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/alpha/list"
+	rendergraph "github.com/operator-framework/operator-registry/v2/cmd/opm/alpha/render-graph"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/alpha/template"
 )
 
 func NewCmd(showAlphaHelp bool) *cobra.Command {

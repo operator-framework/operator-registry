@@ -8,10 +8,10 @@ import (
 	"github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/image/execregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/containertools"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/execregistry"
 )
 
 // BundleExporter exports the manifests of a bundle image into a directory

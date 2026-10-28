@@ -4,7 +4,7 @@ package containertoolsfakes
 import (
 	"sync"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/v2/pkg/containertools"
 )
 
 type FakeDockerfileGenerator struct {

@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	fbccache "github.com/operator-framework/operator-registry/pkg/cache"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	fbccache "github.com/operator-framework/operator-registry/v2/pkg/cache"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 // The X-Acknowledge-Experimental request header is expected when calling experimental endpoints.

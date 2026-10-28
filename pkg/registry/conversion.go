@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
 )
 
 func PackageManifestToAPIPackage(manifest *PackageManifest) *api.Package {

@@ -12,8 +12,8 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 func TestMigrations(t *testing.T) {
