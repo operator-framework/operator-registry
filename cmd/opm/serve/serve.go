@@ -21,11 +21,11 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	"github.com/operator-framework/operator-registry/pkg/cache"
-	"github.com/operator-framework/operator-registry/pkg/lib/dns"
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
-	"github.com/operator-framework/operator-registry/pkg/server"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	"github.com/operator-framework/operator-registry/v2/pkg/cache"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/dns"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/v2/pkg/server"
 )
 
 type serve struct {

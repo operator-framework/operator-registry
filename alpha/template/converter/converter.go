@@ -8,9 +8,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/operator-framework/operator-registry/alpha/template/basic"
-	"github.com/operator-framework/operator-registry/alpha/template/substitutes"
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/basic"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/substitutes"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 type Converter struct {

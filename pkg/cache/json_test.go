@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/log"
 )
 
 func TestJSON_StableDigest(t *testing.T) {

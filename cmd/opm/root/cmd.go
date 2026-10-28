@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/operator-framework/operator-registry/cmd/opm/alpha"
-	"github.com/operator-framework/operator-registry/cmd/opm/generate"
-	initcmd "github.com/operator-framework/operator-registry/cmd/opm/init"
-	"github.com/operator-framework/operator-registry/cmd/opm/migrate"
-	"github.com/operator-framework/operator-registry/cmd/opm/render"
-	"github.com/operator-framework/operator-registry/cmd/opm/serve"
-	"github.com/operator-framework/operator-registry/cmd/opm/validate"
-	"github.com/operator-framework/operator-registry/cmd/opm/version"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/alpha"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/generate"
+	initcmd "github.com/operator-framework/operator-registry/v2/cmd/opm/init"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/migrate"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/render"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/serve"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/validate"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/version"
 )
 
 func NewCmd(showAlphaHelp bool) *cobra.Command {

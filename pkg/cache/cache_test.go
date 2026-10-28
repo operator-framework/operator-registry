@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/operator-framework/operator-registry/pkg/lib/log"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/log"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 func TestCache_GetBundle(t *testing.T) {

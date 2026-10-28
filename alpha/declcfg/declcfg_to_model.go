@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/model"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 func ConvertToModel(cfg DeclarativeConfig) (model.Model, error) {

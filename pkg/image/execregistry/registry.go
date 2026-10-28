@@ -5,8 +5,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-registry/pkg/containertools"
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/containertools"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 // CommandRunner provides some basic methods for manipulating images via an external container tool.

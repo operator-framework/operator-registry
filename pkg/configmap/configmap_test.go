@@ -12,8 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/operator-framework/operator-registry/pkg/api"
-	unstructuredlib "github.com/operator-framework/operator-registry/pkg/lib/unstructured"
+	"github.com/operator-framework/operator-registry/v2/pkg/api"
+	unstructuredlib "github.com/operator-framework/operator-registry/v2/pkg/lib/unstructured"
 )
 
 const (

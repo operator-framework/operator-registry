@@ -22,7 +22,7 @@ import (
 	"go.podman.io/image/v5/types"
 	"oras.land/oras-go/v2/content/oci"
 
-	orimage "github.com/operator-framework/operator-registry/pkg/image"
+	orimage "github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 var _ orimage.Registry = (*Registry)(nil)

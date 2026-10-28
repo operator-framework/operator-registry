@@ -3,8 +3,8 @@ package template
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/alpha/action/migrations"
-	alphatemplate "github.com/operator-framework/operator-registry/alpha/template"
+	"github.com/operator-framework/operator-registry/v2/alpha/action/migrations"
+	alphatemplate "github.com/operator-framework/operator-registry/v2/alpha/template"
 )
 
 func NewCmd() *cobra.Command {

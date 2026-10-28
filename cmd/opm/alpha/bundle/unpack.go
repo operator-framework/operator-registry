@@ -11,10 +11,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containerdregistry"
-	"github.com/operator-framework/operator-registry/pkg/lib/bundle"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/internal/util"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containerdregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/bundle"
 )
 
 func newBundleUnpackCmd() *cobra.Command {

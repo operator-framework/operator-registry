@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
-	"github.com/operator-framework/operator-registry/pkg/image/containersimageregistry"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/pkg/image/containersimageregistry"
 )
 
 // GetTLSOptions validates and returns TLS options set by opm flags

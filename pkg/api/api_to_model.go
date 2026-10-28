@@ -7,8 +7,8 @@ import (
 
 	"github.com/blang/semver/v4"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/model"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 func ConvertAPIBundleToModelBundle(b *Bundle) (*model.Bundle, error) {

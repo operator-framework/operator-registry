@@ -9,8 +9,8 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
-	"github.com/operator-framework/operator-registry/alpha/property"
-	"github.com/operator-framework/operator-registry/pkg/image"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
 )
 
 func TestObjectsAndPropertiesFromBundle(t *testing.T) {

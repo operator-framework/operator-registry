@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/alpha/template/converter"
-	"github.com/operator-framework/operator-registry/cmd/opm/internal/util"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/converter"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/internal/util"
 )
 
 func NewCmd() *cobra.Command {

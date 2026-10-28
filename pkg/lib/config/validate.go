@@ -4,7 +4,7 @@ import (
 	"context"
 	"io/fs"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
 )
 
 // Validate takes a filesystem containing the declarative config file(s)

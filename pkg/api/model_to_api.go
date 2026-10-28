@@ -11,8 +11,8 @@ import (
 	"github.com/operator-framework/api/pkg/operators"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
-	"github.com/operator-framework/operator-registry/alpha/model"
-	"github.com/operator-framework/operator-registry/alpha/property"
+	"github.com/operator-framework/operator-registry/v2/alpha/model"
+	"github.com/operator-framework/operator-registry/v2/alpha/property"
 )
 
 func ConvertModelBundleToAPIBundle(b model.Bundle) (*Bundle, error) {

@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	opmroot "github.com/operator-framework/operator-registry/cmd/opm/root"
-	"github.com/operator-framework/operator-registry/test/e2e/ctx"
+	opmroot "github.com/operator-framework/operator-registry/v2/cmd/opm/root"
+	"github.com/operator-framework/operator-registry/v2/test/e2e/ctx"
 )
 
 // quay.io is the default registry used if no local registry endpoint is provided

@@ -23,9 +23,9 @@ import (
 	v1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v "github.com/operator-framework/api/pkg/validation"
 
-	"github.com/operator-framework/operator-registry/pkg/image"
-	validation "github.com/operator-framework/operator-registry/pkg/lib/validation"
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/image"
+	validation "github.com/operator-framework/operator-registry/v2/pkg/lib/validation"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	"github.com/operator-framework/operator-registry/cmd/opm/root"
-	registrylib "github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/cmd/opm/root"
+	registrylib "github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 func main() {

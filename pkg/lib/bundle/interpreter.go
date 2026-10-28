@@ -5,7 +5,7 @@ import (
 	"path"
 	"sort"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 type bundleDirInterpreter struct {

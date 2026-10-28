@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
+	"github.com/operator-framework/operator-registry/v2/alpha/declcfg"
 )
 
 // BundleRenderer defines the function signature for rendering a string containing a bundle image/path/file into a DeclarativeConfig fragment

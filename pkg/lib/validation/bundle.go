@@ -9,7 +9,7 @@ import (
 	"github.com/operator-framework/api/pkg/validation/errors"
 	interfaces "github.com/operator-framework/api/pkg/validation/interfaces"
 
-	"github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/v2/pkg/registry"
 )
 
 var RegistryBundleValidator interfaces.Validator = interfaces.ValidatorFunc(validateBundles)

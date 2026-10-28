@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
-	"github.com/operator-framework/operator-registry/pkg/lib/config"
+	"github.com/operator-framework/operator-registry/v2/pkg/lib/config"
 )
 
 const (

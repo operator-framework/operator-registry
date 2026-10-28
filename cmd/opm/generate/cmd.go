@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-registry/alpha/action"
-	"github.com/operator-framework/operator-registry/pkg/containertools"
+	"github.com/operator-framework/operator-registry/v2/alpha/action"
+	"github.com/operator-framework/operator-registry/v2/pkg/containertools"
 )
 
 func NewCmd() *cobra.Command {

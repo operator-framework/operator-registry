@@ -8,10 +8,10 @@ import (
 	"sync"
 	"text/tabwriter"
 
-	"github.com/operator-framework/operator-registry/alpha/template/api"
-	"github.com/operator-framework/operator-registry/alpha/template/basic"
-	"github.com/operator-framework/operator-registry/alpha/template/semver"
-	"github.com/operator-framework/operator-registry/alpha/template/substitutes"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/api"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/basic"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/semver"
+	"github.com/operator-framework/operator-registry/v2/alpha/template/substitutes"
 )
 
 // Re-export api types for backward compatibility
