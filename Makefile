@@ -13,8 +13,12 @@ export GRPC_HEALTH_PROBE_VERSION := $(shell $(GO) list -m github.com/grpc-ecosys
 
 .DEFAULT_GOAL := all
 
-# bingo manages consistent tooling versions for things like kind, kustomize, etc.
-include .bingo/Variables.mk
+# Tools are pinned in go.mod.
+GOLANGCI_LINT := $(GO) tool golangci-lint
+GINKGO := $(GO) tool ginkgo
+GORELEASER := $(GO) tool goreleaser
+PROTOC_GEN_GO := ./tools/protoc-gen-go
+PROTOC_GEN_GO_GRPC := ./tools/protoc-gen-go-grpc
 
 # protoc is not a go binary, so we need a custom recipe for it.
 PROTOC := ./tools/bin/protoc
@@ -97,17 +101,17 @@ sanity-check:
 
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT)
+lint:
 	$(GOLANGCI_LINT) run --build-tags=$(TAGS) $(GOLANGCI_LINT_ARGS)
 
 .PHONY: fix-lint
-fix-lint: $(GOLANGCI_LINT)
+fix-lint:
 	$(GOLANGCI_LINT) run --fix $(GOLANGCI_LINT_ARGS)
 
 .PHONY: codegen
-codegen: $(PROTOC) $(PROTOC_GEN_GO_GRPC)
-	$(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ -I ./tools/bin/include --go_out=pkg/api pkg/api/*.proto
-	$(PROTOC) --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ -I ./tools/bin/include --go-grpc_out=pkg/api pkg/api/*.proto
+codegen: $(PROTOC)
+	GO=$(GO) $(PROTOC) --plugin=protoc-gen-go=$(PROTOC_GEN_GO) -I pkg/api/ -I ./tools/bin/include --go_out=pkg/api pkg/api/*.proto
+	GO=$(GO) $(PROTOC) --plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) -I pkg/api/ -I ./tools/bin/include --go-grpc_out=pkg/api pkg/api/*.proto
 
 .PHONY: generate-fakes
 generate-fakes:
@@ -118,7 +122,7 @@ clean:
 	@rm -rf ./bin
 
 .PHONY: e2e
-e2e: $(GINKGO)
+e2e:
 	$(GINKGO) --v --randomize-all --progress --trace --randomize-suites --race $(if $(TEST),-focus '$(TEST)') -tags=$(TAGS) ./test/e2e -- $(if $(SKIPTLS),-skip-tls-verify true) $(if $(USEHTTP),-use-http true)
 
 .PHONY: release
@@ -142,24 +146,8 @@ export LATEST_IMAGE_OR_EMPTY := $(shell \
 RELEASE_GOOS := $(shell go env GOOS)
 RELEASE_ARGS ?= release --verbose --clean --snapshot -f release/goreleaser.$(RELEASE_GOOS).yaml
 
-# Note: bingo does not yet support windows (https://github.com/bwplotka/bingo/issues/26)
-# so GOOS=windows gets its own way to install goreleaser
-ifeq ($(RELEASE_GOOS), windows)
-GORELEASER := $(shell pwd)/bin/goreleaser
-release: windows-goreleaser-install
-else
-release: $(GORELEASER)
-endif
 release:
 	$(GORELEASER) $(RELEASE_ARGS)
-
-.PHONY: windows-goreleaser-install
-windows-goreleaser-install:
-	# manually install goreleaser from the bingo directory in the same way bingo (currently) installs it.
-	# This is done to ensure the same version of goreleaser is used across all platforms
-	mkdir -p $(dir $(GORELEASER))
-	@echo "(re)installing $(GORELEASER)"
-	GOWORK=off $(GO) build -mod=mod -modfile=.bingo/goreleaser.mod -o=$(GORELEASER) "github.com/goreleaser/goreleaser/v2"
 
 # tagged-or-empty returns $(1) when HEAD is assigned a non-prerelease semver tag,
 # otherwise the empty string. An empty string causes goreleaser to skip building
