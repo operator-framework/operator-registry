@@ -13,7 +13,7 @@ require (
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4
-	github.com/grpc-ecosystem/grpc-health-probe v0.4.60
+	github.com/grpc-ecosystem/grpc-health-probe v0.4.61
 	github.com/h2non/filetype v1.1.3
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c
 	github.com/joelanford/ignore v0.1.2
@@ -97,7 +97,7 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.19.1 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
@@ -199,7 +199,7 @@ require (
 	go.podman.io/storage v1.65.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
