@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "${GO:-go}" tool -modfile="$(dirname "$0")/grpc-plugin/go.mod" protoc-gen-go-grpc "$@"

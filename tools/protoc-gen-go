@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "${GO:-go}" tool protoc-gen-go "$@"
