@@ -1,4 +1,4 @@
-FROM golang:1.27.3-alpine AS builder
+FROM golang:1.27.4-alpine AS builder
 
 RUN apk update && apk add build-base git mercurial bash linux-headers
 WORKDIR /build
