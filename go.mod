@@ -1,6 +1,6 @@
 module github.com/operator-framework/operator-registry/v2
 
-go 1.26.5
+go 1.26.9
 
 require (
 	github.com/akrylysov/pogreb v0.10.2
