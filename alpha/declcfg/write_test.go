@@ -625,6 +625,38 @@ class anakin-dark-anakin.v0.1.0 skipped
 	}
 }
 
+func TestWriteMermaidChannelsDeprecationScope(t *testing.T) {
+	cfg := buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeDeprecations: true})
+
+	// boba-fett gets a channel named like the deprecated anakin channel, and is
+	// deprecated itself, next to the already deprecated anakin package.
+	cfg.Channels = append(cfg.Channels, newTestChannel("boba-fett", "light",
+		ChannelEntry{Name: testBundleName("boba-fett", "1.0.0")},
+	))
+	cfg.Deprecations = append(cfg.Deprecations, Deprecation{
+		Schema:  SchemaDeprecation,
+		Package: "boba-fett",
+		Entries: []DeprecationEntry{
+			{
+				Reference: PackageScopedReference{Schema: SchemaPackage},
+				Message:   "This package is deprecated too",
+			},
+		},
+	})
+
+	var buf bytes.Buffer
+	require.NoError(t, NewMermaidWriter().WriteChannels(cfg, &buf))
+	out := buf.String()
+
+	// the channel is only deprecated in the package that declared it
+	require.Contains(t, out, "style anakin-light fill:#DCD0FF\n")
+	require.NotContains(t, out, "style boba-fett-light ")
+
+	// every deprecated package is styled, not only the last one found
+	require.Contains(t, out, "style anakin fill:#989695\n")
+	require.Contains(t, out, "style boba-fett fill:#989695\n")
+}
+
 func TestWriteFS(t *testing.T) {
 	cfg := buildValidDeclarativeConfig(validDeclarativeConfigSpec{IncludeUnrecognized: true, IncludeDeprecations: true})
 
