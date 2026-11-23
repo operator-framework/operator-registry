@@ -116,9 +116,12 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 
 	minEdgePackage := writer.getMinEdgePackage(&cfg)
 
+	// a channel or bundle name is only unique within its package, so deprecations
+	// are tracked together with the package they were declared for
+	type scopedName struct{ pkg, name string }
 	depByPackage := sets.Set[string]{}
-	depByChannel := sets.Set[string]{}
-	depByBundle := sets.Set[string]{}
+	depByChannel := sets.Set[scopedName]{}
+	depByBundle := sets.Set[scopedName]{}
 
 	for _, d := range cfg.Deprecations {
 		for _, e := range d.Entries {
@@ -126,14 +129,14 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			case SchemaPackage:
 				depByPackage.Insert(d.Package)
 			case SchemaChannel:
-				depByChannel.Insert(e.Reference.Name)
+				depByChannel.Insert(scopedName{d.Package, e.Reference.Name})
 			case SchemaBundle:
-				depByBundle.Insert(e.Reference.Name)
+				depByBundle.Insert(scopedName{d.Package, e.Reference.Name})
 			}
 		}
 	}
 
-	var deprecatedPackage string
+	deprecatedPackages := sets.Set[string]{}
 	deprecatedChannelIDs := []string{}
 	decoratedBundleIDs := map[string][]string{"deprecated": {}, "skipped": {}, "deprecatedskipped": {}}
 	linkID := 0
@@ -154,10 +157,10 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 			fmt.Fprintf(pkgBuilder, "    subgraph %s[%q]\n", channelID, filteredChannel.Name)
 
 			if depByPackage.Has(filteredChannel.Package) {
-				deprecatedPackage = filteredChannel.Package
+				deprecatedPackages.Insert(filteredChannel.Package)
 			}
 
-			if depByChannel.Has(filteredChannel.Name) {
+			if depByChannel.Has(scopedName{filteredChannel.Package, filteredChannel.Name}) {
 				deprecatedChannelIDs = append(deprecatedChannelIDs, channelID)
 			}
 
@@ -198,10 +201,11 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 				fmt.Fprintf(pkgBuilder, "      %s[%q]\n", entryID, ce.Name)
 
 				// mermaid allows specification of only a single decoration class, so any combinations must be independently represented
+				isDeprecated := depByBundle.Has(scopedName{filteredChannel.Package, ce.Name})
 				switch {
-				case depByBundle.Has(ce.Name) && skippedEntities.Has(ce.Name):
+				case isDeprecated && skippedEntities.Has(ce.Name):
 					decoratedBundleIDs["deprecatedskipped"] = append(decoratedBundleIDs["deprecatedskipped"], entryID)
-				case depByBundle.Has(ce.Name):
+				case isDeprecated:
 					decoratedBundleIDs["deprecated"] = append(decoratedBundleIDs["deprecated"], entryID)
 				case skippedEntities.Has(ce.Name):
 					decoratedBundleIDs["skipped"] = append(decoratedBundleIDs["skipped"], entryID)
@@ -260,7 +264,7 @@ func (writer *MermaidWriter) WriteChannels(cfg DeclarativeConfig, out io.Writer)
 		_, _ = out.Write([]byte("  end\n"))
 	}
 
-	if deprecatedPackage != "" {
+	for _, deprecatedPackage := range sets.List(deprecatedPackages) {
 		_, _ = fmt.Fprintf(out, "style %s fill:#989695\n", deprecatedPackage)
 	}
 
